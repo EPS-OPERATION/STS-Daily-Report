@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+*.local
+.env
+.env.*.local
+bun.lockb
+drizzle/
+*.tsbuildinfo
+.DS_Store
+.vite/
+coverage/
