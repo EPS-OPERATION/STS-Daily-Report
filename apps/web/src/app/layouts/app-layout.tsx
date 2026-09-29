@@ -1,10 +1,11 @@
+import ChevronLeftOutlinedIcon from "@mui/icons-material/ChevronLeftOutlined";
+import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import FormControl from "@mui/material/FormControl";
@@ -17,7 +18,9 @@ import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Toolbar from "@mui/material/Toolbar";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { CommandPalette } from "@/app/command-palette/command-palette.js";
@@ -76,7 +79,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
       <Box sx={{ px: 2.5, py: 2.5 }}>
@@ -98,10 +101,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             STS
           </Box>
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, display: collapsed ? "none" : "block" }}>
               STS Platform
             </Typography>
-            <Typography variant="caption" sx={{ color: "#9DB4CC" }}>
+            <Typography variant="caption" sx={{ color: "#9DB4CC", display: collapsed ? "none" : "block" }}>
               Construction Operations
             </Typography>
           </Box>
@@ -111,27 +114,31 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <Box className="sts-navy-scroll" sx={{ flexGrow: 1, overflowY: "auto", px: 1.5, py: 1 }}>
         {GROUPS.map((group) => (
           <Box key={group.title} sx={{ mb: 1.5 }}>
-            <Typography
-              variant="caption"
-              sx={{ px: 1.5, color: "#7E96B3", textTransform: "uppercase", letterSpacing: 0.8, fontSize: 11 }}
-            >
-              {group.title}
-            </Typography>
+            {!collapsed && (
+              <Typography
+                variant="caption"
+                sx={{ px: 1.5, color: "#7E96B3", textTransform: "uppercase", letterSpacing: 0.8, fontSize: 11 }}
+              >
+                {group.title}
+              </Typography>
+            )}
             <List dense disablePadding sx={{ mt: 0.5 }}>
               {group.items.map((item) => {
                   const Icon = navigationIcons[item.icon];
-                  return (
+                  const button = (
                     <ListItemButton
                     key={item.to}
                     component={NavLink}
                     to={item.to}
                     end={item.to === "/"}
                     onClick={onNavigate}
+                    title={collapsed ? item.label : undefined}
                     sx={{
                       borderRadius: 1.5,
                       mb: 0.25,
                       color: "#C6D5E5",
                       position: "relative",
+                      justifyContent: collapsed ? "center" : "flex-start",
                       "&.active": {
                         bgcolor: "rgba(39,135,255,0.22)",
                         color: "#FFFFFF",
@@ -149,14 +156,23 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                       "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
                     }}
                   >
-                    <ListItemIcon sx={{ color: "inherit", minWidth: 36 }}>
+                    <ListItemIcon sx={{ color: "inherit", minWidth: collapsed ? 0 : 36 }}>
                       <Icon fontSize="small" aria-hidden="true" />
                     </ListItemIcon>
-                    <ListItemText
-                      primary={item.label}
-                      primaryTypographyProps={{ fontSize: 13.5, fontWeight: 500 }}
-                    />
+                    {!collapsed && (
+                      <ListItemText
+                        primary={item.label}
+                        primaryTypographyProps={{ fontSize: 13.5, fontWeight: 500 }}
+                      />
+                    )}
                     </ListItemButton>
+                  );
+                  return collapsed ? (
+                    <Tooltip key={item.to} title={item.label} placement="right" arrow>
+                      {button}
+                    </Tooltip>
+                  ) : (
+                    button
                   );
                 })}
             </List>
@@ -164,14 +180,19 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
-      <Box sx={{ p: 2 }}>
-        <Box sx={{ borderRadius: 2, bgcolor: "rgba(255,255,255,0.06)", p: 1.5 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+      <Box sx={{ p: collapsed ? 1.5 : 2 }}>
+        <Box sx={{ borderRadius: 2, bgcolor: "rgba(255,255,255,0.06)", p: 1.5, textAlign: "center" }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, display: collapsed ? "none" : "block" }}>
             Biomass Power Plant
           </Typography>
-          <Typography variant="caption" sx={{ color: "#9DB4CC" }}>
+          <Typography variant="caption" sx={{ color: "#9DB4CC", display: collapsed ? "none" : "block" }}>
             STS Project
           </Typography>
+          {collapsed && (
+            <Typography variant="caption" sx={{ color: "#FFFFFF", fontWeight: 700 }}>
+              STS
+            </Typography>
+          )}
         </Box>
       </Box>
     </Box>
@@ -180,23 +201,33 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [project, setProject] = useState("biomass");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const desktop = useMediaQuery("(min-width:900px)");
 
   useCommandPaletteShortcut(paletteOpen, setPaletteOpen);
+
+  const sidebarWidth = collapsed ? 76 : DRAWER_WIDTH;
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
       <Drawer
         variant="permanent"
         sx={{
-          width: DRAWER_WIDTH,
+          width: sidebarWidth,
           flexShrink: 0,
           display: { xs: "none", md: "block" },
-          "& .MuiDrawer-paper": { width: DRAWER_WIDTH, border: "none" },
+          transition: (t) => t.transitions.create("width", { duration: t.transitions.duration.shorter }),
+          "& .MuiDrawer-paper": {
+            width: sidebarWidth,
+            border: "none",
+            overflowX: "hidden",
+            transition: (t) => t.transitions.create("width", { duration: t.transitions.duration.shorter }),
+          },
         }}
       >
-        <SidebarContent />
+        <SidebarContent collapsed={collapsed} />
       </Drawer>
       <Drawer
         variant="temporary"
@@ -226,11 +257,18 @@ export function AppLayout() {
           <Toolbar sx={{ gap: 2, minHeight: 64 }}>
             <IconButton
               edge="start"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
-              sx={{ display: { md: "none" } }}
+              onClick={() => (desktop ? setCollapsed((v) => !v) : setMobileOpen(true))}
+              aria-label={desktop ? (collapsed ? "Expand sidebar" : "Collapse sidebar") : "Open navigation"}
             >
-              <MenuOutlinedIcon />
+              {desktop ? (
+                collapsed ? (
+                  <ChevronRightOutlinedIcon />
+                ) : (
+                  <ChevronLeftOutlinedIcon />
+                )
+              ) : (
+                <MenuOutlinedIcon />
+              )}
             </IconButton>
             <FormControl size="small" sx={{ minWidth: { xs: 150, sm: 230 } }}>
               <Select
@@ -267,7 +305,6 @@ export function AppLayout() {
               Search anything…
             </Button>
             <Box sx={{ flexGrow: 1 }} />
-            <Chip label="28 Sep 2026" variant="outlined" sx={{ display: { xs: "none", sm: "flex" } }} />
             <IconButton aria-label="Notifications">
               <Badge color="error" variant="dot">
                 <NotificationsNoneOutlinedIcon />

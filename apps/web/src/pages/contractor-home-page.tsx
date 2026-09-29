@@ -26,7 +26,7 @@ export function ContractorHomePage() {
   const [photos, setPhotos] = useState<string[]>([]);
 
   return (
-    <Box sx={{ maxWidth: 480, mx: "auto" }}>
+    <Box sx={{ maxWidth: { xs: 480, md: 960 }, mx: "auto" }}>
       {/* Navy header */}
       <Card sx={{ bgcolor: "navy.dark", border: "none", mb: 2 }}>
         <CardContent sx={{ p: 2.5, color: "#FFFFFF" }}>
@@ -135,7 +135,7 @@ export function ContractorHomePage() {
           { label: "Evening Report", icon: <DescriptionOutlinedIcon />, to: "/evening-report" },
           { label: "View Plan", icon: <MapOutlinedIcon />, to: "/tomorrow" },
         ].map((a) => (
-          <Grid key={a.label} size={{ xs: 6 }}>
+          <Grid key={a.label} size={{ xs: 6, md: 3 }}>
             <Card
               component={RouterLink}
               to={a.to}
@@ -148,7 +148,7 @@ export function ContractorHomePage() {
             </Card>
           </Grid>
         ))}
-        <Grid size={{ xs: 6 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <Card
             onClick={() => photoInput.current?.click()}
             sx={{ textAlign: "center", p: 2, cursor: "pointer" }}
@@ -170,7 +170,7 @@ export function ContractorHomePage() {
             onChange={(e) => setPhotos(Array.from(e.target.files ?? []).map((f) => f.name))}
           />
         </Grid>
-        <Grid size={{ xs: 6 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <Card component={RouterLink} to="/work-permits" sx={{ textDecoration: "none", display: "block", textAlign: "center", p: 2 }}>
             <Box sx={{ color: "success.main", mb: 0.5 }}>
               <AssignmentOutlinedIcon />

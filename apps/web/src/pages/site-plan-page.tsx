@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function SitePlanPage() {
   const [filter, setFilter] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>("boiler");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
 
   const selected = ZONES.find((z) => z.id === selectedId) ?? null;

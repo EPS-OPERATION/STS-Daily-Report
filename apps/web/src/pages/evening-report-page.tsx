@@ -102,7 +102,7 @@ export function EveningReportPage() {
 
   if (done) {
     return (
-      <Box sx={{ maxWidth: 480, mx: "auto", pb: 10 }}>
+      <Box sx={{ maxWidth: { xs: 480, md: 680 }, mx: "auto", pb: 10 }}>
         <Card>
           <CardContent sx={{ p: 3, textAlign: "center" }}>
             <Stack spacing={2} alignItems="center">
@@ -123,7 +123,7 @@ export function EveningReportPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 480, mx: "auto", pb: 10 }}>
+    <Box sx={{ maxWidth: { xs: 480, md: 680 }, mx: "auto", pb: 10 }}>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
         <IconButton aria-label="Back" onClick={() => (step === 0 ? navigate("/field") : setStep(step - 1))}>
           <ArrowBackIcon />
