@@ -108,7 +108,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </Stack>
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
-      <Box sx={{ flexGrow: 1, overflowY: "auto", px: 1.5, py: 1 }}>
+      <Box className="sts-navy-scroll" sx={{ flexGrow: 1, overflowY: "auto", px: 1.5, py: 1 }}>
         {GROUPS.map((group) => (
           <Box key={group.title} sx={{ mb: 1.5 }}>
             <Typography

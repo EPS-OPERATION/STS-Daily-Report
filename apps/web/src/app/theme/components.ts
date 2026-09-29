@@ -1,5 +1,12 @@
 import type { Components, Theme } from "@mui/material/styles";
 import type {} from "@mui/x-data-grid/themeAugmentation";
+import { palette } from "./palette.js";
+
+// Scrollbar tokens derive from the theme palette (single source of truth).
+const scrollbarThumb = palette.grey?.[400] ?? "#98A2B3";
+const scrollbarThumbHover = palette.grey?.[500] ?? "#667085";
+const sidebarThumb = "rgba(255, 255, 255, 0.28)";
+const sidebarThumbHover = "rgba(255, 255, 255, 0.45)";
 
 // Global component styling: radius, borders, density. Borders over shadows;
 // soft shadows only on floating surfaces (dialog, drawer, menu, popover).
@@ -7,6 +14,34 @@ export const components: Components<Omit<Theme, "components">> = {
   MuiCssBaseline: {
     styleOverrides: {
       body: { WebkitFontSmoothing: "antialiased" },
+      // Single global scrollbar system (Firefox + WebKit). 8px interaction
+      // area with a visually lighter padded thumb; WebKit rules apply only
+      // on precise pointers so touch scrolling stays fully native.
+      "*": {
+        scrollbarWidth: "thin",
+        scrollbarColor: `${scrollbarThumb} transparent`,
+      },
+      "@media (hover: hover) and (pointer: fine)": {
+        "*::-webkit-scrollbar": { width: 8, height: 8 },
+        "*::-webkit-scrollbar-track": { background: "transparent" },
+        "*::-webkit-scrollbar-thumb": {
+          backgroundColor: scrollbarThumb,
+          borderRadius: 999,
+          border: "2px solid transparent",
+          backgroundClip: "padding-box",
+        },
+        "*::-webkit-scrollbar-thumb:hover": { backgroundColor: scrollbarThumbHover },
+        "*::-webkit-scrollbar-corner": { background: "transparent" },
+        // Dark navy sidebar needs a lighter translucent thumb for contrast.
+        ".sts-navy-scroll": { scrollbarColor: `${sidebarThumb} transparent` },
+        ".sts-navy-scroll::-webkit-scrollbar-thumb": {
+          backgroundColor: sidebarThumb,
+          borderRadius: 999,
+          border: "2px solid transparent",
+          backgroundClip: "padding-box",
+        },
+        ".sts-navy-scroll::-webkit-scrollbar-thumb:hover": { backgroundColor: sidebarThumbHover },
+      },
     },
   },
   MuiButton: {
