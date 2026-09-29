@@ -1,3 +1,10 @@
 export * from "./types/contractor.types.js";
 export { contractorKeys } from "./api/contractor.keys.js";
 export { contractorApi } from "./api/contractor.api.js";
+export { useContractors } from "./hooks/use-contractors.js";
+export { useContractor } from "./hooks/use-contractor.js";
+export { useCreateContractor } from "./hooks/use-create-contractor.js";
+export { ContractorTable } from "./components/contractor-table.js";
+export { ContractorDialog } from "./components/contractor-form.js";
+export { ContractorDetail } from "./components/contractor-detail.js";
+export { contractorFormSchema, type ContractorFormValues } from "./schemas/contractor.schema.js";

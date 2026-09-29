@@ -2,6 +2,8 @@ export type ErrorCode =
   | "VALIDATION_ERROR"
   | "NOT_FOUND"
   | "CONFLICT"
+  | "AUTH_REQUIRED"
+  | "INVALID_LOGIN"
   | "INTERNAL_ERROR";
 
 export class AppError extends Error {
@@ -31,6 +33,19 @@ export class NotFoundError extends AppError {
 export class ConflictError extends AppError {
   constructor(message = "Conflict", details?: unknown) {
     super("CONFLICT", 409, message, details);
+  }
+}
+
+export class AuthRequiredError extends AppError {
+  constructor(message = "Authentication required") {
+    super("AUTH_REQUIRED", 401, message);
+  }
+}
+
+export class InvalidLoginError extends AppError {
+  // Generic on purpose: never reveal whether the email exists or is inactive.
+  constructor(message = "Unable to sign in with this email.") {
+    super("INVALID_LOGIN", 401, message);
   }
 }
 

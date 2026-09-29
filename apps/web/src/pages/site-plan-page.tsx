@@ -113,7 +113,7 @@ export function SitePlanPage() {
                 Zone {selected.no}
               </Typography>
               <Typography variant="h4">{selected.name}</Typography>
-              <StatusChip status={STATUS_LABEL[selected.status] ?? selected.status} />
+              <StatusChip status={selected.status} label={STATUS_LABEL[selected.status] ?? selected.status} />
             </Stack>
 
             <Stack spacing={0.5}>

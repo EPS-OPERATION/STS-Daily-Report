@@ -8,6 +8,20 @@
       "when": 1790609134504,
       "tag": "0000_futuristic_warbird",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790673044239,
+      "tag": "0001_crazy_reavers",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790673073239,
+      "tag": "0002_whole_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,7 @@ async function parseBody(res: Response): Promise<unknown> {
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${config.apiUrl}${path}`, {
+    credentials: "include",
     ...init,
     headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
   });

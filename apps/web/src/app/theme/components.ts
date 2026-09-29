@@ -45,7 +45,7 @@ export const components: Components<Omit<Theme, "components">> = {
     },
   },
   MuiButton: {
-    defaultProps: { disableElevation: true },
+    defaultProps: { variant: "contained", disableElevation: true },
     styleOverrides: {
       root: { borderRadius: 6, fontWeight: 600 },
       sizeMedium: { minHeight: 40 },

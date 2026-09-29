@@ -36,6 +36,44 @@ services:
       timeout: 5s
       retries: 5
 
+  # Optional app images. Excluded from the default dev workflow (bun dev runs
+  # on the host and already uses these ports) — start explicitly with:
+  #   docker compose --profile app up -d --build
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: sts-api
+    restart: unless-stopped
+    profiles: ["app"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sts
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api/v1}
+    container_name: sts-web
+    restart: unless-stopped
+    profiles: ["app"]
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+
 volumes:
   pgdata:
   miniodata:

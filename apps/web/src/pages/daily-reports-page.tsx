@@ -65,9 +65,9 @@ export function DailyReportsPage() {
       width: 160,
       resizable: false,
       renderCell: (p) => (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%", height: "100%" }}>
           <LinearProgress variant="determinate" value={p.row.progress} sx={{ flexGrow: 1 }} />
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ width: 38, flexShrink: 0, textAlign: "right" }}>
             {p.row.progress}%
           </Typography>
         </Stack>

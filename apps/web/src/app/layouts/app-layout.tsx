@@ -1,7 +1,6 @@
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
-import Avatar from "@mui/material/Avatar";
 import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -23,6 +22,7 @@ import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { CommandPalette } from "@/app/command-palette/command-palette.js";
 import { PaletteShortcutHint, useCommandPaletteShortcut } from "@/app/command-palette/shortcut-hint.js";
+import { UserMenu } from "@/features/auth/components/user-menu.js";
 import { navigationIcons, type NavigationIconKey } from "@/app/icons/navigation-icons.js";
 
 const DRAWER_WIDTH = 248;
@@ -273,17 +273,7 @@ export function AppLayout() {
                 <NotificationsNoneOutlinedIcon />
               </Badge>
             </IconButton>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: 13 }}>SP</Avatar>
-              <Box sx={{ display: { xs: "none", lg: "block" }, lineHeight: 1.2 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  Somchai P.
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Project Manager
-                </Typography>
-              </Box>
-            </Stack>
+            <UserMenu />
           </Toolbar>
         </Box>
 
