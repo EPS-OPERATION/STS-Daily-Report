@@ -1,3 +1,5 @@
+import TrendingDownOutlinedIcon from "@mui/icons-material/TrendingDownOutlined";
+import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Stack from "@mui/material/Stack";
@@ -5,35 +7,31 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import type { ReactNode } from "react";
 
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  const w = 96;
-  const h = 28;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const span = max - min || 1;
-  const pts = data
-    .map((v, i) => `${(i / (data.length - 1)) * w},${h - 3 - ((v - min) / span) * (h - 6)}`)
-    .join(" ");
-  return (
-    <svg width={w} height={h} aria-hidden="true">
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
-    </svg>
-  );
-}
-
 export interface KpiCardProps {
   label: string;
   value: string;
+  unit?: string;
   sub: string;
   subTone?: "success" | "error" | "muted";
-  spark: number[];
-  sparkColor: string;
+  trend?: "up" | "down";
   icon: ReactNode;
   iconBg: string;
   iconFg: string;
 }
 
-export function KpiCard({ label, value, sub, subTone = "muted", spark, sparkColor, icon, iconBg, iconFg }: KpiCardProps) {
+// Enterprise KPI: label row, inline value+unit (never wraps), delta row.
+// No decorative sparklines — every element carries information.
+export function KpiCard({
+  label,
+  value,
+  unit,
+  sub,
+  subTone = "muted",
+  trend,
+  icon,
+  iconBg,
+  iconFg,
+}: KpiCardProps) {
   const theme = useTheme();
   const subColor =
     subTone === "success"
@@ -41,36 +39,51 @@ export function KpiCard({ label, value, sub, subTone = "muted", spark, sparkColo
       : subTone === "error"
         ? theme.palette.error.dark
         : theme.palette.text.secondary;
+  const TrendIcon = trend === "down" ? TrendingDownOutlinedIcon : TrendingUpOutlinedIcon;
   return (
     <Card>
-      <CardContent sx={{ p: 2.5 }}>
-        <Stack direction="row" spacing={2} alignItems="flex-start" justifyContent="space-between">
-          <Stack spacing={1}>
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  backgroundColor: iconBg,
-                  color: iconFg,
-                }}
-              >
-                {icon}
-              </span>
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: 0.6 }}>
-                {label}
-              </Typography>
-            </Stack>
-            <Typography variant="metric">{value}</Typography>
-            <Typography variant="body2" sx={{ color: subColor }}>
-              {sub}
+      <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
+        <Stack direction="row" spacing={1.25} alignItems="center">
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              backgroundColor: iconBg,
+              color: iconFg,
+              flexShrink: 0,
+            }}
+          >
+            {icon}
+          </span>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap" }}
+          >
+            {label}
+          </Typography>
+        </Stack>
+
+        <Stack direction="row" spacing={0.75} alignItems="baseline" sx={{ mt: 1.5 }}>
+          <Typography variant="metric" sx={{ whiteSpace: "nowrap" }}>
+            {value}
+          </Typography>
+          {unit ? (
+            <Typography variant="body1" color="text.secondary">
+              {unit}
             </Typography>
-          </Stack>
-          <Sparkline data={spark} color={sparkColor} />
+          ) : null}
+        </Stack>
+
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5, minHeight: 20 }}>
+          {trend ? <TrendIcon sx={{ fontSize: 14, color: subColor }} aria-hidden="true" /> : null}
+          <Typography variant="body2" sx={{ color: subColor, whiteSpace: "nowrap" }}>
+            {sub}
+          </Typography>
         </Stack>
       </CardContent>
     </Card>

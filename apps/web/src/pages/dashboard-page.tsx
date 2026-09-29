@@ -71,8 +71,7 @@ export function DashboardPage() {
             value={String(kpi.manpower.value)}
             sub={kpi.manpower.delta}
             subTone="success"
-            spark={kpi.manpower.spark}
-            sparkColor={theme.palette.success.main}
+            trend="up"
             icon={<EngineeringOutlinedIcon />}
             iconBg={theme.palette.info.light}
             iconFg={theme.palette.info.dark}
@@ -83,8 +82,6 @@ export function DashboardPage() {
             label="Contractors"
             value={String(kpi.contractors.value)}
             sub={kpi.contractors.sub}
-            spark={kpi.contractors.spark}
-            sparkColor={theme.palette.success.main}
             icon={<BusinessOutlinedIcon />}
             iconBg={theme.palette.success.light}
             iconFg={theme.palette.success.dark}
@@ -96,8 +93,6 @@ export function DashboardPage() {
             value={String(kpi.permits.value)}
             sub={kpi.permits.sub}
             subTone="error"
-            spark={kpi.permits.spark}
-            sparkColor={theme.palette.info.main}
             icon={<AssignmentOutlinedIcon />}
             iconBg={theme.palette.error.light}
             iconFg={theme.palette.error.dark}
@@ -106,11 +101,10 @@ export function DashboardPage() {
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard
             label="QAQC"
-            value={`${kpi.qaqc.value} pending`}
+            value={String(kpi.qaqc.value)}
+            unit="pending"
             sub={kpi.qaqc.sub}
             subTone="error"
-            spark={kpi.qaqc.spark}
-            sparkColor={theme.palette.warning.main}
             icon={<FactCheckOutlinedIcon />}
             iconBg={theme.palette.warning.light}
             iconFg={theme.palette.warning.dark}
