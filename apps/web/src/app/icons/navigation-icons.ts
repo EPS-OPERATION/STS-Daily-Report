@@ -12,6 +12,7 @@ import MapOutlined from "@mui/icons-material/MapOutlined";
 import PhotoCameraOutlined from "@mui/icons-material/PhotoCameraOutlined";
 import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
 import SmartphoneOutlined from "@mui/icons-material/SmartphoneOutlined";
+import TuneOutlined from "@mui/icons-material/TuneOutlined";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
 import type { ComponentType } from "react";
 
@@ -34,6 +35,7 @@ export const navigationIcons = {
   field: SmartphoneOutlined,
   projects: AccountTreeOutlined,
   settings: SettingsOutlined,
+  zoneConfig: TuneOutlined,
 } satisfies Record<string, NavigationIcon>;
 
 export type NavigationIconKey = keyof typeof navigationIcons;

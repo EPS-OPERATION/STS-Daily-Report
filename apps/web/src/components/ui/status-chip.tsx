@@ -19,6 +19,7 @@ export type StatusTone =
   | "pending"
   | "reviewed"
   | "approved"
+  | "completed"
   | "rejected"
   | "active"
   | "attention"
@@ -34,6 +35,7 @@ export function StatusChip({ status, label }: { status: string; label?: string }
       pending: { bg: theme.palette.warning.light, fg: theme.palette.warning.dark, icon: ScheduleOutlinedIcon },
       reviewed: { bg: "#EDE9FE", fg: "#6D28D9", icon: RateReviewOutlinedIcon },
       approved: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
+      completed: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
       rejected: { bg: theme.palette.error.light, fg: theme.palette.error.dark, icon: CancelOutlinedIcon },
       active: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
       attention: { bg: theme.palette.warning.light, fg: theme.palette.warning.dark, icon: WarningAmberOutlinedIcon },

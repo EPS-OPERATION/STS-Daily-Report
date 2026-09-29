@@ -4,6 +4,10 @@ import { API_PREFIX, HEALTH_PATH } from "@/config/constants.js";
 import { getEnv } from "@/config/env.js";
 import { authRoutes } from "@/auth/index.js";
 import { contractorRoutes } from "@/modules/contractors/index.js";
+import { projectRoutes } from "@/modules/projects/index.js";
+import { siteActivityRoutes } from "@/modules/site-activities/index.js";
+import { sitePlanRoutes } from "@/modules/site-plans/index.js";
+import { zoneRoutes } from "@/modules/zones/index.js";
 import { errorPlugin } from "@/plugins/errors.js";
 
 export function buildApp() {
@@ -16,7 +20,9 @@ export function buildApp() {
     .use(cors({ origin: origins, credentials: true }))
     .use(errorPlugin)
     .get(HEALTH_PATH, () => ({ status: "ok" }))
-    .group(API_PREFIX, (group) => group.use(authRoutes).use(contractorRoutes))
+    .group(API_PREFIX, (group) =>
+      group.use(authRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes),
+    )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;
 }

@@ -26,6 +26,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { CommandPalette } from "@/app/command-palette/command-palette.js";
 import { PaletteShortcutHint, useCommandPaletteShortcut } from "@/app/command-palette/shortcut-hint.js";
 import { UserMenu } from "@/features/auth/components/user-menu.js";
+import { useCurrentProject } from "@/features/projects/context/project-context.js";
 import { navigationIcons, type NavigationIconKey } from "@/app/icons/navigation-icons.js";
 
 const DRAWER_WIDTH = 248;
@@ -74,6 +75,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Administration",
     items: [
       { to: "/projects", label: "Projects", icon: "projects" },
+      { to: "/site-plan/config", label: "Zone Config", icon: "zoneConfig" },
       { to: "/settings", label: "Settings", icon: "settings" },
     ],
   },
@@ -202,7 +204,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [project, setProject] = useState("biomass");
+  const { projectId, setProjectId, projects, loading: projectsLoading } = useCurrentProject();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const desktop = useMediaQuery("(min-width:900px)");
 
@@ -272,13 +274,23 @@ export function AppLayout() {
             </IconButton>
             <FormControl size="small" sx={{ minWidth: { xs: 150, sm: 230 } }}>
               <Select
-                value={project}
-                onChange={(e) => setProject(e.target.value)}
+                value={projectId ?? ""}
+                onChange={(e) => setProjectId(e.target.value)}
                 aria-label="Select project"
+                disabled={projectsLoading || projects.length === 0}
+                displayEmpty
                 sx={{ fontWeight: 600 }}
               >
-                <MenuItem value="biomass">STS Biomass Power Plant</MenuItem>
-                <MenuItem value="solar">STS Solar Farm Phase 2</MenuItem>
+                {projectsLoading && (
+                  <MenuItem value="" disabled>
+                    Loading projects…
+                  </MenuItem>
+                )}
+                {projects.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.name}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
             <Button

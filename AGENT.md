@@ -71,4 +71,15 @@
 - Auth phase 1 (dev-only): boundary AuthIdentity (session→user→memberships); ตาราง users/contractor_memberships/sessions
   (token_hash เท่านั้น); routes POST /auth/login, GET /auth/me, POST /auth/logout; cookie sts_session HttpOnly;
   guard requireAuth; ห้าม local-email ใน production (startup fail); seed login: contractor@sts.local (ไม่มีรหัสผ่าน)
+- Site-plan vertical (real DB): ตาราง zones/site_plans/zone_map_areas/site_activities (geometry normalized 0..1 JSONB);
+  modules zones/site-activities/site-plans/projects; writes กันด้วย requireAuth; reads เปิด; seed 21 zones/1 plan/6 areas;
+  frontend features/site-plan + features/projects (ProjectProvider); background drawing รอไฟล์ master-layout.jpg
+- Konva map (konva+react-konva ใน apps/web): base master-layout-map.png (1586x992) + SVG→Konva polygons;
+  edit mode (vertex drag/add-del point/draw new/assign/reset/delete/bulk save/dirty-confirm); default_geometry
+  สำหรับ reset; mobile ดูได้อย่างเดียว; geometry ใน React ไม่มี (PostgreSQL เท่านั้น)
+- Site Plan แยก 2 จอ: /site-plan (operation: filters/map/drawer/Add Activity, parents overview → children เมื่อ focus,
+  idle โปร่งแสง, label เฉพาะ code) vs /site-plan/config (admin: canvas + panel, bulk/PATCH/POST/DELETE/reset);
+  seed geometry แมปจริงจากภาพ (16 areas, 5 zones unmapped โดยตั้งใจ ไม่มี subdivision)
+- Drill-down: overview parents อย่างเดียว → กด parent animate focus (ease-out ~280ms) + render children (+outline จาง),
+  breadcrumb All Zones / parent + Back, parent status รวม activities ลูกหลาน
 - `packages/env` ต้องมี `@types/bun` ไม่งั้น `process` typecheck ไม่ผ่าน

@@ -5,11 +5,13 @@ import { ContractorsPage } from "@/pages/contractors-page.js";
 import { ContractorHomePage } from "@/pages/contractor-home-page.js";
 import { DailyReportsPage } from "@/pages/daily-reports-page.js";
 import { DashboardPage } from "@/pages/dashboard-page.js";
+import { DevGeometryMapper } from "@/pages/dev-geometry-mapper.js";
 import { EveningReportPage } from "@/pages/evening-report-page.js";
 import { LoginPage } from "@/pages/login-page.js";
 import { PlaceholderPage } from "@/pages/placeholder-page.js";
 import { ProjectsPage } from "@/pages/projects-page.js";
 import { SitePlanPage } from "@/pages/site-plan-page.js";
+import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
 import { TomorrowPlanPage } from "@/pages/tomorrow-plan-page.js";
 
 export const router = createBrowserRouter([
@@ -24,11 +26,14 @@ export const router = createBrowserRouter([
           { index: true, element: <DashboardPage /> },
           { path: "daily-reports", element: <DailyReportsPage /> },
           { path: "site-plan", element: <SitePlanPage /> },
+          { path: "site-plan/config", element: <SitePlanConfigPage /> },
           { path: "tomorrow", element: <TomorrowPlanPage /> },
           { path: "contractors", element: <ContractorsPage /> },
           { path: "projects", element: <ProjectsPage /> },
           { path: "field", element: <ContractorHomePage /> },
           { path: "evening-report", element: <EveningReportPage /> },
+          // Dev-only geometry mapper: reachable by URL, never linked in navigation.
+          { path: "dev/map-zones", element: <DevGeometryMapper /> },
           {
             path: "manpower",
             element: <PlaceholderPage title="Manpower" blurb="Track workforce headcount by contractor, zone and worker type. This module follows the contractors reference pattern." />,
