@@ -22,11 +22,18 @@ export function useSubmitMorning(projectId: string | null) {
   });
 }
 
-export function useSubmitEvening() {
+export function useSubmitEvening(projectId: string | null) {
   const invalidate = useInvalidateReports();
   return useMutation({
-    mutationFn: ({ reportId, payload }: { reportId: string; payload: EveningPayload }) =>
-      dailyReportApi.submitEvening(reportId, payload),
+    mutationFn: (payload: EveningPayload) => dailyReportApi.submitEvening(projectId!, payload),
+    onSuccess: invalidate,
+  });
+}
+
+export function useEnsureDraft(projectId: string | null) {
+  const invalidate = useInvalidateReports();
+  return useMutation({
+    mutationFn: (v: { date: string; contractorId: string }) => dailyReportApi.ensureDraft(projectId!, v.date, v.contractorId),
     onSuccess: invalidate,
   });
 }

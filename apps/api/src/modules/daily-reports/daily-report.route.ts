@@ -3,6 +3,7 @@ import { requireAuth } from "@/middleware/require-auth.js";
 import { ok } from "@/shared/http/response.js";
 import {
   deletePhotoService,
+  ensureDraftService,
   getCurrentReportService,
   submitEveningService,
   submitMorningService,
@@ -17,6 +18,7 @@ import {
   photoUploadBody,
   projectIdParams,
   reportIdParams,
+  reportKeyBody,
   weeklySummaryQuery,
 } from "./daily-report.schema.js";
 
@@ -40,9 +42,14 @@ export const dailyReportRoutes = new Elysia()
     { params: projectIdParams, body: morningBody },
   )
   .put(
-    "/daily-reports/:reportId/evening",
-    async ({ params, body, auth }) => ok(await submitEveningService(auth, params.reportId, body)),
-    { params: reportIdParams, body: eveningBody },
+    "/projects/:projectId/daily-reports/evening",
+    async ({ params, body, auth }) => ok(await submitEveningService(auth, params.projectId, body)),
+    { params: projectIdParams, body: eveningBody },
+  )
+  .post(
+    "/projects/:projectId/daily-reports/draft",
+    async ({ params, body, auth }) => ok(await ensureDraftService(auth, params.projectId, body.date, body.contractorId)),
+    { params: projectIdParams, body: reportKeyBody },
   )
   .post(
     "/daily-reports/:reportId/photos",

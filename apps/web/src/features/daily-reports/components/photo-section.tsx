@@ -19,14 +19,29 @@ const CATEGORIES: { key: PhotoCategory; label: string; hint: string }[] = [
 
 // Photos upload immediately (the report already exists after the morning shift),
 // so a dropped connection never loses the whole evening form.
-export function PhotoSection({ reportId, photos, locked }: { reportId: string; photos: ReportPhoto[]; locked: boolean }) {
+export function PhotoSection({
+  reportId,
+  photos,
+  locked,
+  ensureReportId,
+}: {
+  reportId: string | null;
+  photos: ReportPhoto[];
+  locked: boolean;
+  /** Creates the draft report row on first upload when neither shift has been sent yet. */
+  ensureReportId?: () => Promise<string>;
+}) {
   const upload = useUploadPhoto();
   const remove = useDeletePhoto();
   const error = upload.error ?? remove.error;
 
   const onPick = async (category: PhotoCategory, files: FileList | null) => {
-    for (const file of Array.from(files ?? [])) {
-      await upload.mutateAsync({ reportId, category, file }).catch(() => undefined);
+    const list = Array.from(files ?? []);
+    if (list.length === 0) return;
+    const id = reportId ?? (await ensureReportId?.().catch(() => null));
+    if (!id) return;
+    for (const file of list) {
+      await upload.mutateAsync({ reportId: id, category, file }).catch(() => undefined);
     }
   };
 
@@ -67,7 +82,7 @@ export function PhotoSection({ reportId, photos, locked }: { reportId: string; p
                     <IconButton
                       aria-label={`ลบรูป ${p.fileName}`}
                       size="small"
-                      onClick={() => remove.mutate({ reportId, photoId: p.id })}
+                      onClick={() => reportId && remove.mutate({ reportId, photoId: p.id })}
                       sx={{ position: "absolute", top: 4, right: 4, bgcolor: "background.paper", "&:hover": { bgcolor: "background.paper" } }}
                     >
                       <CloseIcon fontSize="small" />

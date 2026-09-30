@@ -38,6 +38,7 @@ export interface ReportAllocation {
 
 export interface ReportMachinery {
   id: string;
+  targetDate: string;
   buildingId: string;
   buildingCode: string;
   machineType: MachineType;
@@ -48,6 +49,7 @@ export interface ReportMachinery {
 
 export interface ReportPermit {
   id: string;
+  targetDate: string;
   buildingId: string;
   buildingCode: string;
   permitType: PermitType;
@@ -65,8 +67,22 @@ export interface ReportPhoto {
   url: string | null;
 }
 
+export interface ReportRoadUsage {
+  id: string;
+  targetDate: string;
+  buildingId: string;
+  buildingCode: string;
+  buildingName: string;
+  roadLocation: string;
+  startTime: string;
+  endTime: string;
+  purpose: string;
+  contractorId: string;
+  contractorCode: string;
+}
+
 export interface ReportMachineryConflict {
-  reportDate: string;
+  targetDate: string;
   machineType: string;
   unitTag: string | null;
   severity: "conflict" | "possible";
@@ -105,10 +121,22 @@ export interface DailyReport {
   signedAt: string | null;
   hasSignature: boolean;
   allocations: ReportAllocation[];
+  /** Requests this report raised for `requestsForDate` (= reportDate + 1). */
   machinery: ReportMachinery[];
   permits: ReportPermit[];
+  roadUsage: ReportRoadUsage[];
+  requestsForDate: string;
   photos: ReportPhoto[];
   machineryConflicts: ReportMachineryConflict[];
+  roadConflicts: { roadLocation: string; with: { contractorCode: string; startTime: string; endTime: string; purpose: string }[] }[];
+}
+
+// What the contractor requested yesterday evening for today (read-only on the morning form).
+export interface PlannedToday {
+  machinery: { id: string; buildingCode: string; buildingName: string; machineType: string; unitTag: string | null; startTime: string; endTime: string }[];
+  permits: { id: string; buildingCode: string; buildingName: string; permitType: PermitType; otherLabel: string | null; workers: number }[];
+  roads: ReportRoadUsage[];
+  inspections: InspectionRequest[];
 }
 
 export interface ReportContractor {
@@ -118,7 +146,7 @@ export interface ReportContractor {
 }
 
 export interface CurrentReportResponse {
-  data: { contractor: ReportContractor; report: DailyReport | null };
+  data: { contractor: ReportContractor; report: DailyReport | null; plannedToday: PlannedToday };
 }
 
 export interface MorningPayload {
@@ -138,17 +166,20 @@ export interface MorningPayload {
   foreignMale: number;
   foreignFemale: number;
   allocations: { buildingId: string; headcount: number; workDescription: string; planPercent: number }[];
-  machinery: { buildingId: string; machineType: MachineType; unitTag?: string; startTime: string; endTime: string }[];
-  permits: { buildingId: string; permitType: PermitType; otherLabel?: string; workers: number }[];
 }
 
 export interface EveningPayload {
+  date: string;
+  contractorId: string;
   otHours: number;
   accidentOccurred: boolean;
   accidentNote?: string;
   progress: { allocationId: string; actualPercent: number; countermeasure?: string }[];
   signatureName: string;
   signatureData: string;
+  machinery: { buildingId: string; machineType: MachineType; unitTag?: string; startTime: string; endTime: string }[];
+  permits: { buildingId: string; permitType: PermitType; otherLabel?: string; workers: number }[];
+  roadUsage: { buildingId: string; roadLocation: string; startTime: string; endTime: string; purpose: string }[];
 }
 
 // ---- weekly summary ----
@@ -173,7 +204,7 @@ export interface WeeklyBuildingRow {
 
 export interface WeeklyBooking {
   id: string;
-  reportDate: string;
+  targetDate: string;
   machineType: string;
   unitTag: string | null;
   startTime: string;
@@ -187,7 +218,7 @@ export interface WeeklyBooking {
 }
 
 export interface WeeklyConflict {
-  reportDate: string;
+  targetDate: string;
   machineType: string;
   unitTag: string | null;
   severity: "conflict" | "possible";
@@ -201,8 +232,9 @@ export interface WeeklySummary {
   buildings: WeeklyBuildingRow[];
   machinery: WeeklyBooking[];
   conflicts: WeeklyConflict[];
+  roads: (ReportRoadUsage & { conflict: boolean })[];
   requests: Record<RequestStatus, number>;
-  totals: { manDays: number; manHours: number; permitWorkers: number; bookings: number; conflicts: number; possibleConflicts: number };
+  totals: { manDays: number; manHours: number; permitWorkers: number; bookings: number; conflicts: number; possibleConflicts: number; roadConflicts: number };
 }
 
 // ---- Daily Request (QAQC inspection) ----

@@ -66,6 +66,31 @@ export const morningBody = t.Object({
     }),
     { minItems: 1, maxItems: 16 },
   ),
+});
+
+export const reportKeyBody = t.Object({
+  date: isoDate,
+  contractorId: t.String({ format: "uuid" }),
+});
+
+export const eveningBody = t.Object({
+  date: isoDate,
+  contractorId: t.String({ format: "uuid" }),
+  otHours: t.Number({ minimum: 0, maximum: 24, multipleOf: 0.5 }),
+  accidentOccurred: t.Boolean(),
+  accidentNote: t.Optional(t.String({ maxLength: 1000 })),
+  progress: t.Array(
+    t.Object({
+      allocationId: t.String({ format: "uuid" }),
+      actualPercent: percent,
+      countermeasure: t.Optional(t.String({ maxLength: 1000 })),
+    }),
+    { maxItems: 16 },
+  ),
+  signatureName: t.String({ minLength: 1, maxLength: 120 }),
+  // PNG data URL from the signature pad; ~200 KB ceiling.
+  signatureData: t.String({ pattern: "^data:image/png;base64,", maxLength: 200_000 }),
+  // Requests for tomorrow (reviewed at the 17:00 coordination meeting).
   machinery: t.Array(
     t.Object({
       buildingId: t.String({ format: "uuid" }),
@@ -85,23 +110,16 @@ export const morningBody = t.Object({
     }),
     { maxItems: 50 },
   ),
-});
-
-export const eveningBody = t.Object({
-  otHours: t.Number({ minimum: 0, maximum: 24, multipleOf: 0.5 }),
-  accidentOccurred: t.Boolean(),
-  accidentNote: t.Optional(t.String({ maxLength: 1000 })),
-  progress: t.Array(
+  roadUsage: t.Array(
     t.Object({
-      allocationId: t.String({ format: "uuid" }),
-      actualPercent: percent,
-      countermeasure: t.Optional(t.String({ maxLength: 1000 })),
+      buildingId: t.String({ format: "uuid" }),
+      roadLocation: t.String({ minLength: 1, maxLength: 120 }),
+      startTime: hhmm,
+      endTime: hhmm,
+      purpose: t.String({ minLength: 1, maxLength: 300 }),
     }),
-    { minItems: 1, maxItems: 16 },
+    { maxItems: 20 },
   ),
-  signatureName: t.String({ minLength: 1, maxLength: 120 }),
-  // PNG data URL from the signature pad; ~200 KB ceiling.
-  signatureData: t.String({ pattern: "^data:image/png;base64,", maxLength: 200_000 }),
 });
 
 export const photoUploadBody = t.Object({

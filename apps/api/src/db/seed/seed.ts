@@ -17,6 +17,7 @@ import {
   dailyReportMachinery,
   dailyReportPermits,
   dailyReportPositions,
+  dailyReportRoadUsage,
   dailyReports,
   inspectionRequests,
   contractors,
@@ -399,10 +400,14 @@ for (const date of weekDays) {
     );
     await db
       .insert(dailyReportPermits)
-      .values(plan.permits.map((p) => ({ reportId, buildingId: bid(p.b), permitType: p.type, workers: p.workers })));
+      .values(
+        plan.permits.map((p) => ({ reportId, targetDate: date, buildingId: bid(p.b), permitType: p.type, workers: p.workers })),
+      );
     await db.insert(dailyReportMachinery).values(
       plan.machines.map((m) => ({
         reportId,
+        // Samples model same-day bookings; real ones are raised the evening before (target = date + 1).
+        targetDate: date,
         buildingId: bid(m.b),
         machineType: m.type,
         unitTag: m.tag ?? null,
@@ -410,6 +415,19 @@ for (const date of weekDays) {
         endTime: m.to,
       })),
     );
+    // Two contractors want the same lane at overlapping times → road conflict in the sample data.
+    if (plan.contractorId !== SAMPLE_CONTRACTORS[2]!.id) {
+      const zce = plan.contractorId === SAMPLE_CONTRACTORS[0]!.id;
+      await db.insert(dailyReportRoadUsage).values({
+        reportId,
+        targetDate: date,
+        buildingId: bid(zce ? "BLR" : "ACC"),
+        roadLocation: "Road R2 (Boiler–ACC)",
+        startTime: zce ? "08:00" : "10:00",
+        endTime: zce ? "11:00" : "13:00",
+        purpose: zce ? "Crane outrigger setup" : "Concrete mixer staging",
+      });
+    }
   }
 }
 

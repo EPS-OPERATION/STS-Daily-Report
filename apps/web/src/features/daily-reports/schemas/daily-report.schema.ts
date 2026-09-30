@@ -64,8 +64,6 @@ export const morningSchema = z
     foreignMale: count,
     foreignFemale: count,
     allocations: z.array(allocationSchema).min(1, "เพิ่มอาคารอย่างน้อย 1 รายการ"),
-    machinery: z.array(machinerySchema),
-    permits: z.array(permitSchema),
   })
   .superRefine((v, ctx) => {
     if (v.startTime >= v.endTime) {
@@ -87,28 +85,26 @@ export const morningSchema = z
     if (allocated !== total) {
       ctx.addIssue({ code: "custom", path: ["allocations"], message: "จัดสรรคนงานลงอาคารให้ครบพอดีกับจำนวนคนทั้งหมด" });
     }
-    const placed = new Map<string, number>();
+    const placed = new Set<string>();
     v.allocations.forEach((a, i) => {
       if (a.buildingId && placed.has(a.buildingId)) {
         ctx.addIssue({ code: "custom", path: ["allocations", i, "buildingId"], message: "เลือกอาคารซ้ำ" });
       }
-      placed.set(a.buildingId, a.headcount);
-    });
-    v.permits.forEach((p, i) => {
-      const inBuilding = placed.get(p.buildingId);
-      if (p.buildingId && inBuilding === undefined) {
-        ctx.addIssue({ code: "custom", path: ["permits", i, "buildingId"], message: "อาคารนี้ยังไม่มีคนจัดสรร" });
-      } else if (inBuilding !== undefined && p.workers > inBuilding) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["permits", i, "workers"],
-          message: `เกินจำนวนคนในอาคาร (${inBuilding} คน)`,
-        });
-      }
+      placed.add(a.buildingId);
     });
   });
 
 export type MorningFormValues = z.infer<typeof morningSchema>;
+
+export const roadUsageSchema = z
+  .object({
+    roadLocation: z.string().trim().min(1, "ระบุถนน/ช่องทาง").max(120),
+    buildingId: z.string().min(1, "เลือกอาคาร"),
+    startTime: hhmm,
+    endTime: hhmm,
+    purpose: z.string().trim().min(1, "ระบุวัตถุประสงค์").max(300),
+  })
+  .refine((r) => r.startTime < r.endTime, { message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม", path: ["endTime"] });
 
 export const eveningSchema = z
   .object({
@@ -125,6 +121,10 @@ export const eveningSchema = z
     ),
     signatureName: z.string().trim().min(1, "ระบุชื่อผู้รายงาน").max(120),
     signatureData: z.string().min(1, "แตะเพื่อเซ็นชื่อก่อนส่ง"),
+    // Requests for tomorrow.
+    machinery: z.array(machinerySchema),
+    permits: z.array(permitSchema),
+    roadUsage: z.array(roadUsageSchema),
   })
   .superRefine((v, ctx) => {
     if (v.accidentOccurred === null) {

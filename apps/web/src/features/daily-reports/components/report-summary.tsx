@@ -13,6 +13,7 @@ import { permitLabel } from "./permit-meta.js";
 import { PhotoSection } from "./photo-section.js";
 import { RequestSection } from "./request-section.js";
 import { SectionCard } from "./section-card.js";
+import { formatThaiDate } from "../utils/dates.js";
 
 // Read-only view once the evening shift is submitted (the day is closed).
 export function ReportSummary({ report, buildings }: { report: DailyReport; buildings: Building[] }) {
@@ -21,7 +22,7 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
   return (
     <Stack spacing={2}>
       <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
-        ส่งรายงานครบทั้งเช้าและเย็นแล้ว
+        {report.morningStatus === "submitted" ? "ส่งรายงานครบทั้งเช้าและเย็นแล้ว" : "ส่งรายงานเย็นแล้ว (ไม่มีรายงานเช้า)"}
         {report.eveningSubmittedAt ? ` · ${dayjs(report.eveningSubmittedAt).format("HH:mm")}` : ""} — รอ EPS ตรวจสอบ
       </Alert>
       <Card>
@@ -74,19 +75,6 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
               );
             })}
           </Stack>
-          {report.permits.length > 0 ? (
-            <>
-              <Divider sx={{ my: 1.5 }} />
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                Work Permits
-              </Typography>
-              {report.permits.map((p) => (
-                <Typography key={p.id} variant="caption" sx={{ display: "block" }}>
-                  {p.permitType === "other" ? p.otherLabel : permitLabel(p.permitType)} · {p.buildingCode} · {p.workers} คน
-                </Typography>
-              ))}
-            </>
-          ) : null}
           {report.equipment.length > 0 ? (
             <>
               <Divider sx={{ my: 1.5 }} />
@@ -98,20 +86,6 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
               </Typography>
             </>
           ) : null}
-          {report.machinery.length > 0 ? (
-            <>
-              <Divider sx={{ my: 1.5 }} />
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                การจองเครื่องจักร
-              </Typography>
-              {report.machinery.map((m) => (
-                <Typography key={m.id} variant="caption" sx={{ display: "block" }}>
-                  {m.machineType}
-                  {m.unitTag ? ` (${m.unitTag})` : ""} · {m.buildingCode} · {m.startTime}–{m.endTime}
-                </Typography>
-              ))}
-            </>
-          ) : null}
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="caption" color="text.secondary">
             ลงนามโดย {report.signatureName ?? "-"}
@@ -119,13 +93,60 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
           </Typography>
         </CardContent>
       </Card>
-      <SectionCard index={1} title="คำขอตรวจ QAQC (Daily Request)" subtitle="เพิ่มคำขอสำหรับพรุ่งนี้ได้ แม้ส่งรายงานเย็นแล้ว">
+      <SectionCard
+        index={1}
+        title="คำขอสำหรับวันพรุ่งนี้ (Tomorrow's Requests)"
+        subtitle={`สำหรับ ${formatThaiDate(report.requestsForDate)} — ส่งแล้วพร้อมรายงานเย็น`}
+      >
+        {report.machinery.length + report.permits.length + report.roadUsage.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            ไม่มีการจองเครื่องจักร / ถนน / ใบอนุญาตสำหรับพรุ่งนี้
+          </Typography>
+        ) : (
+          <Stack spacing={0.5} sx={{ mb: 1.5 }}>
+            {report.machinery.map((m) => (
+              <Typography key={m.id} variant="body2">
+                เครื่องจักร · {m.machineType}
+                {m.unitTag ? ` (${m.unitTag})` : ""} · {m.buildingCode} · {m.startTime}–{m.endTime}
+              </Typography>
+            ))}
+            {report.roadUsage.map((r) => (
+              <Typography key={r.id} variant="body2">
+                ถนน · {r.roadLocation} · {r.startTime}–{r.endTime} · {r.purpose}
+              </Typography>
+            ))}
+            {report.permits.map((p) => (
+              <Typography key={p.id} variant="body2">
+                PTW · {p.permitType === "other" ? p.otherLabel : permitLabel(p.permitType)} · {p.buildingCode} · {p.workers} คน
+              </Typography>
+            ))}
+          </Stack>
+        )}
+        {report.machineryConflicts.length + report.roadConflicts.length > 0 ? (
+          <Alert severity="warning" sx={{ mb: 1.5 }}>
+            {report.machineryConflicts.map((c) => (
+              <Typography key={c.bookingIds.join("-")} variant="body2">
+                {c.machineType}
+                {c.unitTag ? ` (${c.unitTag})` : ""} ชนกับ {c.with.map((w) => `${w.contractorCode} ${w.startTime}–${w.endTime}`).join(", ")}
+              </Typography>
+            ))}
+            {report.roadConflicts.map((c, i) => (
+              <Typography key={`road-${i}`} variant="body2">
+                ถนน {c.roadLocation} ชนกับ {c.with.map((w) => `${w.contractorCode} ${w.startTime}–${w.endTime}`).join(", ")}
+              </Typography>
+            ))}
+            — แจ้งในประชุม 17:00 เพื่อจัดคิว
+          </Alert>
+        ) : null}
+        <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>
+          ขอตรวจ QAQC (เพิ่มเติมได้)
+        </Typography>
         <RequestSection
           projectId={report.projectId}
           contractorId={report.contractorId}
           reportDate={report.reportDate}
           buildings={buildings}
-          morningSubmitted
+          eveningSubmitted
         />
       </SectionCard>
       {report.photos.length > 0 ? (

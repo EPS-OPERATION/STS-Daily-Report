@@ -21,8 +21,12 @@ export const dailyReportApi = {
   submitMorning(projectId: string, payload: MorningPayload): Promise<{ data: DailyReport }> {
     return http.put(`/projects/${projectId}/daily-reports/morning`, payload);
   },
-  submitEvening(reportId: string, payload: EveningPayload): Promise<{ data: DailyReport }> {
-    return http.put(`/daily-reports/${reportId}/evening`, payload);
+  submitEvening(projectId: string, payload: EveningPayload): Promise<{ data: DailyReport }> {
+    return http.put(`/projects/${projectId}/daily-reports/evening`, payload);
+  },
+  // Empty draft row (photos need a report id before either shift is sent).
+  ensureDraft(projectId: string, date: string, contractorId: string): Promise<{ data: DailyReport }> {
+    return http.post(`/projects/${projectId}/daily-reports/draft`, { date, contractorId });
   },
   uploadPhoto(reportId: string, category: PhotoCategory, file: File): Promise<{ data: { id: string } }> {
     const form = new FormData();

@@ -4,6 +4,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
+import Divider from "@mui/material/Divider";
 import CardContent from "@mui/material/CardContent";
 import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
@@ -12,34 +13,72 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { MachineType, PermitType } from "@sts/shared";
 import { Controller, useFieldArray, useForm, useWatch, type Control } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
-import { useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
+import { useEnsureDraft, useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
+import { useWeeklySummary } from "../hooks/use-daily-report-queries.js";
 import { eveningSchema, type EveningFormValues } from "../schemas/daily-report.schema.js";
-import type { Building, DailyReport } from "../types/daily-report.types.js";
+import type { Building, DailyReport, ReportContractor } from "../types/daily-report.types.js";
+import { addDaysIso, formatThaiDate, mondayOf } from "../utils/dates.js";
 import { NumberStepper } from "./number-stepper.js";
 import { PhotoSection } from "./photo-section.js";
 import { RequestSection } from "./request-section.js";
 import { SectionCard } from "./section-card.js";
 import { SignaturePad } from "./signature-pad.js";
+import { MachineryRequests, PermitRequests, RoadUsageRequests } from "./tomorrow-requests.js";
 
+// Evening check-out. Independent of the morning shift: without a morning report there
+// is simply no plan to report actuals against. Also where tomorrow's requests are made.
 export function EveningForm({
+  projectId,
+  date,
+  contractor,
   report,
   buildings,
   onSubmitted,
 }: {
-  report: DailyReport;
+  projectId: string;
+  date: string;
+  contractor: ReportContractor;
+  report: DailyReport | null;
   buildings: Building[];
   onSubmitted: () => void;
 }) {
-  const submit = useSubmitEvening();
+  const submit = useSubmitEvening(projectId);
+  const ensureDraft = useEnsureDraft(projectId);
+  const tomorrow = addDaysIso(date, 1);
+  // Other contractors' bookings for tomorrow → live clash hints on each request row.
+  const tomorrowWeek = useWeeklySummary(projectId, mondayOf(tomorrow));
+  const ctx = { targetDate: tomorrow, contractorId: contractor.id, others: tomorrowWeek.data?.data ?? null };
+  const allocations = report?.allocations ?? [];
   const form = useForm<EveningFormValues>({
     resolver: zodResolver(eveningSchema),
     defaultValues: {
-      otHours: report.otHours ?? 0,
-      accidentOccurred: report.accidentOccurred ?? null,
-      accidentNote: report.accidentNote ?? "",
-      progress: report.allocations.map((a) => ({
+      otHours: report?.otHours ?? 0,
+      accidentOccurred: report?.accidentOccurred ?? null,
+      accidentNote: report?.accidentNote ?? "",
+      machinery: (report?.machinery ?? []).map((m) => ({
+        machineType: m.machineType,
+        unitTag: m.unitTag ?? "",
+        buildingId: m.buildingId,
+        startTime: m.startTime,
+        endTime: m.endTime,
+      })),
+      permits: (report?.permits ?? []).map((p) => ({
+        permitType: p.permitType,
+        otherLabel: p.otherLabel ?? "",
+        buildingId: p.buildingId,
+        workers: p.workers,
+      })),
+      roadUsage: (report?.roadUsage ?? []).map((r) => ({
+        roadLocation: r.roadLocation,
+        buildingId: r.buildingId,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        purpose: r.purpose,
+      })),
+      progress: allocations.map((a) => ({
         allocationId: a.id,
         planPercent: a.planPercent,
         actualPercent: a.actualPercent ?? a.planPercent,
@@ -57,19 +96,38 @@ export function EveningForm({
   const onSubmit = handleSubmit((v) => {
     submit.mutate(
       {
-        reportId: report.id,
-        payload: {
-          otHours: v.otHours,
-          accidentOccurred: v.accidentOccurred ?? false,
-          accidentNote: v.accidentOccurred ? v.accidentNote?.trim() : undefined,
-          progress: v.progress.map((p) => ({
-            allocationId: p.allocationId,
-            actualPercent: p.actualPercent,
-            countermeasure: p.countermeasure?.trim() || undefined,
-          })),
-          signatureName: v.signatureName.trim(),
-          signatureData: v.signatureData,
-        },
+        date,
+        contractorId: contractor.id,
+        otHours: v.otHours,
+        accidentOccurred: v.accidentOccurred ?? false,
+        accidentNote: v.accidentOccurred ? v.accidentNote?.trim() : undefined,
+        progress: v.progress.map((p) => ({
+          allocationId: p.allocationId,
+          actualPercent: p.actualPercent,
+          countermeasure: p.countermeasure?.trim() || undefined,
+        })),
+        signatureName: v.signatureName.trim(),
+        signatureData: v.signatureData,
+        machinery: v.machinery.map((m) => ({
+          buildingId: m.buildingId,
+          machineType: m.machineType as MachineType,
+          unitTag: m.unitTag?.trim() || undefined,
+          startTime: m.startTime,
+          endTime: m.endTime,
+        })),
+        permits: v.permits.map((p) => ({
+          buildingId: p.buildingId,
+          permitType: p.permitType as PermitType,
+          otherLabel: p.permitType === "other" ? p.otherLabel?.trim() : undefined,
+          workers: p.workers,
+        })),
+        roadUsage: v.roadUsage.map((r) => ({
+          buildingId: r.buildingId,
+          roadLocation: r.roadLocation.trim(),
+          startTime: r.startTime,
+          endTime: r.endTime,
+          purpose: r.purpose.trim(),
+        })),
       },
       { onSuccess: onSubmitted },
     );
@@ -153,30 +211,51 @@ export function EveningForm({
       </SectionCard>
 
       <SectionCard index={3} tone="navy" title="ผลงานจริงรายอาคาร (Status % vs Plan %)" subtitle="ดึงแผนจากรายงานเช้า">
-        <Stack spacing={1.5}>
-          {progress.fields.map((row, i) => (
-            <ProgressRow
-              key={row.id}
-              index={i}
-              control={control}
-              allocation={report.allocations[i]!}
-            />
-          ))}
-        </Stack>
+        {allocations.length === 0 ? (
+          <Alert severity="info">
+            ไม่มีแผนจากรายงานเช้า — ส่งรายงานเย็นได้ตามปกติ (ถ้าต้องการบันทึกผลงานรายอาคาร ให้กรอกรายงานเช้าก่อน)
+          </Alert>
+        ) : (
+          <Stack spacing={1.5}>
+            {progress.fields.map((row, i) => (
+              <ProgressRow key={row.id} index={i} control={control} allocation={allocations[i]!} />
+            ))}
+          </Stack>
+        )}
       </SectionCard>
 
       <SectionCard index={4} tone="navy" title="รูปถ่ายหน้างาน" subtitle="แยกหมวด Progress / Safety — อัปโหลดทันทีที่เลือก">
-        <PhotoSection reportId={report.id} photos={report.photos} locked={false} />
+        <PhotoSection
+          reportId={report?.id ?? null}
+          photos={report?.photos ?? []}
+          locked={false}
+          ensureReportId={async () => (await ensureDraft.mutateAsync({ date, contractorId: contractor.id })).data.id}
+        />
       </SectionCard>
 
-      <SectionCard index={5} tone="navy" title="คำขอตรวจ QAQC พรุ่งนี้ (Daily Request)" subtitle="แจ้ง QAQC ล่วงหน้าว่าพรุ่งนี้จะให้ตรวจอะไร">
+      <SectionCard
+        index={5}
+        tone="navy"
+        title="คำขอและแผนงานสำหรับวันพรุ่งนี้ (Tomorrow's Requests)"
+        subtitle={`สำหรับ ${formatThaiDate(tomorrow)} — ใช้ในประชุมประสานงาน 17:00 ส่งพร้อมรายงานเย็น`}
+      >
+        <SubHeading>ขอตรวจ QAQC</SubHeading>
         <RequestSection
-          projectId={report.projectId}
-          contractorId={report.contractorId}
-          reportDate={report.reportDate}
+          projectId={projectId}
+          contractorId={contractor.id}
+          reportDate={date}
           buildings={buildings}
-          morningSubmitted
+          eveningSubmitted={false}
         />
+        <Divider sx={{ my: 2.5 }} />
+        <SubHeading>จองเครื่องจักร / ยานพาหนะ</SubHeading>
+        <MachineryRequests control={control} buildings={buildings} ctx={ctx} />
+        <Divider sx={{ my: 2.5 }} />
+        <SubHeading>ขอใช้ / ปิดถนน (Road Usage)</SubHeading>
+        <RoadUsageRequests control={control} buildings={buildings} ctx={ctx} />
+        <Divider sx={{ my: 2.5 }} />
+        <SubHeading>ใบอนุญาตงานเสี่ยง (Work Permits)</SubHeading>
+        <PermitRequests control={control} buildings={buildings} />
       </SectionCard>
 
       <SectionCard index={6} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
@@ -320,5 +399,13 @@ function ProgressRow({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function SubHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography variant="body1" sx={{ fontWeight: 700, mb: 1 }}>
+      {children}
+    </Typography>
   );
 }

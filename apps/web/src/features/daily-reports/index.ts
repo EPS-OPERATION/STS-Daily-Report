@@ -7,6 +7,7 @@ export {
   useSubmitEvening,
   useUploadPhoto,
   useDeletePhoto,
+  useEnsureDraft,
   useSaveRequest,
   useDeleteRequest,
   useTransitionRequest,
@@ -16,7 +17,7 @@ export { MorningForm } from "./components/morning-form.js";
 export { EveningForm } from "./components/evening-form.js";
 export { ReportSummary } from "./components/report-summary.js";
 export { BuildingActivityMatrix, WorkloadLegend } from "./components/building-activity-matrix.js";
-export { MachineryAllocationTable } from "./components/machinery-allocation-table.js";
+export { MachineryAllocationTable, RoadUsageTable } from "./components/machinery-allocation-table.js";
 export { RequestStatusChip, ReadinessChip, REQUEST_STATUS_LABEL } from "./components/request-chips.js";
 export { inspectionTypeLabel } from "./components/request-section.js";
 export { ContractorBadge } from "./components/contractor-badge.js";

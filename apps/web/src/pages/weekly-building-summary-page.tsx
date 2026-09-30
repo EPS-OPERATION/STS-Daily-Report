@@ -20,6 +20,7 @@ import { PageHeader } from "@/components/ui/page-header.js";
 import {
   BuildingActivityMatrix,
   MachineryAllocationTable,
+  RoadUsageTable,
   WorkloadLegend,
   addDaysIso,
   mondayOf,
@@ -159,6 +160,16 @@ export function WeeklyBuildingSummaryPage() {
                 />
               </Stack>
               <MachineryAllocationTable bookings={data.machinery} onlyConflicts={onlyConflicts} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <Typography variant="h5">Road Usage / Closures</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                Requested the evening before. Red = same road, overlapping hours.
+              </Typography>
+              <RoadUsageTable roads={onlyConflicts ? data.roads.filter((r) => r.conflict) : data.roads} />
             </CardContent>
           </Card>
         </Stack>

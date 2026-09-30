@@ -47,8 +47,14 @@ export interface MorningInput {
   foreignMale: number;
   foreignFemale: number;
   allocations: AllocationInput[];
-  machinery: MachineryInput[];
-  permits: PermitInput[];
+}
+
+export interface RoadUsageInput {
+  buildingId: string;
+  roadLocation: string;
+  startTime: string;
+  endTime: string;
+  purpose: string;
 }
 
 export interface EveningProgressInput {
@@ -57,13 +63,19 @@ export interface EveningProgressInput {
   countermeasure?: string;
 }
 
+// Evening check-out for `date`; machinery / permits / roadUsage are requests for date + 1.
 export interface EveningInput {
+  date: string;
+  contractorId: string;
   otHours: number;
   accidentOccurred: boolean;
   accidentNote?: string;
   progress: EveningProgressInput[];
   signatureName: string;
   signatureData: string;
+  machinery: MachineryInput[];
+  permits: PermitInput[];
+  roadUsage: RoadUsageInput[];
 }
 
 export interface PhotoUploadInput {
@@ -74,7 +86,7 @@ export interface PhotoUploadInput {
 // Booking row used for conflict detection (same shape for submit-time and weekly checks).
 export interface BookingRow {
   id: string;
-  reportDate: string;
+  targetDate: string;
   machineType: string;
   unitTag: string | null;
   startTime: string;
@@ -88,8 +100,22 @@ export interface BookingRow {
 
 export type ConflictSeverity = "conflict" | "possible";
 
+export interface RoadRow {
+  id: string;
+  targetDate: string;
+  buildingId: string;
+  buildingCode: string;
+  buildingName: string;
+  roadLocation: string;
+  startTime: string;
+  endTime: string;
+  purpose: string;
+  contractorId: string;
+  contractorCode: string;
+}
+
 export interface MachineryConflict {
-  reportDate: string;
+  targetDate: string;
   machineType: string;
   unitTag: string | null;
   severity: ConflictSeverity;

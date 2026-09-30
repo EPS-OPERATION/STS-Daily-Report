@@ -83,9 +83,10 @@ export async function createRequestService(auth: AuthContext, projectId: string,
     throw new ValidationError("Contractor is not assigned to this project", { contractorId: input.contractorId });
   }
   await validateFields(projectId, input.reportDate, input);
-  // Before the morning report is sent the request is a draft; after, it goes straight to QAQC.
+  // Requests are planned in the evening for the next day: draft until that evening
+  // report is sent, then straight to QAQC.
   const report = await getReportByKey(db, projectId, input.contractorId, input.reportDate);
-  const status: RequestStatus = report?.morningStatus === "submitted" ? "requested" : "draft";
+  const status: RequestStatus = report?.eveningStatus === "submitted" ? "requested" : "draft";
   const id = await insertRequest(db, {
     projectId,
     contractorId: input.contractorId,

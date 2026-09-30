@@ -8,7 +8,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
 import { StatusChip } from "@/components/ui/status-chip.js";
-import type { WeeklyBooking } from "../types/daily-report.types.js";
+import type { WeeklyBooking, WeeklySummary } from "../types/daily-report.types.js";
 import { ContractorBadge } from "./contractor-badge.js";
 
 // Machine × day booking list. Rows sharing date+machine type are grouped so a
@@ -39,7 +39,7 @@ export function MachineryAllocationTable({ bookings, onlyConflicts }: { bookings
         <TableBody>
           {rows.map((b, i) => {
             const prev = rows[i - 1];
-            const newGroup = !prev || prev.reportDate !== b.reportDate || prev.machineType !== b.machineType;
+            const newGroup = !prev || prev.targetDate !== b.targetDate || prev.machineType !== b.machineType;
             return (
               <TableRow
                 key={b.id}
@@ -48,7 +48,7 @@ export function MachineryAllocationTable({ bookings, onlyConflicts }: { bookings
                   "& td": newGroup && i > 0 ? { borderTop: 2, borderTopColor: "divider" } : undefined,
                 }}
               >
-                <TableCell sx={{ whiteSpace: "nowrap" }}>{newGroup ? dayjs(b.reportDate).format("ddd D MMM") : ""}</TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>{newGroup ? dayjs(b.targetDate).format("ddd D MMM") : ""}</TableCell>
                 <TableCell sx={{ fontWeight: newGroup ? 700 : 400 }}>{b.machineType}</TableCell>
                 <TableCell sx={{ fontFamily: "monospace" }}>{b.unitTag ?? "—"}</TableCell>
                 <TableCell>{b.buildingName}</TableCell>
@@ -78,6 +78,52 @@ export function MachineryAllocationTable({ bookings, onlyConflicts }: { bookings
           one booking has no unit number.
         </Typography>
       </Stack>
+    </Box>
+  );
+}
+
+export function RoadUsageTable({ roads }: { roads: WeeklySummary["roads"] }) {
+  if (roads.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ p: 3, textAlign: "center" }}>
+        No road usage requested this week.
+      </Typography>
+    );
+  }
+  return (
+    <Box sx={{ overflowX: "auto" }}>
+      <Table size="small" sx={{ minWidth: 760 }}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Date</TableCell>
+            <TableCell>Road / lane</TableCell>
+            <TableCell>Time</TableCell>
+            <TableCell>Contractor</TableCell>
+            <TableCell>Next to</TableCell>
+            <TableCell>Purpose</TableCell>
+            <TableCell>Status</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {roads.map((r) => (
+            <TableRow key={r.id} sx={{ bgcolor: r.conflict ? "error.light" : undefined }}>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>{dayjs(r.targetDate).format("ddd D MMM")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{r.roadLocation}</TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                {r.startTime}–{r.endTime}
+              </TableCell>
+              <TableCell>
+                <ContractorBadge code={r.contractorCode} />
+              </TableCell>
+              <TableCell>{r.buildingName}</TableCell>
+              <TableCell>{r.purpose}</TableCell>
+              <TableCell>
+                {r.conflict ? <StatusChip status="blocked" label="Clash" /> : <StatusChip status="active" label="OK" />}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </Box>
   );
 }

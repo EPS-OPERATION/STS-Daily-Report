@@ -1,4 +1,4 @@
-import { and, asc, between, count, eq, ne } from "drizzle-orm";
+import { and, asc, between, count, eq, ne, or } from "drizzle-orm";
 import {
   buildings,
   contractors,
@@ -8,13 +8,24 @@ import {
   dailyReportPermits,
   dailyReportPhotos,
   dailyReportPositions,
+  dailyReportRoadUsage,
   dailyReports,
   inspectionRequests,
 } from "@/db/schema/index.js";
 import type { Db } from "@/db/client.js";
-import type { BookingRow, EveningInput, MorningInput } from "./daily-report.type.js";
+import type { BookingRow, EveningInput, MorningInput, RoadRow } from "./daily-report.type.js";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+// A day-ahead request counts once its report has been sent (evening = normal path;
+// morning = rows created before requests moved to the evening form).
+const reportSent = or(eq(dailyReports.eveningStatus, "submitted"), eq(dailyReports.morningStatus, "submitted"));
+
+function addDays(isoDate: string, days: number): string {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export async function getReportById(db: Db, id: string) {
   const rows = await db.select().from(dailyReports).where(eq(dailyReports.id, id)).limit(1);
@@ -59,6 +70,7 @@ export async function listMachinery(db: Db, reportId: string) {
   return db
     .select({
       id: dailyReportMachinery.id,
+      targetDate: dailyReportMachinery.targetDate,
       buildingId: dailyReportMachinery.buildingId,
       buildingCode: buildings.code,
       machineType: dailyReportMachinery.machineType,
@@ -76,6 +88,7 @@ export async function listPermits(db: Db, reportId: string) {
   return db
     .select({
       id: dailyReportPermits.id,
+      targetDate: dailyReportPermits.targetDate,
       buildingId: dailyReportPermits.buildingId,
       buildingCode: buildings.code,
       permitType: dailyReportPermits.permitType,
@@ -86,6 +99,96 @@ export async function listPermits(db: Db, reportId: string) {
     .innerJoin(buildings, eq(dailyReportPermits.buildingId, buildings.id))
     .where(eq(dailyReportPermits.reportId, reportId))
     .orderBy(asc(dailyReportPermits.createdAt));
+}
+
+const roadColumns = {
+  id: dailyReportRoadUsage.id,
+  targetDate: dailyReportRoadUsage.targetDate,
+  buildingId: dailyReportRoadUsage.buildingId,
+  buildingCode: buildings.code,
+  buildingName: buildings.name,
+  roadLocation: dailyReportRoadUsage.roadLocation,
+  startTime: dailyReportRoadUsage.startTime,
+  endTime: dailyReportRoadUsage.endTime,
+  purpose: dailyReportRoadUsage.purpose,
+  contractorId: dailyReports.contractorId,
+  contractorCode: contractors.code,
+};
+
+function roadQuery(db: Db) {
+  return db
+    .select(roadColumns)
+    .from(dailyReportRoadUsage)
+    .innerJoin(dailyReports, eq(dailyReportRoadUsage.reportId, dailyReports.id))
+    .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
+    .innerJoin(buildings, eq(dailyReportRoadUsage.buildingId, buildings.id));
+}
+
+export async function listRoadUsage(db: Db, reportId: string): Promise<RoadRow[]> {
+  return roadQuery(db).where(eq(dailyReportRoadUsage.reportId, reportId)).orderBy(asc(dailyReportRoadUsage.startTime));
+}
+
+export async function listRoadUsageInRange(db: Db, projectId: string, from: string, to: string) {
+  return roadQuery(db)
+    .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReportRoadUsage.targetDate, from, to)))
+    .orderBy(asc(dailyReportRoadUsage.targetDate), asc(dailyReportRoadUsage.roadLocation), asc(dailyReportRoadUsage.startTime));
+}
+
+export async function listRoadUsageForTargetExcluding(db: Db, projectId: string, targetDate: string, reportId: string) {
+  return roadQuery(db).where(
+    and(
+      eq(dailyReports.projectId, projectId),
+      reportSent,
+      eq(dailyReportRoadUsage.targetDate, targetDate),
+      ne(dailyReports.id, reportId),
+    ),
+  );
+}
+
+// What a contractor asked for (the evening before) to happen on `targetDate`.
+export async function listPlannedForDate(db: Db, projectId: string, contractorId: string, targetDate: string) {
+  const scope = and(eq(dailyReports.projectId, projectId), eq(dailyReports.contractorId, contractorId), reportSent);
+  const [machinery, permits, roads] = await Promise.all([
+    db
+      .select({
+        id: dailyReportMachinery.id,
+        buildingCode: buildings.code,
+        buildingName: buildings.name,
+        machineType: dailyReportMachinery.machineType,
+        unitTag: dailyReportMachinery.unitTag,
+        startTime: dailyReportMachinery.startTime,
+        endTime: dailyReportMachinery.endTime,
+      })
+      .from(dailyReportMachinery)
+      .innerJoin(dailyReports, eq(dailyReportMachinery.reportId, dailyReports.id))
+      .innerJoin(buildings, eq(dailyReportMachinery.buildingId, buildings.id))
+      .where(and(scope, eq(dailyReportMachinery.targetDate, targetDate)))
+      .orderBy(asc(dailyReportMachinery.startTime)),
+    db
+      .select({
+        id: dailyReportPermits.id,
+        buildingCode: buildings.code,
+        buildingName: buildings.name,
+        permitType: dailyReportPermits.permitType,
+        otherLabel: dailyReportPermits.otherLabel,
+        workers: dailyReportPermits.workers,
+      })
+      .from(dailyReportPermits)
+      .innerJoin(dailyReports, eq(dailyReportPermits.reportId, dailyReports.id))
+      .innerJoin(buildings, eq(dailyReportPermits.buildingId, buildings.id))
+      .where(and(scope, eq(dailyReportPermits.targetDate, targetDate))),
+    roadQuery(db)
+      .where(and(scope, eq(dailyReportRoadUsage.targetDate, targetDate)))
+      .orderBy(asc(dailyReportRoadUsage.startTime)),
+  ]);
+  return { machinery, permits, roads };
+}
+
+// Creates an empty draft row for (project, contractor, date) so photos can attach
+// before either shift is sent. Never touches an existing row.
+export async function ensureReport(db: Db, projectId: string, contractorId: string, reportDate: string) {
+  await db.insert(dailyReports).values({ projectId, contractorId, reportDate }).onConflictDoNothing();
+  return (await getReportByKey(db, projectId, contractorId, reportDate))!;
 }
 
 export async function listPositions(db: Db, reportId: string) {
@@ -168,8 +271,6 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
     const reportId = row!.id;
 
     await tx.delete(dailyReportAllocations).where(eq(dailyReportAllocations.reportId, reportId));
-    await tx.delete(dailyReportMachinery).where(eq(dailyReportMachinery.reportId, reportId));
-    await tx.delete(dailyReportPermits).where(eq(dailyReportPermits.reportId, reportId));
     await tx.delete(dailyReportPositions).where(eq(dailyReportPositions.reportId, reportId));
     await tx.delete(dailyReportEquipment).where(eq(dailyReportEquipment.reportId, reportId));
 
@@ -181,19 +282,6 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
         .insert(dailyReportEquipment)
         .values(input.equipment.map((e) => ({ reportId, equipmentType: e.equipmentType, qty: e.qty })));
     }
-    // Sending the morning shift sends that day's saved Daily Requests to QAQC.
-    await tx
-      .update(inspectionRequests)
-      .set({ status: "requested", statusChangedAt: now, statusChangedBy: userId, updatedAt: now })
-      .where(
-        and(
-          eq(inspectionRequests.projectId, projectId),
-          eq(inspectionRequests.contractorId, input.contractorId),
-          eq(inspectionRequests.reportDate, input.date),
-          eq(inspectionRequests.status, "draft"),
-        ),
-      );
-
     await tx.insert(dailyReportAllocations).values(
       input.allocations.map((a, i) => ({
         reportId,
@@ -204,10 +292,57 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
         sortOrder: i,
       })),
     );
+    return reportId;
+  });
+}
+
+// Evening check-out works with or without a morning report: upsert the header,
+// record actuals for any morning allocations, and replace tomorrow's requests.
+export async function saveEvening(db: Db, projectId: string, input: EveningInput, userId: string) {
+  return db.transaction(async (tx: Tx) => {
+    const now = new Date();
+    const tomorrow = addDays(input.date, 1);
+    const header = {
+      otHours: input.otHours,
+      accidentOccurred: input.accidentOccurred,
+      accidentNote: input.accidentOccurred ? input.accidentNote?.trim() || null : null,
+      signatureName: input.signatureName.trim(),
+      signatureData: input.signatureData,
+      signedAt: now,
+      eveningStatus: "submitted",
+      eveningSubmittedAt: now,
+      eveningSubmittedBy: userId,
+      updatedAt: now,
+    };
+    const [row] = await tx
+      .insert(dailyReports)
+      .values({ projectId, contractorId: input.contractorId, reportDate: input.date, ...header })
+      .onConflictDoUpdate({
+        target: [dailyReports.projectId, dailyReports.contractorId, dailyReports.reportDate],
+        set: header,
+      })
+      .returning({ id: dailyReports.id });
+    const reportId = row!.id;
+
+    for (const p of input.progress) {
+      await tx
+        .update(dailyReportAllocations)
+        .set({
+          actualPercent: p.actualPercent,
+          countermeasure: p.countermeasure?.trim() || null,
+          updatedAt: now,
+        })
+        .where(and(eq(dailyReportAllocations.id, p.allocationId), eq(dailyReportAllocations.reportId, reportId)));
+    }
+
+    await tx.delete(dailyReportMachinery).where(eq(dailyReportMachinery.reportId, reportId));
+    await tx.delete(dailyReportPermits).where(eq(dailyReportPermits.reportId, reportId));
+    await tx.delete(dailyReportRoadUsage).where(eq(dailyReportRoadUsage.reportId, reportId));
     if (input.machinery.length > 0) {
       await tx.insert(dailyReportMachinery).values(
         input.machinery.map((m) => ({
           reportId,
+          targetDate: tomorrow,
           buildingId: m.buildingId,
           machineType: m.machineType,
           unitTag: m.unitTag?.trim().toUpperCase() || null,
@@ -220,6 +355,7 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
       await tx.insert(dailyReportPermits).values(
         input.permits.map((p) => ({
           reportId,
+          targetDate: tomorrow,
           buildingId: p.buildingId,
           permitType: p.permitType,
           otherLabel: p.permitType === "other" ? p.otherLabel?.trim() || null : null,
@@ -227,44 +363,38 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
         })),
       );
     }
-    return reportId;
-  });
-}
-
-export async function saveEvening(db: Db, reportId: string, input: EveningInput, userId: string) {
-  await db.transaction(async (tx: Tx) => {
-    const now = new Date();
-    for (const p of input.progress) {
-      await tx
-        .update(dailyReportAllocations)
-        .set({
-          actualPercent: p.actualPercent,
-          countermeasure: p.countermeasure?.trim() || null,
-          updatedAt: now,
-        })
-        .where(and(eq(dailyReportAllocations.id, p.allocationId), eq(dailyReportAllocations.reportId, reportId)));
+    if (input.roadUsage.length > 0) {
+      await tx.insert(dailyReportRoadUsage).values(
+        input.roadUsage.map((r) => ({
+          reportId,
+          targetDate: tomorrow,
+          buildingId: r.buildingId,
+          roadLocation: r.roadLocation.trim(),
+          startTime: r.startTime,
+          endTime: r.endTime,
+          purpose: r.purpose.trim(),
+        })),
+      );
     }
+    // Sending the evening report sends that day's saved QAQC requests (for tomorrow) to EPS.
     await tx
-      .update(dailyReports)
-      .set({
-        otHours: input.otHours,
-        accidentOccurred: input.accidentOccurred,
-        accidentNote: input.accidentOccurred ? input.accidentNote?.trim() || null : null,
-        signatureName: input.signatureName.trim(),
-        signatureData: input.signatureData,
-        signedAt: now,
-        eveningStatus: "submitted",
-        eveningSubmittedAt: now,
-        eveningSubmittedBy: userId,
-        updatedAt: now,
-      })
-      .where(eq(dailyReports.id, reportId));
+      .update(inspectionRequests)
+      .set({ status: "requested", statusChangedAt: now, statusChangedBy: userId, updatedAt: now })
+      .where(
+        and(
+          eq(inspectionRequests.projectId, projectId),
+          eq(inspectionRequests.contractorId, input.contractorId),
+          eq(inspectionRequests.reportDate, input.date),
+          eq(inspectionRequests.status, "draft"),
+        ),
+      );
+    return reportId;
   });
 }
 
 const bookingColumns = {
   id: dailyReportMachinery.id,
-  reportDate: dailyReports.reportDate,
+  targetDate: dailyReportMachinery.targetDate,
   machineType: dailyReportMachinery.machineType,
   unitTag: dailyReportMachinery.unitTag,
   startTime: dailyReportMachinery.startTime,
@@ -276,7 +406,7 @@ const bookingColumns = {
   buildingName: buildings.name,
 };
 
-// Only submitted morning shifts count as real bookings / allocations.
+// Bookings on target dates in range, from sent reports only.
 export async function listBookingsInRange(db: Db, projectId: string, from: string, to: string): Promise<BookingRow[]> {
   return db
     .select(bookingColumns)
@@ -287,14 +417,14 @@ export async function listBookingsInRange(db: Db, projectId: string, from: strin
     .where(
       and(
         eq(dailyReports.projectId, projectId),
-        eq(dailyReports.morningStatus, "submitted"),
-        between(dailyReports.reportDate, from, to),
+        reportSent,
+        between(dailyReportMachinery.targetDate, from, to),
       ),
     )
-    .orderBy(asc(dailyReports.reportDate), asc(dailyReportMachinery.machineType), asc(dailyReportMachinery.startTime));
+    .orderBy(asc(dailyReportMachinery.targetDate), asc(dailyReportMachinery.machineType), asc(dailyReportMachinery.startTime));
 }
 
-export async function listBookingsForDateExcluding(db: Db, projectId: string, reportDate: string, reportId: string) {
+export async function listBookingsForTargetExcluding(db: Db, projectId: string, targetDate: string, reportId: string) {
   return db
     .select(bookingColumns)
     .from(dailyReportMachinery)
@@ -304,8 +434,8 @@ export async function listBookingsForDateExcluding(db: Db, projectId: string, re
     .where(
       and(
         eq(dailyReports.projectId, projectId),
-        eq(dailyReports.morningStatus, "submitted"),
-        eq(dailyReports.reportDate, reportDate),
+        reportSent,
+        eq(dailyReportMachinery.targetDate, targetDate),
         ne(dailyReports.id, reportId),
       ),
     );
@@ -377,18 +507,12 @@ export async function countRequestsByStatusInRange(db: Db, projectId: string, fr
 export async function listPermitsInRange(db: Db, projectId: string, from: string, to: string) {
   return db
     .select({
-      reportDate: dailyReports.reportDate,
+      targetDate: dailyReportPermits.targetDate,
       buildingId: dailyReportPermits.buildingId,
       permitType: dailyReportPermits.permitType,
       workers: dailyReportPermits.workers,
     })
     .from(dailyReportPermits)
     .innerJoin(dailyReports, eq(dailyReportPermits.reportId, dailyReports.id))
-    .where(
-      and(
-        eq(dailyReports.projectId, projectId),
-        eq(dailyReports.morningStatus, "submitted"),
-        between(dailyReports.reportDate, from, to),
-      ),
-    );
+    .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReportPermits.targetDate, from, to)));
 }

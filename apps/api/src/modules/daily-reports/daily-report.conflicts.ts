@@ -1,5 +1,5 @@
 import { timeWindowsOverlap } from "@sts/shared";
-import type { BookingRow, MachineryConflict } from "./daily-report.type.js";
+import type { BookingRow, MachineryConflict, RoadRow } from "./daily-report.type.js";
 
 function normalizeTag(tag: string | null): string {
   return (tag ?? "").trim().toUpperCase();
@@ -13,7 +13,7 @@ export function findMachineryConflicts(rows: BookingRow[]): MachineryConflict[] 
   const conflicts: MachineryConflict[] = [];
   const groups = new Map<string, BookingRow[]>();
   for (const r of rows) {
-    const key = `${r.reportDate}|${r.machineType}`;
+    const key = `${r.targetDate}|${r.machineType}`;
     const list = groups.get(key) ?? [];
     list.push(r);
     groups.set(key, list);
@@ -28,7 +28,7 @@ export function findMachineryConflicts(rows: BookingRow[]): MachineryConflict[] 
         if (ta && tb && ta !== tb) continue;
         if (!timeWindowsOverlap(a.startTime, a.endTime, b.startTime, b.endTime)) continue;
         conflicts.push({
-          reportDate: a.reportDate,
+          targetDate: a.targetDate,
           machineType: a.machineType,
           unitTag: ta || tb || null,
           severity: ta && tb ? "conflict" : "possible",
@@ -38,4 +38,20 @@ export function findMachineryConflicts(rows: BookingRow[]): MachineryConflict[] 
     }
   }
   return conflicts;
+}
+
+// Same road/lane (case/space-insensitive) booked by two requests with overlapping hours.
+export function findRoadConflicts(rows: RoadRow[]): Array<{ targetDate: string; roadLocation: string; ids: [string, string] }> {
+  const norm = (s: string) => s.trim().toUpperCase().replace(/\s+/g, " ");
+  const out: Array<{ targetDate: string; roadLocation: string; ids: [string, string] }> = [];
+  for (let i = 0; i < rows.length; i++) {
+    for (let j = i + 1; j < rows.length; j++) {
+      const a = rows[i]!;
+      const b = rows[j]!;
+      if (a.targetDate !== b.targetDate || norm(a.roadLocation) !== norm(b.roadLocation)) continue;
+      if (!timeWindowsOverlap(a.startTime, a.endTime, b.startTime, b.endTime)) continue;
+      out.push({ targetDate: a.targetDate, roadLocation: a.roadLocation, ids: [a.id, b.id] });
+    }
+  }
+  return out;
 }

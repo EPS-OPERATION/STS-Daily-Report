@@ -8,10 +8,12 @@ import { getProjectById } from "@/modules/projects/project.repository.js";
 import { isContractorInProject } from "@/modules/site-activities/site-activity.repository.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { getStorage } from "@/shared/storage/index.js";
-import { findMachineryConflicts } from "./daily-report.conflicts.js";
+import { listRequests } from "@/modules/inspection-requests/inspection-request.repository.js";
+import { findMachineryConflicts, findRoadConflicts } from "./daily-report.conflicts.js";
 import {
   countPhotos,
   deletePhoto,
+  ensureReport,
   getPhoto,
   getReportById,
   getReportByKey,
@@ -22,7 +24,11 @@ import {
   listEquipment,
   listPositions,
   listReportHoursInRange,
-  listBookingsForDateExcluding,
+  listBookingsForTargetExcluding,
+  listPlannedForDate,
+  listRoadUsage,
+  listRoadUsageForTargetExcluding,
+  listRoadUsageInRange,
   listBookingsForReport,
   listBookingsInRange,
   listMachinery,
@@ -32,7 +38,7 @@ import {
   saveEvening,
   saveMorning,
 } from "./daily-report.repository.js";
-import type { EveningInput, MorningInput, PhotoUploadInput } from "./daily-report.type.js";
+import type { EveningInput, MachineryInput, MorningInput, PermitInput, PhotoUploadInput, RoadUsageInput } from "./daily-report.type.js";
 
 const MAX_PHOTOS = 12;
 
@@ -75,16 +81,21 @@ async function reportDetail(reportId: string) {
   const db = getDb();
   const report = await getReportById(db, reportId);
   if (!report) throw new NotFoundError("Daily report not found", { reportId });
-  const [positions, equipment, allocations, machinery, permits, photos, bookings] = await Promise.all([
-    listPositions(db, reportId),
-    listEquipment(db, reportId),
-    listAllocations(db, reportId),
-    listMachinery(db, reportId),
-    listPermits(db, reportId),
-    listPhotos(db, reportId),
-    listBookingsForReport(db, reportId),
-  ]);
-  const others = await listBookingsForDateExcluding(db, report.projectId, report.reportDate, reportId);
+  // machinery / permits / roadUsage on a report are the requests it raised for the next day.
+  const tomorrow = addDays(report.reportDate, 1);
+  const [positions, equipment, allocations, machinery, permits, roadUsage, photos, bookings, others, otherRoads] =
+    await Promise.all([
+      listPositions(db, reportId),
+      listEquipment(db, reportId),
+      listAllocations(db, reportId),
+      listMachinery(db, reportId),
+      listPermits(db, reportId),
+      listRoadUsage(db, reportId),
+      listPhotos(db, reportId),
+      listBookingsForReport(db, reportId),
+      listBookingsForTargetExcluding(db, report.projectId, tomorrow, reportId),
+      listRoadUsageForTargetExcluding(db, report.projectId, tomorrow, reportId),
+    ]);
   const ownIds = new Set(bookings.map((b) => b.id));
   const conflicts = findMachineryConflicts([...bookings, ...others]).filter(
     (c) => ownIds.has(c.bookingIds[0]) || ownIds.has(c.bookingIds[1]),
@@ -114,7 +125,17 @@ async function reportDetail(reportId: string) {
     allocations,
     machinery,
     permits,
+    roadUsage,
+    requestsForDate: tomorrow,
     photos: photosWithUrls,
+    roadConflicts: findRoadConflicts([...roadUsage, ...otherRoads])
+      .filter((c) => roadUsage.some((r) => c.ids.includes(r.id)))
+      .map((c) => ({
+        roadLocation: c.roadLocation,
+        with: otherRoads
+          .filter((r) => c.ids.includes(r.id))
+          .map((r) => ({ contractorCode: r.contractorCode, startTime: r.startTime, endTime: r.endTime, purpose: r.purpose })),
+      })),
     machineryConflicts: conflicts.map((c) => ({
       ...c,
       with: [...others, ...bookings]
@@ -143,8 +164,29 @@ export async function getCurrentReportService(
       { contractorId },
     );
   }
-  const report = await getReportByKey(getDb(), projectId, contractor.id, date);
-  return { contractor, report: report ? await reportDetail(report.id) : null };
+  const db = getDb();
+  const [report, planned, inspections] = await Promise.all([
+    getReportByKey(db, projectId, contractor.id, date),
+    listPlannedForDate(db, projectId, contractor.id, date),
+    listRequests(db, projectId, { from: date, to: date, by: "inspection", contractorIds: [contractor.id] }),
+  ]);
+  return {
+    contractor,
+    report: report ? await reportDetail(report.id) : null,
+    // Requested yesterday evening for today — shown read-only on the morning check-in.
+    plannedToday: { ...planned, inspections: inspections.filter((r) => r.status !== "draft") },
+  };
+}
+
+// Draft row so photos can be attached before any shift is sent.
+export async function ensureDraftService(auth: AuthContext, projectId: string, date: string, contractorId: string) {
+  await assertProject(projectId);
+  await assertContractorAccess(auth, contractorId);
+  if (!(await isContractorInProject(getDb(), projectId, contractorId))) {
+    throw new ValidationError("Contractor is not assigned to this project", { contractorId });
+  }
+  const row = await ensureReport(getDb(), projectId, contractorId, date);
+  return reportDetail(row.id);
 }
 
 // ---- morning ---------------------------------------------------------------
@@ -158,8 +200,10 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
   }
 
   const existing = await getReportByKey(db, projectId, input.contractorId, input.date);
-  if (existing?.eveningStatus === "submitted") {
-    throw new ConflictError("Evening report already submitted — the morning shift is locked", { reportId: existing.id });
+  // Shifts are independent. The morning only locks once BOTH shifts are in: re-sending it
+  // then would wipe allocations the evening already reported actuals against.
+  if (existing?.morningStatus === "submitted" && existing.eveningStatus === "submitted") {
+    throw new ConflictError("Both shifts are submitted — the morning check-in is locked", { reportId: existing.id });
   }
 
   if (input.startTime >= input.endTime) {
@@ -200,41 +244,13 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
   }
 
   const buildingIds = new Set((await listBuildings(db, projectId)).map((b) => b.id));
-  const allocByBuilding = new Map<string, number>();
+  const seenBuildings = new Set<string>();
   for (const a of input.allocations) {
     if (!buildingIds.has(a.buildingId)) throw new ValidationError("Unknown building", { buildingId: a.buildingId });
-    if (allocByBuilding.has(a.buildingId)) {
+    if (seenBuildings.has(a.buildingId)) {
       throw new ValidationError("Each building may appear only once in the allocation", { buildingId: a.buildingId });
     }
-    allocByBuilding.set(a.buildingId, a.headcount);
-  }
-
-  for (const m of input.machinery) {
-    if (!buildingIds.has(m.buildingId)) throw new ValidationError("Unknown building", { buildingId: m.buildingId });
-    if (m.startTime >= m.endTime) {
-      throw new ValidationError("Machine booking end time must be after start time", { machineType: m.machineType });
-    }
-  }
-
-  // Permit workers are a subset of the crew placed in that building.
-  const permitWorkers = new Map<string, number>();
-  for (const p of input.permits) {
-    const placed = allocByBuilding.get(p.buildingId);
-    if (placed === undefined) {
-      throw new ValidationError("Permit building has no allocated workers", { buildingId: p.buildingId });
-    }
-    if (p.permitType === "other" && !p.otherLabel?.trim()) {
-      throw new ValidationError("Describe the permit when type is Other");
-    }
-    const key = `${p.buildingId}|${p.permitType}`;
-    permitWorkers.set(key, (permitWorkers.get(key) ?? 0) + p.workers);
-    if (permitWorkers.get(key)! > placed) {
-      throw new ValidationError("Permit workers exceed the headcount allocated to that building", {
-        buildingId: p.buildingId,
-        permitType: p.permitType,
-        allocated: placed,
-      });
-    }
+    seenBuildings.add(a.buildingId);
   }
 
   const reportId = await saveMorning(db, projectId, input, auth.user.id);
@@ -243,20 +259,51 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
 
 // ---- evening ---------------------------------------------------------------
 
-export async function submitEveningService(auth: AuthContext, reportId: string, input: EveningInput) {
-  const report = await loadOwnedReport(auth, reportId);
-  if (report.morningStatus !== "submitted") {
-    throw new ConflictError("Submit the morning check-in before the evening report");
+function validateTomorrow(
+  buildingIds: Set<string>,
+  machinery: MachineryInput[],
+  permits: PermitInput[],
+  roads: RoadUsageInput[],
+) {
+  for (const b of [...machinery, ...permits, ...roads]) {
+    if (!buildingIds.has(b.buildingId)) throw new ValidationError("Unknown building", { buildingId: b.buildingId });
   }
-  if (report.eveningStatus === "submitted") {
-    throw new ConflictError("Evening report already submitted");
+  for (const w of [...machinery, ...roads]) {
+    if (w.startTime >= w.endTime) throw new ValidationError("End time must be after start time", { startTime: w.startTime });
+  }
+  for (const p of permits) {
+    if (p.permitType === "other" && !p.otherLabel?.trim()) throw new ValidationError("Describe the permit when type is Other");
+  }
+  for (const r of roads) {
+    if (!r.roadLocation.trim() || !r.purpose.trim()) throw new ValidationError("Road usage needs a location and a purpose");
+  }
+}
+
+// Independent of the morning shift: works whether or not a morning report exists.
+export async function submitEveningService(auth: AuthContext, projectId: string, input: EveningInput) {
+  const db = getDb();
+  await assertProject(projectId);
+  await assertContractorAccess(auth, input.contractorId);
+  if (!(await isContractorInProject(db, projectId, input.contractorId))) {
+    throw new ValidationError("Contractor is not assigned to this project", { contractorId: input.contractorId });
+  }
+  const report = await getReportByKey(db, projectId, input.contractorId, input.date);
+  if (report?.eveningStatus === "submitted") {
+    throw new ConflictError("Evening report already submitted", { reportId: report.id });
   }
 
   if (input.accidentOccurred && !input.accidentNote?.trim()) {
     throw new ValidationError("Describe the accident when one occurred");
   }
+  validateTomorrow(
+    new Set((await listBuildings(db, projectId)).map((b) => b.id)),
+    input.machinery,
+    input.permits,
+    input.roadUsage,
+  );
 
-  const allocations = await listAllocations(getDb(), reportId);
+  // Actuals are only possible for buildings the morning shift planned.
+  const allocations = report ? await listAllocations(db, report.id) : [];
   const byId = new Map(input.progress.map((p) => [p.allocationId, p]));
   const missing = allocations.filter((a) => !byId.has(a.id)).map((a) => a.buildingCode);
   if (missing.length > 0 || byId.size !== allocations.length) {
@@ -273,7 +320,7 @@ export async function submitEveningService(auth: AuthContext, reportId: string, 
     }
   }
 
-  await saveEvening(getDb(), reportId, input, auth.user.id);
+  const reportId = await saveEvening(db, projectId, input, auth.user.id);
   return reportDetail(reportId);
 }
 
@@ -325,14 +372,16 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
   const weekEnd = addDays(weekStart, 6);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const [buildings, allocations, permits, bookings, hours, requestCounts] = await Promise.all([
+  const [buildings, allocations, permits, bookings, hours, requestCounts, roads] = await Promise.all([
     listBuildings(db, projectId),
     listAllocationsInRange(db, projectId, weekStart, weekEnd),
     listPermitsInRange(db, projectId, weekStart, weekEnd),
     listBookingsInRange(db, projectId, weekStart, weekEnd),
     listReportHoursInRange(db, projectId, weekStart, weekEnd),
     countRequestsByStatusInRange(db, projectId, weekStart, weekEnd),
+    listRoadUsageInRange(db, projectId, weekStart, weekEnd),
   ]);
+  const roadClashes = new Set(findRoadConflicts(roads).flatMap((c) => c.ids));
 
   type Cell = {
     date: string;
@@ -363,7 +412,7 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
     });
   }
   for (const p of permits) {
-    const c = cellOf(p.buildingId, p.reportDate);
+    const c = cellOf(p.buildingId, p.targetDate);
     c.permits.set(p.permitType, (c.permits.get(p.permitType) ?? 0) + p.workers);
   }
 
@@ -406,6 +455,7 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
     buildings: rows,
     machinery: bookings.map((b) => ({ ...b, conflict: conflicted.get(b.id) ?? null })),
     conflicts,
+    roads: roads.map((r) => ({ ...r, conflict: roadClashes.has(r.id) })),
     requests: Object.fromEntries(
       REQUEST_STATUSES.map((st) => [st, requestCounts.find((r) => r.status === st)?.n ?? 0]),
     ) as Record<RequestStatus, number>,
@@ -420,6 +470,7 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
       bookings: bookings.length,
       conflicts: conflicts.filter((c) => c.severity === "conflict").length,
       possibleConflicts: conflicts.filter((c) => c.severity === "possible").length,
+      roadConflicts: roadClashes.size,
     },
   };
 }

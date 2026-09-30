@@ -3,7 +3,6 @@ import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
 import WbTwilightOutlinedIcon from "@mui/icons-material/WbTwilightOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Skeleton from "@mui/material/Skeleton";
@@ -48,7 +47,13 @@ export function FieldReportPage() {
   const eveningDone = report?.eveningStatus === "submitted";
   const requested = params.get("shift");
   const shift: Shift =
-    requested === "morning" || requested === "evening" ? requested : morningDone && !eveningDone ? "evening" : "morning";
+    requested === "morning" || requested === "evening"
+      ? requested
+      : morningDone && !eveningDone
+        ? "evening"
+        : !morningDone && new Date().getHours() >= 15
+          ? "evening"
+          : "morning";
 
   const setShift = (next: Shift) => {
     const p = new URLSearchParams(params);
@@ -123,9 +128,10 @@ export function FieldReportPage() {
             ? "บัญชีนี้ยังไม่ได้ผูกกับผู้รับเหมา — ติดต่อ EPS เพื่อเพิ่มสิทธิ์"
             : `โหลดรายงานไม่สำเร็จ: ${loadError.message}`}
         </Alert>
-      ) : !contractor ? null : eveningDone && report ? (
-        <ReportSummary report={report} buildings={buildings.data?.data ?? []} />
-      ) : shift === "morning" ? (
+      ) : !contractor || !current.data ? null : shift === "morning" ? (
+        morningDone && eveningDone && report ? (
+          <ReportSummary report={report} buildings={buildings.data?.data ?? []} />
+        ) : (
         <MorningForm
           key={`${report?.id ?? "new"}-${report?.morningSubmittedAt ?? ""}`}
           projectId={projectId}
@@ -133,27 +139,22 @@ export function FieldReportPage() {
           contractor={contractor}
           buildings={buildings.data?.data ?? []}
           report={report}
+          plannedToday={current.data.data.plannedToday}
           onSubmitted={() => {
             setToast("ส่งรายงานเช้าแล้ว");
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />
-      ) : !report || !morningDone ? (
-        <Card>
-          <CardContent sx={{ p: 3, textAlign: "center" }}>
-            <Stack spacing={2} alignItems="center">
-              <WbSunnyOutlinedIcon color="warning" sx={{ fontSize: 40 }} />
-              <Typography variant="h5">ยังไม่ได้ส่งรายงานเช้า</Typography>
-              <Typography variant="body2" color="text.secondary">
-                ต้องส่ง Check-in เช้า (จัดสรรคนลงอาคารครบ) ก่อน จึงจะรายงานผลงานเย็นได้
-              </Typography>
-              <Button onClick={() => setShift("morning")}>ไปกรอกรายงานเช้า</Button>
-            </Stack>
-          </CardContent>
-        </Card>
+        )
+      ) : eveningDone && report ? (
+        <ReportSummary report={report} buildings={buildings.data?.data ?? []} />
       ) : (
+        // Evening never waits for the morning shift.
         <EveningForm
-          key={report.id}
+          key={`${report?.id ?? "new"}-${report?.morningSubmittedAt ?? ""}`}
+          projectId={projectId}
+          date={date}
+          contractor={contractor}
           report={report}
           buildings={buildings.data?.data ?? []}
           onSubmitted={() => {

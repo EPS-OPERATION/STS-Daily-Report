@@ -45,13 +45,13 @@ export function RequestSection({
   contractorId,
   reportDate,
   buildings,
-  morningSubmitted,
+  eveningSubmitted,
 }: {
   projectId: string;
   contractorId: string;
   reportDate: string;
   buildings: Building[];
-  morningSubmitted: boolean;
+  eveningSubmitted: boolean;
 }) {
   const list = useInspectionRequests(projectId, { from: reportDate, to: reportDate, by: "report" });
   const remove = useDeleteRequest();
@@ -63,7 +63,7 @@ export function RequestSection({
       <Stack spacing={1.25}>
         {rows.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            ยังไม่มีคำขอตรวจวันนี้ — เพิ่มงานที่ต้องการให้ QAQC ตรวจ (วันนี้หรือวันถัดไป)
+            ยังไม่มีคำขอตรวจ — เพิ่มงานที่ต้องการให้ QAQC ตรวจพรุ่งนี้
           </Typography>
         ) : null}
         {rows.map((r) => {
@@ -86,7 +86,7 @@ export function RequestSection({
                       {r.inspectionTime}
                     </Typography>
                     <Typography variant="caption" sx={{ color: "inherit" }}>
-                      {r.inspectionDate === reportDate ? "วันนี้" : dayjs(r.inspectionDate).format("D/M")}
+                      {r.inspectionDate === addDaysIso(reportDate, 1) ? "พรุ่งนี้" : dayjs(r.inspectionDate).format("D/M")}
                     </Typography>
                   </Box>
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -139,9 +139,9 @@ export function RequestSection({
       >
         เพิ่มคำขอตรวจ QAQC
       </Button>
-      {!morningSubmitted && rows.some((r) => r.status === "draft") ? (
+      {!eveningSubmitted && rows.some((r) => r.status === "draft") ? (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-          คำขอที่เป็น Draft จะถูกส่งให้ QAQC อัตโนมัติเมื่อกดส่งรายงานเช้า
+          คำขอที่เป็น Draft จะถูกส่งให้ QAQC อัตโนมัติเมื่อกดส่งรายงานเย็น
         </Typography>
       ) : null}
       {remove.error instanceof HttpError ? (
@@ -207,7 +207,7 @@ function RequestDialog({
         },
   });
   const { control, handleSubmit } = form;
-  const dateChoices = [0, 1, 2].map((d) => addDaysIso(reportDate, d));
+  const dateChoices = [1, 2, 3].map((d) => addDaysIso(reportDate, d));
 
   const onSubmit = handleSubmit((v) => {
     const fields = {
@@ -302,7 +302,7 @@ function RequestDialog({
                   <ToggleButtonGroup exclusive fullWidth size="small" value={field.value} onChange={(_, v: string | null) => v && field.onChange(v)}>
                     {dateChoices.map((d, i) => (
                       <ToggleButton key={d} value={d}>
-                        {i === 0 ? "วันนี้" : i === 1 ? "พรุ่งนี้" : dayjs(d).format("D/M")}
+                        {i === 0 ? "พรุ่งนี้" : i === 1 ? "มะรืนนี้" : dayjs(d).format("D/M")}
                       </ToggleButton>
                     ))}
                   </ToggleButtonGroup>

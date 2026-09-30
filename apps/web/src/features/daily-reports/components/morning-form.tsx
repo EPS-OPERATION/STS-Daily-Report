@@ -8,45 +8,38 @@ import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import Alert from "@mui/material/Alert";
-import AlertTitle from "@mui/material/AlertTitle";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
-import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
-import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   DISCIPLINES,
-  MACHINE_TYPES,
-  PERMIT_TYPES,
   POSITIONS,
   SITE_EQUIPMENT_TYPES,
   WEATHER_CONDITIONS,
-  type MachineType,
-  type PermitType,
   type PositionCode,
   type SiteEquipmentType,
   type WeatherCondition,
 } from "@sts/shared";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
 import type { ComponentType } from "react";
-import { Controller, useFieldArray, useForm, useWatch, type Control } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { useSubmitMorning } from "../hooks/use-daily-report-mutations.js";
 import { morningSchema, sumCounts, type MorningFormValues } from "../schemas/daily-report.schema.js";
-import type { Building, DailyReport, ReportContractor } from "../types/daily-report.types.js";
+import type { Building, DailyReport, PlannedToday, ReportContractor } from "../types/daily-report.types.js";
 import { AllocationTracker } from "./allocation-tracker.js";
+import { BuildingSelect } from "./building-select.js";
 import { CountList } from "./count-list.js";
 import { NumberStepper } from "./number-stepper.js";
-import { PERMIT_ICONS } from "./permit-meta.js";
-import { RequestSection } from "./request-section.js";
+import { PlannedTodayChecklist } from "./planned-today.js";
 import { SectionCard } from "./section-card.js";
 
 interface MorningFormProps {
@@ -55,6 +48,7 @@ interface MorningFormProps {
   contractor: ReportContractor;
   buildings: Building[];
   report: DailyReport | null;
+  plannedToday: PlannedToday;
   onSubmitted: () => void;
 }
 
@@ -107,8 +101,6 @@ function toDefaults(report: DailyReport | null): MorningFormValues {
       foreignMale: 0,
       foreignFemale: 0,
       allocations: [{ buildingId: "", headcount: 1, workDescription: "", planPercent: 0 }],
-      machinery: [],
-      permits: [],
     };
   }
   return {
@@ -123,19 +115,6 @@ function toDefaults(report: DailyReport | null): MorningFormValues {
       workDescription: a.workDescription,
       planPercent: a.planPercent,
     })),
-    machinery: report.machinery.map((m) => ({
-      machineType: m.machineType,
-      unitTag: m.unitTag ?? "",
-      buildingId: m.buildingId,
-      startTime: m.startTime,
-      endTime: m.endTime,
-    })),
-    permits: report.permits.map((p) => ({
-      permitType: p.permitType,
-      otherLabel: p.otherLabel ?? "",
-      buildingId: p.buildingId,
-      workers: p.workers,
-    })),
   };
 }
 
@@ -146,7 +125,7 @@ const NATIONALITY_FIELDS = [
   { name: "foreignFemale", label: "ต่างชาติ หญิง" },
 ] as const;
 
-export function MorningForm({ projectId, date, contractor, buildings, report, onSubmitted }: MorningFormProps) {
+export function MorningForm({ projectId, date, contractor, buildings, report, plannedToday, onSubmitted }: MorningFormProps) {
   const submit = useSubmitMorning(projectId);
   const form = useForm<MorningFormValues>({
     resolver: zodResolver(morningSchema),
@@ -155,8 +134,6 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
   });
   const { control, handleSubmit, formState, setValue, getValues } = form;
   const allocations = useFieldArray({ control, name: "allocations" });
-  const machinery = useFieldArray({ control, name: "machinery" });
-  const permits = useFieldArray({ control, name: "permits" });
 
   const [thaiMale, thaiFemale, foreignMale, foreignFemale, allocValues, positionValues] = useWatch({
     control,
@@ -169,7 +146,6 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
   const allocated = (allocValues ?? []).reduce((s, a) => s + (Number.isFinite(a.headcount) ? a.headcount : 0), 0);
   const remaining = total - allocated;
   const chosenBuildings = (allocValues ?? []).map((a) => a.buildingId).filter(Boolean);
-  const allocatedBuildings = buildings.filter((b) => chosenBuildings.includes(b.id));
 
   const onSubmit = handleSubmit((v) => {
     submit.mutate({
@@ -193,19 +169,6 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
       foreignMale: v.foreignMale,
       foreignFemale: v.foreignFemale,
       allocations: v.allocations.map((a) => ({ ...a, workDescription: a.workDescription.trim() })),
-      machinery: v.machinery.map((m) => ({
-        buildingId: m.buildingId,
-        machineType: m.machineType as MachineType,
-        unitTag: m.unitTag?.trim() || undefined,
-        startTime: m.startTime,
-        endTime: m.endTime,
-      })),
-      permits: v.permits.map((p) => ({
-        buildingId: p.buildingId,
-        permitType: p.permitType as PermitType,
-        otherLabel: p.permitType === "other" ? p.otherLabel?.trim() : undefined,
-        workers: p.workers,
-      })),
     }, { onSuccess: onSubmitted });
   });
 
@@ -217,7 +180,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
     <Box component="form" onSubmit={onSubmit} noValidate>
       {report?.morningStatus === "submitted" ? (
         <Alert severity="info" sx={{ mb: 2 }}>
-          ส่งรายงานเช้าแล้ว — แก้ไขและส่งใหม่ได้จนกว่าจะส่งรายงานเย็น
+          ส่งรายงานเช้าแล้ว — แก้ไขและส่งใหม่ได้จนกว่าจะส่งครบทั้งเช้าและเย็น
         </Alert>
       ) : null}
 
@@ -535,98 +498,8 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
         />
       </SectionCard>
 
-      <SectionCard index={6} title="คำขอประจำวัน (Daily Request)" subtitle="ขอตรวจ QAQC · จองเครื่องจักร · ใบอนุญาตงานเสี่ยง">
-        <SubHeading>ขอตรวจ QAQC</SubHeading>
-        <RequestSection
-          projectId={projectId}
-          contractorId={contractor.id}
-          reportDate={date}
-          buildings={buildings}
-          morningSubmitted={report?.morningStatus === "submitted"}
-        />
-        <Divider sx={{ my: 2.5 }} />
-        <SubHeading>จองเครื่องจักร / ยานพาหนะ</SubHeading>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-          ระบุหมายเลขเครื่อง (เช่น CR-01) เพื่อตรวจการจองซ้ำ
-        </Typography>
-        <Stack spacing={1.5}>
-          {machinery.fields.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              ไม่มีการจองเครื่องจักรวันนี้
-            </Typography>
-          ) : null}
-          {machinery.fields.map((row, i) => (
-            <MachineryRow key={row.id} index={i} control={control} buildings={buildings} onRemove={() => machinery.remove(i)} />
-          ))}
-        </Stack>
-        <Button
-          startIcon={<AddIcon />}
-          variant="outlined"
-          fullWidth
-          sx={{ mt: 1.5, borderStyle: "dashed" }}
-          onClick={() =>
-            machinery.append({
-              machineType: "" as MachineType,
-              unitTag: "",
-              buildingId: chosenBuildings[0] ?? "",
-              startTime: "08:00",
-              endTime: "17:00",
-            })
-          }
-        >
-          จองเครื่องจักร
-        </Button>
-        {report?.machineryConflicts.length ? (
-          <Alert severity="warning" icon={<WarningAmberOutlinedIcon />} sx={{ mt: 1.5 }}>
-            <AlertTitle>พบการจองเครื่องจักรซ้ำซ้อน</AlertTitle>
-            {report.machineryConflicts.map((c) => (
-              <Typography key={c.bookingIds.join("-")} variant="body2">
-                {c.machineType}
-                {c.unitTag ? ` (${c.unitTag})` : ""} —{" "}
-                {c.with.map((w) => `${w.contractorCode} @ ${w.buildingCode} ${w.startTime}–${w.endTime}`).join(", ")}
-                {c.severity === "possible" ? " · ไม่ระบุหมายเลขเครื่อง อาจเป็นคนละคัน" : ""}
-              </Typography>
-            ))}
-          </Alert>
-        ) : null}
-        <Divider sx={{ my: 2.5 }} />
-        <SubHeading>ใบอนุญาตงานเสี่ยง (Work Permits)</SubHeading>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-          แตะประเภทเพื่อเพิ่ม แล้วผูกกับอาคารที่ทำงาน
-        </Typography>
-        <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1.5 }}>
-          {PERMIT_TYPES.map((p) => {
-            const Icon = PERMIT_ICONS[p.code];
-            return (
-              <Chip
-                key={p.code}
-                icon={<Icon style={{ fontSize: 16 }} />}
-                label={p.label}
-                variant="outlined"
-                onClick={() =>
-                  permits.append({
-                    permitType: p.code,
-                    otherLabel: "",
-                    buildingId: allocatedBuildings.length === 1 ? allocatedBuildings[0]!.id : "",
-                    workers: 1,
-                  })
-                }
-                sx={{ minHeight: 36 }}
-              />
-            );
-          })}
-        </Stack>
-        <Stack spacing={1.5}>
-          {permits.fields.map((row, i) => (
-            <PermitRow
-              key={row.id}
-              index={i}
-              control={control}
-              buildings={allocatedBuildings}
-              onRemove={() => permits.remove(i)}
-            />
-          ))}
-        </Stack>
+      <SectionCard index={6} title="คำขอสำหรับวันนี้ (ส่งไว้เมื่อวานเย็น)" subtitle="อ่านอย่างเดียว — ขอใหม่/แก้ไขได้ในรายงานเย็น (แผนพรุ่งนี้)">
+        <PlannedTodayChecklist planned={plannedToday} />
       </SectionCard>
 
       {serverError ? (
@@ -667,235 +540,5 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
         </Button>
       </Box>
     </Box>
-  );
-}
-
-// ---- rows ------------------------------------------------------------------
-
-function SubHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <Typography variant="body1" sx={{ fontWeight: 700, mb: 1 }}>
-      {children}
-    </Typography>
-  );
-}
-
-function BuildingSelect({
-  label,
-  buildings,
-  value,
-  onChange,
-  disabledIds = [],
-  error,
-}: {
-  label: string;
-  buildings: Building[];
-  value: string;
-  onChange: (id: string) => void;
-  disabledIds?: string[];
-  error?: string;
-}) {
-  return (
-    <TextField
-      select
-      label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      size="small"
-      fullWidth
-      error={Boolean(error)}
-      helperText={error ?? (buildings.length === 0 ? "ยังไม่มีอาคารให้เลือก" : undefined)}
-    >
-      {buildings.map((b) => (
-        <MenuItem key={b.id} value={b.id} disabled={disabledIds.includes(b.id)}>
-          <Stack>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {b.name}
-            </Typography>
-            {b.nameTh ? (
-              <Typography variant="caption" color="text.secondary">
-                {b.nameTh}
-              </Typography>
-            ) : null}
-          </Stack>
-        </MenuItem>
-      ))}
-    </TextField>
-  );
-}
-
-function MachineryRow({
-  index,
-  control,
-  buildings,
-  onRemove,
-}: {
-  index: number;
-  control: Control<MorningFormValues>;
-  buildings: Building[];
-  onRemove: () => void;
-}) {
-  return (
-    <Card variant="outlined">
-      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-        <Grid container spacing={1.5}>
-          <Grid size={{ xs: 12, sm: 7 }}>
-            <Controller
-              name={`machinery.${index}.machineType`}
-              control={control}
-              render={({ field, fieldState }) => (
-                <TextField
-                  select
-                  label="ประเภทเครื่องจักร"
-                  size="small"
-                  fullWidth
-                  {...field}
-                  error={Boolean(fieldState.error)}
-                  helperText={fieldState.error?.message}
-                >
-                  {MACHINE_TYPES.map((m) => (
-                    <MenuItem key={m} value={m}>
-                      {m}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
-          </Grid>
-          <Grid size={{ xs: 10, sm: 4 }}>
-            <Controller
-              name={`machinery.${index}.unitTag`}
-              control={control}
-              render={({ field }) => (
-                <TextField {...field} label="หมายเลขเครื่อง" placeholder="CR-01" size="small" fullWidth />
-              )}
-            />
-          </Grid>
-          <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }}>
-            <IconButton aria-label="ลบการจอง" onClick={onRemove}>
-              <DeleteOutlineOutlinedIcon />
-            </IconButton>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <Controller
-              name={`machinery.${index}.buildingId`}
-              control={control}
-              render={({ field, fieldState }) => (
-                <BuildingSelect
-                  label="อาคารที่ใช้งาน"
-                  buildings={buildings}
-                  value={field.value}
-                  onChange={field.onChange}
-                  error={fieldState.error?.message}
-                />
-              )}
-            />
-          </Grid>
-          {(["startTime", "endTime"] as const).map((k) => (
-            <Grid key={k} size={{ xs: 6, sm: 3 }}>
-              <Controller
-                name={`machinery.${index}.${k}`}
-                control={control}
-                render={({ field, fieldState }) => (
-                  <TextField
-                    {...field}
-                    type="time"
-                    label={k === "startTime" ? "เริ่ม" : "สิ้นสุด"}
-                    size="small"
-                    fullWidth
-                    slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 900 } }}
-                    error={Boolean(fieldState.error)}
-                    helperText={fieldState.error?.message}
-                  />
-                )}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      </CardContent>
-    </Card>
-  );
-}
-
-function PermitRow({
-  index,
-  control,
-  buildings,
-  onRemove,
-}: {
-  index: number;
-  control: Control<MorningFormValues>;
-  buildings: Building[];
-  onRemove: () => void;
-}) {
-  const type = useWatch({ control, name: `permits.${index}.permitType` }) as PermitType;
-  const meta = PERMIT_TYPES.find((p) => p.code === type);
-  const Icon = PERMIT_ICONS[type] ?? PERMIT_ICONS.other;
-  return (
-    <Card variant="outlined" sx={{ borderColor: "warning.main" }}>
-      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-        <Stack spacing={1.5}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Icon sx={{ color: "warning.dark" }} />
-            <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 700 }}>
-                {meta?.label ?? type}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {meta?.labelTh}
-              </Typography>
-            </Box>
-            <IconButton aria-label="ลบใบอนุญาต" onClick={onRemove}>
-              <DeleteOutlineOutlinedIcon />
-            </IconButton>
-          </Stack>
-          {type === "other" ? (
-            <Controller
-              name={`permits.${index}.otherLabel`}
-              control={control}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  label="ชื่องานเสี่ยง"
-                  size="small"
-                  fullWidth
-                  error={Boolean(fieldState.error)}
-                  helperText={fieldState.error?.message}
-                />
-              )}
-            />
-          ) : null}
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "flex-end" }}>
-            <Controller
-              name={`permits.${index}.buildingId`}
-              control={control}
-              render={({ field, fieldState }) => (
-                <BuildingSelect
-                  label="อาคาร (จากที่จัดสรรคนแล้ว)"
-                  buildings={buildings}
-                  value={field.value}
-                  onChange={field.onChange}
-                  error={fieldState.error?.message}
-                />
-              )}
-            />
-            <Controller
-              name={`permits.${index}.workers`}
-              control={control}
-              render={({ field, fieldState }) => (
-                <NumberStepper
-                  label="จำนวนคน"
-                  value={field.value}
-                  onChange={field.onChange}
-                  min={1}
-                  unit="คน"
-                  error={fieldState.error?.message}
-                />
-              )}
-            />
-          </Stack>
-        </Stack>
-      </CardContent>
-    </Card>
   );
 }
