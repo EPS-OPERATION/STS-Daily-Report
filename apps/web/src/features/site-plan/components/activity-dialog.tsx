@@ -17,6 +17,7 @@ import Typography from "@mui/material/Typography";
 import { Controller, useForm } from "react-hook-form";
 import { useEffect } from "react";
 import { useProjectContractors } from "@/features/projects/hooks/use-projects.js";
+import { getActivityZoneDefaultId, getActivityZoneOptions } from "../utils/site-plan-map.js";
 import { useCreateSiteActivity } from "../hooks/use-create-site-activity.js";
 import { siteActivityFormSchema, type SiteActivityFormValues } from "../schemas/site-activity.schema.js";
 import type { ZoneOption } from "../types/site-plan.types.js";
@@ -42,6 +43,10 @@ export function ActivityDialog({
   const mutation = useCreateSiteActivity(projectId);
   const { reset: resetMutation } = mutation;
   const contractorsQuery = useProjectContractors(projectId);
+  const activityZones = getActivityZoneOptions(zones);
+  const parentZoneIds = new Set(
+    zones.filter((zone) => zones.some((child) => child.parentId === zone.id)).map((zone) => zone.id),
+  );
 
   const {
     control,
@@ -53,7 +58,7 @@ export function ActivityDialog({
     resolver: zodResolver(siteActivityFormSchema),
     defaultValues: {
       workDate: defaultDate,
-      zoneId: defaultZoneId ?? "",
+      zoneId: getActivityZoneDefaultId(zones, defaultZoneId),
       contractorId: "",
       title: "",
       description: "",
@@ -70,7 +75,7 @@ export function ActivityDialog({
     resetMutation();
     reset({
       workDate: defaultDate,
-      zoneId: defaultZoneId ?? "",
+      zoneId: getActivityZoneDefaultId(zones, defaultZoneId),
       contractorId: "",
       title: "",
       description: "",
@@ -80,7 +85,7 @@ export function ActivityDialog({
       startTime: "",
       endTime: "",
     });
-  }, [open, defaultDate, defaultZoneId, resetMutation, reset]);
+  }, [open, defaultDate, defaultZoneId, zones, resetMutation, reset]);
 
   const onSubmit = handleSubmit(async (values) => {
     await mutation.mutateAsync({
@@ -146,9 +151,10 @@ export function ActivityDialog({
                   <FormControl fullWidth size="small" error={Boolean(fieldState.error)}>
                     <InputLabel id="sa-zone">Zone *</InputLabel>
                     <Select labelId="sa-zone" label="Zone *" {...field}>
-                      {zones.map((z) => (
+                      {activityZones.map((z) => (
                         <MenuItem key={z.id} value={z.id}>
                           {z.code} — {z.name}
+                          {parentZoneIds.has(z.id) ? " (parent group)" : ""}
                         </MenuItem>
                       ))}
                     </Select>
@@ -160,6 +166,9 @@ export function ActivityDialog({
                   </FormControl>
                 )}
               />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                Leaf work areas are listed first; parent zones remain available when needed.
+              </Typography>
             </Grid>
             <Grid size={{ xs: 12 }}>
               <Controller

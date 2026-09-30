@@ -6,6 +6,67 @@ export function getVisibleMapAreas<T extends Pick<PlanArea, "zone">>(areas: T[],
   );
 }
 
+export function getZoneMapInteraction(
+  zoneId: string,
+  zones: Pick<ZoneOption, "id" | "parentId">[],
+): "focus" | "inspect" {
+  return zones.some((zone) => zone.parentId === zoneId) ? "focus" : "inspect";
+}
+
+export function getBlankMapClickAction(
+  selectedZoneId: string | null,
+  focusedParentId: string | null,
+): "clear-selection" | "back-to-overview" | "none" {
+  if (selectedZoneId) return "clear-selection";
+  return focusedParentId ? "back-to-overview" : "none";
+}
+
+export function getActivityFocusAreas<T extends Pick<PlanArea, "zone">>(areas: T[], parentId: string): T[] {
+  const children = areas.filter((area) => area.zone.parentId === parentId);
+  return children.length > 0 ? children : areas.filter((area) => area.zone.id === parentId);
+}
+
+export interface ZoneTreeNode<T extends Pick<ZoneOption, "id" | "parentId">> {
+  zone: T;
+  children: ZoneTreeNode<T>[];
+}
+
+export function buildZoneTree<T extends Pick<ZoneOption, "id" | "parentId">>(zones: T[]): ZoneTreeNode<T>[] {
+  const nodes = new Map(zones.map((zone) => [zone.id, { zone, children: [] as ZoneTreeNode<T>[] }]));
+  const roots: ZoneTreeNode<T>[] = [];
+
+  for (const node of nodes.values()) {
+    const parent = node.zone.parentId ? nodes.get(node.zone.parentId) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+
+  return roots;
+}
+
+export function getFocusedMapAreas<T extends Pick<PlanArea, "zone">>(areas: T[], focusedZoneId: string): T[] {
+  return areas.filter((area) => area.zone.id === focusedZoneId || area.zone.parentId === focusedZoneId);
+}
+
+export function getVisibleConfigurationAreas<T extends Pick<PlanArea, "zone">>(
+  areas: T[],
+  focusedZoneId: string | null,
+): T[] {
+  return focusedZoneId ? getFocusedMapAreas(areas, focusedZoneId) : areas.filter((area) => area.zone.parentId === null);
+}
+
+export function getActivityZoneOptions<T extends Pick<ZoneOption, "id" | "parentId">>(zones: T[]): T[] {
+  const parentIds = new Set(zones.flatMap((zone) => (zone.parentId ? [zone.parentId] : [])));
+  return [...zones.filter((zone) => !parentIds.has(zone.id)), ...zones.filter((zone) => parentIds.has(zone.id))];
+}
+
+export function getActivityZoneDefaultId(
+  zones: Pick<ZoneOption, "id" | "parentId">[],
+  preferredZoneId?: string | null,
+): string {
+  return preferredZoneId && zones.some((zone) => zone.parentId === preferredZoneId) ? "" : (preferredZoneId ?? "");
+}
+
 export function getZoneSubtreeActivities<T>(
   zoneId: string,
   zones: Pick<ZoneOption, "id" | "parentId">[],

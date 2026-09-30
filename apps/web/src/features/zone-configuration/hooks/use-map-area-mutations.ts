@@ -12,6 +12,7 @@ export function useCanConfigureSitePlan(): boolean {
 export interface SaveMapAreasInput {
   areas: { areaId?: string; zoneId: string; geometry: PolygonGeometry }[];
   deleteAreaIds: string[];
+  zoneColors: { zoneId: string; displayColor: string }[];
 }
 
 export function useSaveMapAreas(projectId: string | null, sitePlanId: string | null) {
@@ -20,7 +21,12 @@ export function useSaveMapAreas(projectId: string | null, sitePlanId: string | n
     mutationFn: (input: SaveMapAreasInput) =>
       http.put<{ data: unknown }>(`/site-plans/${sitePlanId as string}/areas`, input),
     onSuccess: async () => {
-      if (projectId) await queryClient.invalidateQueries({ queryKey: sitePlanKeys.plan(projectId) });
+      if (projectId) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: sitePlanKeys.plan(projectId) }),
+          queryClient.invalidateQueries({ queryKey: sitePlanKeys.zones(projectId) }),
+        ]);
+      }
     },
   });
 }

@@ -1,4 +1,4 @@
-import { check, integer, pgTable, text, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { check, integer, pgTable, text, timestamp, unique, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { projects } from "./project.schema.js";
 
@@ -19,6 +19,8 @@ export const zones = pgTable(
     code: text("code").notNull(),
     name: text("name").notNull(),
     description: text("description"),
+    displayColor: varchar("display_color", { length: 7 }).notNull().default("#457B9D"),
+    defaultDisplayColor: varchar("default_display_color", { length: 7 }).notNull().default("#457B9D"),
     sortOrder: integer("sort_order").notNull().default(0),
     status: text("status").notNull().default("active"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -27,6 +29,8 @@ export const zones = pgTable(
   (t) => [
     unique("zones_project_code_unique").on(t.projectId, t.code),
     check("zones_sort_order_check", sql`${t.sortOrder} >= 0`),
+    check("zones_display_color_check", sql`${t.displayColor} ~ '^#[0-9A-F]{6}$'`),
+    check("zones_default_display_color_check", sql`${t.defaultDisplayColor} ~ '^#[0-9A-F]{6}$'`),
   ],
 );
 

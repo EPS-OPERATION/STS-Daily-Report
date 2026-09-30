@@ -1,6 +1,7 @@
 import { getDb } from "@/db/client.js";
 import { getProjectById } from "@/modules/projects/project.repository.js";
-import { getZoneById } from "@/modules/zones/zone.repository.js";
+import { getZoneById, updateZoneDisplayColor } from "@/modules/zones/zone.repository.js";
+import { normalizeZoneColor } from "@/modules/zones/zone.color.js";
 import { getStorage } from "@/shared/storage/index.js";
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { parseGeometry } from "./site-plan.geometry.js";
@@ -66,8 +67,18 @@ export interface BulkAreaInput {
   geometry: unknown;
 }
 
+export interface BulkZoneColorInput {
+  zoneId: string;
+  displayColor: unknown;
+}
+
 // One transaction applies drafts, new mappings, and deletions as a unit.
-export async function saveMapAreasService(sitePlanId: string, entries: BulkAreaInput[], deleteAreaIds: string[]) {
+export async function saveMapAreasService(
+  sitePlanId: string,
+  entries: BulkAreaInput[],
+  deleteAreaIds: string[],
+  zoneColors: BulkZoneColorInput[] = [],
+) {
   const db = getDb();
   const plan = await getSitePlanById(db, sitePlanId);
   if (!plan) throw new NotFoundError("Site plan not found", { sitePlanId });
@@ -80,7 +91,9 @@ export async function saveMapAreasService(sitePlanId: string, entries: BulkAreaI
   }
 
   const parsed: { areaId?: string; zoneId: string; geometry: PolygonGeometry }[] = [];
+  const parsedColors: { zoneId: string; displayColor: string }[] = [];
   const updatedIds = new Set<string>();
+  const colorZoneIds = new Set<string>();
   const areaByZoneId = new Map(existing.map((area) => [area.zone.id, area]));
   for (const entry of entries) {
     const current = entry.areaId ? existingById.get(entry.areaId) : undefined;
@@ -100,6 +113,18 @@ export async function saveMapAreasService(sitePlanId: string, entries: BulkAreaI
       throw new ConflictError("Zone already has a mapped area on this plan", { zoneId: entry.zoneId });
     }
     parsed.push({ areaId: entry.areaId, zoneId: entry.zoneId, geometry: parseGeometry(entry.geometry) });
+  }
+
+  for (const entry of zoneColors) {
+    if (colorZoneIds.has(entry.zoneId))
+      throw new ValidationError("Zone color appears more than once", { zoneId: entry.zoneId });
+    colorZoneIds.add(entry.zoneId);
+    const zone = await getZoneById(db, entry.zoneId);
+    if (!zone) throw new NotFoundError("Zone not found", { zoneId: entry.zoneId });
+    if (zone.projectId !== plan.projectId) {
+      throw new ValidationError("Zone does not belong to the plan project", { zoneId: entry.zoneId });
+    }
+    parsedColors.push({ zoneId: entry.zoneId, displayColor: normalizeZoneColor(entry.displayColor) });
   }
 
   const finalZoneIds = new Set<string>();
@@ -127,6 +152,7 @@ export async function saveMapAreasService(sitePlanId: string, entries: BulkAreaI
       if (area.areaId) await updateAreaConfig(tx as never, area.areaId, area.zoneId, area.geometry);
       else await createArea(tx as never, sitePlanId, area.zoneId, area.geometry);
     }
+    for (const color of parsedColors) await updateZoneDisplayColor(tx as never, color.zoneId, color.displayColor);
   });
   return listAreasForPlan(getDb(), sitePlanId);
 }

@@ -35,6 +35,8 @@ export async function listAreasForPlan(db: Db, sitePlanId: string) {
         name: zones.name,
         parentId: zones.parentId,
         sortOrder: zones.sortOrder,
+        displayColor: zones.displayColor,
+        defaultDisplayColor: zones.defaultDisplayColor,
       },
       geometry: zoneMapAreas.geometry,
       defaultGeometry: zoneMapAreas.defaultGeometry,

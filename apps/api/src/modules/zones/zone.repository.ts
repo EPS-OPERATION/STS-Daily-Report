@@ -16,3 +16,12 @@ export async function getZoneById(db: Db, id: string) {
   const rows = await db.select().from(zones).where(eq(zones.id, id)).limit(1);
   return rows[0] ?? null;
 }
+
+export async function updateZoneDisplayColor(db: Db, zoneId: string, displayColor: string) {
+  const rows = await db
+    .update(zones)
+    .set({ displayColor, updatedAt: new Date() })
+    .where(eq(zones.id, zoneId))
+    .returning();
+  return rows[0] ?? null;
+}

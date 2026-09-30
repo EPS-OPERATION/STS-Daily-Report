@@ -29,12 +29,17 @@ interface ServerArea extends PlanArea {
 const samePoints = (a: MapPoint[], b: MapPoint[]): boolean =>
   a.length === b.length && a.every((p, i) => p.x === b[i]?.x && p.y === b[i]?.y);
 
+export function getDraftForZoneId(drafts: DraftArea[], zoneId: string | null): DraftArea | null {
+  return zoneId ? (drafts.find((draft) => draft.zoneId === zoneId && !draft.deleted) ?? null) : null;
+}
+
 // Local draft state for Edit Map. Server geometry is cloned on entry;
 // Cancel discards everything, Save persists explicit changes only.
 export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH: number) {
   const [editMode, setEditMode] = useState(false);
   const [drafts, setDrafts] = useState<DraftArea[]>([]);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [boundaryEditing, setBoundaryEditing] = useState(false);
   const [selectedVertex, setSelectedVertex] = useState<number | null>(null);
   const [drawing, setDrawing] = useState<DrawingState | null>(null);
   const [newCounter, setNewCounter] = useState(0);
@@ -52,14 +57,16 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
         isNew: false,
       })),
     );
-    setSelectedKey(null);
+    setSelectedZoneId(null);
+    setBoundaryEditing(false);
     setDrawing(null);
     setEditMode(true);
   }, [serverAreas, mapW, mapH]);
 
   const cancelEdit = useCallback(() => {
     setDrafts([]);
-    setSelectedKey(null);
+    setSelectedZoneId(null);
+    setBoundaryEditing(false);
     setSelectedVertex(null);
     setDrawing(null);
     setEditMode(false);
@@ -104,13 +111,16 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
   };
 
   const assignZone = (key: string, zoneId: string) => {
+    const draft = drafts.find((item) => item.key === key);
     setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, zoneId } : d)));
+    if (draft?.zoneId === selectedZoneId) setSelectedZoneId(zoneId);
   };
 
   const markDeleted = (key: string, deleted: boolean) => {
+    const draft = drafts.find((item) => item.key === key);
     setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, deleted } : d)));
-    if (deleted && selectedKey === key) {
-      setSelectedKey(null);
+    if (deleted && draft?.zoneId === selectedZoneId) {
+      setBoundaryEditing(false);
       setSelectedVertex(null);
     }
   };
@@ -125,7 +135,6 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
         d.key === key
           ? {
               ...d,
-              zoneId: server.zone.id,
               points: (server.defaultGeometry ?? server.geometry).points.map((p) => normalizedToMap(p, mapW, mapH)),
               deleted: false,
             }
@@ -135,7 +144,9 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
   };
 
   const startDrawing = (zoneId: string) => {
-    setSelectedKey(null);
+    setSelectedZoneId(zoneId);
+    setBoundaryEditing(false);
+    setSelectedVertex(null);
     setDrawing({ zoneId, points: [] });
   };
 
@@ -157,10 +168,30 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
       ...prev,
       { key, areaId: null, zoneId: drawing.zoneId, points: drawing.points, deleted: false, isNew: true },
     ]);
-    setSelectedKey(key);
+    setSelectedZoneId(drawing.zoneId);
+    setBoundaryEditing(true);
     setDrawing(null);
     return true;
   };
+
+  // Duplicate an existing draft's shape onto another (unmapped) zone.
+  // Points are offset so the copy does not sit exactly on the original.
+  const duplicateDraft = useCallback(
+    (key: string, zoneId: string): string | null => {
+      const draft = drafts.find((d) => d.key === key && !d.deleted);
+      if (!draft) return null;
+      if (drafts.some((d) => d.zoneId === zoneId && !d.deleted)) return null;
+      const nextKey = `new:${newCounter}`;
+      setNewCounter((n) => n + 1);
+      const points = draft.points.map((p) => clampToMap({ x: p.x + 24, y: p.y + 24 }, mapW, mapH));
+      setDrafts((prev) => [...prev, { key: nextKey, areaId: null, zoneId, points, deleted: false, isNew: true }]);
+      setSelectedZoneId(zoneId);
+      setBoundaryEditing(true);
+      setSelectedVertex(null);
+      return nextKey;
+    },
+    [drafts, newCounter, mapW, mapH],
+  );
 
   // Normalized payloads for the area APIs (viewport transforms never leak).
   const toNormalized = (points: MapPoint[]): PolygonGeometry => ({
@@ -168,21 +199,34 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
     points: points.map((p) => mapToNormalized(p, mapW, mapH)),
   });
 
-  const selected = drafts.find((d) => d.key === selectedKey && !d.deleted) ?? null;
+  const selected = getDraftForZoneId(drafts, selectedZoneId);
 
-  const select = (key: string | null) => {
-    setSelectedKey(key);
-    setSelectedVertex(null);
-  };
+  const selectZone = useCallback(
+    (zoneId: string | null) => {
+      // Direct-edit mode: selecting a mapped zone immediately shows its
+      // vertex handles (no separate "Edit boundary" step).
+      if (zoneId) {
+        setBoundaryEditing(drafts.some((d) => d.zoneId === zoneId && !d.deleted));
+      } else {
+        setBoundaryEditing(false);
+      }
+      setSelectedZoneId(zoneId);
+      setSelectedVertex(null);
+    },
+    [drafts],
+  );
 
   return {
     editMode,
     enterEdit,
     cancelEdit,
+    selectedZoneId,
     drafts: drafts.filter((d) => !d.deleted),
     allDrafts: drafts,
     selected,
-    select,
+    selectZone,
+    boundaryEditing,
+    setBoundaryEditing,
     selectedVertex,
     selectVertex: setSelectedVertex,
     updatePoints,
@@ -197,6 +241,7 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
     undoDrawPoint,
     cancelDrawing,
     finishDrawing,
+    duplicateDraft,
     dirty,
     toNormalized,
   };

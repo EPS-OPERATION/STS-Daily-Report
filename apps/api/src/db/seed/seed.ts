@@ -25,6 +25,14 @@ const ZONE_5 = "a5555555-5555-4555-8555-555555555555";
 const ZONE_6 = "a6666666-6666-4666-8666-666666666666";
 const ZONE_2_1 = "d2100001-2222-4222-8222-222222222222";
 const SITE_PLAN = "b1111111-1111-4111-8111-111111111111";
+const ROOT_ZONE_COLORS: Record<string, string> = {
+  [ZONE_1]: "#E76F51",
+  [ZONE_2]: "#457B9D",
+  [ZONE_3]: "#2A9D8F",
+  [ZONE_4]: "#8E6CBB",
+  [ZONE_5]: "#D18B47",
+  [ZONE_6]: "#577590",
+};
 
 // Child zones per the master WBS (areas are mapped on top-level zones only for V1).
 const ZONE_CHILDREN: Array<{ id: string; parent: string; code: string; name: string; sort: number }> = [
@@ -123,18 +131,68 @@ await db
 await db
   .insert(zones)
   .values([
-    { id: ZONE_1, projectId: PROJECT_ID, code: "1", name: "Biomass Area", sortOrder: 10 },
-    { id: ZONE_2, projectId: PROJECT_ID, code: "2", name: "Furnace & Boiler Area", sortOrder: 20 },
-    { id: ZONE_3, projectId: PROJECT_ID, code: "3", name: "Flue Gas Area", sortOrder: 30 },
-    { id: ZONE_4, projectId: PROJECT_ID, code: "4", name: "Turbine Generator", sortOrder: 40 },
-    { id: ZONE_5, projectId: PROJECT_ID, code: "5", name: "Air Cooled Condenser", sortOrder: 50 },
-    { id: ZONE_6, projectId: PROJECT_ID, code: "6", name: "Utilities / Water", sortOrder: 60 },
+    {
+      id: ZONE_1,
+      projectId: PROJECT_ID,
+      code: "1",
+      name: "Biomass Area",
+      displayColor: ROOT_ZONE_COLORS[ZONE_1],
+      defaultDisplayColor: ROOT_ZONE_COLORS[ZONE_1],
+      sortOrder: 10,
+    },
+    {
+      id: ZONE_2,
+      projectId: PROJECT_ID,
+      code: "2",
+      name: "Furnace & Boiler Area",
+      displayColor: ROOT_ZONE_COLORS[ZONE_2],
+      defaultDisplayColor: ROOT_ZONE_COLORS[ZONE_2],
+      sortOrder: 20,
+    },
+    {
+      id: ZONE_3,
+      projectId: PROJECT_ID,
+      code: "3",
+      name: "Flue Gas Area",
+      displayColor: ROOT_ZONE_COLORS[ZONE_3],
+      defaultDisplayColor: ROOT_ZONE_COLORS[ZONE_3],
+      sortOrder: 30,
+    },
+    {
+      id: ZONE_4,
+      projectId: PROJECT_ID,
+      code: "4",
+      name: "Turbine Generator",
+      displayColor: ROOT_ZONE_COLORS[ZONE_4],
+      defaultDisplayColor: ROOT_ZONE_COLORS[ZONE_4],
+      sortOrder: 40,
+    },
+    {
+      id: ZONE_5,
+      projectId: PROJECT_ID,
+      code: "5",
+      name: "Air Cooled Condenser",
+      displayColor: ROOT_ZONE_COLORS[ZONE_5],
+      defaultDisplayColor: ROOT_ZONE_COLORS[ZONE_5],
+      sortOrder: 50,
+    },
+    {
+      id: ZONE_6,
+      projectId: PROJECT_ID,
+      code: "6",
+      name: "Utilities / Water",
+      displayColor: ROOT_ZONE_COLORS[ZONE_6],
+      defaultDisplayColor: ROOT_ZONE_COLORS[ZONE_6],
+      sortOrder: 60,
+    },
     ...ZONE_CHILDREN.map((z) => ({
       id: z.id,
       projectId: PROJECT_ID,
       parentId: z.parent,
       code: z.code,
       name: z.name,
+      displayColor: ROOT_ZONE_COLORS[z.parent],
+      defaultDisplayColor: ROOT_ZONE_COLORS[z.parent],
       sortOrder: z.sort,
     })),
   ])

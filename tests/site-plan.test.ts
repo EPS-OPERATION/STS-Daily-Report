@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { aggregateZoneState, summarizeZone } from "../apps/web/src/features/site-plan/utils/zone-status.js";
 import {
+  getActivityFocusAreas,
+  getBlankMapClickAction,
+  getZoneMapInteraction,
   getVisibleMapAreas,
   getZoneSubtreeActivities,
 } from "../apps/web/src/features/site-plan/utils/site-plan-map.js";
@@ -34,6 +37,26 @@ describe("Site Activity map data", () => {
   it("shows parents in overview and only the focused parent's children", () => {
     expect(getVisibleMapAreas(areas, null).map((area) => area.zone.code)).toEqual(["1", "2"]);
     expect(getVisibleMapAreas(areas, "2").map((area) => area.zone.code)).toEqual(["2.1", "2.2"]);
+  });
+
+  it("routes parents to focus and leaf zones to activity inspection", () => {
+    const zones = areas.map((area) => area.zone);
+
+    expect(getZoneMapInteraction("2", zones)).toBe("focus");
+    expect(getZoneMapInteraction("2.1", zones)).toBe("inspect");
+    expect(getZoneMapInteraction("1", zones)).toBe("inspect");
+  });
+
+  it("fits mapped children first and falls back to parent geometry only when none are mapped", () => {
+    expect(getActivityFocusAreas(areas, "2").map((area) => area.zone.code)).toEqual(["2.1", "2.2"]);
+    expect(getActivityFocusAreas(areas, "1").map((area) => area.zone.code)).toEqual(["1"]);
+  });
+
+  it("clears a selected child before returning from focused parent to overview", () => {
+    expect(getBlankMapClickAction("2.1", "2")).toBe("clear-selection");
+    expect(getBlankMapClickAction(null, "2")).toBe("back-to-overview");
+    expect(getBlankMapClickAction(null, null)).toBe("none");
+    expect(getBlankMapClickAction("1", null)).toBe("clear-selection");
   });
 
   it("preserves Zone 2's three contractors and 38 workers with attention priority", () => {

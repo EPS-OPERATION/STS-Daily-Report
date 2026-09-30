@@ -8,6 +8,8 @@ export interface ZoneOption {
   code: string;
   name: string;
   description: string | null;
+  displayColor: string;
+  defaultDisplayColor: string;
   sortOrder: number;
   status: string;
 }
@@ -24,7 +26,15 @@ export interface PolygonGeometry {
 
 export interface PlanArea {
   id: string;
-  zone: { id: string; code: string; name: string; parentId: string | null; sortOrder: number };
+  zone: {
+    id: string;
+    code: string;
+    name: string;
+    parentId: string | null;
+    sortOrder: number;
+    displayColor: string;
+    defaultDisplayColor: string;
+  };
   geometry: PolygonGeometry;
   defaultGeometry: PolygonGeometry | null;
   isCustom: boolean;

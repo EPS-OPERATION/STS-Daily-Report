@@ -1,246 +1,175 @@
-import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import Alert from "@mui/material/Alert";
-import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
+import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useState } from "react";
+import { alpha } from "@mui/material/styles";
+import { useEffect, useMemo, useState } from "react";
+import { SimpleTreeView } from "@mui/x-tree-view/SimpleTreeView";
+import { TreeItem } from "@mui/x-tree-view/TreeItem";
 import type { useSitePlanEditor } from "../hooks/use-zone-configuration-editor.js";
+import { normalizeZoneColor } from "../utils/zone-color.js";
+import { buildZoneTree, type ZoneTreeNode } from "@/features/site-plan/utils/site-plan-map.js";
 import type { ZoneOption } from "@/features/site-plan/types/site-plan.types.js";
 
 type Editor = ReturnType<typeof useSitePlanEditor>;
 
-// Right-side configuration panel. Geometry drafts stay local until Save.
 export function MapEditorPanel({
   editor,
   zones,
+  zonesLoading,
   mappedZoneIds,
-  customAreaIds,
-  defaultAreaIds,
-  onSave,
+  colorDrafts,
   saving,
-  onCancel,
-  addPointMode,
-  onAddPointModeChange,
-  onDeleteArea,
-  onResetArea,
   saveError,
+  onZoneSelect,
+  onShowAllZones,
 }: {
   editor: Editor;
   zones: ZoneOption[];
+  zonesLoading: boolean;
   mappedZoneIds: Set<string>;
-  customAreaIds: Set<string>;
-  defaultAreaIds: Set<string>;
-  onSave: () => void;
+  colorDrafts: Record<string, string>;
   saving: boolean;
-  onCancel: () => void;
-  addPointMode: boolean;
-  onAddPointModeChange: (v: boolean) => void;
-  onDeleteArea: (key: string) => void;
-  onResetArea: (key: string) => void;
   saveError: string | null;
+  onZoneSelect: (zoneId: string | null) => void;
+  onShowAllZones: () => void;
 }) {
-  const [drawZoneId, setDrawZoneId] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const trees = useMemo(() => buildZoneTree(zones), [zones]);
 
-  const selected = editor.selected;
-  const selectedZone = zones.find((z) => z.id === selected?.zoneId) ?? null;
-  const unmapped = zones.filter((z) => !mappedZoneIds.has(z.id));
-  const drawZone = zones.find((z) => z.id === drawZoneId) ?? null;
+  useEffect(() => {
+    const parentIds = zones.filter((zone) => zones.some((child) => child.parentId === zone.id)).map((zone) => zone.id);
+    setExpandedItems(parentIds);
+  }, [zones]);
+
+  useEffect(() => {
+    let current = zones.find((zone) => zone.id === editor.selectedZoneId);
+    const ancestors: string[] = [];
+    while (current?.parentId) {
+      ancestors.push(current.parentId);
+      current = zones.find((zone) => zone.id === current?.parentId);
+    }
+    if (ancestors.length > 0) {
+      setExpandedItems((previous) => [...new Set([...previous, ...ancestors])]);
+    }
+  }, [editor.selectedZoneId, zones]);
+
+  const renderTreeNode = (node: ZoneTreeNode<ZoneOption>) => {
+    const zoneColor = normalizeZoneColor(colorDrafts[node.zone.id] ?? "") ?? node.zone.displayColor;
+    const mapped = mappedZoneIds.has(node.zone.id);
+    return (
+      <TreeItem
+        key={node.zone.id}
+        itemId={node.zone.id}
+        disabled={saving || Boolean(editor.drawing)}
+        sx={
+          mapped
+            ? undefined
+            : (theme) => ({
+                "& .MuiTreeItem-content": {
+                  bgcolor: alpha(theme.palette.warning.main, 0.1),
+                  borderRadius: 1,
+                },
+              })
+        }
+        label={
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ minWidth: 0 }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+              <Box
+                aria-hidden="true"
+                sx={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: "50%",
+                  bgcolor: zoneColor,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  flexShrink: 0,
+                }}
+              />
+              <Typography variant="body2" noWrap>
+                {node.zone.code} {node.zone.name}
+              </Typography>
+            </Stack>
+            {mapped ? (
+              <Typography variant="caption" color="success.main" sx={{ flexShrink: 0 }}>
+                ✓ Mapped
+              </Typography>
+            ) : (
+              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+                <Box
+                  aria-hidden="true"
+                  sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "warning.main", flexShrink: 0 }}
+                />
+                <Typography variant="caption" color="warning.dark" sx={{ fontWeight: 700 }}>
+                  Unmapped
+                </Typography>
+              </Stack>
+            )}
+          </Stack>
+        }
+      >
+        {node.children.map(renderTreeNode)}
+      </TreeItem>
+    );
+  };
+
+  const selectTreeZone = (zoneId: string | null) => {
+    if (zoneId) {
+      let current = zones.find((zone) => zone.id === zoneId);
+      const ancestors: string[] = [];
+      while (current?.parentId) {
+        ancestors.push(current.parentId);
+        current = zones.find((zone) => zone.id === current?.parentId);
+      }
+      setExpandedItems((previous) => [...new Set([...previous, ...ancestors])]);
+    }
+    onZoneSelect(zoneId);
+  };
 
   return (
-    <Stack spacing={2.5}>
-      <Stack spacing={0.5}>
-        {editor.dirty ? (
-          <Chip size="small" label="Unsaved changes" color="warning" sx={{ alignSelf: "flex-start" }} />
-        ) : (
-          <Typography variant="caption" color="text.secondary">
-            Select a polygon to edit its geometry or WBS assignment.
-          </Typography>
-        )}
-      </Stack>
+    <Stack spacing={2} sx={{ height: "100%" }}>
+      <Box>
+        <Typography variant="h6">WBS Zones</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Mapped {mappedZoneIds.size} / {zones.length} · Unmapped {Math.max(0, zones.length - mappedZoneIds.size)}
+        </Typography>
+      </Box>
 
       {saveError ? <Alert severity="error">{saveError}</Alert> : null}
 
-      <Typography variant="body2" color="text.secondary">
-        Mapped {mappedZoneIds.size} · Unmapped {unmapped.length}
-      </Typography>
+      <Button
+        variant="outlined"
+        color="inherit"
+        size="small"
+        onClick={onShowAllZones}
+        disabled={saving || Boolean(editor.drawing)}
+      >
+        All Zones
+      </Button>
 
-      {selected ? (
-        <Stack spacing={2}>
-          <Autocomplete
-            size="small"
-            options={zones.filter((z) => !mappedZoneIds.has(z.id) || z.id === selected.zoneId)}
-            disabled={saving}
-            getOptionLabel={(z) => `${z.code} — ${z.name}`}
-            value={selectedZone}
-            onChange={(_, v) => {
-              if (v) editor.assignZone(selected.key, v.id);
-            }}
-            renderInput={(params) => <TextField {...params} label="Assigned WBS zone" />}
-          />
-          <Typography variant="body2" color="text.secondary">
-            Geometry · {selected.points.length} points
-            {selected.isNew ? " · new area (not saved yet)" : ""}
-            {selected.areaId && customAreaIds.has(selected.areaId) ? " · customized" : ""}
-          </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
-            <Button
-              size="small"
-              variant={addPointMode ? "contained" : "outlined"}
-              color="inherit"
-              onClick={() => onAddPointModeChange(!addPointMode)}
-              disabled={saving}
-            >
-              {addPointMode ? "Adding… click edge" : "Add point"}
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              color="inherit"
-              disabled={editor.selectedVertex == null || saving}
-              onClick={() => {
-                if (editor.selectedVertex != null && editor.deleteVertex(selected.key, editor.selectedVertex)) {
-                  editor.selectVertex(null);
-                }
-              }}
-            >
-              Delete vertex
-            </Button>
-          </Stack>
-          {selected.points.length <= 3 ? (
-            <Typography variant="caption" color="text.secondary">
-              Minimum 3 points — deletion disabled below that.
-            </Typography>
-          ) : null}
-          <Stack direction="row" spacing={1}>
-            <Button
-              size="small"
-              variant="outlined"
-              color="inherit"
-              disabled={selected.isNew || !selected.areaId || !defaultAreaIds.has(selected.areaId) || saving}
-              onClick={() => onResetArea(selected.key)}
-            >
-              Reset to default
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              color="error"
-              disabled={saving}
-              onClick={() => setConfirmDelete(true)}
-            >
-              Delete area
-            </Button>
-          </Stack>
-        </Stack>
-      ) : null}
-
-      {editor.drawing ? (
-        <Stack spacing={1.5}>
-          <Alert severity="info">
-            Drawing {drawZone ? `${drawZone.code} — ${drawZone.name}` : ""} · {editor.drawing.points.length} points
-            (need at least 3)
-          </Alert>
-          <Stack direction="row" spacing={1}>
-            <Button size="small" variant="outlined" color="inherit" onClick={editor.undoDrawPoint} disabled={saving}>
-              Undo point
-            </Button>
-            <Button size="small" variant="outlined" color="inherit" onClick={editor.cancelDrawing} disabled={saving}>
-              Cancel
-            </Button>
-            <Button
-              size="small"
-              disabled={editor.drawing.points.length < 3 || saving}
-              onClick={() => editor.finishDrawing()}
-            >
-              Finish area
-            </Button>
-          </Stack>
-        </Stack>
-      ) : (
-        <Stack spacing={1.5}>
-          <Typography variant="h6">Add zone area</Typography>
-          <Autocomplete
-            size="small"
-            options={unmapped}
-            disabled={saving}
-            getOptionLabel={(z) => `${z.code} — ${z.name}`}
-            value={drawZone}
-            onChange={(_, v) => setDrawZoneId(v?.id ?? null)}
-            renderInput={(params) => <TextField {...params} label="Unmapped WBS zone" />}
-          />
-          <Button
-            variant="outlined"
-            startIcon={<AddOutlinedIcon fontSize="small" />}
-            disabled={!drawZone || saving}
-            onClick={() => {
-              if (drawZone) editor.startDrawing(drawZone.id);
-              onAddPointModeChange(false);
-            }}
+      <Box sx={{ height: 320, overflow: "auto", pr: 0.5, flexShrink: 0 }}>
+        {zonesLoading ? (
+          <LinearProgress aria-label="Loading WBS zones" />
+        ) : zones.length > 0 ? (
+          <SimpleTreeView
+            aria-label="WBS zones"
+            selectedItems={editor.selectedZoneId}
+            expandedItems={expandedItems}
+            expansionTrigger="iconContainer"
+            onSelectedItemsChange={(_, itemIds) => selectTreeZone(typeof itemIds === "string" ? itemIds : null)}
+            onExpandedItemsChange={(_, itemIds) => setExpandedItems(itemIds)}
           >
-            Start drawing
-          </Button>
-          {unmapped.length > 0 ? (
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Unmapped zones
-              </Typography>
-              {unmapped.slice(0, 8).map((z) => (
-                <Typography key={z.id} variant="body2" color="text.secondary">
-                  {z.code} — {z.name}
-                </Typography>
-              ))}
-              {unmapped.length > 8 ? (
-                <Typography variant="caption" color="text.secondary">
-                  +{unmapped.length - 8} more — use the search above
-                </Typography>
-              ) : null}
-            </Box>
-          ) : null}
-        </Stack>
-      )}
-
-      <Box sx={{ flexGrow: 1 }} />
-      <Stack direction="row" spacing={1.5}>
-        <Button variant="outlined" color="inherit" fullWidth onClick={onCancel} disabled={saving}>
-          Cancel
-        </Button>
-        <Button fullWidth disabled={!editor.dirty || saving || Boolean(editor.drawing)} onClick={onSave}>
-          {saving ? "Saving…" : "Save Changes"}
-        </Button>
-      </Stack>
-
-      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Remove map area?</DialogTitle>
-        <DialogContent>
+            {trees.map(renderTreeNode)}
+          </SimpleTreeView>
+        ) : (
           <Typography variant="body2" color="text.secondary">
-            This removes the polygon from the Site Plan. It does not delete the WBS zone or its activities.
+            No WBS zones are configured for this project.
           </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outlined" color="inherit" onClick={() => setConfirmDelete(false)}>
-            Cancel
-          </Button>
-          <Button
-            color="error"
-            disabled={saving}
-            onClick={() => {
-              if (selected) onDeleteArea(selected.key);
-              setConfirmDelete(false);
-            }}
-          >
-            Remove area
-          </Button>
-        </DialogActions>
-      </Dialog>
+        )}
+      </Box>
     </Stack>
   );
 }

@@ -16,4 +16,13 @@ export const saveAreasBody = t.Object({
     { maxItems: 200 },
   ),
   deleteAreaIds: t.Array(uuid, { maxItems: 200 }),
+  zoneColors: t.Optional(
+    t.Array(
+      t.Object({
+        zoneId: uuid,
+        displayColor: t.String({ pattern: "^#[0-9A-Fa-f]{6}$" }),
+      }),
+      { maxItems: 200 },
+    ),
+  ),
 });

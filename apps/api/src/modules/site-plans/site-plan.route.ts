@@ -18,6 +18,7 @@ export const sitePlanRoutes = new Elysia()
   )
   .put(
     "/site-plans/:sitePlanId/areas",
-    async ({ params, body }) => ok(await saveMapAreasService(params.sitePlanId, body.areas, body.deleteAreaIds)),
+    async ({ params, body }) =>
+      ok(await saveMapAreasService(params.sitePlanId, body.areas, body.deleteAreaIds, body.zoneColors ?? [])),
     { params: sitePlanIdParams, body: saveAreasBody },
   );

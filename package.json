@@ -43,6 +43,8 @@
   },
   "dependencies": {
     "konva": "^10.7.0",
-    "react-konva": "^19.3.0"
+    "react-colorful": "^5.8.1",
+    "react-konva": "^19.3.0",
+    "sts-web": "./apps/web"
   }
 }
