@@ -4,11 +4,6 @@
   "workspaces": {
     "": {
       "name": "sts-daily-report",
-      "dependencies": {
-        "sts-web": "./apps/web",
-        "konva": "^10.7.0",
-        "react-konva": "^19.3.0",
-      },
       "devDependencies": {
         "concurrently": "^9.1.2",
         "typescript": "^5.6.3",
@@ -47,9 +42,11 @@
         "@mui/x-tree-view": "^8.3.0",
         "@tanstack/react-query": "^5.80.0",
         "dayjs": "^1.11.13",
+        "konva": "^10.7.0",
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
         "react-hook-form": "^7.56.0",
+        "react-konva": "^19.3.0",
         "react-router-dom": "^7.6.0",
         "zod": "^3.23.8",
       },
@@ -670,8 +667,6 @@
     "sts-api": ["sts-api@workspace:apps/api"],
 
     "sts-web": ["sts-web@workspace:apps/web"],
-
-    "sts-web": ["sts-web@file:apps/web", { "dependencies": { "@emotion/react": "^11.14.0", "@emotion/styled": "^11.14.0", "@hookform/resolvers": "^3.9.0", "@mui/icons-material": "^7.1.0", "@mui/material": "^7.1.0", "@mui/x-charts": "^8.3.0", "@mui/x-data-grid": "^8.3.0", "@mui/x-date-pickers": "^8.3.0", "@mui/x-tree-view": "^8.3.0", "@tanstack/react-query": "^5.80.0", "dayjs": "^1.11.13", "react": "^19.1.0", "react-dom": "^19.1.0", "react-hook-form": "^7.56.0", "react-router-dom": "^7.6.0", "zod": "^3.23.8" }, "devDependencies": { "@types/react": "^19.1.0", "@types/react-dom": "^19.1.0", "@vitejs/plugin-react": "^4.3.4", "typescript": "^5.6.3", "vite": "^6.3.5" } }],
 
     "stylis": ["stylis@4.2.0", "", {}, "sha512-Orov6g6BB1sDfYgzWfTHDOxamtX1bE/zo104Dh9e6fqJ3PooipYyfJ0pUmrZO2wAvO8YbEyeFrkV91XTsGMSrw=="],
 
