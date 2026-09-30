@@ -8,7 +8,7 @@ Internal construction operations / reporting web app (Bun monorepo).
 - `apps/api`: Bun + Elysia 1.3 + TS + Drizzle ORM + PostgreSQL 16 (modular monolith).
 - `packages/shared`: framework-free constants/types/utils. `packages/env`: zod env contracts.
 - `packages/typescript-config`: `base.json` / `web.json` / `api.json`.
-- MinIO = object bytes; Postgres stores metadata only. Auth not implemented yet (architecture is auth-ready).
+- MinIO stores object bytes; PostgreSQL stores metadata. Session authentication protects project, contractor, zone, activity, and site-plan APIs.
 
 ## 2. Architecture
 
@@ -23,14 +23,15 @@ No Base* classes, no DI framework, no codegen CRUD.
 ```text
 apps/web/src: app/{providers,router,layouts,theme} pages/ features/<domain>/{api,components,hooks,schemas,types}
   components/{ui,site,field} mock/site-data.ts services/http/
-apps/api/src: config/ db/{schema,migrations,seed} modules/contractors plugins/ shared/{errors,http,storage}
+apps/api/src: config/ db/{schema,migrations,seed} modules/{contractors,projects,zones,site-activities,site-plans} plugins/ shared/{errors,http,storage}
 packages/{shared,env,typescript-config}  docker-compose.yml  .env.example
 ```
 
 Design system "Industrial Operational Minimal": centralized MUI theme (`app/theme/`), navy sidebar
-shell, semantic status colors, Inter + Noto Sans Thai. Screens: dashboard, site plan (schematic SVG +
-drawer), daily reports grid, tomorrow timeline, contractor mobile home + 5-step evening report.
-Mock data in `src/mock/` only where backend modules do not exist yet; contractors use the live API.
+shell, semantic status colors, Inter + Noto Sans Thai. Screens include dashboard, Site Activity
+(Konva overlays on the monochrome Master Layout), separate Zone Configuration, daily reports grid,
+tomorrow timeline, contractor mobile home, and the five-step evening report. Some unfinished screens
+still use data from `src/mock/`; Site Activity and Zone Configuration use PostgreSQL-backed APIs.
 
 Future domains copy the contractors pattern (`projects workers zones daily-reports manpower work-permits qaqc materials tomorrow-plans drone dashboard`).
 Zone rule: a zone holds activities from MULTIPLE contractors — never model zone -> single contractor.
@@ -49,7 +50,7 @@ bun install
 bun docker:up
 bun db:migrate
 bun db:seed
-bun dev
+bun dev  # builds/waits for the Docker API, then starts the web dev server
 ```
 
 ## 6. Environment setup
@@ -59,8 +60,11 @@ Frontend config: `apps/web/src/config.ts` (`VITE_API_URL` only, no secrets).
 
 ## 7. Docker infrastructure
 
-`bun docker:up | docker:logs | docker:down`. Services: `postgres` (volume pgdata, pg_isready
-healthcheck), `minio` (volumes miniodata, ports 9000/9001).
+`bun docker:up | docker:logs | docker:down`. Default services: `postgres` (volume pgdata,
+`pg_isready` healthcheck) and `minio` (volume miniodata, ports 9000/9001). `bun dev` builds and waits
+for the API service in the Compose `app` profile before starting Vite locally; API changes rebuild on
+the next `bun dev` run. To rebuild only the API immediately, run
+`docker compose --profile app up -d --build --wait api`.
 MinIO image pinned to `RELEASE.2025-04-22T22-12-26Z` (`:latest` was removed from Docker Hub).
 
 ## 8. Database migrations
@@ -77,7 +81,8 @@ UUID PKs, `created_at/updated_at` timestamptz. Drizzle config: `apps/api/drizzle
 
 ## 9. Seed data
 
-`bun db:seed` — 1 project (STS-001), 2 contractors (CTR-001/002) + links. Idempotent.
+`bun db:seed` — 1 project, 3 contractors, 21 WBS zones, 13 stored map areas, and sample activities. Idempotent.
+Development sign-in uses `contractor@sts.local` with no password; the email-only provider is refused in production.
 
 ## 10. Frontend conventions
 
@@ -109,9 +114,16 @@ mount under `/api/v1` in `src/app.ts`; reuse `normalizePagination`, `ok/paginate
 ## 14. Common scripts
 
 ```sh
-bun dev | dev:web | dev:api
-bun build | build:web | build:api
-bun typecheck          # all workspaces
+bun dev
+bun run dev:web | bun run dev:api
+bun run build | bun run build:web | bun run build:api
+bun run lint
+bun run lint:fix
+bun run format
+bun run format:check
+bun run typecheck      # all workspaces
+bun run check          # lint, format:check, typecheck
+bun test               # Bun's built-in test runner
 bun db:generate | db:migrate | db:push | db:studio | db:seed
 bun docker:up | docker:down | docker:logs
 ```

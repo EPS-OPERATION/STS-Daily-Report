@@ -1,11 +1,7 @@
 import { Elysia } from "elysia";
 import { requireAuth } from "@/middleware/require-auth.js";
 import { ok } from "@/shared/http/response.js";
-import {
-  createActivityService,
-  listActivitiesService,
-  updateActivityService,
-} from "./site-activity.service.js";
+import { createActivityService, listActivitiesService, updateActivityService } from "./site-activity.service.js";
 import {
   activityIdParams,
   createActivityBody,
@@ -15,6 +11,7 @@ import {
 } from "./site-activity.schema.js";
 
 export const siteActivityRoutes = new Elysia()
+  .use(requireAuth)
   .get(
     "/projects/:projectId/activities",
     async ({ params, query }) =>
@@ -28,7 +25,6 @@ export const siteActivityRoutes = new Elysia()
       ),
     { params: projectActivitiesParams, query: listActivitiesQuery },
   )
-  .use(requireAuth)
   .post(
     "/projects/:projectId/activities",
     async ({ params, body, auth, set }) => {

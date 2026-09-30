@@ -1,11 +1,10 @@
-# apps/web/public/site-plan/
+# Site Plan base drawing
 
-Drop the cropped STS Master Layout drawing here as `master-layout.jpg`.
+`master-layout-map.png` is the monochrome 1586 × 992 engineering drawing used as map context.
+It contains no WBS labels, status colors, or zone overlays. Konva renders normalized PostgreSQL
+geometry above the drawing for both Site Activity and Zone Configuration.
 
-- The interactive Site Plan (`/site-plan`) renders it as the background
-  with transparent SVG WBS overlays on top.
-- Without this file the map falls back to the schematic grid.
-- The original full drawing (title block, revisions, legend) can live
-  here under another name for reference.
-- Object-storage uploads (MinIO `background_object_key`) plug in later;
-  this static file is the temporary development background.
+For local development, the frontend uses `/site-plan/master-layout-map.png` when the selected
+Site Plan has no `background_object_key`. When a plan has an object key, the authenticated API
+returns a short-lived MinIO URL. The plan's stored width and height define the logical coordinate
+space; geometry remains normalized from 0 to 1.

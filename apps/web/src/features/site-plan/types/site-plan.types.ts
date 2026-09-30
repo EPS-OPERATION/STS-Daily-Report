@@ -26,13 +26,15 @@ export interface PlanArea {
   id: string;
   zone: { id: string; code: string; name: string; parentId: string | null; sortOrder: number };
   geometry: PolygonGeometry;
+  defaultGeometry: PolygonGeometry | null;
+  isCustom: boolean;
 }
 
 export interface SitePlan {
   id: string;
   projectId: string;
   name: string;
-  background: { objectKey: string | null; url: string | null };
+  background: { objectKey: string | null; url: string | null; width: number | null; height: number | null };
   areas: PlanArea[];
 }
 

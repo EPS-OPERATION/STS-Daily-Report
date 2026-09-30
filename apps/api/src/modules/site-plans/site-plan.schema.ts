@@ -3,39 +3,17 @@ import { t } from "elysia";
 const uuid = t.String({ format: "uuid" });
 
 export const sitePlanProjectParams = t.Object({ projectId: uuid });
-
 export const sitePlanIdParams = t.Object({ sitePlanId: uuid });
+export const sitePlanQuery = t.Object({ sitePlanId: t.Optional(uuid) });
 
-export const geometryParams = t.Object({
-  sitePlanId: uuid,
-  zoneId: uuid,
-});
-
-export const geometryBody = t.Object({
-  geometry: t.Unknown(),
-});
-
-export const areaIdParams = t.Object({
-  sitePlanId: uuid,
-  areaId: uuid,
-});
-
-export const createAreaBody = t.Object({
-  zoneId: uuid,
-  geometry: t.Unknown(),
-});
-
-export const patchAreaBody = t.Object({
-  zoneId: t.Optional(uuid),
-  geometry: t.Optional(t.Unknown()),
-});
-
-export const bulkAreasBody = t.Object({
+export const saveAreasBody = t.Object({
   areas: t.Array(
     t.Object({
+      areaId: t.Optional(uuid),
       zoneId: uuid,
       geometry: t.Unknown(),
     }),
-    { minItems: 1, maxItems: 200 },
+    { maxItems: 200 },
   ),
+  deleteAreaIds: t.Array(uuid, { maxItems: 200 }),
 });

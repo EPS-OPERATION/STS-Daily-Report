@@ -7,6 +7,12 @@ import type {
   ZoneOption,
 } from "../types/site-plan.types.js";
 
+export interface SitePlanOption {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
+
 function toParams(filters: ActivityFilters): string {
   const params = new URLSearchParams();
   if (filters.date) params.set("date", filters.date);
@@ -18,11 +24,16 @@ function toParams(filters: ActivityFilters): string {
 }
 
 export const sitePlanApi = {
-  getPlan(projectId: string): Promise<{ data: SitePlan }> {
-    return http.get<{ data: SitePlan }>(`/projects/${projectId}/site-plan`);
+  listPlans(projectId: string): Promise<{ data: SitePlanOption[] }> {
+    return http.get<{ data: SitePlanOption[] }>(`/projects/${projectId}/site-plans`);
   },
-  listZones(projectId: string): Promise<{ data: ZoneOption[] }> {
-    return http.get<{ data: ZoneOption[] }>(`/projects/${projectId}/zones`);
+  getPlan(projectId: string, sitePlanId?: string): Promise<{ data: SitePlan }> {
+    const query = sitePlanId ? `?sitePlanId=${encodeURIComponent(sitePlanId)}` : "";
+    return http.get<{ data: SitePlan }>(`/projects/${projectId}/site-plan${query}`);
+  },
+  listZones(projectId: string, status?: "active" | "inactive" | "all"): Promise<{ data: ZoneOption[] }> {
+    const query = status ? `?status=${status}` : "";
+    return http.get<{ data: ZoneOption[] }>(`/projects/${projectId}/zones${query}`);
   },
   listActivities(projectId: string, filters: ActivityFilters): Promise<{ data: PlanActivity[] }> {
     return http.get<{ data: PlanActivity[] }>(`/projects/${projectId}/activities${toParams(filters)}`);

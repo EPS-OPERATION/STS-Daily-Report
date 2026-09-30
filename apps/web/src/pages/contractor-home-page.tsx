@@ -116,13 +116,7 @@ export function ContractorHomePage() {
         </CardContent>
       </Card>
 
-      <Button
-        component={RouterLink}
-        to="/evening-report"
-        size="large"
-        fullWidth
-        sx={{ minHeight: 48, mb: 2 }}
-      >
+      <Button component={RouterLink} to="/evening-report" size="large" fullWidth sx={{ minHeight: 48, mb: 2 }}>
         Complete Evening Report
       </Button>
 
@@ -149,10 +143,7 @@ export function ContractorHomePage() {
           </Grid>
         ))}
         <Grid size={{ xs: 6, md: 3 }}>
-          <Card
-            onClick={() => photoInput.current?.click()}
-            sx={{ textAlign: "center", p: 2, cursor: "pointer" }}
-          >
+          <Card onClick={() => photoInput.current?.click()} sx={{ textAlign: "center", p: 2, cursor: "pointer" }}>
             <Box sx={{ color: "info.main", mb: 0.5 }}>
               <PhotoCameraOutlinedIcon />
             </Box>
@@ -171,7 +162,11 @@ export function ContractorHomePage() {
           />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
-          <Card component={RouterLink} to="/work-permits" sx={{ textDecoration: "none", display: "block", textAlign: "center", p: 2 }}>
+          <Card
+            component={RouterLink}
+            to="/work-permits"
+            sx={{ textDecoration: "none", display: "block", textAlign: "center", p: 2 }}
+          >
             <Box sx={{ color: "success.main", mb: 0.5 }}>
               <AssignmentOutlinedIcon />
             </Box>

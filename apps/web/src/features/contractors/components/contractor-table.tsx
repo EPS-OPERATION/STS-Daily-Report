@@ -15,7 +15,11 @@ export function ContractorTable() {
   const query = useContractors({ page: pagination.page + 1, pageSize: pagination.pageSize });
 
   if (query.isError) {
-    return <Alert severity="error">{query.error instanceof Error ? query.error.message : "Failed to load contractors"}</Alert>;
+    return (
+      <Alert severity="error">
+        {query.error instanceof Error ? query.error.message : "Failed to load contractors"}
+      </Alert>
+    );
   }
 
   return (

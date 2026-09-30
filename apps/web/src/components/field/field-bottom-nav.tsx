@@ -11,11 +11,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 export function FieldBottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const value = pathname.startsWith("/evening-report")
-    ? 1
-    : pathname.startsWith("/tomorrow")
-      ? 2
-      : 0;
+  const value = pathname.startsWith("/evening-report") ? 1 : pathname.startsWith("/tomorrow") ? 2 : 0;
   return (
     <Paper
       sx={{

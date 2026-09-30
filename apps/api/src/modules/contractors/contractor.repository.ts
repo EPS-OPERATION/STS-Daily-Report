@@ -41,10 +41,7 @@ export async function getContractorByCode(db: Db, code: string) {
 }
 
 export async function createContractor(db: Db, input: CreateContractorInput) {
-  const rows = await db
-    .insert(contractors)
-    .values({ code: input.code.trim(), name: input.name.trim() })
-    .returning();
+  const rows = await db.insert(contractors).values({ code: input.code.trim(), name: input.name.trim() }).returning();
   return rows[0]!;
 }
 

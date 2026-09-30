@@ -191,13 +191,16 @@ export function EveningReportPage() {
                   <FormControl fullWidth size="small" error={Boolean(fieldState.error)}>
                     <InputLabel id="er-activity">Activity *</InputLabel>
                     <Select labelId="er-activity" label="Activity *" {...field}>
-                      {["Structure Installation", "Electrical Installation", "Concrete Pour", "Cable Tray Installation"].map(
-                        (a) => (
-                          <MenuItem key={a} value={a}>
-                            {a}
-                          </MenuItem>
-                        ),
-                      )}
+                      {[
+                        "Structure Installation",
+                        "Electrical Installation",
+                        "Concrete Pour",
+                        "Cable Tray Installation",
+                      ].map((a) => (
+                        <MenuItem key={a} value={a}>
+                          {a}
+                        </MenuItem>
+                      ))}
                     </Select>
                     {fieldState.error ? (
                       <Typography variant="caption" color="error">
@@ -215,7 +218,13 @@ export function EveningReportPage() {
                 helperText={form.formState.errors.progress?.message}
                 InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
               />
-              <TextField label="Description" multiline rows={3} placeholder="Enter work description…" {...register("description")} />
+              <TextField
+                label="Description"
+                multiline
+                rows={3}
+                placeholder="Enter work description…"
+                {...register("description")}
+              />
               <Box>
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                   Photos
@@ -271,7 +280,12 @@ export function EveningReportPage() {
                   name="permitsUsed"
                   control={control}
                   render={({ field }) => (
-                    <ToggleButtonGroup exclusive fullWidth value={field.value} onChange={(_, v) => v && field.onChange(v)}>
+                    <ToggleButtonGroup
+                      exclusive
+                      fullWidth
+                      value={field.value}
+                      onChange={(_, v) => v && field.onChange(v)}
+                    >
                       <ToggleButton value="no">No</ToggleButton>
                       <ToggleButton value="yes">Yes</ToggleButton>
                     </ToggleButtonGroup>
@@ -304,7 +318,12 @@ export function EveningReportPage() {
                   name="materialReceived"
                   control={control}
                   render={({ field }) => (
-                    <ToggleButtonGroup exclusive fullWidth value={field.value} onChange={(_, v) => v && field.onChange(v)}>
+                    <ToggleButtonGroup
+                      exclusive
+                      fullWidth
+                      value={field.value}
+                      onChange={(_, v) => v && field.onChange(v)}
+                    >
                       <ToggleButton value="no">No</ToggleButton>
                       <ToggleButton value="yes">Yes</ToggleButton>
                     </ToggleButtonGroup>
@@ -331,7 +350,12 @@ export function EveningReportPage() {
                   name="qaqcRequested"
                   control={control}
                   render={({ field }) => (
-                    <ToggleButtonGroup exclusive fullWidth value={field.value} onChange={(_, v) => v && field.onChange(v)}>
+                    <ToggleButtonGroup
+                      exclusive
+                      fullWidth
+                      value={field.value}
+                      onChange={(_, v) => v && field.onChange(v)}
+                    >
                       <ToggleButton value="no">No</ToggleButton>
                       <ToggleButton value="yes">Yes</ToggleButton>
                     </ToggleButtonGroup>
@@ -372,7 +396,12 @@ export function EveningReportPage() {
                   ["Progress", `${values.progress ?? 0}%`],
                   ["Workers", `${values.workers ?? 0} · ${values.supervisor || "-"}`],
                   ["Permits", values.permitsUsed === "yes" ? values.permitType || "Yes" : "None"],
-                  ["Materials", values.materialReceived === "yes" ? `${values.materialType || "-"} ${values.materialQty || ""}`.trim() : "None"],
+                  [
+                    "Materials",
+                    values.materialReceived === "yes"
+                      ? `${values.materialType || "-"} ${values.materialQty || ""}`.trim()
+                      : "None",
+                  ],
                   ["QAQC", values.qaqcRequested === "yes" ? values.qaqcType || "Requested" : "None"],
                   ["Photos", `${photoCount} attached`],
                 ] as const
@@ -392,7 +421,13 @@ export function EveningReportPage() {
       </Card>
 
       <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-        <Button variant="outlined" color="inherit" fullWidth size="large" onClick={() => (step === 0 ? navigate("/field") : setStep(step - 1))}>
+        <Button
+          variant="outlined"
+          color="inherit"
+          fullWidth
+          size="large"
+          onClick={() => (step === 0 ? navigate("/field") : setStep(step - 1))}
+        >
           Back
         </Button>
         {step < STEPS.length - 1 ? (

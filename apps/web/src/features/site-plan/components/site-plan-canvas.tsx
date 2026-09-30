@@ -11,9 +11,7 @@ export interface CanvasArea {
   stroke: string;
   strokeWidth: number;
   dash?: number[];
-  fillOpacity?: number;
   code: string;
-  dimmed?: boolean;
 }
 
 export interface CanvasVertexHandles {
@@ -38,14 +36,15 @@ export function SitePlanCanvas({
   containerRef,
   stageRef,
   size,
-  onWheelNative,
   onStageClick,
+  onStageDrag,
   onAreaClick,
   onVertexDrag,
   onVertexDown,
   onVertexUp,
   onVertexClick,
   onImageLoad,
+  onImageError,
 }: {
   backgroundUrl: string | null;
   mapW: number;
@@ -57,17 +56,18 @@ export function SitePlanCanvas({
   drawing: MapPoint[] | null;
   stageDraggable: boolean;
   viewport: Viewport;
-  containerRef: React.RefObject<HTMLDivElement | null>;
+  containerRef: React.RefCallback<HTMLDivElement>;
   stageRef: React.RefObject<Konva.Stage | null>;
   size: { w: number; h: number };
-  onWheelNative: (e: WheelEvent) => void;
   onStageClick: () => void;
+  onStageDrag: () => void;
   onAreaClick: (key: string) => void;
   onVertexDrag: (areaKey: string, index: number, pt: MapPoint) => void;
   onVertexDown: () => void;
   onVertexUp: () => void;
   onVertexClick: (areaKey: string, index: number) => void;
   onImageLoad: () => void;
+  onImageError: () => void;
 }) {
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const dragMoved = useRef(false);
@@ -75,6 +75,7 @@ export function SitePlanCanvas({
   useEffect(() => {
     if (!backgroundUrl) {
       setBgImage(null);
+      onImageError();
       return;
     }
     let live = true;
@@ -88,22 +89,14 @@ export function SitePlanCanvas({
     img.onerror = () => {
       if (live) {
         setBgImage(null);
-        onImageLoad();
+        onImageError();
       }
     };
     img.src = backgroundUrl;
     return () => {
       live = false;
     };
-  }, [backgroundUrl, onImageLoad]);
-
-  // Non-passive wheel listener so preventDefault reliably works.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.addEventListener("wheel", onWheelNative, { passive: false });
-    return () => el.removeEventListener("wheel", onWheelNative);
-  }, [containerRef, onWheelNative]);
+  }, [backgroundUrl, onImageError, onImageLoad]);
 
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%", position: "relative" }}>
@@ -119,6 +112,8 @@ export function SitePlanCanvas({
           draggable={stageDraggable}
           onClick={onStageClick}
           onTap={onStageClick}
+          onDragMove={onStageDrag}
+          onDragEnd={onStageDrag}
         >
           <Layer>
             {bgImage ? (
@@ -134,12 +129,10 @@ export function SitePlanCanvas({
                 points={flattenPoints(a.points)}
                 closed
                 fill={a.fill}
-                fillOpacity={a.dimmed ? 0.06 : (a.fillOpacity ?? 0.35)}
                 stroke={a.stroke}
-                strokeWidth={a.strokeWidth}
-                opacity={a.dimmed ? 0.35 : 1}
+                strokeWidth={a.strokeWidth / viewport.scale}
                 dash={a.dash}
-                hitStrokeWidth={14}
+                hitStrokeWidth={14 / viewport.scale}
                 onClick={(e) => {
                   e.cancelBubble = true;
                   onAreaClick(a.key);
@@ -157,18 +150,18 @@ export function SitePlanCanvas({
               const selected = a.key === selectedKey;
               if (!a.code) return null;
               return (
-                <Group key={`label-${a.key}`} opacity={a.dimmed ? 0.35 : 1}>
+                <Group key={`label-${a.key}`}>
                   <Text
                     x={c.x}
-                    y={c.y - 13}
+                    y={c.y - 7 / viewport.scale}
                     text={a.code}
-                    fontSize={24}
+                    fontSize={14 / viewport.scale}
                     fontStyle={selected ? "bold" : "normal"}
                     fontFamily="Inter, sans-serif"
                     fill="#18212F"
                     align="center"
-                    offsetX={30}
-                    width={60}
+                    offsetX={30 / viewport.scale}
+                    width={60 / viewport.scale}
                   />
                 </Group>
               );
@@ -198,7 +191,7 @@ export function SitePlanCanvas({
               <Line
                 points={flattenPoints(drawing)}
                 stroke="#0B4D8B"
-                strokeWidth={2}
+                strokeWidth={2 / viewport.scale}
                 dash={[8, 5]}
                 closed={false}
               />

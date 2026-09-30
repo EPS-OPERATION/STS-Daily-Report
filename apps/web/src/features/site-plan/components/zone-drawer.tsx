@@ -7,7 +7,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { StatusChip } from "@/components/ui/status-chip.js";
-import type { PlanActivity } from "../types/site-plan.types.js";
+import type { PlanActivity, ZoneState } from "../types/site-plan.types.js";
 import { summarizeZone } from "../utils/zone-status.js";
 
 export function ZoneDrawer({
@@ -17,7 +17,7 @@ export function ZoneDrawer({
   onClose,
   onAdd,
 }: {
-  zone: { id: string; code: string; name: string } | null;
+  zone: { id: string; code: string; name: string; state: ZoneState } | null;
   date: string;
   activities: PlanActivity[];
   onClose: () => void;
@@ -33,22 +33,24 @@ export function ZoneDrawer({
     >
       {zone ? (
         <Stack spacing={2.5}>
-          <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+          <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
             <Stack spacing={0.5}>
               <Typography variant="caption" color="text.secondary">
                 Zone {zone.code} · {date}
               </Typography>
               <Typography variant="h4">{zone.name}</Typography>
             </Stack>
-            <IconButton aria-label="Close zone details" onClick={onClose} size="small">
-              <CloseIcon fontSize="small" />
-            </IconButton>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <StatusChip status={zone.state} />
+              <IconButton aria-label="Close zone details" onClick={onClose} size="small">
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Stack>
           </Stack>
 
           <Typography variant="body2" color="text.secondary">
-            {summary.contractorCount} contractor{summary.contractorCount === 1 ? "" : "s"} ·{" "}
-            {summary.workers} workers · {summary.activityCount}{" "}
-            {summary.activityCount === 1 ? "activity" : "activities"}
+            {summary.contractorCount} contractor{summary.contractorCount === 1 ? "" : "s"} · {summary.workers} workers ·{" "}
+            {summary.activityCount} {summary.activityCount === 1 ? "activity" : "activities"}
           </Typography>
 
           {activities.length === 0 ? (
@@ -57,10 +59,7 @@ export function ZoneDrawer({
             </Typography>
           ) : (
             activities.map((a) => (
-              <Box
-                key={a.id}
-                sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}
-              >
+              <Box key={a.id} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
                   <Typography variant="body1" sx={{ fontWeight: 600 }}>
                     {a.contractor.name}
@@ -76,7 +75,11 @@ export function ZoneDrawer({
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1, height: 20 }}>
                   <LinearProgress variant="determinate" value={a.progressPercent} sx={{ flexGrow: 1 }} />
-                  <Typography variant="caption" color="text.secondary" sx={{ width: 38, flexShrink: 0, textAlign: "right" }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ width: 38, flexShrink: 0, textAlign: "right" }}
+                  >
                     {a.progressPercent}%
                   </Typography>
                 </Stack>

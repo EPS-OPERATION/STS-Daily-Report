@@ -1,6 +1,4 @@
-import FitScreenOutlinedIcon from "@mui/icons-material/FitScreenOutlined";
-import ZoomInOutlinedIcon from "@mui/icons-material/ZoomInOutlined";
-import ZoomOutOutlinedIcon from "@mui/icons-material/ZoomOutOutlined";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -15,26 +13,26 @@ import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import { useCurrentProject } from "@/features/projects/context/project-context.js";
 import { useProjectContractors } from "@/features/projects/hooks/use-projects.js";
 import { ActivityDialog } from "./activity-dialog.js";
 import { SitePlanCanvas, type CanvasArea } from "./site-plan-canvas.js";
+import { SitePlanViewportControls } from "./site-plan-viewport-controls.js";
 import { ZoneDrawer } from "./zone-drawer.js";
+import { EmptyState } from "@/components/ui/empty-state.js";
 import { useSitePlanViewport } from "../hooks/use-site-plan-viewport.js";
 import { useSiteActivities } from "../hooks/use-site-activities.js";
 import { usePlanZones, useSitePlan } from "../hooks/use-site-plan.js";
 import type { PlanActivity, ZoneState } from "../types/site-plan.types.js";
 import { normalizedToMap, polygonBounds } from "../utils/coordinates.js";
 import { aggregateZoneState } from "../utils/zone-status.js";
-
-// Map space = base drawing natural pixels (master-layout-map.png 1586x992).
-export const SITE_MAP_W = 1586;
-export const SITE_MAP_H = 992;
+import { getVisibleMapAreas, getZoneSubtreeActivities } from "../utils/site-plan-map.js";
+import { SITE_MAP_H, SITE_MAP_W } from "../constants.js";
 
 const STATUS_OPTIONS = ["All Status", "active", "attention", "blocked", "completed"];
 
@@ -57,8 +55,13 @@ export function SitePlanView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusParentId, setFocusParentId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [backgroundError, setBackgroundError] = useState(false);
 
   const planQuery = useSitePlan(projectId);
+  const mapW = planQuery.data?.data.background.width ?? SITE_MAP_W;
+  const mapH = planQuery.data?.data.background.height ?? SITE_MAP_H;
+  const backgroundUrl = planQuery.data?.data.background.url ?? "/site-plan/master-layout-map.png";
+  const backgroundUrlRef = useRef(backgroundUrl);
   const zonesQuery = usePlanZones(projectId);
   const contractorsQuery = useProjectContractors(projectId);
   const activitiesQuery = useSiteActivities(projectId, {
@@ -67,7 +70,26 @@ export function SitePlanView() {
     status: status === "All Status" ? undefined : status,
   });
 
-  const viewport = useSitePlanViewport(SITE_MAP_W, SITE_MAP_H);
+  const viewport = useSitePlanViewport(mapW, mapH);
+  const { fitAll, fitBounds } = viewport;
+  const onImageLoad = useCallback(() => {
+    setBackgroundError(false);
+  }, []);
+  const onImageError = useCallback(() => setBackgroundError(true), []);
+
+  useEffect(() => {
+    setSelectedId(null);
+    setFocusParentId(null);
+    setContractorId("all");
+    setBackgroundError(false);
+    fitAll();
+  }, [projectId, fitAll]);
+  useEffect(() => {
+    if (backgroundUrlRef.current !== backgroundUrl) {
+      backgroundUrlRef.current = backgroundUrl;
+      setBackgroundError(false);
+    }
+  }, [backgroundUrl]);
 
   const serverAreas = useMemo(
     () =>
@@ -91,48 +113,37 @@ export function SitePlanView() {
     return map;
   }, [activitiesQuery.data]);
 
-  const stateOf = useCallback(
-    (zoneId: string): ZoneState => {
-      // Parents roll up descendant activities so overview reflects the subtree.
-      const acts: PlanActivity[] = [...(byZone.get(zoneId) ?? [])];
-      const walk = (id: string) => {
-        for (const z of zones.filter((zz) => zz.parentId === id)) {
-          const list = byZone.get(z.id);
-          if (list) acts.push(...list);
-          walk(z.id);
-        }
-      };
-      walk(zoneId);
-      return aggregateZoneState(acts);
-    },
+  const activitiesForZone = useCallback(
+    (zoneId: string) => getZoneSubtreeActivities(zoneId, zones, byZone),
     [byZone, zones],
   );
 
+  const stateOf = useCallback(
+    (zoneId: string): ZoneState => aggregateZoneState(activitiesForZone(zoneId)),
+    [activitiesForZone],
+  );
+
   const fillFor = useCallback(
-    (state: ZoneState): { fill: string; stroke: string; fillOpacity: number } => {
+    (state: ZoneState): { fill: string; stroke: string } => {
       switch (state) {
         case "blocked":
-          return { fill: theme.palette.error.main, stroke: theme.palette.error.main, fillOpacity: 0.22 };
+          return { fill: alpha(theme.palette.error.main, 0.22), stroke: theme.palette.error.main };
         case "attention":
-          return { fill: theme.palette.warning.main, stroke: theme.palette.warning.main, fillOpacity: 0.22 };
+          return { fill: alpha(theme.palette.warning.main, 0.22), stroke: theme.palette.warning.main };
         case "active":
-          return { fill: theme.palette.info.main, stroke: theme.palette.info.main, fillOpacity: 0.18 };
+          return { fill: alpha(theme.palette.info.main, 0.18), stroke: theme.palette.info.main };
         case "completed":
-          return { fill: theme.palette.success.main, stroke: theme.palette.success.main, fillOpacity: 0.18 };
+          return { fill: alpha(theme.palette.success.main, 0.18), stroke: theme.palette.success.main };
         case "idle":
         default:
-          return { fill: "#98A2B3", stroke: "#98A2B3", fillOpacity: 0.06 };
+          return { fill: alpha(theme.palette.text.disabled, 0.04), stroke: theme.palette.text.disabled };
       }
     },
     [theme],
   );
+  const disabledText = theme.palette.text.disabled;
 
-  const childrenOf = useCallback(
-    (parentId: string) => zones.filter((z) => z.parentId === parentId),
-    [zones],
-  );
-
-  const mappedZoneIds = useMemo(() => new Set(serverAreas.map((a) => a.zone.id)), [serverAreas]);
+  const childrenOf = useCallback((parentId: string) => zones.filter((z) => z.parentId === parentId), [zones]);
 
   // Overview renders top-level parents only; focusing a parent renders its
   // mapped children plus a subtle parent outline (no fill, no label).
@@ -150,35 +161,32 @@ export function SitePlanView() {
       if (opts?.outlineOnly) {
         return {
           key: `outline-${areaId}`,
-          points: area.geometry.points.map((p) => normalizedToMap(p, SITE_MAP_W, SITE_MAP_H)),
-          fill: "#98A2B3",
-          stroke: "#98A2B3",
+          points: area.geometry.points.map((p) => normalizedToMap(p, mapW, mapH)),
+          fill: alpha(disabledText, 0),
+          stroke: disabledText,
           strokeWidth: 1.5,
           dash: [6, 5],
-          fillOpacity: 0,
           code: "",
         };
       }
       const c = fillFor(stateOf(zoneId));
       return {
         key: areaId,
-        points: area.geometry.points.map((p) => normalizedToMap(p, SITE_MAP_W, SITE_MAP_H)),
+        points: area.geometry.points.map((p) => normalizedToMap(p, mapW, mapH)),
         fill: c.fill,
         stroke: c.stroke,
         strokeWidth: 2,
-        fillOpacity: c.fillOpacity,
         code,
       };
     };
 
     if (!focusParentId) {
-      return serverAreas
-        .filter((a) => !a.zone.parentId)
+      return getVisibleMapAreas(serverAreas, null)
         .map((a) => toArea(a.id, a.zone.id, a.zone.code))
         .filter((a): a is CanvasArea => a !== null);
     }
 
-    const kids = serverAreas.filter((a) => a.zone.parentId === focusParentId);
+    const kids = getVisibleMapAreas(serverAreas, focusParentId);
     const out: CanvasArea[] = [];
     const parentArea = serverAreas.find((a) => a.zone.id === focusParentId);
     if (parentArea) {
@@ -189,69 +197,83 @@ export function SitePlanView() {
       const c = fillFor(stateOf(a.zone.id));
       out.push({
         key: a.id,
-        points: a.geometry.points.map((p) => normalizedToMap(p, SITE_MAP_W, SITE_MAP_H)),
+        points: a.geometry.points.map((p) => normalizedToMap(p, mapW, mapH)),
         fill: c.fill,
         stroke: c.stroke,
         strokeWidth: 2,
-        fillOpacity: c.fillOpacity,
         code: a.zone.code,
       });
     }
     return out;
-  }, [focusParentId, serverAreas, stateOf, fillFor]);
+  }, [focusParentId, serverAreas, stateOf, fillFor, mapW, mapH, disabledText]);
 
   const activeKey = useMemo(() => {
-    if (!selectedId) return null;
+    if (!selectedId || focusParentId === selectedId) return null;
     const area = serverAreas.find((a) => a.zone.id === selectedId);
     return area?.id ?? null;
-  }, [selectedId, serverAreas]);
+  }, [focusParentId, selectedId, serverAreas]);
 
   const selectedZone = useMemo(() => {
     if (!selectedId) return null;
     const acts = byZone.get(selectedId) ?? [];
-    const zone = acts[0]?.zone ?? zones.find((z) => z.id === selectedId);
+    const zone =
+      acts[0]?.zone ??
+      zones.find((z) => z.id === selectedId) ??
+      serverAreas.find((a) => a.zone.id === selectedId)?.zone;
     if (!zone) return null;
-    return { id: zone.id, code: zone.code, name: zone.name };
-  }, [selectedId, byZone, zones]);
+    return { id: zone.id, code: zone.code, name: zone.name, state: stateOf(zone.id) };
+  }, [selectedId, byZone, zones, serverAreas, stateOf]);
 
-  const focusChildren = focusParentId ? childrenOf(focusParentId).filter((z) => mappedZoneIds.has(z.id)) : [];
-  const focusParent = focusParentId ? zones.find((z) => z.id === focusParentId) ?? null : null;
-  const overviewParents = zones.filter((z) => !z.parentId && mappedZoneIds.has(z.id));
+  const focusChildren = focusParentId ? childrenOf(focusParentId) : [];
+  const focusParent = focusParentId ? (zones.find((z) => z.id === focusParentId) ?? null) : null;
+  const overviewParents = zones.filter((z) => !z.parentId);
 
-  const focusArea = (zoneId: string) => {
-    const area = serverAreas.find((a) => a.zone.id === zoneId);
-    if (area) {
-      const pts = area.geometry.points.map((p) => normalizedToMap(p, SITE_MAP_W, SITE_MAP_H));
-      viewport.fitBounds(polygonBounds(pts));
-    }
-  };
+  const focusArea = useCallback(
+    (zoneId: string) => {
+      const parentArea = serverAreas.find((a) => a.zone.id === zoneId);
+      const areas = parentArea ? [parentArea] : serverAreas.filter((a) => a.zone.parentId === zoneId);
+      const points = areas.flatMap((a) => a.geometry.points.map((p) => normalizedToMap(p, mapW, mapH)));
+      if (points.length > 0) fitBounds(polygonBounds(points));
+      else fitAll();
+    },
+    [serverAreas, mapW, mapH, fitAll, fitBounds],
+  );
+
+  const navigateToParent = useCallback(
+    (zoneId: string) => {
+      setSelectedId(null);
+      setFocusParentId(zoneId);
+      focusArea(zoneId);
+    },
+    [focusArea],
+  );
+
+  const backToOverview = useCallback(() => {
+    setSelectedId(null);
+    setFocusParentId(null);
+    fitAll();
+  }, [fitAll]);
 
   const selectZone = useCallback(
     (zoneId: string | null) => {
       setSelectedId(zoneId);
       if (zoneId) {
-        const kids = childrenOf(zoneId).filter((z) => mappedZoneIds.has(z.id));
+        const kids = childrenOf(zoneId);
         if (kids.length > 0) {
           setFocusParentId(zoneId);
           focusArea(zoneId);
-        } else {
-          setFocusParentId(null);
         }
-      } else {
-        setFocusParentId(null);
-        viewport.fitAll();
       }
     },
-    // focusArea reads serverAreas via closure-safe lookup each call.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [childrenOf, mappedZoneIds, serverAreas, viewport],
+    [childrenOf, focusArea],
   );
 
   const fitSelected = useCallback(() => {
-    const area = renderedAreas.find((a) => a.key === activeKey);
-    if (area) viewport.fitBounds(polygonBounds(area.points));
-    else viewport.fitAll();
-  }, [renderedAreas, activeKey, viewport]);
+    const area = selectedId ? serverAreas.find((a) => a.zone.id === selectedId) : null;
+    if (area) {
+      fitBounds(polygonBounds(area.geometry.points.map((p) => normalizedToMap(p, mapW, mapH))));
+    } else fitAll();
+  }, [selectedId, serverAreas, mapW, mapH, fitAll, fitBounds]);
 
   if (!projectId) {
     return <Typography color="text.secondary">Select a project to view its site plan.</Typography>;
@@ -288,10 +310,24 @@ export function SitePlanView() {
     );
   }
 
-  const backgroundUrl = planQuery.data.data.background.url ?? "/site-plan/master-layout-map.png";
+  if (backgroundError) {
+    return (
+      <EmptyState
+        icon={<MapOutlinedIcon />}
+        title="No base drawing"
+        description="The Site Plan drawing could not be loaded. Check the configured background and retry."
+        action={<Button onClick={() => setBackgroundError(false)}>Retry</Button>}
+      />
+    );
+  }
 
   return (
     <Box>
+      {serverAreas.length === 0 ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          No WBS zones are mapped yet. Zone Configuration can add reviewed geometry.
+        </Alert>
+      ) : null}
       <Card sx={{ mb: 2.5 }}>
         <CardContent sx={{ p: 2.5 }}>
           <Grid container spacing={2} alignItems="center">
@@ -342,9 +378,49 @@ export function SitePlanView() {
         </CardContent>
       </Card>
 
+      {zonesQuery.isError ? (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => void zonesQuery.refetch()}>
+              Retry
+            </Button>
+          }
+          sx={{ mb: 2 }}
+        >
+          Failed to load WBS zones.
+        </Alert>
+      ) : null}
+      {contractorsQuery.isError ? (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => void contractorsQuery.refetch()}>
+              Retry
+            </Button>
+          }
+          sx={{ mb: 2 }}
+        >
+          Failed to load project contractors.
+        </Alert>
+      ) : null}
+      {activitiesQuery.isError ? (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => void activitiesQuery.refetch()}>
+              Retry
+            </Button>
+          }
+          sx={{ mb: 2 }}
+        >
+          Failed to load activities for this date and filter.
+        </Alert>
+      ) : null}
+
       <Stack direction="row" spacing={1} sx={{ mb: 1 }} alignItems="center">
-        <Typography variant="body2" color={focusParent ? "text.secondary" : "text.primary"} sx={{ fontWeight: focusParent ? 400 : 600 }}>
-          All Zones
+        <Typography variant="body2" color="text.secondary">
+          WBS Navigation
         </Typography>
         {focusParent ? (
           <>
@@ -354,47 +430,61 @@ export function SitePlanView() {
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {focusParent.code} {focusParent.name}
             </Typography>
-            <Button size="small" variant="text" onClick={() => selectZone(null)}>
-              Back to All Zones
-            </Button>
           </>
         ) : null}
       </Stack>
 
       <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", rowGap: 1 }}>
-        {focusParent ? (
-          focusChildren.map((z) => (
-            <Chip
-              key={z.id}
-              label={z.code}
-              clickable
-              color={selectedId === z.id ? "primary" : "default"}
-              variant={selectedId === z.id ? "filled" : "outlined"}
-              onClick={() => setSelectedId(z.id)}
-            />
-          ))
-        ) : (
-          overviewParents.map((z) => (
-            <Chip
-              key={z.id}
-              label={z.code}
-              clickable
-              color={selectedId === z.id ? "primary" : "default"}
-              variant={selectedId === z.id ? "filled" : "outlined"}
-              onClick={() => selectZone(z.id)}
-            />
-          ))
-        )}
+        <Chip
+          label="All Zones"
+          clickable
+          color={!focusParentId ? "primary" : "default"}
+          variant={!focusParentId ? "filled" : "outlined"}
+          onClick={backToOverview}
+          aria-label="Show all top-level zones"
+        />
+        {overviewParents.map((z) => (
+          <Chip
+            key={z.id}
+            label={`${z.code} ${z.name}`}
+            clickable
+            color={focusParentId === z.id ? "primary" : "default"}
+            variant={focusParentId === z.id ? "filled" : "outlined"}
+            onClick={() => navigateToParent(z.id)}
+            aria-label={`Focus zone ${z.code} ${z.name}`}
+          />
+        ))}
       </Stack>
 
-      <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
+      {focusParent ? (
+        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", rowGap: 1 }}>
+          {focusChildren.map((z) => {
+            const mapped = serverAreas.some((a) => a.zone.id === z.id);
+            const state = stateOf(z.id);
+            return (
+              <Chip
+                key={z.id}
+                label={z.code}
+                clickable
+                title={`${z.name}${mapped ? "" : " — unmapped"}`}
+                aria-label={`Zone ${z.code} ${z.name}, ${state}${mapped ? "" : ", unmapped"}`}
+                color={selectedId === z.id ? "primary" : "default"}
+                variant={selectedId === z.id ? "filled" : "outlined"}
+                onClick={() => setSelectedId(z.id)}
+              />
+            );
+          })}
+        </Stack>
+      ) : null}
+
+      <Stack direction="row" spacing={2} sx={{ mb: 1.5, flexWrap: "wrap", rowGap: 1 }}>
         {(
           [
-            ["Blocked", "#DC2626"],
-            ["Attention", "#F59E0B"],
-            ["Active", "#2787FF"],
-            ["Completed", "#16A34A"],
-            ["No activity", "#98A2B3"],
+            ["Blocked", theme.palette.error.main],
+            ["Attention", theme.palette.warning.main],
+            ["Active", theme.palette.info.main],
+            ["Completed", theme.palette.success.main],
+            ["No activity", theme.palette.text.disabled],
           ] as const
         ).map(([label, color]) => (
           <Stack key={label} direction="row" spacing={0.75} alignItems="center">
@@ -411,8 +501,8 @@ export function SitePlanView() {
           <Box sx={{ height: { xs: 380, md: 520 }, borderRadius: 2, overflow: "hidden" }}>
             <SitePlanCanvas
               backgroundUrl={backgroundUrl}
-              mapW={SITE_MAP_W}
-              mapH={SITE_MAP_H}
+              mapW={mapW}
+              mapH={mapH}
               areas={renderedAreas}
               selectedKey={activeKey}
               editMode={false}
@@ -423,8 +513,8 @@ export function SitePlanView() {
               containerRef={viewport.containerRef}
               stageRef={viewport.stageRef}
               size={viewport.size}
-              onWheelNative={(e) => viewport.onWheelNative(e)}
-              onStageClick={() => selectZone(null)}
+              onStageClick={() => setSelectedId(null)}
+              onStageDrag={viewport.onStageDrag}
               onAreaClick={(key) => {
                 const area = serverAreas.find((a) => a.id === key);
                 if (area) selectZone(area.zone.id);
@@ -433,49 +523,11 @@ export function SitePlanView() {
               onVertexDown={() => {}}
               onVertexUp={() => {}}
               onVertexClick={() => {}}
-              onImageLoad={() => viewport.fitAll()}
+              onImageLoad={onImageLoad}
+              onImageError={onImageError}
             />
           </Box>
-          <Stack direction="row" spacing={1} sx={{ position: "absolute", left: 32, bottom: 32 }}>
-            <Button
-              variant="outlined"
-              color="inherit"
-              onClick={() => viewport.zoomBy(1.25)}
-              aria-label="Zoom in"
-              sx={{ minWidth: 40, bgcolor: "background.paper" }}
-            >
-              <ZoomInOutlinedIcon fontSize="small" />
-            </Button>
-            <Button
-              variant="outlined"
-              color="inherit"
-              onClick={() => viewport.zoomBy(0.8)}
-              aria-label="Zoom out"
-              sx={{ minWidth: 40, bgcolor: "background.paper" }}
-            >
-              <ZoomOutOutlinedIcon fontSize="small" />
-            </Button>
-            <Button
-              variant="outlined"
-              color="inherit"
-              onClick={() => viewport.fitAll()}
-              aria-label="Fit map"
-              sx={{ minWidth: 40, bgcolor: "background.paper" }}
-            >
-              <FitScreenOutlinedIcon fontSize="small" />
-            </Button>
-            {selectedZone ? (
-              <Button
-                variant="outlined"
-                color="inherit"
-                onClick={fitSelected}
-                aria-label="Fit selected zone"
-                sx={{ bgcolor: "background.paper" }}
-              >
-                Fit zone
-              </Button>
-            ) : null}
-          </Stack>
+          <SitePlanViewportControls viewport={viewport} onFitSelected={selectedZone ? fitSelected : undefined} />
           {activitiesQuery.isFetching ? <LinearProgress sx={{ mt: 1 }} aria-label="Refreshing activities" /> : null}
         </CardContent>
       </Card>
@@ -483,8 +535,8 @@ export function SitePlanView() {
       <ZoneDrawer
         zone={selectedZone}
         date={date}
-        activities={selectedId ? (byZone.get(selectedId) ?? []) : []}
-        onClose={() => selectZone(null)}
+        activities={selectedId ? activitiesForZone(selectedId) : []}
+        onClose={() => setSelectedId(null)}
         onAdd={() => setDialogOpen(true)}
       />
 

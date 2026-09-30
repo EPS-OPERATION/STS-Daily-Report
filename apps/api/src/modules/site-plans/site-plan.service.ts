@@ -1,19 +1,17 @@
 import { getDb } from "@/db/client.js";
 import { getProjectById } from "@/modules/projects/project.repository.js";
 import { getZoneById } from "@/modules/zones/zone.repository.js";
+import { getStorage } from "@/shared/storage/index.js";
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { parseGeometry } from "./site-plan.geometry.js";
 import {
   createArea,
-  deleteArea,
-  findAreaByPlanAndZone,
-  getAreaById,
+  deleteAreas,
   getDefaultSitePlan,
   getSitePlanById,
   listAreasForPlan,
-  reassignAreaZone,
-  resetAreaToDefault,
-  updateAreaGeometry,
+  listSitePlans,
+  updateAreaConfig,
 } from "./site-plan.repository.js";
 import type { PolygonGeometry } from "./site-plan.type.js";
 
@@ -21,131 +19,114 @@ function sameGeometry(a: unknown, b: unknown): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 
-async function assertPlanZone(planId: string, zoneId: string) {
+export async function listProjectSitePlansService(projectId: string) {
   const db = getDb();
-  const plan = await getSitePlanById(db, planId);
-  if (!plan) throw new NotFoundError("Site plan not found", { sitePlanId: planId });
-  const zone = await getZoneById(db, zoneId);
-  if (!zone) throw new NotFoundError("Zone not found", { zoneId });
-  if (zone.projectId !== plan.projectId) {
-    throw new ValidationError("Zone does not belong to the plan project", { zoneId, sitePlanId: planId });
-  }
-  return { plan, zone };
+  if (!(await getProjectById(db, projectId))) throw new NotFoundError("Project not found", { projectId });
+  return listSitePlans(db, projectId);
 }
 
-export async function getProjectSitePlanService(projectId: string) {
-  const project = await getProjectById(getDb(), projectId);
+export async function getProjectSitePlanService(projectId: string, sitePlanId?: string) {
+  const db = getDb();
+  const project = await getProjectById(db, projectId);
   if (!project) throw new NotFoundError("Project not found", { projectId });
-  const plan = await getDefaultSitePlan(getDb(), projectId);
-  if (!plan) throw new NotFoundError("No site plan for this project", { projectId });
-  const areas = await listAreasForPlan(getDb(), plan.id);
+  const plan = sitePlanId ? await getSitePlanById(db, sitePlanId) : await getDefaultSitePlan(db, projectId);
+  if (!plan || plan.projectId !== projectId) throw new NotFoundError("No site plan for this project", { projectId });
+  if (
+    plan.backgroundObjectKey &&
+    (!plan.originalWidth || !plan.originalHeight || plan.originalWidth < 1 || plan.originalHeight < 1)
+  ) {
+    throw new ValidationError("Site plan background dimensions must be set before using object storage", {
+      sitePlanId: plan.id,
+    });
+  }
+  const areas = await listAreasForPlan(db, plan.id);
   return {
     id: plan.id,
     projectId: plan.projectId,
     name: plan.name,
-    background: { objectKey: plan.backgroundObjectKey, url: null as string | null },
+    background: {
+      objectKey: plan.backgroundObjectKey,
+      url: plan.backgroundObjectKey ? await getStorage().getPresignedUrl(plan.backgroundObjectKey, 900) : null,
+      width: plan.originalWidth,
+      height: plan.originalHeight,
+    },
     areas: areas.map((a) => ({
       id: a.id,
       zone: a.zone,
       geometry: a.geometry,
+      defaultGeometry: a.defaultGeometry,
       isCustom: a.defaultGeometry != null && !sameGeometry(a.geometry, a.defaultGeometry),
     })),
   };
 }
 
-export async function createAreaService(sitePlanId: string, zoneId: string, geometry: unknown) {
-  await assertPlanZone(sitePlanId, zoneId);
-  const parsed = parseGeometry(geometry);
-  const existing = await findAreaByPlanAndZone(getDb(), sitePlanId, zoneId);
-  if (existing) throw new ConflictError("Zone already has a mapped area on this plan", { zoneId, sitePlanId });
-  return createArea(getDb(), sitePlanId, zoneId, parsed);
-}
-
-export interface AreaPatch {
-  zoneId?: string;
-  geometry?: unknown;
-}
-
-export async function updateAreaService(areaId: string, patch: AreaPatch) {
-  const db = getDb();
-  const area = await getAreaById(db, areaId);
-  if (!area) throw new NotFoundError("Map area not found", { areaId });
-  if (patch.zoneId !== undefined && patch.zoneId !== area.zoneId) {
-    const plan = await getSitePlanById(db, area.sitePlanId);
-    const zone = await getZoneById(db, patch.zoneId);
-    if (!zone) throw new NotFoundError("Zone not found", { zoneId: patch.zoneId });
-    if (!plan || zone.projectId !== plan.projectId) {
-      throw new ValidationError("Zone does not belong to the plan project", { zoneId: patch.zoneId });
-    }
-    const clash = await findAreaByPlanAndZone(db, area.sitePlanId, patch.zoneId);
-    if (clash && clash.id !== areaId) {
-      throw new ConflictError("Zone already has a mapped area on this plan", { zoneId: patch.zoneId });
-    }
-    await reassignAreaZone(db, areaId, patch.zoneId);
-  }
-  if (patch.geometry !== undefined) {
-    await updateAreaGeometry(db, areaId, parseGeometry(patch.geometry));
-  }
-  const updated = await getAreaById(db, areaId);
-  if (!updated) throw new NotFoundError("Map area not found", { areaId });
-  return updated;
-}
-
-export async function deleteAreaService(areaId: string) {
-  // Removes the geometry assignment only — zones, activities and
-  // contractors are untouched.
-  const ok = await deleteArea(getDb(), areaId);
-  if (!ok) throw new NotFoundError("Map area not found", { areaId });
-}
-
-export async function resetAreaService(areaId: string) {
-  const reset = await resetAreaToDefault(getDb(), areaId);
-  if (!reset) throw new NotFoundError("Map area not found or has no default geometry", { areaId });
-  return reset;
-}
-
 export interface BulkAreaInput {
+  areaId?: string;
   zoneId: string;
   geometry: unknown;
 }
 
-// Atomic save: every entry valid -> all applied; one invalid -> nothing saved.
-export async function bulkSaveAreasService(sitePlanId: string, entries: BulkAreaInput[]) {
+// One transaction applies drafts, new mappings, and deletions as a unit.
+export async function saveMapAreasService(sitePlanId: string, entries: BulkAreaInput[], deleteAreaIds: string[]) {
   const db = getDb();
   const plan = await getSitePlanById(db, sitePlanId);
   if (!plan) throw new NotFoundError("Site plan not found", { sitePlanId });
-  const parsed: { zoneId: string; geometry: PolygonGeometry }[] = [];
-  for (const e of entries) {
-    const zone = await getZoneById(db, e.zoneId);
-    if (!zone) throw new NotFoundError("Zone not found", { zoneId: e.zoneId });
-    if (zone.projectId !== plan.projectId) {
-      throw new ValidationError("Zone does not belong to the plan project", { zoneId: e.zoneId });
-    }
-    parsed.push({ zoneId: e.zoneId, geometry: parseGeometry(e.geometry) });
+  const existing = await listAreasForPlan(db, sitePlanId);
+  const existingById = new Map(existing.map((area) => [area.id, area]));
+  const deleted = new Set(deleteAreaIds);
+  if (deleted.size !== deleteAreaIds.length) throw new ValidationError("Duplicate map area deletion");
+  for (const areaId of deleted) {
+    if (!existingById.has(areaId)) throw new NotFoundError("Map area not found", { areaId });
   }
+
+  const parsed: { areaId?: string; zoneId: string; geometry: PolygonGeometry }[] = [];
+  const updatedIds = new Set<string>();
+  const areaByZoneId = new Map(existing.map((area) => [area.zone.id, area]));
+  for (const entry of entries) {
+    const current = entry.areaId ? existingById.get(entry.areaId) : undefined;
+    if (entry.areaId && !current) throw new NotFoundError("Map area not found", { areaId: entry.areaId });
+    if (entry.areaId && (deleted.has(entry.areaId) || updatedIds.has(entry.areaId))) {
+      throw new ValidationError("Map area appears more than once", { areaId: entry.areaId });
+    }
+    if (entry.areaId) updatedIds.add(entry.areaId);
+
+    const zone = await getZoneById(db, entry.zoneId);
+    if (!zone) throw new NotFoundError("Zone not found", { zoneId: entry.zoneId });
+    if (zone.projectId !== plan.projectId) {
+      throw new ValidationError("Zone does not belong to the plan project", { zoneId: entry.zoneId });
+    }
+    const currentOwner = areaByZoneId.get(entry.zoneId);
+    if (currentOwner && currentOwner.id !== entry.areaId && !deleted.has(currentOwner.id)) {
+      throw new ConflictError("Zone already has a mapped area on this plan", { zoneId: entry.zoneId });
+    }
+    parsed.push({ areaId: entry.areaId, zoneId: entry.zoneId, geometry: parseGeometry(entry.geometry) });
+  }
+
+  const finalZoneIds = new Set<string>();
+  const submittedByAreaId = new Map<string, (typeof parsed)[number]>();
+  for (const area of parsed) {
+    if (area.areaId) submittedByAreaId.set(area.areaId, area);
+  }
+  for (const area of existing) {
+    if (deleted.has(area.id)) continue;
+    const submitted = submittedByAreaId.get(area.id);
+    const zoneId = submitted?.zoneId ?? area.zone.id;
+    if (finalZoneIds.has(zoneId)) throw new ConflictError("Zone already has a mapped area on this plan", { zoneId });
+    finalZoneIds.add(zoneId);
+  }
+  for (const area of parsed.filter((entry) => !entry.areaId)) {
+    if (finalZoneIds.has(area.zoneId)) {
+      throw new ConflictError("Zone already has a mapped area on this plan", { zoneId: area.zoneId });
+    }
+    finalZoneIds.add(area.zoneId);
+  }
+
   await db.transaction(async (tx) => {
-    for (const p of parsed) {
-      const existing = await findAreaByPlanAndZone(tx as never, sitePlanId, p.zoneId);
-      if (existing) {
-        await updateAreaGeometry(tx as never, existing.id, p.geometry);
-      } else {
-        await createArea(tx as never, sitePlanId, p.zoneId, p.geometry);
-      }
+    await deleteAreas(tx as never, [...deleted]);
+    for (const area of parsed) {
+      if (area.areaId) await updateAreaConfig(tx as never, area.areaId, area.zoneId, area.geometry);
+      else await createArea(tx as never, sitePlanId, area.zoneId, area.geometry);
     }
   });
   return listAreasForPlan(getDb(), sitePlanId);
-}
-
-// Legacy admin upsert by (plan, zone); prefer area-id endpoints for edits.
-export async function putZoneGeometryService(sitePlanId: string, zoneId: string, geometry: unknown) {
-  await assertPlanZone(sitePlanId, zoneId);
-  const parsed = parseGeometry(geometry);
-  const db = getDb();
-  const existing = await findAreaByPlanAndZone(db, sitePlanId, zoneId);
-  if (existing) {
-    const updated = await updateAreaGeometry(db, existing.id, parsed);
-    if (!updated) throw new NotFoundError("Map area not found", { sitePlanId, zoneId });
-    return updated;
-  }
-  return createArea(db, sitePlanId, zoneId, parsed);
 }

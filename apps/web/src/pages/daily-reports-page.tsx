@@ -167,7 +167,12 @@ export function DailyReportsPage() {
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
-              <TextField label="Search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <TextField
+                label="Search"
+                placeholder="Search…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </Grid>
           </Grid>
         </CardContent>
@@ -183,8 +188,8 @@ export function DailyReportsPage() {
         />
       </Box>
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-        Showing {rows.length} of {DAILY_REPORTS.length} mock reports. Grid is structured for server-side
-        pagination, sorting and filtering when the backend module lands.
+        Showing {rows.length} of {DAILY_REPORTS.length} mock reports. Grid is structured for server-side pagination,
+        sorting and filtering when the backend module lands.
       </Typography>
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
@@ -207,8 +212,8 @@ export function DailyReportsPage() {
                 {activeRow.contractor} · {activeRow.zone}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {activeRow.date} · {activeRow.manpower} workers · {activeRow.qaqc} QAQC items ·{" "}
-                {activeRow.progress}% progress
+                {activeRow.date} · {activeRow.manpower} workers · {activeRow.qaqc} QAQC items · {activeRow.progress}%
+                progress
               </Typography>
               <StatusChip status={activeRow.status} />
             </Stack>

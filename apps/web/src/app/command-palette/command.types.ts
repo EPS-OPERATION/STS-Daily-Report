@@ -1,12 +1,7 @@
 import type { SvgIconProps } from "@mui/material/SvgIcon";
 import type { ComponentType } from "react";
 
-export type CommandGroup =
-  | "recent"
-  | "navigate"
-  | "actions"
-  | "contractors"
-  | "zones";
+export type CommandGroup = "recent" | "navigate" | "actions" | "contractors" | "zones";
 
 export const GROUP_LABELS: Record<CommandGroup, string> = {
   recent: "Recent",

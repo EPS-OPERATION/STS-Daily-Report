@@ -1,12 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getDb } from "@/db/client.js";
 import { getEnv } from "@/config/env.js";
-import {
-  findSessionByTokenHash,
-  insertSession,
-  revokeSessionByTokenHash,
-  touchSession,
-} from "./session.repository.js";
+import { findSessionByTokenHash, insertSession, revokeSessionByTokenHash, touchSession } from "./session.repository.js";
 
 export function generateSessionToken(): string {
   // 256 bits of secure randomness, base64url-encoded for cookies.

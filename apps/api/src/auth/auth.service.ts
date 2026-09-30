@@ -16,9 +16,7 @@ async function buildContext(userId: string): Promise<AuthContext> {
   };
 }
 
-export async function loginWithEmail(
-  email: string,
-): Promise<{ context: AuthContext; token: string; expiresAt: Date }> {
+export async function loginWithEmail(email: string): Promise<{ context: AuthContext; token: string; expiresAt: Date }> {
   const user = await findUserByEmail(getDb(), email);
   if (!user || user.status !== "active") throw new InvalidLoginError();
   const { token, expiresAt } = await createSession(user.id);

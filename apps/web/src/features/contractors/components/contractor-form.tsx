@@ -36,8 +36,18 @@ export function ContractorDialog({ open, onClose }: { open: boolean; onClose: ()
               {mutation.error instanceof Error ? mutation.error.message : "Failed to create contractor"}
             </Alert>
           )}
-          <TextField label="Code" {...register("code")} error={Boolean(errors.code)} helperText={errors.code?.message} />
-          <TextField label="Name" {...register("name")} error={Boolean(errors.name)} helperText={errors.name?.message} />
+          <TextField
+            label="Code"
+            {...register("code")}
+            error={Boolean(errors.code)}
+            helperText={errors.code?.message}
+          />
+          <TextField
+            label="Name"
+            {...register("name")}
+            error={Boolean(errors.name)}
+            helperText={errors.name?.message}
+          />
         </Stack>
       </DialogContent>
       <DialogActions>

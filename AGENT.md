@@ -3,17 +3,18 @@
 > Living document: ถ้ามีการ update อะไรก็ตามใน repo นี้ (code, config, schema, script, docs, โครงสร้าง,
 > คำสั่ง build/test/deploy) ต้อง update ไฟล์นี้ให้ตรงของจริงใน commit เดียวกัน ห้ามปล่อยล้าสมัย
 
-## สถานะปัจจุบัน (2026-09-28, branch `dev`)
+## สถานะปัจจุบัน (2026-09-30, branch `dev`)
 
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
-- Schema: `projects`, `contractors`, `project_contractors` (m2m) + migration `0000_*` + seed (1 project, 2 contractors)
+- Schema: projects/contractors/auth + zones/site_plans/zone_map_areas/site_activities; seed 1 project, 3 contractors, 21 zones, 13 stored map areas
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
   Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/` dashboard, `/site-plan` (SVG schematic + drawer), `/daily-reports` (DataGrid mock),
+- Screens: `/site-plan` is Site Activity (Konva, DB activities); `/site-plan/config` is separate Zone Configuration; `/daily-reports` (DataGrid mock),
   `/tomorrow`, `/field` + `/evening-report` (mobile-first), `/contractors` (real API); mock ที่ `src/mock/site-data.ts`
-- ยังไม่มี: auth, tests, lint config, CI, domains อื่น (ดู README §12/13)
+- Auth protects project/site-plan/zone/activity/contractor APIs; `bun test` runs Bun-native regression tests.
+- Quality tooling: root ESLint Flat Config + Prettier; `bun run check` runs lint, format:check, and typecheck. CI and other domains are not yet configured.
 
 ## กฎการ update ไฟล์นี้ (บังคับ)
 
@@ -31,7 +32,8 @@
 
 ## คำสั่งจริง (source: root `package.json#scripts`)
 
-- `bun dev | dev:web | dev:api`, `bun build | build:web | build:api`, `bun typecheck` (ทุก workspace)
+- `bun dev | bun run dev:web | bun run dev:api`, `bun run build | bun run build:web | bun run build:api`, `bun typecheck`, `bun test`
+- Quality commands: `bun run lint`, `bun run lint:fix`, `bun run format`, `bun run format:check`, `bun run check`
 - `bun db:generate | db:migrate | db:push | db:studio | db:seed` (ผ่าน `apps/api`)
 - `bun docker:up | docker:down | docker:logs`
 - Setup: `cp .env.example .env && bun install && bun docker:up && bun db:migrate && bun db:seed && bun dev`
@@ -46,21 +48,22 @@
 ## Pitfalls (เจอจริง)
 
 - `minio/minio:latest` โดนถอดจาก Docker Hub → pin `RELEASE.2025-04-22T22-12-26Z` ใน compose
-- `bun --filter` ออกจาก root; Bun โหลด root `.env` อัตโนมัติ (env จริง override ไฟล์)
+- Run `bun --filter` from root; filtered workspaces need explicit `--env-file=.env` to receive the root `.env`.
+- `apps/web` is already a workspace; adding `sts-web: ./apps/web` to root dependencies duplicates its lockfile key and breaks frozen installs.
 - compose merge `ports` แบบ additive — ไฟล์ override นอก repo ต้องใช้ `ports: !override`
 - localhost ชนโปรเจกต์อื่นได้ (เคยเจอ 3000/5432/9000 ถูกใช้) — verify ด้วย project/ports สำรองนอก repo
 - `errorPlugin` ต้องเช็ค `instanceof AppError` ก่อน Elysia validation branch (ไม่งั้น 409 กลายเป็น 400)
 - MUI v7: type ชื่อ `TypographyVariantsOptions` (ไม่มี `TypographyOptions`); web ห้าม project-reference ไป api
 - DataGrid theme override ต้อง `import type {} from "@mui/x-data-grid/themeAugmentation"` ไม่งั้น key `MuiDataGrid` ไม่รู้จัก
 - MUI v7 Grid ใช้ prop `size={{ xs: 12, md: 6 }}` (ไม่ใช่ `item xs={}`); custom variant `metric` อยู่ใน `theme/augmentation.ts`
-- Site plan ใช้ schematic SVG (ไม่มี satellite asset); zone 1 อันมีได้หลาย contractor — สีสื่อ state ของ zone เท่านั้น
+- Site Activity uses Konva on `master-layout-map.png`; mapped polygons only, 0..1 geometry, parent overview rolls up descendant activity status.
 - DataGrid ล็อก layout ผ่าน theme default (`disableColumnMenu/Resize`); reorder ถูกล็อกในตัว DataGrid อยู่แล้ว
   ตั้งผ่าน props/theme ไม่ได้ (forced prop) — sorting ด้วย click header ยังใช้ได้
 - Icons: Outlined ทั้งระบบ (ArrowBack/Forward/MoreVert/Horiz เท่านั้นที่คง filled), registry ที่
   `app/icons/navigation-icons.ts` (sidebar ใช้ key แทน import ตรง), status icons รวมที่ StatusChip
   (Submitted=SendOutlined, Pending=ScheduleOutlined, Rejected=CancelOutlined), QAQC ทุกที่=FactCheckOutlined
-- Command palette (`app/command-palette/`): Dialog + registry กลาง (navigate/actions/contractors/zones),
-  เปิดด้วย Ctrl/Cmd+K หรือปุ่ม search ใน topbar; static commands ตอนนี้, async ต่อที่ registry ทีหลัง;
+- Command palette (`app/command-palette/`): Dialog + registry กลาง (navigate/actions/contractors),
+  เปิดด้วย Ctrl/Cmd+K หรือปุ่ม search ใน topbar; ไม่มี mock zone/activity commands;
   ห้ามใส่ destructive commands; recents เก็บ in-memory
 - Scrollbar กลางที่เดียว (`theme/components.ts` → MuiCssBaseline): 8px, track โปร่ง, thumb จาก grey[400]/hover grey[500],
   sidebar navy ใช้ translucent white class `sts-navy-scroll`; Firefox + WebKit, touch ไม่แตะ
@@ -71,15 +74,14 @@
 - Auth phase 1 (dev-only): boundary AuthIdentity (session→user→memberships); ตาราง users/contractor_memberships/sessions
   (token_hash เท่านั้น); routes POST /auth/login, GET /auth/me, POST /auth/logout; cookie sts_session HttpOnly;
   guard requireAuth; ห้าม local-email ใน production (startup fail); seed login: contractor@sts.local (ไม่มีรหัสผ่าน)
-- Site-plan vertical (real DB): ตาราง zones/site_plans/zone_map_areas/site_activities (geometry normalized 0..1 JSONB);
-  modules zones/site-activities/site-plans/projects; writes กันด้วย requireAuth; reads เปิด; seed 21 zones/1 plan/6 areas;
-  frontend features/site-plan + features/projects (ProjectProvider); background drawing รอไฟล์ master-layout.jpg
-- Konva map (konva+react-konva ใน apps/web): base master-layout-map.png (1586x992) + SVG→Konva polygons;
-  edit mode (vertex drag/add-del point/draw new/assign/reset/delete/bulk save/dirty-confirm); default_geometry
-  สำหรับ reset; mobile ดูได้อย่างเดียว; geometry ใน React ไม่มี (PostgreSQL เท่านั้น)
-- Site Plan แยก 2 จอ: /site-plan (operation: filters/map/drawer/Add Activity, parents overview → children เมื่อ focus,
-  idle โปร่งแสง, label เฉพาะ code) vs /site-plan/config (admin: canvas + panel, bulk/PATCH/POST/DELETE/reset);
-  seed geometry แมปจริงจากภาพ (16 areas, 5 zones unmapped โดยตั้งใจ ไม่มี subdivision)
-- Drill-down: overview parents อย่างเดียว → กด parent animate focus (ease-out ~280ms) + render children (+outline จาง),
-  breadcrumb All Zones / parent + Back, parent status รวม activities ลูกหลาน
+- Site-plan API uses `requireAuth` for reads and writes. Configuration uses one transactional
+  `PUT /site-plans/:id/areas`; Site Activity consumes saved geometry and activities from PostgreSQL.
+- Seed geometry: 13 mapped areas and 8 unmapped zones. `6.2`, `6.3`, and `6.5` stay unmapped until reviewed in Zone Configuration.
+- Konva map (konva+react-konva ใน apps/web): base master-layout-map.png (1586x992) + polygons;
+  vertex/draw/reassign/reset/delete edits stay local until atomic Save; default_geometry is the reset target;
+  normalized saved geometry is PostgreSQL state, viewport and draft coordinates are UI state.
+- Site Activity is `/site-plan`; Zone Configuration is `/site-plan/config` under Administration.
+  Draft edits, reassignment, create, reset, and delete save atomically; cancel/project/plan/navigation changes confirm dirty drafts.
+- Drill-down: overview renders parent polygons only; WBS buttons keep All Zones + every parent visible.
+  Focus reveals immediate children (unmapped children remain labeled); parent status rolls up descendants.
 - `packages/env` ต้องมี `@types/bun` ไม่งั้น `process` typecheck ไม่ผ่าน

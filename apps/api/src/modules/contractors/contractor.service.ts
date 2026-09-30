@@ -34,7 +34,8 @@ export async function updateContractorService(id: string, input: UpdateContracto
   if (!current) throw new NotFoundError("Contractor not found", { id });
   if (input.code !== undefined && input.code.trim() !== current.code) {
     const clash = await getContractorByCode(db, input.code.trim());
-    if (clash && clash.id !== id) throw new ConflictError(`Contractor code already exists: ${input.code}`, { code: input.code });
+    if (clash && clash.id !== id)
+      throw new ConflictError(`Contractor code already exists: ${input.code}`, { code: input.code });
   }
   const updated = await updateContractor(db, id, input);
   if (!updated) throw new NotFoundError("Contractor not found", { id });

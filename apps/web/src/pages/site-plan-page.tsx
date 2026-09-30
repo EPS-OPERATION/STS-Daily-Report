@@ -5,10 +5,7 @@ import { SitePlanView } from "@/features/site-plan/components/site-plan-view.js"
 export function SitePlanPage() {
   return (
     <Box>
-      <PageHeader
-        title="Site Plan"
-        subtitle="Monitor contractor activity across project zones"
-      />
+      <PageHeader title="Site Activity" subtitle="Monitor contractor activity across project zones" />
       <SitePlanView />
     </Box>
   );

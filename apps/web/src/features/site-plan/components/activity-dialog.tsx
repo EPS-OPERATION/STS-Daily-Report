@@ -15,6 +15,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { Controller, useForm } from "react-hook-form";
+import { useEffect } from "react";
 import { useProjectContractors } from "@/features/projects/hooks/use-projects.js";
 import { useCreateSiteActivity } from "../hooks/use-create-site-activity.js";
 import { siteActivityFormSchema, type SiteActivityFormValues } from "../schemas/site-activity.schema.js";
@@ -39,6 +40,7 @@ export function ActivityDialog({
   defaultDate: string;
 }) {
   const mutation = useCreateSiteActivity(projectId);
+  const { reset: resetMutation } = mutation;
   const contractorsQuery = useProjectContractors(projectId);
 
   const {
@@ -62,6 +64,23 @@ export function ActivityDialog({
       endTime: "",
     },
   });
+
+  useEffect(() => {
+    if (!open) return;
+    resetMutation();
+    reset({
+      workDate: defaultDate,
+      zoneId: defaultZoneId ?? "",
+      contractorId: "",
+      title: "",
+      description: "",
+      status: "active",
+      manpower: 0,
+      progressPercent: 0,
+      startTime: "",
+      endTime: "",
+    });
+  }, [open, defaultDate, defaultZoneId, resetMutation, reset]);
 
   const onSubmit = handleSubmit(async (values) => {
     await mutation.mutateAsync({

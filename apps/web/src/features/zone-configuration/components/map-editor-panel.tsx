@@ -12,41 +12,40 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
-import type { useSitePlanEditor } from "../hooks/use-site-plan-editor.js";
-import type { ZoneOption } from "../types/site-plan.types.js";
+import type { useSitePlanEditor } from "../hooks/use-zone-configuration-editor.js";
+import type { ZoneOption } from "@/features/site-plan/types/site-plan.types.js";
 
 type Editor = ReturnType<typeof useSitePlanEditor>;
 
-// Right-side configuration panel for Edit Map. Geometry drafts stay local
-// until Save; zone assignment, reset and delete call their own endpoints.
+// Right-side configuration panel. Geometry drafts stay local until Save.
 export function MapEditorPanel({
   editor,
   zones,
   mappedZoneIds,
   customAreaIds,
+  defaultAreaIds,
   onSave,
   saving,
   onCancel,
   addPointMode,
   onAddPointModeChange,
   onDeleteArea,
-  deleting,
   onResetArea,
-  resetting,
+  saveError,
 }: {
   editor: Editor;
   zones: ZoneOption[];
   mappedZoneIds: Set<string>;
   customAreaIds: Set<string>;
+  defaultAreaIds: Set<string>;
   onSave: () => void;
   saving: boolean;
   onCancel: () => void;
   addPointMode: boolean;
   onAddPointModeChange: (v: boolean) => void;
-  onDeleteArea: (areaId: string) => void;
-  deleting: boolean;
-  onResetArea: (areaId: string) => void;
-  resetting: boolean;
+  onDeleteArea: (key: string) => void;
+  onResetArea: (key: string) => void;
+  saveError: string | null;
 }) {
   const [drawZoneId, setDrawZoneId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -59,15 +58,16 @@ export function MapEditorPanel({
   return (
     <Stack spacing={2.5}>
       <Stack spacing={0.5}>
-        <Typography variant="h4">Zone Configuration</Typography>
         {editor.dirty ? (
           <Chip size="small" label="Unsaved changes" color="warning" sx={{ alignSelf: "flex-start" }} />
         ) : (
           <Typography variant="caption" color="text.secondary">
-            Select a polygon to configure it.
+            Select a polygon to edit its geometry or WBS assignment.
           </Typography>
         )}
       </Stack>
+
+      {saveError ? <Alert severity="error">{saveError}</Alert> : null}
 
       <Typography variant="body2" color="text.secondary">
         Mapped {mappedZoneIds.size} · Unmapped {unmapped.length}
@@ -77,7 +77,8 @@ export function MapEditorPanel({
         <Stack spacing={2}>
           <Autocomplete
             size="small"
-            options={zones}
+            options={zones.filter((z) => !mappedZoneIds.has(z.id) || z.id === selected.zoneId)}
+            disabled={saving}
             getOptionLabel={(z) => `${z.code} — ${z.name}`}
             value={selectedZone}
             onChange={(_, v) => {
@@ -96,6 +97,7 @@ export function MapEditorPanel({
               variant={addPointMode ? "contained" : "outlined"}
               color="inherit"
               onClick={() => onAddPointModeChange(!addPointMode)}
+              disabled={saving}
             >
               {addPointMode ? "Adding… click edge" : "Add point"}
             </Button>
@@ -103,7 +105,7 @@ export function MapEditorPanel({
               size="small"
               variant="outlined"
               color="inherit"
-              disabled={editor.selectedVertex == null}
+              disabled={editor.selectedVertex == null || saving}
               onClick={() => {
                 if (editor.selectedVertex != null && editor.deleteVertex(selected.key, editor.selectedVertex)) {
                   editor.selectVertex(null);
@@ -123,8 +125,8 @@ export function MapEditorPanel({
               size="small"
               variant="outlined"
               color="inherit"
-              disabled={selected.isNew || resetting}
-              onClick={() => selected.areaId && onResetArea(selected.areaId)}
+              disabled={selected.isNew || !selected.areaId || !defaultAreaIds.has(selected.areaId) || saving}
+              onClick={() => onResetArea(selected.key)}
             >
               Reset to default
             </Button>
@@ -132,7 +134,7 @@ export function MapEditorPanel({
               size="small"
               variant="outlined"
               color="error"
-              disabled={selected.isNew || deleting}
+              disabled={saving}
               onClick={() => setConfirmDelete(true)}
             >
               Delete area
@@ -148,13 +150,17 @@ export function MapEditorPanel({
             (need at least 3)
           </Alert>
           <Stack direction="row" spacing={1}>
-            <Button size="small" variant="outlined" color="inherit" onClick={editor.undoDrawPoint}>
+            <Button size="small" variant="outlined" color="inherit" onClick={editor.undoDrawPoint} disabled={saving}>
               Undo point
             </Button>
-            <Button size="small" variant="outlined" color="inherit" onClick={editor.cancelDrawing}>
+            <Button size="small" variant="outlined" color="inherit" onClick={editor.cancelDrawing} disabled={saving}>
               Cancel
             </Button>
-            <Button size="small" disabled={editor.drawing.points.length < 3} onClick={() => editor.finishDrawing()}>
+            <Button
+              size="small"
+              disabled={editor.drawing.points.length < 3 || saving}
+              onClick={() => editor.finishDrawing()}
+            >
               Finish area
             </Button>
           </Stack>
@@ -165,6 +171,7 @@ export function MapEditorPanel({
           <Autocomplete
             size="small"
             options={unmapped}
+            disabled={saving}
             getOptionLabel={(z) => `${z.code} — ${z.name}`}
             value={drawZone}
             onChange={(_, v) => setDrawZoneId(v?.id ?? null)}
@@ -173,8 +180,11 @@ export function MapEditorPanel({
           <Button
             variant="outlined"
             startIcon={<AddOutlinedIcon fontSize="small" />}
-            disabled={!drawZone}
-            onClick={() => drawZone && editor.startDrawing(drawZone.id)}
+            disabled={!drawZone || saving}
+            onClick={() => {
+              if (drawZone) editor.startDrawing(drawZone.id);
+              onAddPointModeChange(false);
+            }}
           >
             Start drawing
           </Button>
@@ -200,10 +210,10 @@ export function MapEditorPanel({
 
       <Box sx={{ flexGrow: 1 }} />
       <Stack direction="row" spacing={1.5}>
-        <Button variant="outlined" color="inherit" fullWidth onClick={onCancel}>
+        <Button variant="outlined" color="inherit" fullWidth onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button fullWidth disabled={!editor.dirty || saving} onClick={onSave}>
+        <Button fullWidth disabled={!editor.dirty || saving || Boolean(editor.drawing)} onClick={onSave}>
           {saving ? "Saving…" : "Save Changes"}
         </Button>
       </Stack>
@@ -221,9 +231,9 @@ export function MapEditorPanel({
           </Button>
           <Button
             color="error"
-            disabled={deleting}
+            disabled={saving}
             onClick={() => {
-              if (selected?.areaId) onDeleteArea(selected.areaId);
+              if (selected) onDeleteArea(selected.key);
               setConfirmDelete(false);
             }}
           >

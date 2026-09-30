@@ -1,11 +1,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { contractors, projectContractors, siteActivities, zones } from "@/db/schema/index.js";
 import type { Db } from "@/db/client.js";
-import type {
-  CreateSiteActivityInput,
-  SiteActivityFilters,
-  UpdateSiteActivityInput,
-} from "./site-activity.type.js";
+import type { CreateSiteActivityInput, SiteActivityFilters, UpdateSiteActivityInput } from "./site-activity.type.js";
 
 export async function listActivities(db: Db, projectId: string, f: SiteActivityFilters) {
   const conditions = [eq(siteActivities.projectId, projectId)];
@@ -47,12 +43,7 @@ export async function isContractorInProject(db: Db, projectId: string, contracto
   const rows = await db
     .select({ contractorId: projectContractors.contractorId })
     .from(projectContractors)
-    .where(
-      and(
-        eq(projectContractors.projectId, projectId),
-        eq(projectContractors.contractorId, contractorId),
-      ),
-    )
+    .where(and(eq(projectContractors.projectId, projectId), eq(projectContractors.contractorId, contractorId)))
     .limit(1);
   return rows.length > 0;
 }

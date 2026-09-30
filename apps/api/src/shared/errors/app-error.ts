@@ -1,10 +1,5 @@
 export type ErrorCode =
-  | "VALIDATION_ERROR"
-  | "NOT_FOUND"
-  | "CONFLICT"
-  | "AUTH_REQUIRED"
-  | "INVALID_LOGIN"
-  | "INTERNAL_ERROR";
+  "VALIDATION_ERROR" | "NOT_FOUND" | "CONFLICT" | "AUTH_REQUIRED" | "INVALID_LOGIN" | "INTERNAL_ERROR";
 
 export class AppError extends Error {
   constructor(
@@ -64,6 +59,7 @@ export function toErrorBody(err: unknown): {
   if (err instanceof Error && err.name === "ValidationError") {
     return { status: 400, body: { error: { code: "VALIDATION_ERROR", message: err.message } } };
   }
-  const message = process.env["NODE_ENV"] === "production" ? "Internal server error" : String((err as Error)?.message ?? err);
+  const message =
+    process.env["NODE_ENV"] === "production" ? "Internal server error" : String((err as Error)?.message ?? err);
   return { status: 500, body: { error: { code: "INTERNAL_ERROR", message } } };
 }

@@ -9,11 +9,7 @@ import {
   listActivities,
   updateActivity,
 } from "./site-activity.repository.js";
-import type {
-  CreateSiteActivityInput,
-  SiteActivityFilters,
-  UpdateSiteActivityInput,
-} from "./site-activity.type.js";
+import type { CreateSiteActivityInput, SiteActivityFilters, UpdateSiteActivityInput } from "./site-activity.type.js";
 
 async function assertProjectContext(projectId: string, zoneId: string, contractorId: string) {
   const db = getDb();

@@ -34,9 +34,7 @@ export function parseApiEnv(raw: Record<string, unknown> = process.env): ApiEnv 
   // Mandatory production guard: email-only lookup is NOT real identity
   // verification and must never run in production.
   if (env.NODE_ENV === "production" && env.AUTH_PROVIDER === "local-email") {
-    throw new Error(
-      "Refusing to start: AUTH_PROVIDER=local-email is development-only and forbidden in production.",
-    );
+    throw new Error("Refusing to start: AUTH_PROVIDER=local-email is development-only and forbidden in production.");
   }
   return env;
 }

@@ -1,0 +1,8 @@
+**/node_modules/**
+**/dist/**
+**/build/**
+**/coverage/**
+**/.vite/**
+**/drizzle/**
+apps/api/src/db/migrations/meta/**
+apps/web/public/site-plan/master-layout-map.png

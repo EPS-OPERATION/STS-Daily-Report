@@ -46,7 +46,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Daily Operations",
     items: [
       { to: "/daily-reports", label: "Daily Reports", icon: "dailyReports" },
-      { to: "/site-plan", label: "Site Plan", icon: "sitePlan" },
+      { to: "/site-plan", label: "Site Activity", icon: "sitePlan" },
       { to: "/tomorrow", label: "Tomorrow Plan", icon: "tomorrow" },
     ],
   },
@@ -75,7 +75,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Administration",
     items: [
       { to: "/projects", label: "Projects", icon: "projects" },
-      { to: "/site-plan/config", label: "Zone Config", icon: "zoneConfig" },
+      { to: "/site-plan/config", label: "Zone Configuration", icon: "zoneConfig" },
       { to: "/settings", label: "Settings", icon: "settings" },
     ],
   },
@@ -103,7 +103,10 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
             STS
           </Box>
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, display: collapsed ? "none" : "block" }}>
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 700, lineHeight: 1.2, display: collapsed ? "none" : "block" }}
+            >
               STS Platform
             </Typography>
             <Typography variant="caption" sx={{ color: "#9DB4CC", display: collapsed ? "none" : "block" }}>
@@ -126,13 +129,13 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
             )}
             <List dense disablePadding sx={{ mt: 0.5 }}>
               {group.items.map((item) => {
-                  const Icon = navigationIcons[item.icon];
-                  const button = (
-                    <ListItemButton
+                const Icon = navigationIcons[item.icon];
+                const button = (
+                  <ListItemButton
                     key={item.to}
                     component={NavLink}
                     to={item.to}
-                    end={item.to === "/"}
+                    end={item.to === "/" || item.to === "/site-plan"}
                     onClick={onNavigate}
                     title={collapsed ? item.label : undefined}
                     sx={{
@@ -162,21 +165,18 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
                       <Icon fontSize="small" aria-hidden="true" />
                     </ListItemIcon>
                     {!collapsed && (
-                      <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{ fontSize: 13.5, fontWeight: 500 }}
-                      />
+                      <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 13.5, fontWeight: 500 }} />
                     )}
-                    </ListItemButton>
-                  );
-                  return collapsed ? (
-                    <Tooltip key={item.to} title={item.label} placement="right" arrow>
-                      {button}
-                    </Tooltip>
-                  ) : (
-                    button
-                  );
-                })}
+                  </ListItemButton>
+                );
+                return collapsed ? (
+                  <Tooltip key={item.to} title={item.label} placement="right" arrow>
+                    {button}
+                  </Tooltip>
+                ) : (
+                  button
+                );
+              })}
             </List>
           </Box>
         ))}
@@ -204,7 +204,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const { projectId, setProjectId, projects, loading: projectsLoading } = useCurrentProject();
+  const { projectId, requestProjectChange, projects, loading: projectsLoading } = useCurrentProject();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const desktop = useMediaQuery("(min-width:900px)");
 
@@ -262,20 +262,12 @@ export function AppLayout() {
               onClick={() => (desktop ? setCollapsed((v) => !v) : setMobileOpen(true))}
               aria-label={desktop ? (collapsed ? "Expand sidebar" : "Collapse sidebar") : "Open navigation"}
             >
-              {desktop ? (
-                collapsed ? (
-                  <ChevronRightOutlinedIcon />
-                ) : (
-                  <ChevronLeftOutlinedIcon />
-                )
-              ) : (
-                <MenuOutlinedIcon />
-              )}
+              {desktop ? collapsed ? <ChevronRightOutlinedIcon /> : <ChevronLeftOutlinedIcon /> : <MenuOutlinedIcon />}
             </IconButton>
             <FormControl size="small" sx={{ minWidth: { xs: 150, sm: 230 } }}>
               <Select
                 value={projectId ?? ""}
-                onChange={(e) => setProjectId(e.target.value)}
+                onChange={(e) => requestProjectChange(e.target.value)}
                 aria-label="Select project"
                 disabled={projectsLoading || projects.length === 0}
                 displayEmpty

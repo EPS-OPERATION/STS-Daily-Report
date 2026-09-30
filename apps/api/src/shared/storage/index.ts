@@ -6,7 +6,7 @@ export type { StorageService, UploadInput } from "./storage.service.js";
 
 let storage: StorageService | null = null;
 
-// TODO(auth): re-check bucket policies + signed-URL expiry once auth lands.
+// Callers mint short-lived read URLs only after authenticating the request.
 export function getStorage(): StorageService {
   if (!storage) storage = createMinioStorage(getEnv());
   return storage;

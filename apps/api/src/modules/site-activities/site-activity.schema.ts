@@ -4,12 +4,7 @@ export const DATE_RE = "^\\d{4}-\\d{2}-\\d{2}$";
 export const TIME_RE = "^([01]\\d|2[0-3]):[0-5]\\d$";
 
 const uuid = t.String({ format: "uuid" });
-const statusEnum = t.Union([
-  t.Literal("active"),
-  t.Literal("attention"),
-  t.Literal("blocked"),
-  t.Literal("completed"),
-]);
+const statusEnum = t.Union([t.Literal("active"), t.Literal("attention"), t.Literal("blocked"), t.Literal("completed")]);
 
 export const projectActivitiesParams = t.Object({ projectId: uuid });
 

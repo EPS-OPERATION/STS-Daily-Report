@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   clampToMap,
   mapToNormalized,
   nearestEdgeIndex,
   normalizedToMap,
   type MapPoint,
-} from "../utils/coordinates.js";
-import type { PlanArea, PolygonGeometry } from "../types/site-plan.types.js";
+} from "@/features/site-plan/utils/coordinates.js";
+import type { PlanArea, PolygonGeometry } from "@/features/site-plan/types/site-plan.types.js";
 
 export interface DraftArea {
   key: string;
@@ -41,7 +41,7 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
 
   const serverById = useMemo(() => new Map(serverAreas.map((a) => [a.id, a])), [serverAreas]);
 
-  const enterEdit = () => {
+  const enterEdit = useCallback(() => {
     setDrafts(
       serverAreas.map((a) => ({
         key: a.id,
@@ -55,15 +55,15 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
     setSelectedKey(null);
     setDrawing(null);
     setEditMode(true);
-  };
+  }, [serverAreas, mapW, mapH]);
 
-  const cancelEdit = () => {
+  const cancelEdit = useCallback(() => {
     setDrafts([]);
     setSelectedKey(null);
     setSelectedVertex(null);
     setDrawing(null);
     setEditMode(false);
-  };
+  }, []);
 
   const dirty = useMemo(() => {
     if (drawing && drawing.points.length > 0) return true;
@@ -109,19 +109,10 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
 
   const markDeleted = (key: string, deleted: boolean) => {
     setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, deleted } : d)));
-    if (deleted && selectedKey === key) setSelectedKey(null);
-  };
-
-  const removeDraft = (key: string) => {
-    setDrafts((prev) => prev.filter((d) => d.key !== key));
-    if (selectedKey === key) {
+    if (deleted && selectedKey === key) {
       setSelectedKey(null);
       setSelectedVertex(null);
     }
-  };
-
-  const applyServerGeometry = (key: string, points: MapPoint[]) => {
-    setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, points } : d)));
   };
 
   const resetDraft = (key: string) => {
@@ -135,7 +126,7 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
           ? {
               ...d,
               zoneId: server.zone.id,
-              points: server.geometry.points.map((p) => normalizedToMap(p, mapW, mapH)),
+              points: (server.defaultGeometry ?? server.geometry).points.map((p) => normalizedToMap(p, mapW, mapH)),
               deleted: false,
             }
           : d,
@@ -199,8 +190,6 @@ export function useSitePlanEditor(serverAreas: ServerArea[], mapW: number, mapH:
     addVertexAt,
     assignZone,
     markDeleted,
-    removeDraft,
-    applyServerGeometry,
     resetDraft,
     drawing,
     startDrawing,

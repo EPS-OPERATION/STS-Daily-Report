@@ -83,7 +83,12 @@ export function TomorrowPlanPage() {
           <CardContent sx={{ p: 2.5 }}>
             <Stack spacing={0}>
               {TOMORROW_PLAN.map((item, i) => (
-                <Stack key={item.title} direction="row" spacing={2.5} sx={{ position: "relative", pb: i === TOMORROW_PLAN.length - 1 ? 0 : 3 }}>
+                <Stack
+                  key={item.title}
+                  direction="row"
+                  spacing={2.5}
+                  sx={{ position: "relative", pb: i === TOMORROW_PLAN.length - 1 ? 0 : 3 }}
+                >
                   <Box sx={{ width: 52, flexShrink: 0 }}>
                     <Typography variant="body1" sx={{ fontWeight: 700 }}>
                       {item.time}

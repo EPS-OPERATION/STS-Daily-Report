@@ -30,18 +30,18 @@ export function StatusChip({ status, label }: { status: string; label?: string }
   const theme = useTheme();
   const key = status.toLowerCase() as StatusTone;
   const table: Record<StatusTone, ToneStyle> = {
-      draft: { bg: theme.palette.grey[100], fg: theme.palette.text.secondary, icon: DraftIcon },
-      submitted: { bg: theme.palette.info.light, fg: theme.palette.info.dark, icon: SendOutlinedIcon },
-      pending: { bg: theme.palette.warning.light, fg: theme.palette.warning.dark, icon: ScheduleOutlinedIcon },
-      reviewed: { bg: "#EDE9FE", fg: "#6D28D9", icon: RateReviewOutlinedIcon },
-      approved: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
-      completed: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
-      rejected: { bg: theme.palette.error.light, fg: theme.palette.error.dark, icon: CancelOutlinedIcon },
-      active: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
-      attention: { bg: theme.palette.warning.light, fg: theme.palette.warning.dark, icon: WarningAmberOutlinedIcon },
-      blocked: { bg: theme.palette.error.light, fg: theme.palette.error.dark, icon: ErrorOutlineIcon },
-      idle: { bg: theme.palette.grey[100], fg: theme.palette.text.secondary, icon: DraftIcon },
-    };
+    draft: { bg: theme.palette.grey[100], fg: theme.palette.text.secondary, icon: DraftIcon },
+    submitted: { bg: theme.palette.info.light, fg: theme.palette.info.dark, icon: SendOutlinedIcon },
+    pending: { bg: theme.palette.warning.light, fg: theme.palette.warning.dark, icon: ScheduleOutlinedIcon },
+    reviewed: { bg: "#EDE9FE", fg: "#6D28D9", icon: RateReviewOutlinedIcon },
+    approved: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
+    completed: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
+    rejected: { bg: theme.palette.error.light, fg: theme.palette.error.dark, icon: CancelOutlinedIcon },
+    active: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
+    attention: { bg: theme.palette.warning.light, fg: theme.palette.warning.dark, icon: WarningAmberOutlinedIcon },
+    blocked: { bg: theme.palette.error.light, fg: theme.palette.error.dark, icon: ErrorOutlineIcon },
+    idle: { bg: theme.palette.grey[100], fg: theme.palette.text.secondary, icon: DraftIcon },
+  };
   const entry = (table as Record<string, { bg: string; fg: string; icon: typeof SendOutlinedIcon }>)[key] ?? {
     bg: theme.palette.grey[100],
     fg: theme.palette.text.secondary,

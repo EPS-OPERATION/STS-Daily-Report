@@ -21,7 +21,13 @@ export function buildApp() {
     .use(errorPlugin)
     .get(HEALTH_PATH, () => ({ status: "ok" }))
     .group(API_PREFIX, (group) =>
-      group.use(authRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes),
+      group
+        .use(authRoutes)
+        .use(contractorRoutes)
+        .use(projectRoutes)
+        .use(zoneRoutes)
+        .use(siteActivityRoutes)
+        .use(sitePlanRoutes),
     )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;

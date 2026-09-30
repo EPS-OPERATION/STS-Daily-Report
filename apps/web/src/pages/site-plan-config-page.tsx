@@ -7,79 +7,137 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import FormControl from "@mui/material/FormControl";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import Grid from "@mui/material/Grid";
+import InputLabel from "@mui/material/InputLabel";
 import LinearProgress from "@mui/material/LinearProgress";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { alpha, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useBlocker } from "react-router-dom";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { useCurrentProject } from "@/features/projects/context/project-context.js";
-import { MapEditorPanel } from "@/features/site-plan/components/map-editor-panel.js";
+import { MapEditorPanel } from "@/features/zone-configuration/components/map-editor-panel.js";
 import { SitePlanCanvas, type CanvasArea } from "@/features/site-plan/components/site-plan-canvas.js";
+import { SitePlanViewportControls } from "@/features/site-plan/components/site-plan-viewport-controls.js";
 import {
-  useCreateMapArea,
-  useCanEditSitePlan,
-  useDeleteMapArea,
-  usePatchMapArea,
-  useResetMapArea,
+  useCanConfigureSitePlan,
   useSaveMapAreas,
-} from "@/features/site-plan/hooks/use-map-area-mutations.js";
-import { useSitePlanEditor } from "@/features/site-plan/hooks/use-site-plan-editor.js";
+} from "@/features/zone-configuration/hooks/use-map-area-mutations.js";
+import { useSitePlanEditor } from "@/features/zone-configuration/hooks/use-zone-configuration-editor.js";
 import { useSitePlanViewport } from "@/features/site-plan/hooks/use-site-plan-viewport.js";
-import { usePlanZones, useSitePlan } from "@/features/site-plan/hooks/use-site-plan.js";
-import type { PolygonGeometry } from "@/features/site-plan/types/site-plan.types.js";
-import { clampToMap, normalizedToMap } from "@/features/site-plan/utils/coordinates.js";
-import { SITE_MAP_H, SITE_MAP_W } from "@/features/site-plan/components/site-plan-view.js";
+import { usePlanZones, useSitePlan, useSitePlans } from "@/features/site-plan/hooks/use-site-plan.js";
+import { clampToMap, polygonBounds } from "@/features/site-plan/utils/coordinates.js";
+import { SITE_MAP_H, SITE_MAP_W } from "@/features/site-plan/constants.js";
 
 // Admin screen: WBS map configuration. Separate from the operational
 // Site Plan (contractor activity view) by design.
 export function SitePlanConfigPage() {
-  const { projectId } = useCurrentProject();
-  const canEdit = useCanEditSitePlan();
+  const { projectId, setProjectId, registerProjectChangeGuard } = useCurrentProject();
+  const theme = useTheme();
+  const canEdit = useCanConfigureSitePlan();
   const mobile = useMediaQuery("(max-width:599px)");
 
   const [addPointMode, setAddPointMode] = useState(false);
   const [vertexDragging, setVertexDragging] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+  const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
+  const [backgroundError, setBackgroundError] = useState(false);
 
-  const planQuery = useSitePlan(projectId);
-  const zonesQuery = usePlanZones(projectId);
-  const viewport = useSitePlanViewport(SITE_MAP_W, SITE_MAP_H);
+  const plansQuery = useSitePlans(projectId);
+  const plans = plansQuery.data?.data ?? [];
+  const effectivePlanId = plans.some((p) => p.id === selectedPlanId)
+    ? selectedPlanId
+    : (plans.find((p) => p.isDefault)?.id ?? plans[0]?.id ?? null);
+  const planQuery = useSitePlan(projectId, effectivePlanId);
+  const zonesQuery = usePlanZones(projectId, "all");
+  const mapW = planQuery.data?.data.background.width ?? SITE_MAP_W;
+  const mapH = planQuery.data?.data.background.height ?? SITE_MAP_H;
+  const viewport = useSitePlanViewport(mapW, mapH);
+  const backgroundUrl = planQuery.data?.data.background.url ?? "/site-plan/master-layout-map.png";
+  const backgroundUrlRef = useRef(backgroundUrl);
+  const onImageLoad = useCallback(() => {
+    setBackgroundError(false);
+  }, []);
+  const onImageError = useCallback(() => setBackgroundError(true), []);
 
   const serverAreas = useMemo(
     () =>
       (planQuery.data?.data.areas ?? []).map((a) => ({
         id: a.id as string,
         zone: a.zone,
-        geometry: a.geometry as PolygonGeometry,
-        isCustom: (a as { isCustom?: boolean }).isCustom ?? false,
+        geometry: a.geometry,
+        defaultGeometry: a.defaultGeometry,
+        isCustom: a.isCustom,
       })),
     [planQuery.data],
   );
 
-  const editor = useSitePlanEditor(serverAreas, SITE_MAP_W, SITE_MAP_H);
+  const editor = useSitePlanEditor(serverAreas, mapW, mapH);
+  const { cancelEdit, dirty, editMode, enterEdit } = editor;
+  const { fitAll } = viewport;
+  const blocker = useBlocker(dirty);
 
   useEffect(() => {
-    if (planQuery.data && !editor.editMode) editor.enterEdit();
-    // Enter once per loaded plan; drafts own state afterwards.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planQuery.data]);
+    if (planQuery.data && !editMode) enterEdit();
+  }, [planQuery.data, editMode, enterEdit]);
 
-  const saveMutation = useSaveMapAreas(projectId);
-  const createMutation = useCreateMapArea(projectId, planQuery.data?.data.id ?? null);
-  const deleteMutation = useDeleteMapArea(projectId, planQuery.data?.data.id ?? null);
-  const resetMutation = useResetMapArea(projectId, planQuery.data?.data.id ?? null);
-  const patchMutation = usePatchMapArea(projectId, planQuery.data?.data.id ?? null);
-  const saving = saveMutation.isPending || createMutation.isPending || patchMutation.isPending;
+  useEffect(() => {
+    setSelectedPlanId(null);
+    setBackgroundError(false);
+  }, [projectId]);
+  useEffect(() => {
+    if (backgroundUrlRef.current !== backgroundUrl) {
+      backgroundUrlRef.current = backgroundUrl;
+      setBackgroundError(false);
+    }
+  }, [backgroundUrl]);
+  useEffect(() => fitAll(), [effectivePlanId, fitAll]);
+
+  useEffect(
+    () =>
+      registerProjectChangeGuard((id) => {
+        if (dirty) {
+          setPendingProjectId(id);
+          setConfirmCancel(true);
+        } else {
+          cancelEdit();
+          setBackgroundError(false);
+          setProjectId(id);
+        }
+      }),
+    [cancelEdit, dirty, projectId, registerProjectChangeGuard, setProjectId],
+  );
+
+  useEffect(() => {
+    if (!dirty) return;
+    const guard = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [dirty]);
+
+  const saveMutation = useSaveMapAreas(projectId, planQuery.data?.data.id ?? effectivePlanId);
+  const saving = saveMutation.isPending;
 
   const zones = useMemo(() => zonesQuery.data?.data ?? [], [zonesQuery.data]);
-  const mappedZoneIds = useMemo(() => new Set(serverAreas.map((a) => a.zone.id)), [serverAreas]);
-  const customAreaIds = useMemo(
-    () => new Set(serverAreas.filter((a) => a.isCustom).map((a) => a.id)),
+  const mappedZoneIds = useMemo(() => new Set(editor.drafts.map((a) => a.zoneId)), [editor.drafts]);
+  const defaultAreaIds = useMemo(
+    () => new Set(serverAreas.filter((a) => a.defaultGeometry != null).map((a) => a.id)),
     [serverAreas],
   );
+  const customAreaIds = useMemo(() => new Set(serverAreas.filter((a) => a.isCustom).map((a) => a.id)), [serverAreas]);
 
   const editAreas: CanvasArea[] = useMemo(
     () =>
@@ -88,53 +146,81 @@ export function SitePlanConfigPage() {
         return {
           key: d.key,
           points: d.points,
-          fill: "#E4E7EC",
-          stroke: d.key === editor.selected?.key ? "#0B4D8B" : "#64748B",
+          fill: alpha(theme.palette.action.hover, 0.25),
+          stroke: d.key === editor.selected?.key ? theme.palette.primary.main : theme.palette.divider,
           strokeWidth: d.key === editor.selected?.key ? 3 : 1.5,
           dash: d.isNew ? [10, 6] : undefined,
-          fillOpacity: 0.25,
           code: zone?.code ?? "?",
         };
       }),
-    [editor.drafts, editor.selected, zones],
+    [editor.drafts, editor.selected, theme, zones],
   );
 
   const handleSave = useCallback(async () => {
-    const drafts = editor.allDrafts.filter((d) => !d.deleted);
-    const serverById = new Map(serverAreas.map((a) => [a.id, a]));
-    const bulk: { zoneId: string; geometry: PolygonGeometry }[] = [];
-    const reassigns: { areaId: string; zoneId: string }[] = [];
-    const created = drafts.filter((d) => d.isNew);
-    const norm = (pts: { x: number; y: number }[]) => ({
-      type: "polygon" as const,
-      points: pts.map((p) => ({
-        x: Math.min(1, Math.max(0, Math.round((p.x / SITE_MAP_W) * 10000) / 10000)),
-        y: Math.min(1, Math.max(0, Math.round((p.y / SITE_MAP_H) * 10000) / 10000)),
-      })),
+    if (editor.drawing) return;
+    const serverById = new Map(serverAreas.map((area) => [area.id, area]));
+    const areas = editor.allDrafts.flatMap((draft) => {
+      if (draft.deleted) return [];
+      const geometry = editor.toNormalized(draft.points);
+      if (draft.isNew) return [{ zoneId: draft.zoneId, geometry }];
+      const server = draft.areaId ? serverById.get(draft.areaId) : undefined;
+      const samePoints =
+        server &&
+        geometry.points.length === server.geometry.points.length &&
+        geometry.points.every(
+          (point, index) =>
+            point.x === server.geometry.points[index]?.x && point.y === server.geometry.points[index]?.y,
+        );
+      if (!server || (draft.zoneId === server.zone.id && samePoints)) {
+        return [];
+      }
+      return [{ areaId: draft.areaId as string, zoneId: draft.zoneId, geometry }];
     });
+    const deleteAreaIds = editor.allDrafts.flatMap((draft) => (draft.deleted && draft.areaId ? [draft.areaId] : []));
+    try {
+      await saveMutation.mutateAsync({ areas, deleteAreaIds });
+      editor.cancelEdit();
+      setAddPointMode(false);
+    } catch {
+      // The mutation error is shown in the editor panel.
+    }
+  }, [editor, saveMutation, serverAreas]);
 
-    for (const d of drafts) {
-      if (d.isNew) continue;
-      const server = d.areaId ? serverById.get(d.areaId) : undefined;
-      if (!server) continue;
-      if (d.zoneId !== server.zone.id) reassigns.push({ areaId: d.areaId as string, zoneId: d.zoneId });
-      const serverPts = server.geometry.points.map((p) => normalizedToMap(p, SITE_MAP_W, SITE_MAP_H));
-      const same =
-        d.points.length === serverPts.length &&
-        d.points.every((p, i) => p.x === serverPts[i]?.x && p.y === serverPts[i]?.y);
-      if (!same) bulk.push({ zoneId: d.zoneId, geometry: norm(d.points) });
+  const requestPlanChange = (id: string) => {
+    if (id === effectivePlanId) return;
+    if (editor.dirty) {
+      setPendingPlanId(id);
+      setConfirmCancel(true);
+    } else {
+      editor.cancelEdit();
+      setBackgroundError(false);
+      setSelectedPlanId(id);
     }
+  };
 
-    for (const r of reassigns) {
-      await patchMutation.mutateAsync({ areaId: r.areaId, zoneId: r.zoneId });
-    }
-    if (bulk.length > 0) await saveMutation.mutateAsync(bulk);
-    for (const c of created) {
-      await createMutation.mutateAsync({ zoneId: c.zoneId, geometry: norm(c.points) });
-    }
-    editor.cancelEdit();
+  const keepEditing = () => {
+    setConfirmCancel(false);
+    setPendingProjectId(null);
+    setPendingPlanId(null);
+    if (blocker.state === "blocked") blocker.reset();
+  };
+
+  const discardChanges = () => {
+    setConfirmCancel(false);
     setAddPointMode(false);
-  }, [editor, serverAreas, patchMutation, saveMutation, createMutation]);
+    editor.cancelEdit();
+    if (pendingProjectId) {
+      setBackgroundError(false);
+      setProjectId(pendingProjectId);
+    } else if (pendingPlanId) {
+      setBackgroundError(false);
+      setSelectedPlanId(pendingPlanId);
+    } else if (blocker.state === "blocked") blocker.proceed();
+    setPendingProjectId(null);
+    setPendingPlanId(null);
+  };
+
+  const confirmationOpen = confirmCancel || blocker.state === "blocked";
 
   if (!projectId) {
     return (
@@ -158,7 +244,36 @@ export function SitePlanConfigPage() {
     );
   }
 
-  if (planQuery.isLoading) {
+  if (mobile) {
+    return (
+      <Box>
+        <PageHeader title="Zone Configuration" />
+        <Alert severity="info">
+          Map configuration requires a tablet or desktop. Site Activity remains available on mobile.
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (plansQuery.isError) {
+    return (
+      <Box>
+        <PageHeader title="Zone Configuration" />
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => void plansQuery.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          Failed to load Site Plans.
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (plansQuery.isLoading || planQuery.isLoading) {
     return (
       <Box>
         <PageHeader title="Zone Configuration" />
@@ -185,28 +300,96 @@ export function SitePlanConfigPage() {
     );
   }
 
-  const backgroundUrl = planQuery.data.data.background.url ?? "/site-plan/master-layout-map.png";
+  if (backgroundError) {
+    return (
+      <Box>
+        <PageHeader title="Zone Configuration" />
+        <FormControl size="small" sx={{ minWidth: 260, mb: 2 }}>
+          <InputLabel id="zone-config-plan-error">Site Plan</InputLabel>
+          <Select
+            labelId="zone-config-plan-error"
+            label="Site Plan"
+            value={effectivePlanId ?? ""}
+            onChange={(event) => requestPlanChange(event.target.value)}
+            disabled={plans.length <= 1}
+          >
+            {plans.map((plan) => (
+              <MenuItem key={plan.id} value={plan.id}>
+                {plan.name}
+                {plan.isDefault ? " (default)" : ""}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <EmptyState
+          icon={<MapOutlinedIcon />}
+          title="No base drawing"
+          description="The Site Plan drawing could not be loaded. Check the configured background and retry."
+          action={
+            <Button
+              onClick={() => {
+                void planQuery.refetch();
+                setBackgroundError(false);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        />
+      </Box>
+    );
+  }
 
   return (
     <Box>
       <PageHeader title="Zone Configuration" subtitle="Admin: define which polygon represents each WBS zone" />
-      {mobile ? (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Map configuration is available on tablet or desktop. The operational Site Plan works on mobile.
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} sx={{ mb: 2 }}>
+        <FormControl size="small" sx={{ minWidth: 260 }}>
+          <InputLabel id="zone-config-plan">Site Plan</InputLabel>
+          <Select
+            labelId="zone-config-plan"
+            label="Site Plan"
+            value={effectivePlanId ?? ""}
+            onChange={(event) => requestPlanChange(event.target.value)}
+            disabled={plans.length <= 1}
+          >
+            {plans.map((plan) => (
+              <MenuItem key={plan.id} value={plan.id}>
+                {plan.name}
+                {plan.isDefault ? " (default)" : ""}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Typography variant="body2" color="text.secondary">
+          Mapped {mappedZoneIds.size} / {zones.length} · Unmapped {Math.max(0, zones.length - mappedZoneIds.size)}
+        </Typography>
+      </Stack>
+      {zonesQuery.isError ? (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => void zonesQuery.refetch()}>
+              Retry
+            </Button>
+          }
+          sx={{ mb: 2 }}
+        >
+          Failed to load project zones.
         </Alert>
       ) : null}
       <Grid container spacing={2.5}>
         <Grid size={{ xs: 12, md: 8 }}>
           <Card>
-            <CardContent sx={{ p: 2.5 }}>
+            <CardContent sx={{ p: 2.5, position: "relative" }}>
               <Box sx={{ height: { xs: 380, md: 560 }, borderRadius: 2, overflow: "hidden" }}>
                 <SitePlanCanvas
                   backgroundUrl={backgroundUrl}
-                  mapW={SITE_MAP_W}
-                  mapH={SITE_MAP_H}
+                  mapW={mapW}
+                  mapH={mapH}
                   areas={editAreas}
                   selectedKey={editor.selected?.key ?? null}
-                  editMode
+                  editMode={!saving}
                   vertexHandles={
                     editor.selected
                       ? {
@@ -217,19 +400,20 @@ export function SitePlanConfigPage() {
                       : null
                   }
                   drawing={editor.drawing?.points ?? null}
-                  stageDraggable={!editor.drawing && !vertexDragging}
+                  stageDraggable={!editor.drawing && !vertexDragging && !saving}
                   viewport={viewport.view}
                   containerRef={viewport.containerRef}
                   stageRef={viewport.stageRef}
                   size={viewport.size}
-                  onWheelNative={(e) => viewport.onWheelNative(e)}
                   onStageClick={() => {
-                    if (editor.drawing) {
+                    if (!saving && editor.drawing) {
                       const pt = viewport.screenToMap();
-                      if (pt) editor.pushDrawPoint(clampToMap(pt, SITE_MAP_W, SITE_MAP_H));
+                      if (pt) editor.pushDrawPoint(clampToMap(pt, mapW, mapH));
                     }
                   }}
+                  onStageDrag={viewport.onStageDrag}
                   onAreaClick={(key) => {
+                    if (saving) return;
                     if (addPointMode && editor.selected) {
                       const pt = viewport.screenToMap();
                       if (pt) editor.addVertexAt(editor.selected.key, pt);
@@ -242,16 +426,23 @@ export function SitePlanConfigPage() {
                     if (d) {
                       editor.updatePoints(
                         key,
-                        d.points.map((p, i) => (i === index ? clampToMap(pt, SITE_MAP_W, SITE_MAP_H) : p)),
+                        d.points.map((p, i) => (i === index ? clampToMap(pt, mapW, mapH) : p)),
                       );
                     }
                   }}
                   onVertexDown={() => setVertexDragging(true)}
                   onVertexUp={() => setVertexDragging(false)}
                   onVertexClick={(_, index) => editor.selectVertex(index)}
-                  onImageLoad={() => viewport.fitAll()}
+                  onImageLoad={onImageLoad}
+                  onImageError={onImageError}
                 />
               </Box>
+              <SitePlanViewportControls
+                viewport={viewport}
+                onFitSelected={
+                  editor.selected ? () => viewport.fitBounds(polygonBounds(editor.selected!.points)) : undefined
+                }
+              />
             </CardContent>
           </Card>
         </Grid>
@@ -263,42 +454,25 @@ export function SitePlanConfigPage() {
                 zones={zones}
                 mappedZoneIds={mappedZoneIds}
                 customAreaIds={customAreaIds}
+                defaultAreaIds={defaultAreaIds}
                 onSave={() => void handleSave()}
                 saving={saving}
+                saveError={saveMutation.error instanceof Error ? saveMutation.error.message : null}
                 onCancel={() => {
                   if (editor.dirty) setConfirmCancel(true);
                   else editor.cancelEdit();
                 }}
                 addPointMode={addPointMode}
                 onAddPointModeChange={setAddPointMode}
-                onDeleteArea={(areaId) => {
-                  deleteMutation.mutate(areaId, {
-                    onSuccess: () => editor.removeDraft(editor.selected?.key ?? areaId),
-                  });
-                }}
-                deleting={deleteMutation.isPending}
-                onResetArea={(areaId) => {
-                  resetMutation.mutate(areaId, {
-                    onSuccess: (data) => {
-                      const geom = (data as { data?: { geometry?: PolygonGeometry } })?.data?.geometry;
-                      const key = editor.selected?.key;
-                      if (key && geom) {
-                        editor.applyServerGeometry(
-                          key,
-                          geom.points.map((p) => ({ x: p.x * SITE_MAP_W, y: p.y * SITE_MAP_H })),
-                        );
-                      }
-                    },
-                  });
-                }}
-                resetting={resetMutation.isPending}
+                onDeleteArea={(key) => editor.markDeleted(key, true)}
+                onResetArea={(key) => editor.resetDraft(key)}
               />
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      <Dialog open={confirmCancel} onClose={() => setConfirmCancel(false)} maxWidth="xs" fullWidth>
+      <Dialog open={confirmationOpen} onClose={keepEditing} maxWidth="xs" fullWidth>
         <DialogTitle>Discard unsaved changes?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
@@ -306,17 +480,10 @@ export function SitePlanConfigPage() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" color="inherit" onClick={() => setConfirmCancel(false)}>
+          <Button variant="outlined" color="inherit" onClick={keepEditing}>
             Keep editing
           </Button>
-          <Button
-            color="error"
-            onClick={() => {
-              setConfirmCancel(false);
-              editor.cancelEdit();
-              setAddPointMode(false);
-            }}
-          >
+          <Button color="error" onClick={discardChanges}>
             Discard
           </Button>
         </DialogActions>

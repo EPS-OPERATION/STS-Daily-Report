@@ -8,30 +8,41 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n api,web -c blue,green \"bun run dev:api\" \"bun run dev:web\"",
+    "dev": "docker compose --profile app up -d --build --wait api && bun run dev:web",
     "dev:web": "bun --filter ./apps/web dev",
-    "dev:api": "bun --filter ./apps/api dev",
+    "dev:api": "bun --env-file=.env --filter ./apps/api dev",
     "build": "bun run build:api && bun run build:web",
     "build:web": "bun --filter ./apps/web build",
     "build:api": "bun --filter ./apps/api build",
     "typecheck": "bun --filter '*' typecheck",
-    "lint": "echo \"lint: no eslint config yet (see agent.md)\" && exit 0",
-    "db:generate": "bun --filter ./apps/api db:generate",
-    "db:migrate": "bun --filter ./apps/api db:migrate",
-    "db:push": "bun --filter ./apps/api db:push",
-    "db:studio": "bun --filter ./apps/api db:studio",
-    "db:seed": "bun --filter ./apps/api db:seed",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "bun run lint && bun run format:check && bun run typecheck",
+    "test": "bun test",
+    "db:generate": "bun --env-file=.env --filter ./apps/api db:generate",
+    "db:migrate": "bun --env-file=.env --filter ./apps/api db:migrate",
+    "db:push": "bun --env-file=.env --filter ./apps/api db:push",
+    "db:studio": "bun --env-file=.env --filter ./apps/api db:studio",
+    "db:seed": "bun --env-file=.env --filter ./apps/api db:seed",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
-    "typescript": "^5.6.3"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.71.0"
   },
   "dependencies": {
     "konva": "^10.7.0",
-    "react-konva": "^19.3.0",
-    "sts-web": "./apps/web"
+    "react-konva": "^19.3.0"
   }
 }

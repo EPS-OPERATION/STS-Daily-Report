@@ -21,17 +21,7 @@ export interface KpiCardProps {
 
 // Enterprise KPI: label row, inline value+unit (never wraps), delta row.
 // No decorative sparklines — every element carries information.
-export function KpiCard({
-  label,
-  value,
-  unit,
-  sub,
-  subTone = "muted",
-  trend,
-  icon,
-  iconBg,
-  iconFg,
-}: KpiCardProps) {
+export function KpiCard({ label, value, unit, sub, subTone = "muted", trend, icon, iconBg, iconFg }: KpiCardProps) {
   const theme = useTheme();
   const subColor =
     subTone === "success"
