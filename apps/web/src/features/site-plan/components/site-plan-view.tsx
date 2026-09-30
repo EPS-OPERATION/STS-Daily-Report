@@ -9,6 +9,7 @@ import InputLabel from "@mui/material/InputLabel";
 import LinearProgress from "@mui/material/LinearProgress";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import Popover from "@mui/material/Popover";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -28,7 +29,7 @@ import { useSitePlanViewport } from "../hooks/use-site-plan-viewport.js";
 import { useSiteActivities } from "../hooks/use-site-activities.js";
 import { usePlanZones, useSitePlan } from "../hooks/use-site-plan.js";
 import type { PlanActivity, ZoneState } from "../types/site-plan.types.js";
-import { normalizedToMap, polygonBounds } from "../utils/coordinates.js";
+import { normalizedToMap, pointInPolygon, polygonBounds } from "../utils/coordinates.js";
 import { aggregateZoneState, summarizeZone } from "../utils/zone-status.js";
 import {
   getActivityFocusAreas,
@@ -64,6 +65,7 @@ export function SitePlanView() {
   const [backgroundError, setBackgroundError] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [hoverInfo, setHoverInfo] = useState<{ zoneId: string; x: number; y: number } | null>(null);
+  const [ambiguousClick, setAmbiguousClick] = useState<{ x: number; y: number; zoneIds: string[] } | null>(null);
 
   const planQuery = useSitePlan(projectId);
   const mapW = planQuery.data?.data.background.width ?? SITE_MAP_W;
@@ -92,6 +94,7 @@ export function SitePlanView() {
     setContractorId("all");
     setBackgroundError(false);
     setHoverInfo(null);
+    setAmbiguousClick(null);
     fitAll();
   }, [projectId, fitAll]);
   useEffect(() => {
@@ -157,27 +160,36 @@ export function SitePlanView() {
   const childrenOf = useCallback((parentId: string) => zones.filter((z) => z.parentId === parentId), [zones]);
 
   // Overview renders roots; focused mode renders mapped direct children only.
+  // Predictable stacking (never database order): WBS order first, selected
+  // zone on top so it is never buried under a stacked neighbor.
   const renderedAreas: CanvasArea[] = useMemo(() => {
-    return getVisibleMapAreas(serverAreas, focusedParentId).map((area) => {
-      const state = stateOf(area.zone.id);
-      const attentionStroke = state === "blocked" || state === "attention";
-      const selected = selectedZoneId === area.zone.id;
-      return {
-        key: area.id,
-        points: area.geometry.points.map((p) => normalizedToMap(p, mapW, mapH)),
-        fill: alpha(area.zone.displayColor, selected ? 0.42 : 0.3),
-        stroke: selected
-          ? theme.palette.primary.main
-          : attentionStroke
-            ? statusColorFor(state)
-            : area.zone.displayColor,
-        strokeWidth: selected ? 3 : attentionStroke ? 3 : 2,
-        code: area.zone.code,
-        statusLabel: statusLabelFor(state),
-        statusColor: statusColorFor(state),
-        selectionUnderstroke: selected ? theme.palette.background.paper : undefined,
-      };
-    });
+    return [...getVisibleMapAreas(serverAreas, focusedParentId)]
+      .sort(
+        (a, b) =>
+          (selectedZoneId === a.zone.id ? 1 : 0) - (selectedZoneId === b.zone.id ? 1 : 0) ||
+          a.zone.sortOrder - b.zone.sortOrder ||
+          a.zone.code.localeCompare(b.zone.code),
+      )
+      .map((area) => {
+        const state = stateOf(area.zone.id);
+        const attentionStroke = state === "blocked" || state === "attention";
+        const selected = selectedZoneId === area.zone.id;
+        return {
+          key: area.id,
+          points: area.geometry.points.map((p) => normalizedToMap(p, mapW, mapH)),
+          fill: alpha(area.zone.displayColor, selected ? 0.42 : 0.3),
+          stroke: selected
+            ? theme.palette.primary.main
+            : attentionStroke
+              ? statusColorFor(state)
+              : area.zone.displayColor,
+          strokeWidth: selected ? 3 : attentionStroke ? 3 : 2,
+          code: area.zone.code,
+          statusLabel: statusLabelFor(state),
+          statusColor: statusColorFor(state),
+          selectionUnderstroke: selected ? theme.palette.background.paper : undefined,
+        };
+      });
   }, [focusedParentId, selectedZoneId, serverAreas, stateOf, statusColorFor, mapW, mapH, theme]);
 
   const activeKey = useMemo(() => {
@@ -219,6 +231,7 @@ export function SitePlanView() {
   const navigateToParent = useCallback(
     (zoneId: string) => {
       setHoverInfo(null);
+      setAmbiguousClick(null);
       setSelectedZoneId(null);
       setFocusedParentId(zoneId);
       focusMapToParent(zoneId);
@@ -228,6 +241,7 @@ export function SitePlanView() {
 
   const backToOverview = useCallback(() => {
     setHoverInfo(null);
+    setAmbiguousClick(null);
     setSelectedZoneId(null);
     setFocusedParentId(null);
     fitAll();
@@ -235,6 +249,7 @@ export function SitePlanView() {
 
   const inspectZone = useCallback((zoneId: string) => {
     setHoverInfo(null);
+    setAmbiguousClick(null);
     setSelectedZoneId(zoneId);
     setSelectionPulseKey((key) => key + 1);
   }, []);
@@ -547,16 +562,37 @@ export function SitePlanView() {
               size={viewport.size}
               onStageClick={() => {
                 setHoverInfo(null);
+                setAmbiguousClick(null);
                 const action = getBlankMapClickAction(selectedZoneId, focusedParentId);
                 if (action === "clear-selection") setSelectedZoneId(null);
                 else if (action === "back-to-overview") backToOverview();
               }}
               onStageDrag={viewport.onStageDrag}
-              onAreaClick={(key) => {
+              onAreaClick={(key, position) => {
                 setHoverInfo(null);
                 if (zonesQuery.isLoading) return;
                 const area = serverAreas.find((item) => item.id === key);
-                if (area) activateZone(area.zone.id);
+                if (!area) return;
+                // Genuine same-level ambiguity only: the click point lands
+                // inside several rendered polygons. Otherwise activate directly.
+                const mapPoint = viewport.screenToMap();
+                const hitZoneIds =
+                  mapPoint && position
+                    ? [
+                        ...new Set(
+                          renderedAreas
+                            .filter((candidate) => pointInPolygon(mapPoint, candidate.points))
+                            .map((candidate) => serverAreas.find((item) => item.id === candidate.key)?.zone.id)
+                            .filter((zoneId): zoneId is string => Boolean(zoneId)),
+                        ),
+                      ]
+                    : [];
+                if (hitZoneIds.length > 1) {
+                  setAmbiguousClick({ x: position!.x, y: position!.y, zoneIds: hitZoneIds });
+                } else {
+                  setAmbiguousClick(null);
+                  activateZone(area.zone.id);
+                }
               }}
               onAreaHover={(key, point) => {
                 if (!key || !point) {
@@ -607,6 +643,40 @@ export function SitePlanView() {
                 </Stack>
               </Paper>
             ) : null}
+
+            <Popover
+              open={ambiguousClick !== null}
+              onClose={() => setAmbiguousClick(null)}
+              anchorReference="anchorPosition"
+              anchorPosition={ambiguousClick ? { top: ambiguousClick.y, left: ambiguousClick.x } : undefined}
+              slotProps={{ paper: { sx: { p: 1, minWidth: 220 } } }}
+            >
+              <Typography variant="caption" color="text.secondary" sx={{ px: 1, pt: 0.5, display: "block" }}>
+                Select area
+              </Typography>
+              <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+                {(ambiguousClick?.zoneIds ?? []).map((zoneId) => {
+                  const zone =
+                    zones.find((item) => item.id === zoneId) ??
+                    serverAreas.find((item) => item.zone.id === zoneId)?.zone;
+                  if (!zone) return null;
+                  return (
+                    <Button
+                      key={zoneId}
+                      size="small"
+                      color="inherit"
+                      sx={{ justifyContent: "flex-start" }}
+                      onClick={() => {
+                        setAmbiguousClick(null);
+                        activateZone(zoneId);
+                      }}
+                    >
+                      {zone.code} {zone.name}
+                    </Button>
+                  );
+                })}
+              </Stack>
+            </Popover>
 
             <Paper
               variant="outlined"

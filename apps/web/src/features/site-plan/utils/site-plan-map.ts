@@ -44,6 +44,27 @@ export function buildZoneTree<T extends Pick<ZoneOption, "id" | "parentId">>(zon
   return roots;
 }
 
+export function getZoneDescendantIds(zoneId: string, zones: Pick<ZoneOption, "id" | "parentId">[]): Set<string> {
+  const childrenByParent = new Map<string, string[]>();
+  for (const zone of zones) {
+    if (!zone.parentId) continue;
+    const children = childrenByParent.get(zone.parentId) ?? [];
+    children.push(zone.id);
+    childrenByParent.set(zone.parentId, children);
+  }
+
+  const descendants = new Set<string>();
+  const pending = [zoneId];
+  for (let index = 0; index < pending.length; index++) {
+    for (const childId of childrenByParent.get(pending[index]!) ?? []) {
+      if (descendants.has(childId)) continue;
+      descendants.add(childId);
+      pending.push(childId);
+    }
+  }
+  return descendants;
+}
+
 export function getFocusedMapAreas<T extends Pick<PlanArea, "zone">>(areas: T[], focusedZoneId: string): T[] {
   return areas.filter((area) => area.zone.id === focusedZoneId || area.zone.parentId === focusedZoneId);
 }

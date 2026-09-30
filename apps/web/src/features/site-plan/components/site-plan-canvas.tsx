@@ -21,7 +21,14 @@ export interface CanvasArea {
   code: string;
   statusLabel?: string;
   statusColor?: string;
+  statusBackground?: string;
   selectionUnderstroke?: string;
+  selectionUnderstrokeWidth?: number;
+  contrastUnderstroke?: string;
+  contrastUnderstrokeWidth?: number;
+  visualState?: "context" | "group-focused" | "hover" | "selected" | "editing" | "issue-focused" | "dimmed";
+  /** False for context-only shapes (e.g. focused parent outline): visible but never hit-tested. */
+  interactive?: boolean;
 }
 
 export interface CanvasVertexHandles {
@@ -29,6 +36,7 @@ export interface CanvasVertexHandles {
   points: MapPoint[];
   radius: number;
   hitStrokeWidth: number;
+  activeIndex?: number | null;
 }
 
 export interface CanvasRotateHandle {
@@ -59,6 +67,7 @@ export function SitePlanCanvas({
   vertexHandles,
   rotateHandle = null,
   resizeHandles = null,
+  overlapOverlays = null,
   drawing,
   stageDraggable,
   viewport,
@@ -93,6 +102,8 @@ export function SitePlanCanvas({
   vertexHandles: CanvasVertexHandles | null;
   rotateHandle?: CanvasRotateHandle | null;
   resizeHandles?: CanvasResizeHandles | null;
+  /** Temporary review highlights (overlap intersections): rendered, never interactive, never saved. */
+  overlapOverlays?: MapPoint[][] | null;
   drawing: MapPoint[] | null;
   stageDraggable: boolean;
   viewport: Viewport;
@@ -101,7 +112,7 @@ export function SitePlanCanvas({
   size: { w: number; h: number };
   onStageClick: () => void;
   onStageDrag: () => void;
-  onAreaClick: (key: string) => void;
+  onAreaClick: (key: string, position?: { x: number; y: number }) => void;
   onAreaHover?: (key: string | null, point?: MapPoint) => void;
   onShapeDragStart?: () => void;
   onShapeDragEnd?: (areaKey: string, dx: number, dy: number) => void;
@@ -122,6 +133,7 @@ export function SitePlanCanvas({
   const dragMoved = useRef(false);
   const areaLineRefs = useRef(new Map<string, Konva.Line>());
   const selectionLineRefs = useRef(new Map<string, Konva.Line>());
+  const contrastLineRefs = useRef(new Map<string, Konva.Line>());
   const selectionPulseLineRef = useRef<Konva.Line | null>(null);
   const selectionPulseTweenRef = useRef<Konva.Tween | null>(null);
 
@@ -133,6 +145,7 @@ export function SitePlanCanvas({
     const flatPoints = flattenPoints(points);
     line.points(flatPoints);
     selectionLineRefs.current.get(areaKey)?.points(flatPoints);
+    contrastLineRefs.current.get(areaKey)?.points(flatPoints);
     line.getLayer()?.batchDraw();
   };
 
@@ -165,17 +178,18 @@ export function SitePlanCanvas({
   useEffect(() => {
     const line = selectionPulseLineRef.current;
     if (!line || !selectionPulseKey) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     selectionPulseTweenRef.current?.destroy();
-    const initialStrokeWidth = Math.max(4, line.strokeWidth() - 4);
+    const initialStrokeWidth = Math.max(6, line.strokeWidth() - 5);
     line.strokeWidth(initialStrokeWidth);
-    line.opacity(0.42);
+    line.opacity(0.62);
     const tween = new Konva.Tween({
       node: line,
-      duration: 0.2,
+      duration: 0.36,
       easing: Konva.Easings.EaseOut,
       opacity: 0,
-      strokeWidth: initialStrokeWidth + 6,
+      strokeWidth: initialStrokeWidth + 14,
     });
     selectionPulseTweenRef.current = tween;
     tween.play();
@@ -219,7 +233,7 @@ export function SitePlanCanvas({
                     points={flattenPoints(a.points)}
                     closed
                     stroke={a.stroke}
-                    strokeWidth={a.strokeWidth + 8}
+                    strokeWidth={a.strokeWidth + 10}
                     opacity={0}
                     lineJoin="round"
                     lineCap="round"
@@ -227,12 +241,28 @@ export function SitePlanCanvas({
                     listening={false}
                   />
                 ) : null}
+                {a.contrastUnderstroke ? (
+                  <Line
+                    points={flattenPoints(a.points)}
+                    closed
+                    stroke={a.contrastUnderstroke}
+                    strokeWidth={a.contrastUnderstrokeWidth ?? a.strokeWidth + 8}
+                    lineJoin="round"
+                    lineCap="round"
+                    strokeScaleEnabled={false}
+                    listening={false}
+                    ref={(node) => {
+                      if (node) contrastLineRefs.current.set(a.key, node);
+                      else contrastLineRefs.current.delete(a.key);
+                    }}
+                  />
+                ) : null}
                 {a.selectionUnderstroke ? (
                   <Line
                     points={flattenPoints(a.points)}
                     closed
                     stroke={a.selectionUnderstroke}
-                    strokeWidth={a.strokeWidth + 3}
+                    strokeWidth={a.selectionUnderstrokeWidth ?? a.strokeWidth + 4}
                     lineJoin="round"
                     lineCap="round"
                     strokeScaleEnabled={false}
@@ -258,14 +288,16 @@ export function SitePlanCanvas({
                   strokeScaleEnabled={false}
                   dash={a.dash}
                   hitStrokeWidth={14 / viewport.scale}
-                  draggable={editMode && a.key === selectedKey}
+                  listening={a.interactive ?? true}
+                  draggable={editMode && (a.interactive ?? true) && a.key === selectedKey}
                   onClick={(e) => {
                     e.cancelBubble = true;
-                    onAreaClick(a.key);
+                    onAreaClick(a.key, { x: e.evt.clientX, y: e.evt.clientY });
                   }}
                   onTap={(e) => {
                     e.cancelBubble = true;
-                    onAreaClick(a.key);
+                    const touch = e.evt.touches[0];
+                    onAreaClick(a.key, touch ? { x: touch.clientX, y: touch.clientY } : undefined);
                   }}
                   onMouseEnter={(e) => {
                     const point = e.target.getStage()?.getPointerPosition();
@@ -277,12 +309,22 @@ export function SitePlanCanvas({
                     setShapeDragging(true);
                     onShapeDragStart?.();
                   }}
+                  onDragMove={(e) => {
+                    const position = { x: e.target.x(), y: e.target.y() };
+                    selectionLineRefs.current.get(a.key)?.position(position);
+                    contrastLineRefs.current.get(a.key)?.position(position);
+                    selectionPulseLineRef.current?.position(position);
+                    e.target.getLayer()?.batchDraw();
+                  }}
                   onDragEnd={(e) => {
                     e.cancelBubble = true;
                     const dx = e.target.x();
                     const dy = e.target.y();
                     e.target.x(0);
                     e.target.y(0);
+                    selectionLineRefs.current.get(a.key)?.position({ x: 0, y: 0 });
+                    contrastLineRefs.current.get(a.key)?.position({ x: 0, y: 0 });
+                    selectionPulseLineRef.current?.position({ x: 0, y: 0 });
                     setShapeDragging(false);
                     if (dx !== 0 || dy !== 0) onShapeDragEnd?.(a.key, dx, dy);
                     else onShapeDragEnd?.(a.key, 0, 0);
@@ -319,16 +361,24 @@ export function SitePlanCanvas({
                 }
                 placed.push(box);
                 const selected = a.key === selectedKey;
+                const visualState = a.visualState ?? "context";
+                const boldLabel = selected || (visualState !== "context" && visualState !== "dimmed");
+                const strongLabel =
+                  visualState === "selected" || visualState === "editing" || visualState === "issue-focused";
                 return (
-                  <Group key={`label-${a.key}`}>
+                  <Group key={`label-${a.key}`} opacity={visualState === "dimmed" ? 0.48 : 1}>
                     <Text
                       x={c.x}
                       y={c.y - 7 / scale}
                       text={a.code}
                       fontSize={14 / scale}
-                      fontStyle={selected ? "bold" : "normal"}
+                      fontStyle={boldLabel ? "bold" : "normal"}
                       fontFamily="Inter, sans-serif"
                       fill="#18212F"
+                      stroke={a.visualState ? "#FFFFFF" : undefined}
+                      strokeWidth={a.visualState ? (strongLabel ? 3 : 2) / scale : 0}
+                      lineJoin="round"
+                      shadowForStrokeEnabled={false}
                       align="center"
                       offsetX={30 / scale}
                       width={60 / scale}
@@ -348,6 +398,25 @@ export function SitePlanCanvas({
               });
             })()}
           </Layer>
+          {overlapOverlays && overlapOverlays.length > 0 ? (
+            <Layer listening={false}>
+              {overlapOverlays.map((points, index) => (
+                <Line
+                  // Temporary review highlight: intersection regions are shown
+                  // only while an overlap is focused, never saved.
+                  key={`overlap-${index}`}
+                  points={flattenPoints(points)}
+                  closed
+                  fill="rgba(220,38,38,0.14)"
+                  stroke="#DC2626"
+                  strokeWidth={2 / viewport.scale}
+                  strokeScaleEnabled={false}
+                  dash={[9 / viewport.scale, 6 / viewport.scale]}
+                  lineJoin="round"
+                />
+              ))}
+            </Layer>
+          ) : null}
           {editMode && vertexHandles && !shapeDragging ? (
             <Layer>
               {vertexHandles.points.map((p, i) => (
@@ -356,6 +425,7 @@ export function SitePlanCanvas({
                   x={p.x}
                   y={p.y}
                   radius={vertexHandles.radius}
+                  selected={vertexHandles.activeIndex === i}
                   hitStrokeWidth={vertexHandles.hitStrokeWidth}
                   areaKey={vertexHandles.areaKey}
                   index={i}
@@ -426,6 +496,7 @@ function KonvaCircleHandle({
   x,
   y,
   radius,
+  selected,
   hitStrokeWidth,
   areaKey,
   index,
@@ -439,6 +510,7 @@ function KonvaCircleHandle({
   x: number;
   y: number;
   radius: number;
+  selected: boolean;
   hitStrokeWidth: number;
   areaKey: string;
   index: number;
@@ -449,44 +521,81 @@ function KonvaCircleHandle({
   onVertexDragMove: (areaKey: string, index: number, pt: MapPoint) => void;
   dragMoved: React.MutableRefObject<boolean>;
 }) {
+  const [hovered, setHovered] = useState(false);
+  const dragActiveRef = useRef(false);
+  const outerHandleRef = useRef<Konva.Circle | null>(null);
+  const centerMarkRef = useRef<Konva.Circle | null>(null);
+  const emphasized = selected || hovered || dragActiveRef.current;
   return (
-    <Circle
-      x={x}
-      y={y}
-      radius={radius}
-      fill="#FFFFFF"
-      stroke="#0B4D8B"
-      strokeWidth={1.5}
-      strokeScaleEnabled={false}
-      hitStrokeWidth={hitStrokeWidth}
-      draggable
-      onMouseDown={(e) => {
-        beginVertexInteraction(e, dragMoved);
-        onVertexDown();
-      }}
-      onTouchStart={(e) => beginVertexInteraction(e, dragMoved)}
-      onDragStart={(e) => {
-        e.cancelBubble = true;
-        onVertexDown();
-      }}
-      onDragMove={(e) => {
-        e.cancelBubble = true;
-        dragMoved.current = true;
-        onVertexDragMove(areaKey, index, { x: e.target.x(), y: e.target.y() });
-      }}
-      onDragEnd={(e) => {
-        e.cancelBubble = true;
-        onVertexDrag(areaKey, index, { x: e.target.x(), y: e.target.y() });
-        onVertexUp();
-      }}
-      onMouseUp={() => onVertexUp()}
-      onClick={(e) => {
-        if (shouldSelectVertexFromClick(e, dragMoved)) onVertexClick(areaKey, index);
-      }}
-      onTap={(e) => {
-        if (shouldSelectVertexFromClick(e, dragMoved)) onVertexClick(areaKey, index);
-      }}
-    />
+    <Group>
+      <Circle
+        x={x}
+        y={y}
+        radius={radius * (emphasized ? 1.35 : 1.2)}
+        fill="#FFFFFF"
+        stroke="#0B4D8B"
+        strokeWidth={emphasized ? 2.75 : 2}
+        strokeScaleEnabled={false}
+        listening={false}
+        ref={outerHandleRef}
+      />
+      <Circle
+        x={x}
+        y={y}
+        radius={radius * (emphasized ? 0.9 : 0.72)}
+        fill={emphasized ? "#0B4D8B" : "#FFFFFF"}
+        stroke={emphasized ? "#FFFFFF" : "#0B4D8B"}
+        strokeWidth={emphasized ? 2 : 1.5}
+        strokeScaleEnabled={false}
+        hitStrokeWidth={hitStrokeWidth}
+        draggable
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => {
+          if (!dragActiveRef.current) setHovered(false);
+        }}
+        onMouseDown={(e) => {
+          beginVertexInteraction(e, dragMoved);
+          onVertexDown();
+        }}
+        onTouchStart={(e) => {
+          beginVertexInteraction(e, dragMoved);
+          setHovered(true);
+        }}
+        onTouchEnd={() => setHovered(false)}
+        onDragStart={(e) => {
+          e.cancelBubble = true;
+          dragActiveRef.current = true;
+          onVertexDown();
+        }}
+        onDragMove={(e) => {
+          e.cancelBubble = true;
+          dragMoved.current = true;
+          const point = { x: e.target.x(), y: e.target.y() };
+          outerHandleRef.current?.position(point);
+          centerMarkRef.current?.position(point);
+          onVertexDragMove(areaKey, index, point);
+          e.target.getLayer()?.batchDraw();
+        }}
+        onDragEnd={(e) => {
+          e.cancelBubble = true;
+          onVertexDrag(areaKey, index, { x: e.target.x(), y: e.target.y() });
+          dragActiveRef.current = false;
+          onVertexUp();
+        }}
+        onMouseUp={() => onVertexUp()}
+        onClick={(e) => {
+          if (shouldSelectVertexFromClick(e, dragMoved)) onVertexClick(areaKey, index);
+        }}
+        onTap={(e) => {
+          if (shouldSelectVertexFromClick(e, dragMoved)) onVertexClick(areaKey, index);
+        }}
+      />
+      {emphasized ? (
+        <Circle ref={centerMarkRef} x={x} y={y} radius={radius * 0.3} fill="#FFFFFF" listening={false} />
+      ) : (
+        <Circle ref={centerMarkRef} x={x} y={y} radius={radius * 0.28} fill="#0B4D8B" listening={false} />
+      )}
+    </Group>
   );
 }
 

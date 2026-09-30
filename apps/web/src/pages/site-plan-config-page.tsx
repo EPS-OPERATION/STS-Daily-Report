@@ -49,8 +49,10 @@ import {
   translatePointsWithinMap,
   type ResizeHandleId,
 } from "@/features/site-plan/utils/coordinates.js";
-import { getFocusedMapAreas, getVisibleConfigurationAreas } from "@/features/site-plan/utils/site-plan-map.js";
+import { getZoneDescendantIds } from "@/features/site-plan/utils/site-plan-map.js";
+import { findZoneOverlaps, getLeafZoneIds, type ZoneOverlap } from "@/features/site-plan/utils/polygon-overlap.js";
 import { SITE_MAP_H, SITE_MAP_W } from "@/features/site-plan/constants.js";
+import { getZoneMapVisualState, zoneMapVisualTokens } from "@/features/zone-configuration/utils/map-visual-style.js";
 
 // Admin screen: WBS map configuration. Separate from the operational
 // Site Plan (contractor activity view) by design.
@@ -81,6 +83,10 @@ export function SitePlanConfigPage() {
   const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
   const [backgroundError, setBackgroundError] = useState(false);
   const [zoneColorDrafts, setZoneColorDrafts] = useState<Record<string, string>>({});
+  const [reviewOverlap, setReviewOverlap] = useState<{ aId: string; bId: string } | null>(null);
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
+  const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
+  const [selectionPulseKey, setSelectionPulseKey] = useState(0);
 
   const plansQuery = useSitePlans(projectId);
   const plans = plansQuery.data?.data ?? [];
@@ -143,6 +149,8 @@ export function SitePlanConfigPage() {
     setFocusedParentId(null);
     setAddPointMode(false);
     setZoneColorDrafts({});
+    setHoveredZoneId(null);
+    setSelectionPulseKey(0);
   }, [projectId]);
   useEffect(() => {
     if (backgroundUrlRef.current !== backgroundUrl) {
@@ -193,32 +201,15 @@ export function SitePlanConfigPage() {
       }),
     [editor.drafts, displayZones],
   );
-  const visibleDrafts = useMemo(
-    () => getVisibleConfigurationAreas(areaDrafts, focusedParentId),
-    [areaDrafts, focusedParentId],
+  const leafZoneIds = useMemo(() => getLeafZoneIds(displayZones), [displayZones]);
+  const physicalZones = useMemo(
+    () => displayZones.filter((zone) => leafZoneIds.has(zone.id)),
+    [displayZones, leafZoneIds],
   );
-
-  const focusZone = (zoneId: string) => {
-    const zone = displayZones.find((item) => item.id === zoneId);
-    const hasChildren = displayZones.some((item) => item.parentId === zoneId);
-    const contextId = hasChildren ? zoneId : (zone?.parentId ?? zoneId);
-    setFocusedParentId(contextId);
-    const points = getFocusedMapAreas(areaDrafts, contextId).flatMap((area) => area.points);
-    if (points.length > 0) viewport.fitBounds(polygonBounds(points));
-    else fitAll();
-  };
-
-  const selectZone = (zoneId: string | null) => {
-    setAddPointMode(false);
-    if (zoneId && !mappedZoneIds.has(zoneId) && editor.drawing?.zoneId !== zoneId) {
-      // Panel is selection-only: picking an unmapped zone starts drawing its
-      // boundary immediately (Finish/Cancel lives on the map overlay).
-      editor.startDrawing(zoneId);
-    } else {
-      editor.selectZone(zoneId);
-    }
-    if (zoneId) focusZone(zoneId);
-  };
+  const mappedLeafIds = useMemo(
+    () => new Set(areaDrafts.filter((draft) => leafZoneIds.has(draft.zoneId)).map((draft) => draft.zoneId)),
+    [areaDrafts, leafZoneIds],
+  );
 
   const changeZoneColor = (zoneId: string, value: string) => {
     const zone = zones.find((item) => item.id === zoneId);
@@ -240,24 +231,203 @@ export function SitePlanConfigPage() {
     [zones, zoneColorDrafts],
   );
 
-  const editAreas: CanvasArea[] = useMemo(
+  // Live map-quality check over current drafts (never blocks editing).
+  const configOverlaps: ZoneOverlap[] = useMemo(
     () =>
-      visibleDrafts.map((d) => {
+      findZoneOverlaps(
+        editor.allDrafts
+          .filter((draft) => !draft.deleted && draft.points.length >= 3 && leafZoneIds.has(draft.zoneId))
+          .map((draft) => ({ zoneId: draft.zoneId, points: draft.points })),
+        displayZones,
+      ),
+    [editor.allDrafts, displayZones, leafZoneIds],
+  );
+  const strongOverlaps = useMemo(
+    () => configOverlaps.filter((overlap) => overlap.severity === "strong"),
+    [configOverlaps],
+  );
+  // Strongest severity per involved zone for tree indicators.
+  const issueSeverityByZone = useMemo(() => {
+    const byZone = new Map<string, ZoneOverlap["severity"]>();
+    for (const overlap of configOverlaps) {
+      for (const zoneId of [overlap.zoneAId, overlap.zoneBId]) {
+        if (byZone.get(zoneId) !== "strong") byZone.set(zoneId, overlap.severity);
+      }
+    }
+    return Object.fromEntries(byZone) as Record<string, ZoneOverlap["severity"]>;
+  }, [configOverlaps]);
+
+  // The reviewed pair resolves against live data: fixing the geometry clears
+  // the review automatically instead of showing stale highlights.
+  const activeReview: ZoneOverlap | null = useMemo(() => {
+    if (!reviewOverlap) return null;
+    return (
+      configOverlaps.find(
+        (overlap) =>
+          (overlap.zoneAId === reviewOverlap.aId && overlap.zoneBId === reviewOverlap.bId) ||
+          (overlap.zoneAId === reviewOverlap.bId && overlap.zoneBId === reviewOverlap.aId),
+      ) ?? null
+    );
+  }, [reviewOverlap, configOverlaps]);
+
+  const reviewOverlays = useMemo(
+    () => (activeReview && activeReview.intersectionPoints.length >= 3 ? [activeReview.intersectionPoints] : null),
+    [activeReview],
+  );
+
+  const visibleDrafts = useMemo(() => {
+    if (!activeReview && !focusedParentId && !editor.selectedZoneId) {
+      return areaDrafts.filter((draft) => draft.zone.parentId === null && leafZoneIds.has(draft.zoneId));
+    }
+    return areaDrafts.filter((draft) => leafZoneIds.has(draft.zoneId) || draft.zoneId === focusedParentId);
+  }, [activeReview, focusedParentId, editor.selectedZoneId, areaDrafts, leafZoneIds]);
+
+  const focusedLeafZoneIds = useMemo(() => {
+    if (!focusedParentId) return new Set<string>();
+    return new Set([...getZoneDescendantIds(focusedParentId, zones)].filter((zoneId) => leafZoneIds.has(zoneId)));
+  }, [focusedParentId, zones, leafZoneIds]);
+
+  const focusZone = (zoneId: string) => {
+    const zone = displayZones.find((item) => item.id === zoneId);
+    const hasChildren = displayZones.some((item) => item.parentId === zoneId);
+    const contextId = hasChildren ? zoneId : (zone?.parentId ?? zoneId);
+    setFocusedParentId(contextId);
+    const focusedIds = getZoneDescendantIds(contextId, zones);
+    focusedIds.add(contextId);
+    const points = areaDrafts.filter((area) => focusedIds.has(area.zoneId)).flatMap((area) => area.points);
+    if (points.length > 0) viewport.fitBounds(polygonBounds(points));
+    else fitAll();
+  };
+
+  const selectZone = (zoneId: string | null) => {
+    setAddPointMode(false);
+    setHoveredZoneId(null);
+    // Keep reviewing while the selection stays inside the reviewed pair so an
+    // inspector "Edit boundary" keeps its highlight; unrelated navigation clears it.
+    setReviewOverlap((previous) =>
+      previous && zoneId && (previous.aId === zoneId || previous.bId === zoneId) ? previous : null,
+    );
+    const isGroup = Boolean(zoneId && zones.some((item) => item.parentId === zoneId));
+    if (zoneId && isGroup) {
+      editor.selectZone(null);
+      setFocusedParentId(zoneId);
+      focusZone(zoneId);
+      return;
+    }
+    if (zoneId) setSelectionPulseKey((key) => key + 1);
+    if (zoneId && !mappedZoneIds.has(zoneId) && editor.drawing?.zoneId !== zoneId) {
+      // Panel is selection-only: picking an unmapped leaf starts drawing its
+      // boundary immediately (Finish/Cancel lives on the map overlay).
+      editor.startDrawing(zoneId);
+    } else {
+      editor.selectZone(zoneId);
+    }
+    if (zoneId) focusZone(zoneId);
+  };
+
+  const focusOverlap = (zoneAId: string, zoneBId: string) => {
+    const found = configOverlaps.find(
+      (overlap) =>
+        (overlap.zoneAId === zoneAId && overlap.zoneBId === zoneBId) ||
+        (overlap.zoneAId === zoneBId && overlap.zoneBId === zoneAId),
+    );
+    if (!found) return;
+    setReviewOverlap({ aId: found.zoneAId, bId: found.zoneBId });
+    setHoveredZoneId(null);
+    setFocusedParentId(null);
+    setAddPointMode(false);
+    if (!editor.drawing) editor.selectZone(null);
+    const points = editor.allDrafts
+      .filter((draft) => !draft.deleted && (draft.zoneId === found.zoneAId || draft.zoneId === found.zoneBId))
+      .flatMap((draft) => draft.points);
+    if (points.length > 0) viewport.fitBounds(polygonBounds(points));
+  };
+
+  // Predictable stacking: parent context at the bottom, then zone polygons
+  // in WBS order, selected zone on top. Never database order.
+  const editAreas: CanvasArea[] = useMemo(() => {
+    const rank = (zoneId: string): number => {
+      if (leafZoneIds.has(zoneId) && editor.selectedZoneId === zoneId) return 2;
+      if (focusedParentId === zoneId && zones.some((zone) => zone.parentId === zoneId)) return 0;
+      return 1;
+    };
+    return [...visibleDrafts]
+      .sort(
+        (a, b) =>
+          rank(a.zone.id) - rank(b.zone.id) ||
+          a.zone.sortOrder - b.zone.sortOrder ||
+          a.zone.code.localeCompare(b.zone.code),
+      )
+      .map((d) => {
         const isParent = displayZones.some((zone) => zone.parentId === d.zone.id);
-        const isSelected = editor.selectedZoneId === d.zone.id;
+        const isSelected = leafZoneIds.has(d.zone.id) && editor.selectedZoneId === d.zone.id;
+        // Focused parent is context only: subtle outline, no fill, no label,
+        // no pointer events — children stay the interactive polygons.
+        const isParentContext = rank(d.zone.id) === 0;
+        const isReviewed =
+          activeReview !== null && (d.zone.id === activeReview.zoneAId || d.zone.id === activeReview.zoneBId);
+        const isGroupFocused =
+          !editor.selectedZoneId && activeReview === null && focusedLeafZoneIds.has(d.zone.id) && !isParentContext;
+        const isDimmed = activeReview
+          ? !isReviewed && !isParentContext
+          : isSelected || isParentContext || isGroupFocused
+            ? false
+            : Boolean(editor.selectedZoneId || focusedLeafZoneIds.size > 0);
+        const visualState = isParentContext
+          ? "context"
+          : getZoneMapVisualState({
+              editing: isSelected && editor.boundaryEditing,
+              selected: isSelected,
+              issueFocused: isReviewed,
+              hovered: hoveredZoneId === d.zone.id,
+              groupFocused: isGroupFocused,
+              dimmed: isDimmed,
+            });
+        const visual = zoneMapVisualTokens[visualState];
+        const stroke = isParentContext
+          ? theme.palette.text.secondary
+          : visualState === "issue-focused"
+            ? activeReview?.severity === "strong"
+              ? theme.palette.error.main
+              : theme.palette.warning.main
+            : visualState === "editing"
+              ? theme.palette.primary.dark
+              : visualState === "selected"
+                ? d.zone.displayColor
+                : visualState === "dimmed"
+                  ? alpha(theme.palette.text.disabled, 0.8)
+                  : d.zone.displayColor;
         return {
           key: d.key,
           points: d.points,
-          fill: isParent ? alpha(d.zone.displayColor, 0.05) : alpha(d.zone.displayColor, isSelected ? 0.42 : 0.3),
-          stroke: isSelected ? theme.palette.primary.main : d.zone.displayColor,
-          strokeWidth: isSelected ? 3 : isParent ? 2 : 2,
-          dash: d.isNew ? [10, 6] : isParent ? [6, 4] : undefined,
-          code: d.zone.code,
-          selectionUnderstroke: isSelected ? theme.palette.background.paper : undefined,
+          fill: isParentContext
+            ? "transparent"
+            : alpha(isDimmed ? theme.palette.text.disabled : d.zone.displayColor, visual.fillOpacity),
+          stroke,
+          strokeWidth: isParentContext ? 1.5 : visual.strokeWidth,
+          dash: d.isNew ? [10, 6] : isParentContext || isParent ? [6, 4] : undefined,
+          code: isParentContext ? "" : d.zone.code,
+          selectionUnderstroke: visual.outline !== "none" ? theme.palette.background.paper : undefined,
+          selectionUnderstrokeWidth: visual.strokeWidth + 4,
+          contrastUnderstroke: visual.outline === "double" ? theme.palette.text.primary : undefined,
+          contrastUnderstrokeWidth: visual.strokeWidth + 8,
+          visualState,
+          interactive: !isParentContext,
         };
-      }),
-    [visibleDrafts, editor.selectedZoneId, theme, displayZones],
-  );
+      });
+  }, [
+    visibleDrafts,
+    editor.selectedZoneId,
+    editor.boundaryEditing,
+    focusedParentId,
+    focusedLeafZoneIds,
+    hoveredZoneId,
+    activeReview,
+    theme,
+    displayZones,
+    leafZoneIds,
+    zones,
+  ]);
 
   // Blue rotate handle floats above the selection (map units, scale-compensated).
   const rotateHandle = useMemo(() => {
@@ -584,19 +754,22 @@ export function SitePlanConfigPage() {
                   mapH={mapH}
                   areas={editAreas}
                   selectedKey={editor.selected?.key ?? null}
+                  selectionPulseKey={selectionPulseKey}
                   editMode={!saving}
                   vertexHandles={
                     editor.selected && !editor.drawing
                       ? {
                           areaKey: editor.selected.key,
                           points: editor.selected.points,
-                          radius: 6 / viewport.view.scale,
+                          radius: 7 / viewport.view.scale,
                           hitStrokeWidth: 20 / viewport.view.scale,
+                          activeIndex: editor.selectedVertex,
                         }
                       : null
                   }
                   rotateHandle={rotateHandle}
                   resizeHandles={resizeHandles}
+                  overlapOverlays={reviewOverlays}
                   drawing={editor.drawing?.points ?? null}
                   stageDraggable={!editor.drawing && !vertexDragging && !saving}
                   viewport={viewport.view}
@@ -604,6 +777,7 @@ export function SitePlanConfigPage() {
                   stageRef={viewport.stageRef}
                   size={viewport.size}
                   onStageClick={() => {
+                    setHoveredZoneId(null);
                     if (!saving && editor.drawing) {
                       const pt = viewport.screenToMap();
                       if (pt) editor.pushDrawPoint(clampToMap(pt, mapW, mapH));
@@ -640,6 +814,9 @@ export function SitePlanConfigPage() {
                     } else if (action.type === "select-zone") {
                       selectZone(action.zoneId);
                     }
+                  }}
+                  onAreaHover={(key) => {
+                    setHoveredZoneId(key ? (areaDrafts.find((draft) => draft.key === key)?.zone.id ?? null) : null);
                   }}
                   onVertexDrag={(key, index, pt) => {
                     const d = editor.drafts.find((x) => x.key === key);
@@ -834,6 +1011,7 @@ export function SitePlanConfigPage() {
               <MapEditorPanel
                 editor={editor}
                 zones={zones}
+                focusedParentId={focusedParentId}
                 zonesLoading={zonesQuery.isLoading}
                 mappedZoneIds={mappedZoneIds}
                 colorDrafts={zoneColorDrafts}
@@ -842,10 +1020,27 @@ export function SitePlanConfigPage() {
                 onZoneSelect={selectZone}
                 onShowAllZones={() => {
                   setAddPointMode(false);
+                  setHoveredZoneId(null);
+                  setReviewOverlap(null);
                   editor.selectZone(null);
                   setFocusedParentId(null);
                   fitAll();
                 }}
+                overlaps={configOverlaps.map((overlap) => ({
+                  key: [overlap.zoneAId, overlap.zoneBId].sort().join("|"),
+                  zoneAId: overlap.zoneAId,
+                  zoneBId: overlap.zoneBId,
+                  severity: overlap.severity,
+                  overlapRatio: overlap.overlapRatio,
+                }))}
+                reviewKey={activeReview ? [activeReview.zoneAId, activeReview.zoneBId].sort().join("|") : null}
+                onFocusOverlap={focusOverlap}
+                onEditBoundary={(zoneId) => selectZone(zoneId)}
+                physicalTotal={physicalZones.length}
+                mappedLeafCount={mappedLeafIds.size}
+                unmappedLeafCount={physicalZones.length - mappedLeafIds.size}
+                issueZoneIds={[...new Set(configOverlaps.flatMap((o) => [o.zoneAId, o.zoneBId]))]}
+                issueSeverityByZone={issueSeverityByZone}
               />
             </CardContent>
           </Card>
@@ -879,7 +1074,12 @@ export function SitePlanConfigPage() {
                 Discard
               </Button>
               <Button
-                onClick={() => void handleSave()}
+                onClick={() => {
+                  // Overlaps never block saving; strong (cross-branch) warnings
+                  // get one concise confirmation, sibling warnings save directly.
+                  if (strongOverlaps.length > 0) setSaveConfirmOpen(true);
+                  else void handleSave();
+                }}
                 disabled={saving || hasInvalidZoneColor || Boolean(editor.drawing)}
               >
                 {saving ? "Saving…" : "Save Changes"}
@@ -902,6 +1102,29 @@ export function SitePlanConfigPage() {
           </Button>
           <Button color="error" onClick={discardChanges}>
             Discard
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={saveConfirmOpen} onClose={() => setSaveConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Save with overlap warnings?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            {strongOverlaps.length} unrelated-zone overlap{strongOverlaps.length === 1 ? "" : "s"} will remain on the
+            map. Review them in Overlapping areas, or save anyway — overlap checks never block saving.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setSaveConfirmOpen(false)}>
+            Keep editing
+          </Button>
+          <Button
+            onClick={() => {
+              setSaveConfirmOpen(false);
+              void handleSave();
+            }}
+          >
+            Save anyway
           </Button>
         </DialogActions>
       </Dialog>

@@ -84,4 +84,10 @@
   Draft edits, reassignment, create, reset, and delete save atomically; cancel/project/plan/navigation changes confirm dirty drafts.
 - Drill-down: overview renders parent polygons only; WBS buttons keep All Zones + every parent visible.
   Focus reveals immediate children (unmapped children remain labeled); parent status rolls up descendants.
+- Overlaps (`features/site-plan/utils/polygon-overlap.ts` + `polygon-clipping`): analysis runs on mapped
+  physical LEAF zones only (group nodes carry no geometry); parent/descendant ignored, sibling = warning,
+  cross-branch = strong (`MEANINGFUL_OVERLAP_RATIO=0.05` vs smaller polygon). Config panel has Zones/Issues
+  tabs: tree shows ✓/○ plus ⚠ per involved leaf (unmapped stays neutral), Issues lists compact rows with an
+  inspector (focus + dim others + intersection overlay + direct Edit boundary); save confirms strong only.
+  Activity disambiguates same-level clicks via popover; focused parents render as non-interactive outlines.
 - `packages/env` ต้องมี `@types/bun` ไม่งั้น `process` typecheck ไม่ผ่าน

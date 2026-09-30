@@ -165,6 +165,21 @@ function distToSegment(p: MapPoint, a: MapPoint, b: MapPoint): number {
   return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
+// Ray-casting point-in-polygon (map units). Used to detect genuinely
+// ambiguous clicks that land inside several same-level zone polygons.
+export function pointInPolygon(point: MapPoint, polygon: MapPoint[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i]!;
+    const b = polygon[j]!;
+    if (a.y > point.y !== b.y > point.y) {
+      const intersectX = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
+      if (point.x < intersectX) inside = !inside;
+    }
+  }
+  return inside;
+}
+
 // Insertion index for a new vertex on the nearest polygon edge.
 export function nearestEdgeIndex(points: MapPoint[], p: MapPoint): number {
   let best = 0;

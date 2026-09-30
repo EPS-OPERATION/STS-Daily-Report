@@ -3,6 +3,7 @@ import {
   buildZoneTree,
   getActivityZoneDefaultId,
   getActivityZoneOptions,
+  getZoneDescendantIds,
   getFocusedMapAreas,
   getVisibleConfigurationAreas,
 } from "../apps/web/src/features/site-plan/utils/site-plan-map.js";
@@ -16,6 +17,7 @@ import {
   getZoneColorPreview,
   normalizeZoneColor,
 } from "../apps/web/src/features/zone-configuration/utils/zone-color.js";
+import { getZoneMapVisualState } from "../apps/web/src/features/zone-configuration/utils/map-visual-style.js";
 
 const zones = [
   { id: "z1", code: "1", name: "Biomass", parentId: null },
@@ -39,6 +41,10 @@ describe("Zone Configuration WBS hierarchy", () => {
       { id: "z1", children: [{ id: "z11", children: [] }] },
       { id: "z2", children: [{ id: "z21", children: ["z211"] }] },
     ]);
+  });
+
+  it("finds all nested descendants when focusing a WBS group", () => {
+    expect([...getZoneDescendantIds("z2", zones)]).toEqual(["z21", "z211"]);
   });
 
   it("shows root mappings initially and only a focused zone with its direct children", () => {
@@ -132,5 +138,38 @@ describe("Zone Configuration WBS hierarchy", () => {
   it("keeps the last server color as picker preview while Hex input is invalid", () => {
     expect(getZoneColorPreview("#12GG56", "#457B9D")).toBe("#457B9D");
     expect(getZoneColorPreview("#e76f51", "#457B9D")).toBe("#E76F51");
+  });
+});
+
+describe("Zone Configuration map visual priority", () => {
+  it("keeps editing and selection stronger than issue, hover, and background states", () => {
+    expect(
+      getZoneMapVisualState({ selected: true, editing: true, issueFocused: true, hovered: true, dimmed: true }),
+    ).toBe("editing");
+    expect(
+      getZoneMapVisualState({ selected: true, editing: false, issueFocused: true, hovered: true, dimmed: true }),
+    ).toBe("selected");
+    expect(
+      getZoneMapVisualState({ selected: false, editing: false, issueFocused: true, hovered: true, dimmed: true }),
+    ).toBe("issue-focused");
+    expect(
+      getZoneMapVisualState({ selected: false, editing: false, issueFocused: false, hovered: true, dimmed: true }),
+    ).toBe("hover");
+    expect(
+      getZoneMapVisualState({
+        selected: false,
+        editing: false,
+        issueFocused: false,
+        hovered: false,
+        groupFocused: true,
+        dimmed: true,
+      }),
+    ).toBe("group-focused");
+    expect(
+      getZoneMapVisualState({ selected: false, editing: false, issueFocused: false, hovered: false, dimmed: true }),
+    ).toBe("dimmed");
+    expect(
+      getZoneMapVisualState({ selected: false, editing: false, issueFocused: false, hovered: false, dimmed: false }),
+    ).toBe("context");
   });
 });
