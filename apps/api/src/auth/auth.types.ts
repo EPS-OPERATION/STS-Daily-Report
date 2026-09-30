@@ -10,10 +10,13 @@ export interface AuthIdentity {
   method: AuthMethod;
 }
 
+export type UserRole = "contractor" | "eps";
+
 export interface AuthUser {
   id: string;
   email: string;
   displayName: string | null;
+  role: UserRole;
 }
 
 export interface AuthContext {

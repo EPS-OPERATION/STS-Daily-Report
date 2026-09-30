@@ -3,7 +3,10 @@ import { Elysia } from "elysia";
 import { API_PREFIX, HEALTH_PATH } from "@/config/constants.js";
 import { getEnv } from "@/config/env.js";
 import { authRoutes } from "@/auth/index.js";
+import { buildingRoutes } from "@/modules/buildings/index.js";
 import { contractorRoutes } from "@/modules/contractors/index.js";
+import { dailyReportRoutes } from "@/modules/daily-reports/index.js";
+import { inspectionRequestRoutes } from "@/modules/inspection-requests/index.js";
 import { projectRoutes } from "@/modules/projects/index.js";
 import { siteActivityRoutes } from "@/modules/site-activities/index.js";
 import { sitePlanRoutes } from "@/modules/site-plans/index.js";
@@ -21,7 +24,7 @@ export function buildApp() {
     .use(errorPlugin)
     .get(HEALTH_PATH, () => ({ status: "ok" }))
     .group(API_PREFIX, (group) =>
-      group.use(authRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes),
+      group.use(authRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(inspectionRequestRoutes),
     )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;

@@ -86,7 +86,7 @@ export function ContractorHomePage() {
                   Not submitted
                 </Typography>
               </Box>
-              <Button component={RouterLink} to="/evening-report" size="small">
+              <Button component={RouterLink} to="/field/report?shift=evening" size="small">
                 Submit
               </Button>
             </Stack>
@@ -118,7 +118,7 @@ export function ContractorHomePage() {
 
       <Button
         component={RouterLink}
-        to="/evening-report"
+        to="/field/report?shift=evening"
         size="large"
         fullWidth
         sx={{ minHeight: 48, mb: 2 }}
@@ -132,7 +132,7 @@ export function ContractorHomePage() {
       </Typography>
       <Grid container spacing={1.5} sx={{ mb: 2 }}>
         {[
-          { label: "Evening Report", icon: <DescriptionOutlinedIcon />, to: "/evening-report" },
+          { label: "Evening Report", icon: <DescriptionOutlinedIcon />, to: "/field/report?shift=evening" },
           { label: "View Plan", icon: <MapOutlinedIcon />, to: "/tomorrow" },
         ].map((a) => (
           <Grid key={a.label} size={{ xs: 6, md: 3 }}>

@@ -7,6 +7,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   displayName: text("display_name"),
   status: text("status").notNull().default("active"),
+  // "contractor" acts through memberships; "eps" = owner-side staff (QAQC, review).
+  role: text("role").notNull().default("contractor"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

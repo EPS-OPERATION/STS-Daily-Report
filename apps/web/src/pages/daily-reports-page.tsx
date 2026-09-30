@@ -109,7 +109,7 @@ export function DailyReportsPage() {
         title="Daily Reports"
         subtitle="View and manage daily construction reports"
         actions={
-          <Button component={RouterLink} to="/evening-report" startIcon={<AddOutlinedIcon fontSize="small" />}>
+          <Button component={RouterLink} to="/field/report" startIcon={<AddOutlinedIcon fontSize="small" />}>
             New Report
           </Button>
         }

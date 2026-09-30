@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "@/app/layouts/app-layout.js";
 import { RequireAuth } from "@/features/auth/components/require-auth.js";
 import { ContractorsPage } from "@/pages/contractors-page.js";
@@ -6,13 +6,15 @@ import { ContractorHomePage } from "@/pages/contractor-home-page.js";
 import { DailyReportsPage } from "@/pages/daily-reports-page.js";
 import { DashboardPage } from "@/pages/dashboard-page.js";
 import { DevGeometryMapper } from "@/pages/dev-geometry-mapper.js";
-import { EveningReportPage } from "@/pages/evening-report-page.js";
+import { FieldReportPage } from "@/pages/field-report-page.js";
 import { LoginPage } from "@/pages/login-page.js";
 import { PlaceholderPage } from "@/pages/placeholder-page.js";
 import { ProjectsPage } from "@/pages/projects-page.js";
+import { QaqcBoardPage } from "@/pages/qaqc-board-page.js";
 import { SitePlanPage } from "@/pages/site-plan-page.js";
 import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
 import { TomorrowPlanPage } from "@/pages/tomorrow-plan-page.js";
+import { WeeklyBuildingSummaryPage } from "@/pages/weekly-building-summary-page.js";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -31,7 +33,10 @@ export const router = createBrowserRouter([
           { path: "contractors", element: <ContractorsPage /> },
           { path: "projects", element: <ProjectsPage /> },
           { path: "field", element: <ContractorHomePage /> },
-          { path: "evening-report", element: <EveningReportPage /> },
+          { path: "field/report", element: <FieldReportPage /> },
+          // Legacy link from the old 5-step wizard.
+          { path: "evening-report", element: <Navigate to="/field/report?shift=evening" replace /> },
+          { path: "weekly-summary", element: <WeeklyBuildingSummaryPage /> },
           // Dev-only geometry mapper: reachable by URL, never linked in navigation.
           { path: "dev/map-zones", element: <DevGeometryMapper /> },
           {
@@ -42,10 +47,7 @@ export const router = createBrowserRouter([
             path: "work-permits",
             element: <PlaceholderPage title="Work Permits" blurb="Issue and approve high-risk work permits with expiry and zone linkage. This module follows the contractors reference pattern." />,
           },
-          {
-            path: "qaqc",
-            element: <PlaceholderPage title="QAQC" blurb="Manage QAQC requests, inspections and RFI status per zone and contractor." />,
-          },
+          { path: "qaqc", element: <QaqcBoardPage /> },
           {
             path: "materials",
             element: <PlaceholderPage title="Materials" blurb="Record material deliveries, quantities and suppliers linked to daily reports." />,

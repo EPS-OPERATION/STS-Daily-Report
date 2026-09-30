@@ -36,6 +36,27 @@
       "when": 1790699033619,
       "tag": "0004_wakeful_ares",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790749377158,
+      "tag": "0005_clammy_thunderbolts",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790751558280,
+      "tag": "0006_flaky_revanche",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790753098666,
+      "tag": "0007_brief_wolf_cub",
+      "breakpoints": true
     }
   ]
 }

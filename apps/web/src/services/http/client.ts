@@ -30,7 +30,8 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   const res = await fetch(`${config.apiUrl}${path}`, {
     credentials: "include",
     ...init,
-    headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
+    // FormData sets its own multipart boundary header.
+    headers: init.body instanceof FormData ? { ...(init.headers ?? {}) } : { "Content-Type": "application/json", ...(init.headers ?? {}) },
   });
   const body = await parseBody(res);
   if (!res.ok) {
@@ -54,4 +55,5 @@ export const http = {
   patch: <T>(path: string, data: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(data) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  upload: <T>(path: string, form: FormData) => request<T>(path, { method: "POST", body: form }),
 };

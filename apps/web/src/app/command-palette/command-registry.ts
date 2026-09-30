@@ -23,12 +23,13 @@ const NAV: NavDef[] = [
   { id: "nav-qaqc", label: "QAQC", to: "/qaqc", iconKey: "qaqc", description: "Inspections and RFI status", keywords: ["inspection", "quality", "rfi"] },
   { id: "nav-materials", label: "Materials", to: "/materials", iconKey: "materials", description: "Deliveries and suppliers", keywords: ["material", "delivery", "supplier"] },
   { id: "nav-drone", label: "Drone Progress", to: "/progress", iconKey: "drone", description: "Periodic capture vs plan", keywords: ["drone", "photo", "progress", "survey"] },
+  { id: "nav-weekly-summary", label: "Weekly Building Summary", to: "/weekly-summary", iconKey: "weeklySummary", description: "Meeting matrix: buildings × days, density, machinery conflicts", keywords: ["weekly", "meeting", "building", "matrix", "heatmap", "crane", "conflict"] },
   { id: "nav-projects", label: "Projects", to: "/projects", iconKey: "projects", description: "Project registry", keywords: ["project", "wbs"] },
   { id: "nav-settings", label: "Settings", to: "/settings", iconKey: "settings", description: "Project configuration", keywords: ["setting", "config", "admin"] },
 ];
 
 const ACTIONS: Omit<NavDef, "iconKey">[] = [
-  { id: "act-new-report", label: "Create Daily Report", to: "/evening-report", description: "Open the evening report wizard", keywords: ["new", "create", "report", "evening"] },
+  { id: "act-new-report", label: "Create Daily Report", to: "/field/report", description: "Contractor morning check-in / evening check-out", keywords: ["new", "create", "report", "morning", "evening", "allocation"] },
   { id: "act-add-contractor", label: "Add Contractor", to: "/contractors", description: "Open the contractor registry", keywords: ["new", "create", "add", "contractor"] },
   { id: "act-tomorrow-plan", label: "Create Tomorrow Plan", to: "/tomorrow", description: "Review tomorrow activities", keywords: ["new", "create", "plan", "tomorrow"] },
   { id: "act-upload-photo", label: "Upload Site Photo", to: "/field", description: "Contractor quick photo upload", keywords: ["upload", "photo", "camera", "picture"] },

@@ -4,14 +4,19 @@ import { users } from "@/db/schema/index.js";
 import { InvalidLoginError } from "@/shared/errors/app-error.js";
 import { findUserByEmail, listActiveContractorsForUser } from "./auth.repository.js";
 import { createSession, revokeSessionToken, validateSessionToken } from "./session.service.js";
-import type { AuthContext, AuthIdentity, MeResponse } from "./auth.types.js";
+import type { AuthContext, AuthIdentity, MeResponse, UserRole } from "./auth.types.js";
+
+// Unknown values fall back to the least-privileged role.
+function toRole(role: string): UserRole {
+  return role === "eps" ? "eps" : "contractor";
+}
 
 async function buildContext(userId: string): Promise<AuthContext> {
   const found = await getDb().select().from(users).where(eq(users.id, userId)).limit(1);
   const user = found[0];
   if (!user || user.status !== "active") throw new InvalidLoginError();
   return {
-    user: { id: user.id, email: user.email, displayName: user.displayName },
+    user: { id: user.id, email: user.email, displayName: user.displayName, role: toRole(user.role) },
     identity: { method: "session" },
   };
 }
@@ -23,7 +28,7 @@ export async function loginWithEmail(
   if (!user || user.status !== "active") throw new InvalidLoginError();
   const { token, expiresAt } = await createSession(user.id);
   const context: AuthContext = {
-    user: { id: user.id, email: user.email, displayName: user.displayName },
+    user: { id: user.id, email: user.email, displayName: user.displayName, role: toRole(user.role) },
     identity: { method: "session" },
   };
   return { context, token, expiresAt };

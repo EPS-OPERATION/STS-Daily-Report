@@ -3,17 +3,21 @@
 > Living document: ถ้ามีการ update อะไรก็ตามใน repo นี้ (code, config, schema, script, docs, โครงสร้าง,
 > คำสั่ง build/test/deploy) ต้อง update ไฟล์นี้ให้ตรงของจริงใน commit เดียวกัน ห้ามปล่อยล้าสมัย
 
-## สถานะปัจจุบัน (2026-09-28, branch `dev`)
+## สถานะปัจจุบัน (2026-09-30, branch `improvement/daily-report` — กฎ git ดู `PROJECT_WORKFLOW.md`)
 
+- Agent docs: `CLAUDE.md` (entry, import ไฟล์นี้), `SKILLS.md` (index), skills ที่ `.claude/skills/sts-*`
+  (domain / api-module / web-feature / verify / git-safety) — แก้ recipe ใน code ต้องแก้ skill ใน commit เดียวกัน
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
-- Schema: `projects`, `contractors`, `project_contractors` (m2m) + migration `0000_*` + seed (1 project, 2 contractors)
+- Schema (migrations `0000`–`0006`): projects, contractors, project_contractors, users(role)/memberships/sessions, zones,
+  site_plans/zone_map_areas, site_activities, buildings, daily_reports(+_positions/_equipment/_allocations/_machinery/
+  _permits/_photos), inspection_requests
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
   Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/` dashboard, `/site-plan` (SVG schematic + drawer), `/daily-reports` (DataGrid mock),
-  `/tomorrow`, `/field` + `/evening-report` (mobile-first), `/contractors` (real API); mock ที่ `src/mock/site-data.ts`
-- ยังไม่มี: auth, tests, lint config, CI, domains อื่น (ดู README §12/13)
+- Screens: `/` dashboard, `/site-plan`, `/daily-reports` (DataGrid mock), `/tomorrow`, `/weekly-summary` (real API),
+  `/field` + `/field/report` (mobile-first; `/evening-report` redirect), `/qaqc` (Daily Request kanban), `/contractors`
+- ยังไม่มี: tests, lint config, CI, production auth, domains manpower/permits/qaqc/materials/drone (ดู README §12/13)
 
 ## กฎการ update ไฟล์นี้ (บังคับ)
 
@@ -83,3 +87,13 @@
 - Drill-down: overview parents อย่างเดียว → กด parent animate focus (ease-out ~280ms) + render children (+outline จาง),
   breadcrumb All Zones / parent + Back, parent status รวม activities ลูกหลาน
 - `packages/env` ต้องมี `@types/bun` ไม่งั้น `process` typecheck ไม่ผ่าน
+- Contractor daily report (dual-shift): 1 row/contractor/project/date; เช้า = เวลา/ชม.ทำงาน, อากาศ, คนตามตำแหน่ง (ยอดหลัก)
+  = สัญชาติ/เพศ (ต้องเท่ากัน), เครื่องจักรในไซต์ (qty) → allocation ลง 16 อาคาร
+  (ตาราง `buildings`, ไม่ใช่ WBS zones) ต้องรวม = total พอดี (บังคับทั้ง zod + service), machinery booking, permits 7 ชนิด
+  (workers ≤ คนในอาคาร); เย็น = OT, actual% (ต่ำกว่า plan ต้องมี countermeasure), รูป progress/safety (MinIO), ลายเซ็น PNG;
+  อุบัติเหตุ yes/no(+note); ส่งเย็นแล้ว lock ทั้งวัน; NMH = คน × (work_hours + OT); vocab กลางที่ `@sts/shared` (BUILDINGS/PERMIT_TYPES/MACHINE_TYPES/workloadLevel) — web ใช้ด้วย
+- Weekly summary `GET /projects/:id/weekly-summary?weekStart=` นับเฉพาะ morning submitted; conflict = type+unit ซ้ำ
+  เวลาเหลื่อม ("possible" ถ้าไม่มี unit tag); seed ใส่ sample ZCE/LCE/UME ของสัปดาห์ปัจจุบัน (CTR-001 ว่างไว้ทดสอบ)
+- Bun `--hot` segfault บน Windows → `--watch`; FormData ใช้ `http.upload`; form ใน Dialog ต้อง `e.stopPropagation()`
+- Daily Request = `inspection_requests` (QAQC inspection) ผูก contractor+report_date ไม่ใช่ report row; draft จนส่งเช้า → requested;
+  EPS (`users.role='eps'`, seed eps@sts.local) ย้าย confirmed→inspected(pass/fail)→closed; contractor แก้ได้แค่ draft/requested

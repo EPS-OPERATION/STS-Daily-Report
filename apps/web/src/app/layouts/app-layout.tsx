@@ -48,6 +48,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { to: "/daily-reports", label: "Daily Reports", icon: "dailyReports" },
       { to: "/site-plan", label: "Site Plan", icon: "sitePlan" },
       { to: "/tomorrow", label: "Tomorrow Plan", icon: "tomorrow" },
+      { to: "/weekly-summary", label: "Weekly Summary", icon: "weeklySummary" },
     ],
   },
   {
@@ -69,7 +70,10 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
   },
   {
     title: "Field App",
-    items: [{ to: "/field", label: "Contractor Home", icon: "field" }],
+    items: [
+      { to: "/field", label: "Contractor Home", icon: "field" },
+      { to: "/field/report", label: "Contractor Daily Report", icon: "dailyReports" },
+    ],
   },
   {
     title: "Administration",

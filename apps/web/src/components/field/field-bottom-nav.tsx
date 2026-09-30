@@ -11,7 +11,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 export function FieldBottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const value = pathname.startsWith("/evening-report")
+  const value = pathname.startsWith("/field/report")
     ? 1
     : pathname.startsWith("/tomorrow")
       ? 2
@@ -33,7 +33,7 @@ export function FieldBottomNav() {
         value={value}
         onChange={(_, v: number) => {
           if (v === 0) navigate("/field");
-          if (v === 1) navigate("/evening-report");
+          if (v === 1) navigate("/field/report");
           if (v === 2) navigate("/tomorrow");
         }}
       >

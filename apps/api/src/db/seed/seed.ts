@@ -1,6 +1,24 @@
+import {
+  BUILDINGS,
+  type BuildingCode,
+  type InspectionType,
+  type MachineType,
+  type PermitType,
+  type PositionCode,
+  type RequestStatus,
+  type SiteEquipmentType,
+} from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import {
+  buildings,
   contractorMemberships,
+  dailyReportAllocations,
+  dailyReportEquipment,
+  dailyReportMachinery,
+  dailyReportPermits,
+  dailyReportPositions,
+  dailyReports,
+  inspectionRequests,
   contractors,
   projectContractors,
   projects,
@@ -86,6 +104,18 @@ await db
     email: "contractor@sts.local",
     displayName: "Contractor User",
     status: "active",
+  })
+  .onConflictDoNothing({ target: users.id });
+
+// Development EPS (owner-side QAQC) login — moves Daily Requests on the QAQC board.
+await db
+  .insert(users)
+  .values({
+    id: "99999999-9999-4999-8999-999999999999",
+    email: "eps@sts.local",
+    displayName: "EPS QAQC",
+    status: "active",
+    role: "eps",
   })
   .onConflictDoNothing({ target: users.id });
 
@@ -227,5 +257,210 @@ await db
   ])
   .onConflictDoNothing({ target: siteActivities.id });
 
-console.log("seed ok: 1 project, 3 contractors, 3 links, 1 user, 1 membership, 21 zones, 1 plan, 16 areas, 4 activities");
+// --- Buildings (16 physical buildings; allocation uses these, not WBS) ---
+await db
+  .insert(buildings)
+  .values(
+    BUILDINGS.map((b, i) => ({
+      projectId: PROJECT_ID,
+      code: b.code,
+      name: b.name,
+      nameTh: b.nameTh,
+      sortOrder: (i + 1) * 10,
+    })),
+  )
+  .onConflictDoNothing({ target: [buildings.projectId, buildings.code] });
+
+const buildingIdByCode = new Map(
+  (await db.select({ id: buildings.id, code: buildings.code }).from(buildings)).map((b) => [b.code, b.id]),
+);
+const bid = (code: BuildingCode) => buildingIdByCode.get(code)!;
+
+// --- Sample contractor daily reports for the current week (dev only) ---
+// Codes follow the site badges (ZCE/LCE/UME). Contractor A (the dev login) gets
+// no report for today so the morning/evening flow can be exercised from scratch.
+const SAMPLE_CONTRACTORS = [
+  { id: "66666666-6666-4666-8666-666666666666", code: "ZCE", name: "Zhongtian Overseas Engineering (sample)" },
+  { id: "77777777-7777-4777-8777-777777777777", code: "LCE", name: "L-TAP Engineering (sample)" },
+  { id: "88888888-8888-4888-8888-888888888888", code: "UME", name: "UME Contractor (sample)" },
+];
+await db.insert(contractors).values(SAMPLE_CONTRACTORS).onConflictDoNothing({ target: contractors.id });
+await db
+  .insert(projectContractors)
+  .values(SAMPLE_CONTRACTORS.map((c) => ({ projectId: PROJECT_ID, contractorId: c.id })))
+  .onConflictDoNothing();
+
+type SamplePlan = {
+  contractorId: string;
+  split: [number, number, number, number];
+  positions: Partial<Record<PositionCode, number>>;
+  equipment: Partial<Record<SiteEquipmentType, number>>;
+  alloc: Array<{ b: BuildingCode; n: number; work: string; plan: number }>;
+  permits: Array<{ b: BuildingCode; type: PermitType; workers: number }>;
+  machines: Array<{ b: BuildingCode; type: MachineType; tag?: string; from: string; to: string }>;
+};
+const SAMPLE_PLANS: SamplePlan[] = [
+  {
+    contractorId: SAMPLE_CONTRACTORS[0]!.id,
+    split: [6, 2, 20, 4],
+    positions: { site_manager: 1, engineer: 2, foreman: 2, safety_officer: 1, welder: 6, fire_watch: 1, worker: 19 },
+    equipment: { "Welding Machine": 4, "Hand Tool Equipment": 6, "Mobile Crane": 1, "Boom Lift": 1 },
+    alloc: [
+      { b: "BLR", n: 20, work: "Boiler structure erection", plan: 60 },
+      { b: "TG", n: 12, work: "TG plate installation", plan: 70 },
+    ],
+    permits: [
+      { b: "BLR", type: "hot_work", workers: 6 },
+      { b: "BLR", type: "height", workers: 8 },
+    ],
+    machines: [
+      { b: "BLR", type: "Mobile Crane 50T", tag: "CR-01", from: "08:00", to: "12:00" },
+      { b: "BLR", type: "Boom Lift", from: "13:00", to: "17:00" },
+    ],
+  },
+  {
+    contractorId: SAMPLE_CONTRACTORS[1]!.id,
+    split: [10, 2, 18, 4],
+    positions: { engineer: 1, foreman: 2, safety_officer: 1, crane_operator: 1, worker: 29 },
+    equipment: { "Hand Tool Equipment": 5, "Mobile Crane": 1, Backhoe: 1, "Concrete Pump": 1 },
+    alloc: [
+      { b: "ACC", n: 18, work: "ACC concrete chipping", plan: 60 },
+      { b: "CT", n: 6, work: "Cooling tower wall formwork", plan: 40 },
+      { b: "BLR", n: 10, work: "Boiler cable tray", plan: 50 },
+    ],
+    permits: [{ b: "ACC", type: "lifting", workers: 4 }],
+    machines: [{ b: "ACC", type: "Mobile Crane 50T", tag: "CR-01", from: "10:00", to: "15:00" }],
+  },
+  {
+    contractorId: SAMPLE_CONTRACTORS[2]!.id,
+    split: [12, 3, 8, 0],
+    positions: { engineer: 1, foreman: 1, safety_officer: 1, welder: 5, worker: 15 },
+    equipment: { "Welding Machine": 3, "Boom Lift": 1 },
+    alloc: [
+      { b: "BLR", n: 15, work: "Boiler piping", plan: 45 },
+      { b: "STK", n: 8, work: "Stack platform welding", plan: 55 },
+    ],
+    permits: [{ b: "STK", type: "height", workers: 8 }],
+    machines: [{ b: "STK", type: "Boom Lift", from: "08:00", to: "17:00" }],
+  },
+];
+
+const todayDate = new Date(`${today}T00:00:00Z`);
+const mondayOffset = (todayDate.getUTCDay() + 6) % 7;
+const weekDays = Array.from({ length: mondayOffset + 1 }, (_, i) => {
+  const d = new Date(todayDate);
+  d.setUTCDate(d.getUTCDate() - mondayOffset + i);
+  return d.toISOString().slice(0, 10);
+});
+
+let sampleReports = 0;
+for (const date of weekDays) {
+  for (const plan of SAMPLE_PLANS) {
+    const [thaiMale, thaiFemale, foreignMale, foreignFemale] = plan.split;
+    const inserted = await db
+      .insert(dailyReports)
+      .values({
+        projectId: PROJECT_ID,
+        contractorId: plan.contractorId,
+        reportDate: date,
+        thaiMale,
+        thaiFemale,
+        foreignMale,
+        foreignFemale,
+        startTime: "08:00",
+        endTime: "17:00",
+        workHours: 8,
+        weather: "hot",
+        temperatureC: 33,
+        humidityPct: 75,
+        morningStatus: "submitted",
+        morningSubmittedAt: new Date(`${date}T01:00:00Z`),
+      })
+      .onConflictDoNothing()
+      .returning({ id: dailyReports.id });
+    const reportId = inserted[0]?.id;
+    if (!reportId) continue; // already seeded — keep idempotent
+    sampleReports++;
+    await db
+      .insert(dailyReportPositions)
+      .values(Object.entries(plan.positions).map(([position, headcount]) => ({ reportId, position, headcount: headcount! })));
+    await db
+      .insert(dailyReportEquipment)
+      .values(Object.entries(plan.equipment).map(([equipmentType, qty]) => ({ reportId, equipmentType, qty: qty! })));
+    await db.insert(dailyReportAllocations).values(
+      plan.alloc.map((a, i) => ({
+        reportId,
+        buildingId: bid(a.b),
+        headcount: a.n,
+        workDescription: a.work,
+        planPercent: a.plan,
+        sortOrder: i,
+      })),
+    );
+    await db
+      .insert(dailyReportPermits)
+      .values(plan.permits.map((p) => ({ reportId, buildingId: bid(p.b), permitType: p.type, workers: p.workers })));
+    await db.insert(dailyReportMachinery).values(
+      plan.machines.map((m) => ({
+        reportId,
+        buildingId: bid(m.b),
+        machineType: m.type,
+        unitTag: m.tag ?? null,
+        startTime: m.from,
+        endTime: m.to,
+      })),
+    );
+  }
+}
+
+// --- Sample Daily Requests (QAQC inspection) across the kanban, idempotent by fixed id ---
+const addDays = (iso: string, n: number) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const SAMPLE_REQUESTS: Array<{
+  id: string;
+  c: number;
+  b: BuildingCode;
+  day: number;
+  time: string;
+  type: InspectionType;
+  item: string;
+  status: RequestStatus;
+  readiness: "ready" | "preparing" | "not_ready";
+  result?: "pass" | "fail";
+}> = [
+  { id: "e1000000-0000-4000-8000-000000000001", c: 0, b: "BLR", day: 0, time: "09:00", type: "rebar", item: "Rebar B1 L2", status: "confirmed", readiness: "ready" },
+  { id: "e1000000-0000-4000-8000-000000000002", c: 1, b: "ACC", day: 0, time: "10:30", type: "formwork", item: "Formwork ACC wall W3", status: "requested", readiness: "preparing" },
+  { id: "e1000000-0000-4000-8000-000000000003", c: 2, b: "STK", day: 1, time: "13:00", type: "concrete", item: "Concrete Stack base L3", status: "requested", readiness: "not_ready" },
+  { id: "e1000000-0000-4000-8000-000000000004", c: 0, b: "TG", day: -1, time: "14:00", type: "welding", item: "TG platform weld joints", status: "inspected", readiness: "ready", result: "fail" },
+  { id: "e1000000-0000-4000-8000-000000000005", c: 1, b: "CT", day: -2, time: "09:30", type: "survey", item: "Cooling tower setting-out", status: "closed", readiness: "ready", result: "pass" },
+];
+await db
+  .insert(inspectionRequests)
+  .values(
+    SAMPLE_REQUESTS.map((r) => {
+      const inspectionDate = addDays(today, r.day);
+      return {
+        id: r.id,
+        projectId: PROJECT_ID,
+        contractorId: SAMPLE_CONTRACTORS[r.c]!.id,
+        buildingId: bid(r.b),
+        reportDate: r.day > 0 ? today : inspectionDate,
+        inspectionDate,
+        inspectionTime: r.time,
+        inspectionType: r.type,
+        workItem: r.item,
+        readiness: r.readiness,
+        status: r.status,
+        result: r.result ?? null,
+      };
+    }),
+  )
+  .onConflictDoNothing({ target: inspectionRequests.id });
+
+console.log(
+  `seed ok: 1 project, 6 contractors, 1 user, 1 membership, 21 zones, 1 plan, 16 areas, 4 activities, ${BUILDINGS.length} buildings, ${sampleReports} new sample daily reports`,
+);
 process.exit(0);

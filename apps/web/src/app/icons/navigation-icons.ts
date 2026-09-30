@@ -2,6 +2,7 @@ import AccountTreeOutlined from "@mui/icons-material/AccountTreeOutlined";
 import AssessmentOutlined from "@mui/icons-material/AssessmentOutlined";
 import AssignmentOutlined from "@mui/icons-material/AssignmentOutlined";
 import BusinessOutlined from "@mui/icons-material/BusinessOutlined";
+import CalendarViewWeekOutlined from "@mui/icons-material/CalendarViewWeekOutlined";
 import DashboardOutlined from "@mui/icons-material/DashboardOutlined";
 import DescriptionOutlined from "@mui/icons-material/DescriptionOutlined";
 import EngineeringOutlined from "@mui/icons-material/EngineeringOutlined";
@@ -25,6 +26,7 @@ export const navigationIcons = {
   dailyReports: DescriptionOutlined,
   sitePlan: MapOutlined,
   tomorrow: EventNoteOutlined,
+  weeklySummary: CalendarViewWeekOutlined,
   contractors: BusinessOutlined,
   manpower: EngineeringOutlined,
   workPermits: AssignmentOutlined,

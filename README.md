@@ -72,7 +72,9 @@ bun db:push      # direct push, dev only
 bun db:studio
 ```
 
-Tables: `projects`, `contractors`, `project_contractors` (m2m, composite PK, cascade FKs).
+Tables: `projects`, `contractors`, `project_contractors` (m2m), auth (`users`, `contractor_memberships`, `sessions`),
+site plan (`zones`, `site_plans`, `zone_map_areas`, `site_activities`), daily report (`buildings`, `daily_reports`,
+`daily_report_allocations`, `daily_report_machinery`, `daily_report_permits`, `daily_report_photos`).
 UUID PKs, `created_at/updated_at` timestamptz. Drizzle config: `apps/api/drizzle.config.ts`.
 
 ## 9. Seed data

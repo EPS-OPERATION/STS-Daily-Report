@@ -3,6 +3,7 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "AUTH_REQUIRED"
+  | "FORBIDDEN"
   | "INVALID_LOGIN"
   | "INTERNAL_ERROR";
 
@@ -39,6 +40,12 @@ export class ConflictError extends AppError {
 export class AuthRequiredError extends AppError {
   constructor(message = "Authentication required") {
     super("AUTH_REQUIRED", 401, message);
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message = "Not allowed", details?: unknown) {
+    super("FORBIDDEN", 403, message, details);
   }
 }
 
