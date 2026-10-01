@@ -1,6 +1,10 @@
 import { timeWindowsOverlap } from "@sts/shared";
 import type { BookingRow, MachineryConflict, RoadRow } from "./daily-report.type.js";
 
+// A booking without a time window occupies the machine for the whole day.
+const DAY_START = "00:00";
+const DAY_END = "23:59";
+
 function normalizeTag(tag: string | null): string {
   return (tag ?? "").trim().toUpperCase();
 }
@@ -26,7 +30,7 @@ export function findMachineryConflicts(rows: BookingRow[]): MachineryConflict[] 
         const ta = normalizeTag(a.unitTag);
         const tb = normalizeTag(b.unitTag);
         if (ta && tb && ta !== tb) continue;
-        if (!timeWindowsOverlap(a.startTime, a.endTime, b.startTime, b.endTime)) continue;
+        if (!timeWindowsOverlap(a.startTime ?? DAY_START, a.endTime ?? DAY_END, b.startTime ?? DAY_START, b.endTime ?? DAY_END)) continue;
         conflicts.push({
           targetDate: a.targetDate,
           machineType: a.machineType,

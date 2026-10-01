@@ -23,6 +23,8 @@ import {
   listReportsForReview,
   countRequestsByStatusInRange,
   listEquipment,
+  listEquipmentRequests,
+  listEquipmentRequestsInRange,
   listPositions,
   listReportHoursInRange,
   listPositionsInRange,
@@ -41,7 +43,16 @@ import {
   saveMorning,
   setReportReview,
 } from "./daily-report.repository.js";
-import type { EveningInput, MachineryInput, MorningInput, PermitInput, PhotoUploadInput, ReviewInput, RoadUsageInput } from "./daily-report.type.js";
+import type {
+  EquipmentRequestInput,
+  EveningInput,
+  MachineryInput,
+  MorningInput,
+  PermitInput,
+  PhotoUploadInput,
+  ReviewInput,
+  RoadUsageInput,
+} from "./daily-report.type.js";
 
 const MAX_PHOTOS = 12;
 
@@ -86,12 +97,13 @@ async function reportDetail(reportId: string) {
   if (!report) throw new NotFoundError("Daily report not found", { reportId });
   // machinery / permits / roadUsage on a report are the requests it raised for the next day.
   const tomorrow = addDays(report.reportDate, 1);
-  const [positions, equipment, allocations, machinery, permits, roadUsage, photos, bookings, others, otherRoads] =
+  const [positions, equipment, allocations, machinery, equipmentRequests, permits, roadUsage, photos, bookings, others, otherRoads] =
     await Promise.all([
       listPositions(db, reportId),
       listEquipment(db, reportId),
       listAllocations(db, reportId),
       listMachinery(db, reportId),
+      listEquipmentRequests(db, reportId),
       listPermits(db, reportId),
       listRoadUsage(db, reportId),
       listPhotos(db, reportId),
@@ -127,6 +139,7 @@ async function reportDetail(reportId: string) {
     equipment,
     allocations,
     machinery,
+    equipmentRequests,
     permits,
     roadUsage,
     requestsForDate: tomorrow,
@@ -265,14 +278,23 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
 function validateTomorrow(
   buildingIds: Set<string>,
   machinery: MachineryInput[],
+  equipment: EquipmentRequestInput[],
   permits: PermitInput[],
   roads: RoadUsageInput[],
 ) {
-  for (const b of [...machinery, ...permits, ...roads]) {
+  for (const b of [...machinery, ...equipment, ...permits, ...roads]) {
     if (!buildingIds.has(b.buildingId)) throw new ValidationError("Unknown building", { buildingId: b.buildingId });
   }
-  for (const w of [...machinery, ...roads]) {
-    if (w.startTime >= w.endTime) throw new ValidationError("End time must be after start time", { startTime: w.startTime });
+  for (const m of machinery) {
+    if (Boolean(m.startTime) !== Boolean(m.endTime)) {
+      throw new ValidationError("Give both start and end time, or neither (= all day)", { machineType: m.machineType });
+    }
+    if (m.startTime && m.endTime && m.startTime >= m.endTime) {
+      throw new ValidationError("End time must be after start time", { startTime: m.startTime });
+    }
+  }
+  for (const r of roads) {
+    if (r.startTime >= r.endTime) throw new ValidationError("End time must be after start time", { startTime: r.startTime });
   }
   for (const p of permits) {
     if (p.permitType === "other" && !p.otherLabel?.trim()) throw new ValidationError("Describe the permit when type is Other");
@@ -301,6 +323,7 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
   validateTomorrow(
     new Set((await listBuildings(db, projectId)).map((b) => b.id)),
     input.machinery,
+    input.equipmentRequests,
     input.permits,
     input.roadUsage,
   );
@@ -442,7 +465,7 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
   const weekEnd = addDays(weekStart, 6);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const [buildings, allocations, permits, bookings, hours, requestCounts, roads] = await Promise.all([
+  const [buildings, allocations, permits, bookings, hours, requestCounts, roads, equipmentRequests] = await Promise.all([
     listBuildings(db, projectId),
     listAllocationsInRange(db, projectId, weekStart, weekEnd),
     listPermitsInRange(db, projectId, weekStart, weekEnd),
@@ -450,6 +473,7 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
     listReportHoursInRange(db, projectId, weekStart, weekEnd),
     countRequestsByStatusInRange(db, projectId, weekStart, weekEnd),
     listRoadUsageInRange(db, projectId, weekStart, weekEnd),
+    listEquipmentRequestsInRange(db, projectId, weekStart, weekEnd),
   ]);
   const roadClashes = new Set(findRoadConflicts(roads).flatMap((c) => c.ids));
 
@@ -526,6 +550,7 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
     machinery: bookings.map((b) => ({ ...b, conflict: conflicted.get(b.id) ?? null })),
     conflicts,
     roads: roads.map((r) => ({ ...r, conflict: roadClashes.has(r.id) })),
+    equipmentRequests,
     requests: Object.fromEntries(
       REQUEST_STATUSES.map((st) => [st, requestCounts.find((r) => r.status === st)?.n ?? 0]),
     ) as Record<RequestStatus, number>,
@@ -611,7 +636,11 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   const db = getDb();
   await assertProject(projectId);
   assertRange(from, to);
-  const rows = await listReportHoursInRange(db, projectId, from, to);
+  const [rows, allocations, buildingList] = await Promise.all([
+    listReportHoursInRange(db, projectId, from, to),
+    listAllocationsInRange(db, projectId, from, to),
+    listBuildings(db, projectId),
+  ]);
   const byContractor = new Map<
     string,
     { contractorId: string; contractorCode: string; manDays: number; manHours: number; reportedDays: number; thaiMale: number; thaiFemale: number; foreignMale: number; foreignFemale: number }
@@ -642,11 +671,25 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   }
   const contractors = [...byContractor.values()].sort((a, b) => b.manDays - a.manDays);
   const days = new Set(rows.map((r) => r.reportDate)).size;
+  // Man-days per building (site order), split by contractor — from the morning allocation.
+  const perBuilding = new Map<string, Map<string, number>>();
+  for (const a of allocations) {
+    const m = perBuilding.get(a.buildingId) ?? new Map<string, number>();
+    m.set(a.contractorCode, (m.get(a.contractorCode) ?? 0) + a.headcount);
+    perBuilding.set(a.buildingId, m);
+  }
+  const byBuilding = buildingList.map((b) => ({
+    buildingId: b.id,
+    code: b.code,
+    name: b.name,
+    contractors: Object.fromEntries(perBuilding.get(b.id) ?? []),
+  }));
   return {
     from,
     to,
     contractors,
     daily,
+    byBuilding,
     totals: {
       manDays: contractors.reduce((s, c) => s + c.manDays, 0),
       manHours: contractors.reduce((s, c) => s + c.manHours, 0),

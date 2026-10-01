@@ -4,6 +4,7 @@ import {
   contractors,
   dailyReportAllocations,
   dailyReportEquipment,
+  dailyReportEquipmentRequests,
   dailyReportMachinery,
   dailyReportPermits,
   dailyReportPhotos,
@@ -77,6 +78,7 @@ export async function listMachinery(db: Db, reportId: string) {
       unitTag: dailyReportMachinery.unitTag,
       startTime: dailyReportMachinery.startTime,
       endTime: dailyReportMachinery.endTime,
+      purpose: dailyReportMachinery.purpose,
     })
     .from(dailyReportMachinery)
     .innerJoin(buildings, eq(dailyReportMachinery.buildingId, buildings.id))
@@ -99,6 +101,40 @@ export async function listPermits(db: Db, reportId: string) {
     .innerJoin(buildings, eq(dailyReportPermits.buildingId, buildings.id))
     .where(eq(dailyReportPermits.reportId, reportId))
     .orderBy(asc(dailyReportPermits.createdAt));
+}
+
+const equipmentRequestColumns = {
+  id: dailyReportEquipmentRequests.id,
+  targetDate: dailyReportEquipmentRequests.targetDate,
+  buildingId: dailyReportEquipmentRequests.buildingId,
+  buildingCode: buildings.code,
+  buildingName: buildings.name,
+  equipmentType: dailyReportEquipmentRequests.equipmentType,
+  qty: dailyReportEquipmentRequests.qty,
+  purpose: dailyReportEquipmentRequests.purpose,
+  contractorId: dailyReports.contractorId,
+  contractorCode: contractors.code,
+};
+
+function equipmentRequestQuery(db: Db) {
+  return db
+    .select(equipmentRequestColumns)
+    .from(dailyReportEquipmentRequests)
+    .innerJoin(dailyReports, eq(dailyReportEquipmentRequests.reportId, dailyReports.id))
+    .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
+    .innerJoin(buildings, eq(dailyReportEquipmentRequests.buildingId, buildings.id));
+}
+
+export async function listEquipmentRequests(db: Db, reportId: string) {
+  return equipmentRequestQuery(db)
+    .where(eq(dailyReportEquipmentRequests.reportId, reportId))
+    .orderBy(asc(dailyReportEquipmentRequests.createdAt));
+}
+
+export async function listEquipmentRequestsInRange(db: Db, projectId: string, from: string, to: string) {
+  return equipmentRequestQuery(db)
+    .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReportEquipmentRequests.targetDate, from, to)))
+    .orderBy(asc(dailyReportEquipmentRequests.targetDate), asc(dailyReportEquipmentRequests.equipmentType));
 }
 
 const roadColumns = {
@@ -148,7 +184,7 @@ export async function listRoadUsageForTargetExcluding(db: Db, projectId: string,
 // What a contractor asked for (the evening before) to happen on `targetDate`.
 export async function listPlannedForDate(db: Db, projectId: string, contractorId: string, targetDate: string) {
   const scope = and(eq(dailyReports.projectId, projectId), eq(dailyReports.contractorId, contractorId), reportSent);
-  const [machinery, permits, roads] = await Promise.all([
+  const [machinery, permits, roads, equipment] = await Promise.all([
     db
       .select({
         id: dailyReportMachinery.id,
@@ -158,6 +194,7 @@ export async function listPlannedForDate(db: Db, projectId: string, contractorId
         unitTag: dailyReportMachinery.unitTag,
         startTime: dailyReportMachinery.startTime,
         endTime: dailyReportMachinery.endTime,
+        purpose: dailyReportMachinery.purpose,
       })
       .from(dailyReportMachinery)
       .innerJoin(dailyReports, eq(dailyReportMachinery.reportId, dailyReports.id))
@@ -180,8 +217,9 @@ export async function listPlannedForDate(db: Db, projectId: string, contractorId
     roadQuery(db)
       .where(and(scope, eq(dailyReportRoadUsage.targetDate, targetDate)))
       .orderBy(asc(dailyReportRoadUsage.startTime)),
+    equipmentRequestQuery(db).where(and(scope, eq(dailyReportEquipmentRequests.targetDate, targetDate))),
   ]);
-  return { machinery, permits, roads };
+  return { machinery, permits, roads, equipment };
 }
 
 // Creates an empty draft row for (project, contractor, date) so photos can attach
@@ -380,6 +418,7 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
     }
 
     await tx.delete(dailyReportMachinery).where(eq(dailyReportMachinery.reportId, reportId));
+    await tx.delete(dailyReportEquipmentRequests).where(eq(dailyReportEquipmentRequests.reportId, reportId));
     await tx.delete(dailyReportPermits).where(eq(dailyReportPermits.reportId, reportId));
     await tx.delete(dailyReportRoadUsage).where(eq(dailyReportRoadUsage.reportId, reportId));
     if (input.machinery.length > 0) {
@@ -390,8 +429,21 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
           buildingId: m.buildingId,
           machineType: m.machineType,
           unitTag: m.unitTag?.trim().toUpperCase() || null,
-          startTime: m.startTime,
-          endTime: m.endTime,
+          startTime: m.startTime ?? null,
+          endTime: m.endTime ?? null,
+          purpose: m.purpose?.trim() || null,
+        })),
+      );
+    }
+    if (input.equipmentRequests.length > 0) {
+      await tx.insert(dailyReportEquipmentRequests).values(
+        input.equipmentRequests.map((e) => ({
+          reportId,
+          targetDate: tomorrow,
+          buildingId: e.buildingId,
+          equipmentType: e.equipmentType,
+          qty: e.qty,
+          purpose: e.purpose?.trim() || null,
         })),
       );
     }
@@ -443,6 +495,7 @@ const bookingColumns = {
   unitTag: dailyReportMachinery.unitTag,
   startTime: dailyReportMachinery.startTime,
   endTime: dailyReportMachinery.endTime,
+  purpose: dailyReportMachinery.purpose,
   contractorId: dailyReports.contractorId,
   contractorCode: contractors.code,
   buildingId: dailyReportMachinery.buildingId,

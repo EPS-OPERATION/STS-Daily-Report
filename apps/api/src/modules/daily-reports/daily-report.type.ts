@@ -19,8 +19,17 @@ export interface MachineryInput {
   buildingId: string;
   machineType: MachineType;
   unitTag?: string;
-  startTime: string;
-  endTime: string;
+  // Optional window; omitted = needed all day.
+  startTime?: string;
+  endTime?: string;
+  purpose?: string;
+}
+
+export interface EquipmentRequestInput {
+  buildingId: string;
+  equipmentType: SiteEquipmentType;
+  qty: number;
+  purpose?: string;
 }
 
 export interface PermitInput {
@@ -74,6 +83,7 @@ export interface EveningInput {
   signatureName: string;
   signatureData: string;
   machinery: MachineryInput[];
+  equipmentRequests: EquipmentRequestInput[];
   permits: PermitInput[];
   roadUsage: RoadUsageInput[];
 }
@@ -98,8 +108,9 @@ export interface BookingRow {
   targetDate: string;
   machineType: string;
   unitTag: string | null;
-  startTime: string;
-  endTime: string;
+  startTime: string | null;
+  endTime: string | null;
+  purpose: string | null;
   contractorId: string;
   contractorCode: string;
   buildingId: string;

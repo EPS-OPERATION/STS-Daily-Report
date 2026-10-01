@@ -7,13 +7,23 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { MACHINE_TYPES, PERMIT_TYPES, timeWindowsOverlap, type MachineType, type PermitType } from "@sts/shared";
+import {
+  MACHINE_TYPES,
+  PERMIT_TYPES,
+  SITE_EQUIPMENT_TYPES,
+  timeWindowsOverlap,
+  type MachineType,
+  type PermitType,
+  type SiteEquipmentType,
+} from "@sts/shared";
 import { Controller, useFieldArray, useWatch, type Control } from "react-hook-form";
 import type { EveningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, WeeklySummary } from "../types/daily-report.types.js";
@@ -61,7 +71,15 @@ export function MachineryRequests({
         fullWidth
         sx={{ mt: 1.5, borderStyle: "dashed" }}
         onClick={() =>
-          rows.append({ machineType: "" as MachineType, unitTag: "", buildingId: "", startTime: "08:00", endTime: "17:00" })
+          rows.append({
+            machineType: "" as MachineType,
+            unitTag: "",
+            buildingId: "",
+            allDay: true,
+            startTime: "08:00",
+            endTime: "17:00",
+            purpose: "",
+          })
         }
       >
         จองเครื่องจักร
@@ -84,13 +102,15 @@ function MachineryRow({
   onRemove: () => void;
 }) {
   const v = useWatch({ control, name: `machinery.${index}` });
+  // No window = whole day (same rule as the server).
+  const [vs, ve] = v?.allDay ? ["00:00", "23:59"] : [v?.startTime ?? "", v?.endTime ?? ""];
   const clashes = (ctx.others?.machinery ?? []).filter(
     (b) =>
       b.targetDate === ctx.targetDate &&
       b.contractorId !== ctx.contractorId &&
       b.machineType === v?.machineType &&
-      v.startTime < v.endTime &&
-      timeWindowsOverlap(v.startTime, v.endTime, b.startTime, b.endTime) &&
+      vs < ve &&
+      timeWindowsOverlap(vs, ve, b.startTime ?? "00:00", b.endTime ?? "23:59") &&
       (!norm(v.unitTag) || !b.unitTag || norm(v.unitTag) === norm(b.unitTag)),
   );
   const sameUnit = clashes.some((b) => norm(v?.unitTag) && norm(b.unitTag) === norm(v?.unitTag));
@@ -134,16 +154,113 @@ function MachineryRow({
               )}
             />
           </Grid>
-          <TimeWindow control={control} base={`machinery.${index}`} />
+          <Grid size={{ xs: 12, sm: 6 }} sx={{ display: "flex", alignItems: "center" }}>
+            <Controller
+              name={`machinery.${index}.allDay`}
+              control={control}
+              render={({ field }) => (
+                <FormControlLabel
+                  control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                  label={field.value ? "ใช้ทั้งวัน (ไม่ระบุเวลา)" : "ระบุช่วงเวลา"}
+                />
+              )}
+            />
+          </Grid>
+          {v?.allDay ? null : <TimeWindow control={control} base={`machinery.${index}`} />}
+          <Grid size={12}>
+            <Controller
+              name={`machinery.${index}.purpose`}
+              control={control}
+              render={({ field }) => <TextField {...field} label="วัตถุประสงค์ (Purpose)" placeholder="เช่น ยก Structure line A–D" size="small" fullWidth />}
+            />
+          </Grid>
         </Grid>
         {clashes.length ? (
           <ClashNote severe={sameUnit}>
             {sameUnit ? "ชนกับการจองเครื่องเดียวกัน: " : "เวลาเหลื่อมกับ (ไม่ระบุหมายเลขเครื่อง): "}
-            {clashes.map((b) => `${b.contractorCode} @ ${b.buildingCode} ${b.startTime}–${b.endTime}`).join(", ")}
+            {clashes.map((b) => `${b.contractorCode} @ ${b.buildingCode} ${b.startTime ? `${b.startTime}–${b.endTime}` : "ทั้งวัน"}`).join(", ")}
           </ClashNote>
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+// Equipment / tools for tomorrow: quantity only, no time window.
+export function EquipmentRequests({ control, buildings }: { control: Control<EveningFormValues>; buildings: Building[] }) {
+  const rows = useFieldArray({ control, name: "equipmentRequests" });
+  return (
+    <Box>
+      <Stack spacing={1.5}>
+        {rows.fields.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            ไม่มีการขอเครื่องมือ/อุปกรณ์สำหรับพรุ่งนี้
+          </Typography>
+        ) : null}
+        {rows.fields.map((row, i) => (
+          <Card key={row.id} variant="outlined">
+            <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Controller
+                    name={`equipmentRequests.${i}.equipmentType`}
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <TextField select label="เครื่องมือ / อุปกรณ์" size="small" fullWidth {...field} error={Boolean(fieldState.error)} helperText={fieldState.error?.message}>
+                        {SITE_EQUIPMENT_TYPES.map((e) => (
+                          <MenuItem key={e} value={e}>
+                            {e}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    )}
+                  />
+                </Grid>
+                <Grid size={{ xs: 10, sm: 5 }}>
+                  <Controller
+                    name={`equipmentRequests.${i}.qty`}
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <NumberStepper label="จำนวน" value={field.value} onChange={field.onChange} min={1} max={500} error={fieldState.error?.message} />
+                    )}
+                  />
+                </Grid>
+                <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }}>
+                  <IconButton aria-label="ลบคำขออุปกรณ์" onClick={() => rows.remove(i)}>
+                    <DeleteOutlineOutlinedIcon />
+                  </IconButton>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Controller
+                    name={`equipmentRequests.${i}.buildingId`}
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <BuildingSelect label="อาคาร" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+                    )}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Controller
+                    name={`equipmentRequests.${i}.purpose`}
+                    control={control}
+                    render={({ field }) => <TextField {...field} label="วัตถุประสงค์ (Purpose)" size="small" fullWidth />}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        ))}
+      </Stack>
+      <Button
+        startIcon={<AddIcon />}
+        variant="outlined"
+        fullWidth
+        sx={{ mt: 1.5, borderStyle: "dashed" }}
+        onClick={() => rows.append({ equipmentType: "" as SiteEquipmentType, qty: 1, buildingId: "", purpose: "" })}
+      >
+        ขอเครื่องมือ / อุปกรณ์
+      </Button>
+    </Box>
   );
 }
 

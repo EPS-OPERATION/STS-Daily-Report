@@ -1,26 +1,29 @@
 // Contractor daily report vocabulary shared by api (validation) and web (forms/labels).
 // Framework-free: plain consts + helpers only.
 
-// 16 physical buildings (drawing set STSBPP-EB-C-023 + 3D site model). Used for
+// 15 facilities in the order EPS uses on site (requirements deck v2, Oct 2026). Used for
 // allocation instead of WBS codes. `code` is stable and stored in the database.
+// Biomass Storage (BMS) was dropped from the list; the seed marks it inactive instead of
+// deleting it so historical rows keep their foreign key.
 export const BUILDINGS = [
-  { code: "BMS", name: "Biomass Storage", nameTh: "อาคารเก็บชีวมวล" },
-  { code: "BMT", name: "Biomass Transport", nameTh: "สายพานลำเลียงชีวมวล" },
+  { code: "RWP", name: "Raw Water Pond and Pump", nameTh: "บ่อน้ำดิบและเครื่องสูบ" },
+  { code: "WTK", name: "Water Tank and Pump House", nameTh: "ถังเก็บน้ำและโรงสูบน้ำ" },
+  { code: "WTP", name: "Water Treatment Plant", nameTh: "โรงบำบัดน้ำ" },
+  { code: "CT", name: "Auxiliary Cooling Tower", nameTh: "หอหล่อเย็นเสริม" },
+  { code: "CMP", name: "Compressor Room", nameTh: "ห้องเครื่องอัดอากาศ" },
+  { code: "ACC", name: "ACC", nameTh: "หอควบแน่นระบายความร้อนด้วยอากาศ" },
+  { code: "TG", name: "TG Building", nameTh: "อาคารกังหันและเครื่องกำเนิดไฟฟ้า" },
+  { code: "TR", name: "TR", nameTh: "หม้อแปลงไฟฟ้า (Transformer)" },
   { code: "BLR", name: "Boiler", nameTh: "หม้อไอน้ำ" },
+  { code: "BMT", name: "Biomass Transport", nameTh: "สายพานลำเลียงชีวมวล" },
   { code: "BAB", name: "Bottom Ash Bunker", nameTh: "บ่อพักขี้เถ้าหนัก" },
   { code: "FAS", name: "Fly Ash Silo", nameTh: "ไซโลขี้เถ้าลอย" },
   { code: "DOT", name: "Diesel Oil Tank", nameTh: "ถังน้ำมันดีเซล" },
   { code: "FGT", name: "FGT", nameTh: "บำบัดก๊าซเสีย (Flue Gas Treatment)" },
   { code: "STK", name: "Stack", nameTh: "ปล่องควัน" },
-  { code: "TG", name: "TG Building", nameTh: "อาคารกังหันและเครื่องกำเนิดไฟฟ้า" },
-  { code: "TR", name: "TR", nameTh: "หม้อแปลงไฟฟ้า (Transformer)" },
-  { code: "ACC", name: "ACC", nameTh: "หอควบแน่นระบายความร้อนด้วยอากาศ" },
-  { code: "CMP", name: "Compressor Room", nameTh: "ห้องเครื่องอัดอากาศ" },
-  { code: "CT", name: "Auxiliary Cooling Tower", nameTh: "หอหล่อเย็นเสริม" },
-  { code: "WTP", name: "Water Treatment Plant (WTP)", nameTh: "โรงบำบัดน้ำ" },
-  { code: "WTK", name: "Water Tank and Pump House", nameTh: "ถังเก็บน้ำและโรงสูบน้ำ" },
-  { code: "RWP", name: "Raw Water Pond and Pump", nameTh: "บ่อน้ำดิบและเครื่องสูบ" },
 ] as const;
+
+export const RETIRED_BUILDING_CODES = ["BMS"] as const;
 
 export type BuildingCode = (typeof BUILDINGS)[number]["code"];
 

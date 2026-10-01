@@ -13,7 +13,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { MachineType, PermitType } from "@sts/shared";
+import type { MachineType, PermitType, SiteEquipmentType } from "@sts/shared";
 import { Controller, useFieldArray, useForm, useWatch, type Control } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { useEnsureDraft, useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
@@ -26,7 +26,7 @@ import { PhotoSection } from "./photo-section.js";
 import { RequestSection } from "./request-section.js";
 import { SectionCard } from "./section-card.js";
 import { SignaturePad } from "./signature-pad.js";
-import { MachineryRequests, PermitRequests, RoadUsageRequests } from "./tomorrow-requests.js";
+import { EquipmentRequests, MachineryRequests, PermitRequests, RoadUsageRequests } from "./tomorrow-requests.js";
 
 // Evening check-out. Independent of the morning shift: without a morning report there
 // is simply no plan to report actuals against. Also where tomorrow's requests are made.
@@ -62,8 +62,16 @@ export function EveningForm({
         machineType: m.machineType,
         unitTag: m.unitTag ?? "",
         buildingId: m.buildingId,
-        startTime: m.startTime,
-        endTime: m.endTime,
+        allDay: !m.startTime,
+        startTime: m.startTime ?? "08:00",
+        endTime: m.endTime ?? "17:00",
+        purpose: m.purpose ?? "",
+      })),
+      equipmentRequests: (report?.equipmentRequests ?? []).map((e) => ({
+        equipmentType: e.equipmentType as SiteEquipmentType,
+        qty: e.qty,
+        buildingId: e.buildingId,
+        purpose: e.purpose ?? "",
       })),
       permits: (report?.permits ?? []).map((p) => ({
         permitType: p.permitType,
@@ -112,8 +120,15 @@ export function EveningForm({
           buildingId: m.buildingId,
           machineType: m.machineType as MachineType,
           unitTag: m.unitTag?.trim() || undefined,
-          startTime: m.startTime,
-          endTime: m.endTime,
+          startTime: m.allDay ? undefined : m.startTime,
+          endTime: m.allDay ? undefined : m.endTime,
+          purpose: m.purpose?.trim() || undefined,
+        })),
+        equipmentRequests: v.equipmentRequests.map((e) => ({
+          buildingId: e.buildingId,
+          equipmentType: e.equipmentType as SiteEquipmentType,
+          qty: e.qty,
+          purpose: e.purpose?.trim() || undefined,
         })),
         permits: v.permits.map((p) => ({
           buildingId: p.buildingId,
@@ -248,8 +263,11 @@ export function EveningForm({
           eveningSubmitted={false}
         />
         <Divider sx={{ my: 2.5 }} />
-        <SubHeading>จองเครื่องจักร / ยานพาหนะ</SubHeading>
+        <SubHeading>จองเครื่องจักร (Machine request)</SubHeading>
         <MachineryRequests control={control} buildings={buildings} ctx={ctx} />
+        <Divider sx={{ my: 2.5 }} />
+        <SubHeading>เครื่องมือ / อุปกรณ์ (Equipment request)</SubHeading>
+        <EquipmentRequests control={control} buildings={buildings} />
         <Divider sx={{ my: 2.5 }} />
         <SubHeading>ขอใช้ / ปิดถนน (Road Usage)</SubHeading>
         <RoadUsageRequests control={control} buildings={buildings} ctx={ctx} />

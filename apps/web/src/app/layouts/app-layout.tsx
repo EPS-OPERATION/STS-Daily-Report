@@ -55,7 +55,7 @@ const GROUPS: NavGroup[] = [
     roles: ["eps"],
     items: [
       { to: "/daily-reports", label: "Daily Reports", icon: "dailyReports" },
-      { to: "/today-requests", label: "Today Request", icon: "tomorrow" },
+      { to: "/today-requests", label: "Daily Request", icon: "tomorrow" },
       { to: "/site-plan", label: "Site Plan", icon: "sitePlan" },
     ],
   },

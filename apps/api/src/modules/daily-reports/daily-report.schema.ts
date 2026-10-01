@@ -105,10 +105,20 @@ export const eveningBody = t.Object({
       buildingId: t.String({ format: "uuid" }),
       machineType: t.Union(MACHINE_TYPES.map((m) => t.Literal(m))),
       unitTag: t.Optional(t.String({ maxLength: 40 })),
-      startTime: hhmm,
-      endTime: hhmm,
+      startTime: t.Optional(hhmm),
+      endTime: t.Optional(hhmm),
+      purpose: t.Optional(t.String({ maxLength: 300 })),
     }),
     { maxItems: 50 },
+  ),
+  equipmentRequests: t.Array(
+    t.Object({
+      buildingId: t.String({ format: "uuid" }),
+      equipmentType: t.Union(SITE_EQUIPMENT_TYPES.map((e) => t.Literal(e))),
+      qty: t.Integer({ minimum: 1, maximum: 500 }),
+      purpose: t.Optional(t.String({ maxLength: 300 })),
+    }),
+    { maxItems: 30 },
   ),
   permits: t.Array(
     t.Object({

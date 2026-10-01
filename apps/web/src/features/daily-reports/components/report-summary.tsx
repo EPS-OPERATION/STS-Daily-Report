@@ -13,7 +13,7 @@ import { permitLabel } from "./permit-meta.js";
 import { PhotoSection } from "./photo-section.js";
 import { RequestSection } from "./request-section.js";
 import { SectionCard } from "./section-card.js";
-import { formatThaiDate } from "../utils/dates.js";
+import { formatThaiDate, timeWindowLabel } from "../utils/dates.js";
 
 // Read-only view once the evening shift is submitted (the day is closed).
 export function ReportSummary({ report, buildings }: { report: DailyReport; buildings: Building[] }) {
@@ -98,7 +98,7 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
         title="คำขอสำหรับวันพรุ่งนี้ (Tomorrow's Requests)"
         subtitle={`สำหรับ ${formatThaiDate(report.requestsForDate)} — ส่งแล้วพร้อมรายงานเย็น`}
       >
-        {report.machinery.length + report.permits.length + report.roadUsage.length === 0 ? (
+        {report.machinery.length + report.equipmentRequests.length + report.permits.length + report.roadUsage.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             ไม่มีการจองเครื่องจักร / ถนน / ใบอนุญาตสำหรับพรุ่งนี้
           </Typography>
@@ -107,7 +107,14 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
             {report.machinery.map((m) => (
               <Typography key={m.id} variant="body2">
                 เครื่องจักร · {m.machineType}
-                {m.unitTag ? ` (${m.unitTag})` : ""} · {m.buildingCode} · {m.startTime}–{m.endTime}
+                {m.unitTag ? ` (${m.unitTag})` : ""} · {m.buildingCode} · {timeWindowLabel(m.startTime, m.endTime)}
+                {m.purpose ? ` · ${m.purpose}` : ""}
+              </Typography>
+            ))}
+            {report.equipmentRequests.map((e) => (
+              <Typography key={e.id} variant="body2">
+                อุปกรณ์ · {e.equipmentType} ×{e.qty} · {e.buildingCode}
+                {e.purpose ? ` · ${e.purpose}` : ""}
               </Typography>
             ))}
             {report.roadUsage.map((r) => (
@@ -127,7 +134,7 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
             {report.machineryConflicts.map((c) => (
               <Typography key={c.bookingIds.join("-")} variant="body2">
                 {c.machineType}
-                {c.unitTag ? ` (${c.unitTag})` : ""} ชนกับ {c.with.map((w) => `${w.contractorCode} ${w.startTime}–${w.endTime}`).join(", ")}
+                {c.unitTag ? ` (${c.unitTag})` : ""} ชนกับ {c.with.map((w) => `${w.contractorCode} ${timeWindowLabel(w.startTime, w.endTime)}`).join(", ")}
               </Typography>
             ))}
             {report.roadConflicts.map((c, i) => (

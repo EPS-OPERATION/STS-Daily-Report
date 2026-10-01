@@ -12,8 +12,9 @@ export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
 // Kanban status mapped onto the shared StatusChip tones (icon + label, never colour alone).
 export function RequestStatusChip({ status, result }: { status: RequestStatus; result?: InspectionResult | null }) {
   if (status === "inspected" || status === "closed") {
-    if (result === "fail") return <StatusChip status="rejected" label={`${REQUEST_STATUS_LABEL[status]} · Fail`} />;
-    return <StatusChip status="approved" label={`${REQUEST_STATUS_LABEL[status]}${result ? " · Pass" : ""}`} />;
+    // Wording from EPS: a failed RFI is "not pass (Correct)" — the contractor corrects and re-requests.
+    if (result === "fail") return <StatusChip status="attention" label="not pass (Correct)" />;
+    return <StatusChip status="approved" label={result ? "pass" : REQUEST_STATUS_LABEL[status]} />;
   }
   const tone = status === "draft" ? "draft" : status === "requested" ? "submitted" : "reviewed";
   return <StatusChip status={tone} label={REQUEST_STATUS_LABEL[status]} />;

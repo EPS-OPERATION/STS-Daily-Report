@@ -20,3 +20,8 @@ export function formatThaiDate(iso: string): string {
   const d = dayjs(iso);
   return `${d.date()} ${TH_MONTHS[d.month()]} ${d.year() + 543}`;
 }
+
+// Machine bookings may have no window (= all day).
+export function timeWindowLabel(start: string | null, end: string | null): string {
+  return start && end ? `${start}–${end}` : "ทั้งวัน";
+}

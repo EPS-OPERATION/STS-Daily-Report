@@ -158,12 +158,17 @@ export const dailyReportMachinery = pgTable(
       .references(() => buildings.id, { onDelete: "restrict" }),
     machineType: text("machine_type").notNull(),
     unitTag: text("unit_tag"),
-    startTime: text("start_time").notNull(),
-    endTime: text("end_time").notNull(),
+    // Time window is optional: no window = needed all day (conflict checks treat it so).
+    startTime: text("start_time"),
+    endTime: text("end_time"),
+    purpose: text("purpose"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    check("daily_report_machinery_window_check", sql`${t.startTime} < ${t.endTime}`),
+    check(
+      "daily_report_machinery_window_check",
+      sql`(${t.startTime} IS NULL AND ${t.endTime} IS NULL) OR (${t.startTime} IS NOT NULL AND ${t.endTime} IS NOT NULL AND ${t.startTime} < ${t.endTime})`,
+    ),
     index("daily_report_machinery_report_idx").on(t.reportId),
     index("daily_report_machinery_target_idx").on(t.targetDate),
   ],
@@ -193,6 +198,31 @@ export const dailyReportPermits = pgTable(
     ),
     index("daily_report_permits_report_idx").on(t.reportId),
     index("daily_report_permits_target_idx").on(t.targetDate),
+  ],
+);
+
+// Equipment / tools requested for tomorrow — a quantity, no time window
+// (machinery that must be scheduled goes in daily_report_machinery instead).
+export const dailyReportEquipmentRequests = pgTable(
+  "daily_report_equipment_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reportId: uuid("report_id")
+      .notNull()
+      .references(() => dailyReports.id, { onDelete: "cascade" }),
+    targetDate: date("target_date").notNull(),
+    buildingId: uuid("building_id")
+      .notNull()
+      .references(() => buildings.id, { onDelete: "restrict" }),
+    equipmentType: text("equipment_type").notNull(),
+    qty: integer("qty").notNull(),
+    purpose: text("purpose"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("daily_report_equipment_requests_qty_check", sql`${t.qty} > 0`),
+    index("daily_report_equipment_requests_report_idx").on(t.reportId),
+    index("daily_report_equipment_requests_target_idx").on(t.targetDate),
   ],
 );
 

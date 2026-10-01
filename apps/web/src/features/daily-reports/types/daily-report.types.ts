@@ -65,8 +65,23 @@ export interface ReportMachinery {
   buildingCode: string;
   machineType: MachineType;
   unitTag: string | null;
-  startTime: string;
-  endTime: string;
+  /** null window = needed all day */
+  startTime: string | null;
+  endTime: string | null;
+  purpose: string | null;
+}
+
+export interface ReportEquipmentRequest {
+  id: string;
+  targetDate: string;
+  buildingId: string;
+  buildingCode: string;
+  buildingName: string;
+  equipmentType: string;
+  qty: number;
+  purpose: string | null;
+  contractorId: string;
+  contractorCode: string;
 }
 
 export interface ReportPermit {
@@ -147,6 +162,7 @@ export interface DailyReport {
   allocations: ReportAllocation[];
   /** Requests this report raised for `requestsForDate` (= reportDate + 1). */
   machinery: ReportMachinery[];
+  equipmentRequests: ReportEquipmentRequest[];
   permits: ReportPermit[];
   roadUsage: ReportRoadUsage[];
   requestsForDate: string;
@@ -157,7 +173,17 @@ export interface DailyReport {
 
 // What the contractor requested yesterday evening for today (read-only on the morning form).
 export interface PlannedToday {
-  machinery: { id: string; buildingCode: string; buildingName: string; machineType: string; unitTag: string | null; startTime: string; endTime: string }[];
+  machinery: {
+    id: string;
+    buildingCode: string;
+    buildingName: string;
+    machineType: string;
+    unitTag: string | null;
+    startTime: string | null;
+    endTime: string | null;
+    purpose: string | null;
+  }[];
+  equipment: ReportEquipmentRequest[];
   permits: { id: string; buildingCode: string; buildingName: string; permitType: PermitType; otherLabel: string | null; workers: number }[];
   roads: ReportRoadUsage[];
   inspections: InspectionRequest[];
@@ -201,7 +227,8 @@ export interface EveningPayload {
   progress: { allocationId: string; actualPercent: number; countermeasure?: string }[];
   signatureName: string;
   signatureData: string;
-  machinery: { buildingId: string; machineType: MachineType; unitTag?: string; startTime: string; endTime: string }[];
+  machinery: { buildingId: string; machineType: MachineType; unitTag?: string; startTime?: string; endTime?: string; purpose?: string }[];
+  equipmentRequests: { buildingId: string; equipmentType: SiteEquipmentType; qty: number; purpose?: string }[];
   permits: { buildingId: string; permitType: PermitType; otherLabel?: string; workers: number }[];
   roadUsage: { buildingId: string; roadLocation: string; startTime: string; endTime: string; purpose: string }[];
 }
@@ -231,8 +258,9 @@ export interface WeeklyBooking {
   targetDate: string;
   machineType: string;
   unitTag: string | null;
-  startTime: string;
-  endTime: string;
+  startTime: string | null;
+  endTime: string | null;
+  purpose: string | null;
   contractorId: string;
   contractorCode: string;
   buildingId: string;
@@ -257,6 +285,7 @@ export interface WeeklySummary {
   machinery: WeeklyBooking[];
   conflicts: WeeklyConflict[];
   roads: (ReportRoadUsage & { conflict: boolean })[];
+  equipmentRequests: ReportEquipmentRequest[];
   requests: Record<RequestStatus, number>;
   totals: { manDays: number; manHours: number; permitWorkers: number; bookings: number; conflicts: number; possibleConflicts: number; roadConflicts: number };
 }
@@ -332,5 +361,6 @@ export interface ManpowerSummary {
   to: string;
   contractors: ManpowerContractorTotals[];
   daily: { date: string; contractorCode: string; headcount: number }[];
+  byBuilding: { buildingId: string; code: string; name: string; contractors: Record<string, number> }[];
   totals: { manDays: number; manHours: number; reportedDays: number; avgDaily: number };
 }

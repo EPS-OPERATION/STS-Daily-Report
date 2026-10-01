@@ -25,15 +25,25 @@ export const allocationSchema = z.object({
   planPercent: z.number().int().min(0).max(100),
 });
 
+// Time is optional: "allDay" = needed the whole day (no window sent).
 export const machinerySchema = z
   .object({
     machineType: z.enum(MACHINE_TYPES, { errorMap: () => ({ message: "เลือกประเภทเครื่องจักร" }) }),
     unitTag: z.string().trim().max(40).optional(),
     buildingId: z.string().min(1, "เลือกอาคาร"),
+    allDay: z.boolean(),
     startTime: hhmm,
     endTime: hhmm,
+    purpose: z.string().trim().max(300).optional(),
   })
-  .refine((m) => m.startTime < m.endTime, { message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม", path: ["endTime"] });
+  .refine((m) => m.allDay || m.startTime < m.endTime, { message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม", path: ["endTime"] });
+
+export const equipmentRequestSchema = z.object({
+  equipmentType: z.enum(asTuple(SITE_EQUIPMENT_TYPES), { errorMap: () => ({ message: "เลือกเครื่องมือ/อุปกรณ์" }) }),
+  qty: z.number().int().min(1, "อย่างน้อย 1").max(500),
+  buildingId: z.string().min(1, "เลือกอาคาร"),
+  purpose: z.string().trim().max(300).optional(),
+});
 
 export const permitSchema = z
   .object({
@@ -123,6 +133,7 @@ export const eveningSchema = z
     signatureData: z.string().min(1, "แตะเพื่อเซ็นชื่อก่อนส่ง"),
     // Requests for tomorrow.
     machinery: z.array(machinerySchema),
+    equipmentRequests: z.array(equipmentRequestSchema),
     permits: z.array(permitSchema),
     roadUsage: z.array(roadUsageSchema),
   })

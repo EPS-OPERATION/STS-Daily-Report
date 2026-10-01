@@ -1,5 +1,6 @@
 import AddRoadOutlinedIcon from "@mui/icons-material/AddRoadOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import HandymanOutlinedIcon from "@mui/icons-material/HandymanOutlined";
 import PrecisionManufacturingOutlinedIcon from "@mui/icons-material/PrecisionManufacturingOutlined";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -10,12 +11,13 @@ import type { PlannedToday } from "../types/daily-report.types.js";
 import { PERMIT_ICONS, permitLabel } from "./permit-meta.js";
 import { RequestStatusChip } from "./request-chips.js";
 import { inspectionTypeLabel } from "./request-section.js";
+import { timeWindowLabel } from "../utils/dates.js";
 
 // Read-only checklist on the morning check-in: what was requested yesterday evening
 // for today. Changes go through tomorrow's evening form, not here.
 export function PlannedTodayChecklist({ planned }: { planned: PlannedToday }) {
   const empty =
-    planned.machinery.length + planned.permits.length + planned.roads.length + planned.inspections.length === 0;
+    planned.machinery.length + planned.equipment.length + planned.permits.length + planned.roads.length + planned.inspections.length === 0;
   if (empty) {
     return (
       <Typography variant="body2" color="text.secondary">
@@ -31,9 +33,16 @@ export function PlannedTodayChecklist({ planned }: { planned: PlannedToday }) {
         </Line>
       ))}
       {planned.machinery.map((m) => (
-        <Line key={m.id} icon={PrecisionManufacturingOutlinedIcon} time={`${m.startTime}–${m.endTime}`}>
+        <Line key={m.id} icon={PrecisionManufacturingOutlinedIcon} time={timeWindowLabel(m.startTime, m.endTime)}>
           {m.machineType}
           {m.unitTag ? ` (${m.unitTag})` : ""} · {m.buildingName}
+          {m.purpose ? ` · ${m.purpose}` : ""}
+        </Line>
+      ))}
+      {planned.equipment.map((e) => (
+        <Line key={e.id} icon={HandymanOutlinedIcon} time={`×${e.qty}`}>
+          {e.equipmentType} · {e.buildingName}
+          {e.purpose ? ` · ${e.purpose}` : ""}
         </Line>
       ))}
       {planned.roads.map((r) => (

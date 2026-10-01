@@ -21,8 +21,8 @@ export { ReportSummary } from "./components/report-summary.js";
 export { BuildingActivityMatrix, WorkloadLegend } from "./components/building-activity-matrix.js";
 export { BuildingOperationsHub } from "./components/building-operations-hub.js";
 export {
-  ContractorTotalsChart,
   ManDayByContractorChart,
+  ManpowerByBuildingChart,
   ManpowerTrendChart,
   NationalityByContractorChart,
   PositionByContractorChart,
@@ -33,4 +33,4 @@ export { RequestStatusChip, ReadinessChip, REQUEST_STATUS_LABEL } from "./compon
 export { inspectionTypeLabel } from "./components/request-section.js";
 export { ContractorBadge } from "./components/contractor-badge.js";
 export { ReviewDialog } from "./components/review-dialog.js";
-export { formatThaiDate, mondayOf, todayIso, addDaysIso } from "./utils/dates.js";
+export { formatThaiDate, mondayOf, todayIso, addDaysIso, timeWindowLabel } from "./utils/dates.js";

@@ -163,50 +163,34 @@ export function NationalityByContractorChart({ contractors }: { contractors: Man
   );
 }
 
-// Deck p.20 "MD Total" / "NMH Total": one measure per chart (never a dual axis).
-export function ContractorTotalsChart({
-  contractors,
-  measure,
+// Man-days per building (site order), stacked by contractor (user request, Oct 2026).
+// Horizontal so the 15 facility names stay readable.
+export function ManpowerByBuildingChart({
+  rows,
   colors,
 }: {
-  contractors: ManpowerSummary["contractors"];
-  measure: "manDays" | "manHours";
+  rows: ManpowerSummary["byBuilding"];
   colors: Map<string, string>;
 }) {
-  if (contractors.length === 0) return <Empty text="ยังไม่มีข้อมูลในช่วงนี้" />;
-  const sorted = [...contractors].sort((a, b) => b[measure] - a[measure]);
-  const unit = measure === "manDays" ? "คน-วัน" : "ชม.";
+  const codes = [...new Set(rows.flatMap((b) => Object.keys(b.contractors)))].sort((a, b) => a.localeCompare(b));
+  if (codes.length === 0) return <Empty text="ยังไม่มีการจัดสรรคนลงอาคารในช่วงนี้" />;
   return (
     <BarChart
-      height={Math.max(160, sorted.length * 44 + 60)}
+      height={rows.length * 30 + 90}
       layout="horizontal"
-      borderRadius={4}
-      yAxis={[
-        {
-          scaleType: "band",
-          data: sorted.map((c) => c.contractorCode),
-          width: 56,
-          // Each bar wears its contractor's colour (same as the other charts).
-          colorMap: {
-            type: "ordinal",
-            values: sorted.map((c) => c.contractorCode),
-            colors: sorted.map((c) => colors.get(c.contractorCode) ?? CHART_OTHER),
-            unknownColor: CHART_OTHER,
-          },
-        },
-      ]}
-      xAxis={[{ label: unit }]}
-      series={[
-        {
-          id: measure,
-          label: measure === "manDays" ? "Man-days" : "NMH",
-          data: sorted.map((c) => c[measure]),
-          valueFormatter: (v: number | null) => (v === null ? null : `${v.toLocaleString()} ${unit}`),
-        },
-      ]}
-      barLabel={(item) => (item.value ? item.value.toLocaleString() : null)}
+      borderRadius={3}
+      yAxis={[{ scaleType: "band", data: rows.map((b) => b.name), width: 190, tickLabelStyle: { fontSize: 12 } }]}
+      xAxis={[{ label: "คน-วัน" }]}
+      series={codes.map((code) => ({
+        id: code,
+        label: code,
+        stack: "total",
+        color: colors.get(code) ?? CHART_OTHER,
+        data: rows.map((b) => b.contractors[code] ?? 0),
+        valueFormatter: (v: number | null) => (v ? `${v.toLocaleString()} คน-วัน` : null),
+      }))}
+      slotProps={legendBottom}
       grid={{ vertical: true }}
-      hideLegend
     />
   );
 }

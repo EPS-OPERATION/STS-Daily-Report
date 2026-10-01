@@ -9,7 +9,7 @@
   (domain / api-module / web-feature / verify / git-safety) — แก้ recipe ใน code ต้องแก้ skill ใน commit เดียวกัน
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
-- Schema (migrations `0000`–`0007`): projects, contractors, project_contractors, users(role)/memberships/sessions, zones,
+- Schema (migrations `0000`–`0009`): projects, contractors, project_contractors, users(role)/memberships/sessions, zones,
   site_plans/zone_map_areas, site_activities, buildings, daily_reports(+_positions/_equipment/_allocations/_machinery/
   _permits/_road_usage/_photos), inspection_requests
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
@@ -86,12 +86,12 @@
 - Overview hotspots (`mock/site-overview.ts`, x/y % ล้วน): 10 ป้าย → zone จริง, 4 ป้าย (ACC/5.1, 2.2–2.4, 6.4) fallback parent โดย tooltip บอก, TR ไม่มี zone (disabled)
 - `packages/env` ต้องมี `@types/bun` ไม่งั้น `process` typecheck ไม่ผ่าน
 - Daily report: 1 row/contractor/project/date, เช้า/เย็น ส่งอิสระ (เช้า lock เมื่อส่งครบทั้งคู่, เย็น lock ตัวเอง);
-  เช้า = เวลา/ชม., อากาศ, คนตามตำแหน่ง (ยอดหลัก) = สัญชาติ/เพศ, เครื่องจักรในไซต์, allocation ลง `buildings` 16 อาคาร
+  เช้า = เวลา/ชม., อากาศ, คนตามตำแหน่ง (ยอดหลัก) = สัญชาติ/เพศ, เครื่องจักรในไซต์, allocation ลง `buildings` 15 อาคาร (ลำดับตามไซต์, BMS inactive)
   (≠ WBS zones) รวม = total พอดี (zod + service); เย็น upsert แถวเอง (ไม่ต้องมีเช้า) = อุบัติเหตุ, OT, actual% (ต่ำกว่า plan
   ต้องมี countermeasure), รูป (draft แถวก่อนถ้ายังไม่มี), ลายเซ็น PNG, คำขอพรุ่งนี้; NMH = คน × (ชม.+OT); vocab ที่ `@sts/shared`
 - Charts (MUI x-charts, สีตาม contractor code จาก `app/theme/chart-palette.ts`): `/manpower` (สัปดาห์/เดือน; `/manpower-summary`, `/position-mix`, `/manpower-trend`), weekly page กราฟเดียว; `weekly-summary`: machinery/permits/roads ตาม target_date; conflict = type+unit
   ซ้ำเวลาเหลื่อม ("possible" ถ้าไม่มี unit), ถนนชื่อเดียวกันเวลาเหลื่อม; seed sample ZCE/LCE/UME (CTR-001 ว่างไว้ทดสอบ)
 - Bun `--hot` segfault บน Windows → `--watch`; FormData ใช้ `http.upload`; form ใน Dialog ต้อง `e.stopPropagation()`
-- คำขอพรุ่งนี้ (machinery/permits/road_usage) ผูก report เย็นวัน T + `target_date`=T+1 (weekly/conflict ใช้ target_date);
+- คำขอพรุ่งนี้ (machinery[เวลา optional=ทั้งวัน]+purpose/equipment_requests[qty ไม่มีเวลา]/permits/road_usage) ผูก report เย็นวัน T + `target_date`=T+1;
   QAQC = `inspection_requests` ผูก contractor+report_date; draft จนส่งเย็น → requested;
   EPS (`users.role='eps'`, seed eps@sts.local) ย้าย confirmed→inspected(pass/fail)→closed; contractor แก้ได้แค่ draft/requested

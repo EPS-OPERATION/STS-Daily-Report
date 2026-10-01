@@ -1,23 +1,19 @@
-import ChevronLeftOutlinedIcon from "@mui/icons-material/ChevronLeftOutlined";
-import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
-import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/ui/page-header.js";
 import {
-  ContractorTotalsChart,
   ManDayByContractorChart,
+  ManpowerByBuildingChart,
   ManpowerTrendChart,
   NationalityByContractorChart,
   PositionByContractorChart,
@@ -33,39 +29,36 @@ import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-type Period = "week" | "month";
+const MAX_DAYS = 62; // server limit per query
 
-function rangeOf(period: Period, at: string) {
-  if (period === "week") {
-    const from = mondayOf(at);
-    return { from, to: addDaysIso(from, 6) };
-  }
-  const d = dayjs(at);
-  return { from: d.startOf("month").format("YYYY-MM-DD"), to: d.endOf("month").format("YYYY-MM-DD") };
-}
-
-// Manpower analytics from contractor morning reports (deck p.20/24/25):
-// daily man-days, trend, positions, nationality/sex, man-days & NMH by contractor.
+// Manpower analytics from contractor morning reports (deck p.20/24/25 + v2 notes):
+// pick any date range on the calendar; charts by day, building, position, nationality.
 export function ManpowerPage() {
   const [params, setParams] = useSearchParams();
   const today = todayIso();
-  const period: Period = params.get("period") === "month" ? "month" : "week";
-  const at = ISO_DATE.test(params.get("at") ?? "") ? params.get("at")! : today;
-  const { from, to } = rangeOf(period, at);
-  const days = Array.from({ length: dayjs(to).diff(dayjs(from), "day") + 1 }, (_, i) => addDaysIso(from, i));
+  const defaultFrom = mondayOf(today);
+  const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : defaultFrom;
+  const rawTo = ISO_DATE.test(params.get("to") ?? "") ? params.get("to")! : addDaysIso(defaultFrom, 6);
+  const from = rawFrom <= rawTo ? rawFrom : rawTo;
+  const to = rawFrom <= rawTo ? rawTo : rawFrom;
+  const span = dayjs(to).diff(dayjs(from), "day") + 1;
+  const tooLong = span > MAX_DAYS;
+  const days = tooLong ? [] : Array.from({ length: span }, (_, i) => addDaysIso(from, i));
+
   const { projectId } = useCurrentProject();
-  const summary = useManpowerSummary(projectId, from, to);
-  const positions = usePositionMix(projectId, from, to);
+  const queryProject = tooLong ? null : projectId;
+  const summary = useManpowerSummary(queryProject, from, to);
+  const positions = usePositionMix(queryProject, from, to);
   const trend = useManpowerTrend(projectId, to, 12);
 
-  const setQuery = (next: { period?: Period; at?: string }) => {
+  const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
-    if (next.period) p.set("period", next.period);
-    if (next.at) p.set("at", next.at);
+    p.set("from", f);
+    p.set("to", t);
     setParams(p, { replace: true });
   };
-  const step = (dir: -1 | 1) =>
-    setQuery({ at: period === "week" ? addDaysIso(from, dir * 7) : dayjs(from).add(dir, "month").format("YYYY-MM-DD") });
+  const thisWeek = () => setRange(mondayOf(today), addDaysIso(mondayOf(today), 6));
+  const thisMonth = () => setRange(dayjs(today).startOf("month").format("YYYY-MM-DD"), dayjs(today).endOf("month").format("YYYY-MM-DD"));
 
   const data = summary.data?.data;
   const error = summary.error instanceof HttpError ? summary.error : null;
@@ -73,49 +66,51 @@ export function ManpowerPage() {
     ...(data?.contractors.map((c) => c.contractorCode) ?? []),
     ...(positions.data?.data.map((r) => r.contractorCode) ?? []),
   ]);
-  const isCurrent = today >= from && today <= to;
-  const label =
-    period === "week" ? `${dayjs(from).format("D MMM")} – ${dayjs(to).format("D MMM YYYY")}` : dayjs(from).format("MMMM YYYY");
 
   return (
     <Box>
       <PageHeader
         title="กำลังคน (Manpower)"
-        subtitle="จากรายงานเช้าของผู้รับเหมา · Man-day, NMH, ตำแหน่ง, สัญชาติ/เพศ"
+        subtitle="จากรายงานเช้าของผู้รับเหมา · เลือกช่วงวันที่จากปฏิทิน"
         actions={
           <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={period}
-              onChange={(_, v: Period | null) => v && setQuery({ period: v, at: from })}
-            >
-              <ToggleButton value="week">รายสัปดาห์</ToggleButton>
-              <ToggleButton value="month">รายเดือน</ToggleButton>
-            </ToggleButtonGroup>
-            <IconButton aria-label="ช่วงก่อนหน้า" onClick={() => step(-1)}>
-              <ChevronLeftOutlinedIcon />
-            </IconButton>
-            <Typography variant="body1" sx={{ fontWeight: 600, minWidth: 160, textAlign: "center" }}>
-              {label}
-            </Typography>
-            <IconButton aria-label="ช่วงถัดไป" onClick={() => step(1)}>
-              <ChevronRightOutlinedIcon />
-            </IconButton>
-            <Button variant="outlined" size="small" disabled={isCurrent} onClick={() => setQuery({ at: today })}>
-              ปัจจุบัน
+            <DatePicker
+              label="ตั้งแต่"
+              value={dayjs(from)}
+              onChange={(v) => v?.isValid() && setRange(v.format("YYYY-MM-DD"), to)}
+              format="D MMM YYYY"
+              slotProps={{ textField: { size: "small", sx: { width: 160 } } }}
+            />
+            <DatePicker
+              label="ถึง"
+              value={dayjs(to)}
+              minDate={dayjs(from)}
+              onChange={(v) => v?.isValid() && setRange(from, v.format("YYYY-MM-DD"))}
+              format="D MMM YYYY"
+              slotProps={{ textField: { size: "small", sx: { width: 160 } } }}
+            />
+            <Button size="small" variant="outlined" onClick={thisWeek}>
+              สัปดาห์นี้
+            </Button>
+            <Button size="small" variant="outlined" onClick={thisMonth}>
+              เดือนนี้
             </Button>
           </Stack>
         }
       />
 
+      {tooLong ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          เลือกได้ไม่เกิน {MAX_DAYS} วันต่อครั้ง (ตอนนี้ {span} วัน) — ปรับวันที่ให้สั้นลง
+        </Alert>
+      ) : null}
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
           โหลดข้อมูลไม่สำเร็จ: {error.message}
         </Alert>
       ) : null}
 
-      {!data ? (
+      {tooLong ? null : !data ? (
         <Stack spacing={2}>
           <Skeleton variant="rounded" height={40} />
           <Skeleton variant="rounded" height={340} />
@@ -148,6 +143,12 @@ export function ManpowerPage() {
             </Grid>
 
             <Grid size={12}>
+              <ChartPanel title="กำลังคนแยกตามอาคาร" note="คน-วัน รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา">
+                <ManpowerByBuildingChart rows={data.byBuilding} colors={colors} />
+              </ChartPanel>
+            </Grid>
+
+            <Grid size={{ xs: 12, lg: 7 }}>
               <ChartPanel title="จำนวนคนตามตำแหน่ง แยกตามผู้รับเหมา" note="เฉลี่ยคน/วัน ในวันที่ผู้รับเหมารายงาน">
                 {positions.data ? (
                   <PositionByContractorChart rows={positions.data.data} colors={colors} />
@@ -156,20 +157,9 @@ export function ManpowerPage() {
                 )}
               </ChartPanel>
             </Grid>
-
-            <Grid size={{ xs: 12, lg: 6 }}>
+            <Grid size={{ xs: 12, lg: 5 }}>
               <ChartPanel title="สัญชาติ / เพศ แยกตามผู้รับเหมา" note="คน-วัน รวมในช่วงที่เลือก">
                 <NationalityByContractorChart contractors={data.contractors} />
-              </ChartPanel>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-              <ChartPanel title="Man-days ต่อผู้รับเหมา" note="คน-วัน รวม">
-                <ContractorTotalsChart contractors={data.contractors} measure="manDays" colors={colors} />
-              </ChartPanel>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-              <ChartPanel title="NMH ต่อผู้รับเหมา" note="คน × (ชม.ปกติ + OT)">
-                <ContractorTotalsChart contractors={data.contractors} measure="manHours" colors={colors} />
               </ChartPanel>
             </Grid>
           </Grid>

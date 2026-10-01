@@ -10,6 +10,7 @@ import dayjs from "dayjs";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import type { WeeklyBooking, WeeklySummary } from "../types/daily-report.types.js";
 import { ContractorBadge } from "./contractor-badge.js";
+import { timeWindowLabel } from "../utils/dates.js";
 
 // Machine × day booking list. Rows sharing date+machine type are grouped so a
 // double-booked unit reads as adjacent conflicting rows.
@@ -33,6 +34,7 @@ export function MachineryAllocationTable({ bookings, onlyConflicts }: { bookings
             <TableCell>Building</TableCell>
             <TableCell>Contractor</TableCell>
             <TableCell>Time</TableCell>
+            <TableCell>Purpose</TableCell>
             <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
@@ -56,8 +58,9 @@ export function MachineryAllocationTable({ bookings, onlyConflicts }: { bookings
                   <ContractorBadge code={b.contractorCode} />
                 </TableCell>
                 <TableCell sx={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                  {b.startTime}–{b.endTime}
+                  {timeWindowLabel(b.startTime, b.endTime)}
                 </TableCell>
+                <TableCell>{b.purpose ?? "—"}</TableCell>
                 <TableCell>
                   {b.conflict === "conflict" ? (
                     <StatusChip status="blocked" label="Double-booked" />
