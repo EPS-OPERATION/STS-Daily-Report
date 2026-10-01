@@ -21,8 +21,10 @@ export function observeSitePlanContainer(
   return () => observer.disconnect();
 }
 
-const MIN_SCALE = 0.3;
-const MAX_SCALE = 5;
+export function getSitePlanScaleLimits(size: { w: number; h: number }, mapW: number, mapH: number) {
+  const fit = Math.min(size.w / mapW, size.h / mapH);
+  return { min: fit * 0.25, max: fit * 12 };
+}
 
 type ViewMode = { kind: "all" } | { kind: "bounds"; bounds: Bounds; padding: number } | { kind: "manual" };
 
@@ -65,17 +67,24 @@ export function useSitePlanViewport(mapW: number, mapH: number) {
 
   const fitAllView = useCallback((): Viewport => {
     const { w, h } = sizeRef.current;
-    const scale = Math.min(w / mapW, h / mapH, MAX_SCALE);
+    const scale = Math.min(w / mapW, h / mapH);
     return { scale, x: (w - mapW * scale) / 2, y: (h - mapH * scale) / 2 };
   }, [mapW, mapH]);
 
-  const fitBoundsView = useCallback((bounds: Bounds, padding: number): Viewport => {
-    const { w, h } = sizeRef.current;
-    const scale = Math.min(w / (bounds.w + padding * 2), h / (bounds.h + padding * 2), MAX_SCALE);
-    const cx = bounds.x + bounds.w / 2;
-    const cy = bounds.y + bounds.h / 2;
-    return { scale, x: w / 2 - cx * scale, y: h / 2 - cy * scale };
-  }, []);
+  const fitBoundsView = useCallback(
+    (bounds: Bounds, padding: number): Viewport => {
+      const { w, h } = sizeRef.current;
+      const scale = Math.min(
+        w / (bounds.w + padding * 2),
+        h / (bounds.h + padding * 2),
+        getSitePlanScaleLimits(sizeRef.current, mapW, mapH).max,
+      );
+      const cx = bounds.x + bounds.w / 2;
+      const cy = bounds.y + bounds.h / 2;
+      return { scale, x: w / 2 - cx * scale, y: h / 2 - cy * scale };
+    },
+    [mapW, mapH],
+  );
 
   const fitAll = useCallback(() => {
     modeRef.current = { kind: "all" };
@@ -112,15 +121,20 @@ export function useSitePlanViewport(mapW: number, mapH: number) {
     }
   }, [size, mapW, mapH, fitAllView, fitBoundsView]);
 
-  const zoomAt = useCallback((cx: number, cy: number, factor: number) => {
-    modeRef.current = { kind: "manual" };
-    setView((current) => {
-      const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, current.scale * factor));
-      const mapX = (cx - current.x) / current.scale;
-      const mapY = (cy - current.y) / current.scale;
-      return { scale: next, x: cx - mapX * next, y: cy - mapY * next };
-    });
-  }, []);
+  const zoomAt = useCallback(
+    (cx: number, cy: number, factor: number) => {
+      if (!sizeRef.current.w || !sizeRef.current.h) return;
+      const limits = getSitePlanScaleLimits(sizeRef.current, mapW, mapH);
+      modeRef.current = { kind: "manual" };
+      setView((current) => {
+        const next = Math.min(limits.max, Math.max(limits.min, current.scale * factor));
+        const mapX = (cx - current.x) / current.scale;
+        const mapY = (cy - current.y) / current.scale;
+        return { scale: next, x: cx - mapX * next, y: cy - mapY * next };
+      });
+    },
+    [mapW, mapH],
+  );
 
   const zoomBy = useCallback(
     (factor: number) => {
@@ -145,6 +159,49 @@ export function useSitePlanViewport(mapW: number, mapH: number) {
     container.addEventListener("wheel", onWheelNative, { passive: false });
     return () => container.removeEventListener("wheel", onWheelNative);
   }, [container, onWheelNative]);
+
+  useEffect(() => {
+    if (!container) return;
+    let previous: { distance: number; x: number; y: number } | null = null;
+    const gesture = (event: TouchEvent) => {
+      if (!sizeRef.current.w || !sizeRef.current.h) return;
+      if (event.touches.length < 2) {
+        previous = null;
+        return;
+      }
+      event.preventDefault();
+      stageRef.current?.stopDrag();
+      const first = event.touches[0]!;
+      const second = event.touches[1]!;
+      const rect = container.getBoundingClientRect();
+      const x = (first.clientX + second.clientX) / 2 - rect.left;
+      const y = (first.clientY + second.clientY) / 2 - rect.top;
+      const distance = Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
+      if (previous && previous.distance > 0) {
+        const current = viewRef.current;
+        const limits = getSitePlanScaleLimits(sizeRef.current, mapW, mapH);
+        const scale = Math.min(limits.max, Math.max(limits.min, (current.scale * distance) / previous.distance));
+        const mapX = (previous.x - current.x) / current.scale;
+        const mapY = (previous.y - current.y) / current.scale;
+        modeRef.current = { kind: "manual" };
+        const next = { scale, x: x - mapX * scale, y: y - mapY * scale };
+        viewRef.current = next;
+        setView(next);
+      }
+      previous = { x, y, distance };
+    };
+    const finish = () => {
+      previous = null;
+    };
+    container.addEventListener("touchstart", gesture, { passive: false });
+    container.addEventListener("touchmove", gesture, { passive: false });
+    container.addEventListener("touchend", finish);
+    return () => {
+      container.removeEventListener("touchstart", gesture);
+      container.removeEventListener("touchmove", gesture);
+      container.removeEventListener("touchend", finish);
+    };
+  }, [container, mapW, mapH]);
 
   const onStageDrag = useCallback(() => {
     const stage = stageRef.current;

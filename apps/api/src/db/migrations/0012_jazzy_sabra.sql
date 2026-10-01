@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "can_manage_site_configuration" boolean DEFAULT false NOT NULL;

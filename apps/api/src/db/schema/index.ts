@@ -4,5 +4,8 @@ export * from "./project-contractor.schema.js";
 export * from "./user.schema.js";
 export * from "./session.schema.js";
 export * from "./zone.schema.js";
+export * from "./zone-part.schema.js";
 export * from "./site-plan.schema.js";
 export * from "./site-activity.schema.js";
+export * from "./facility.schema.js";
+export * from "./site-map-view.schema.js";

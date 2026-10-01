@@ -15,6 +15,14 @@ export const apiEnvSchema = z.object({
   MINIO_SECRET_KEY: z.string().default("minioadmin"),
   MINIO_BUCKET: z.string().default("sts"),
   MINIO_USE_SSL: boolFromString.default(false),
+  MINIO_PUBLIC_URL: z
+    .string()
+    .url()
+    .refine((value) => {
+      const url = new URL(value);
+      return ["http:", "https:"].includes(url.protocol) && url.pathname === "/" && !url.search && !url.hash;
+    }, "MINIO_PUBLIC_URL must be an HTTP(S) endpoint without a path/query")
+    .optional(),
   // TEMPORARY development-only provider. See local-email-auth.ts.
   AUTH_PROVIDER: z.enum(["local-email"]).default("local-email"),
   WEB_ORIGIN: z.string().default("http://localhost:5173"),

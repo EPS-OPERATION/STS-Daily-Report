@@ -27,10 +27,13 @@ async function parseBody(res: Response): Promise<unknown> {
 }
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body instanceof FormData) headers.delete("Content-Type");
+  else if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const res = await fetch(`${config.apiUrl}${path}`, {
     credentials: "include",
     ...init,
-    headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
+    headers,
   });
   const body = await parseBody(res);
   if (!res.ok) {
@@ -51,4 +54,5 @@ export const http = {
   put: <T>(path: string, data: unknown) => request<T>(path, { method: "PUT", body: JSON.stringify(data) }),
   patch: <T>(path: string, data: unknown) => request<T>(path, { method: "PATCH", body: JSON.stringify(data) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  upload: <T>(path: string, data: FormData) => request<T>(path, { method: "POST", body: data }),
 };

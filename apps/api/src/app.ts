@@ -8,6 +8,9 @@ import { projectRoutes } from "@/modules/projects/index.js";
 import { siteActivityRoutes } from "@/modules/site-activities/index.js";
 import { sitePlanRoutes } from "@/modules/site-plans/index.js";
 import { zoneRoutes } from "@/modules/zones/index.js";
+import { zonePartRoutes } from "@/modules/zone-parts/index.js";
+import { facilityRoutes } from "@/modules/facilities/index.js";
+import { siteMapRoutes } from "@/modules/site-maps/index.js";
 import { errorPlugin } from "@/plugins/errors.js";
 
 export function buildApp() {
@@ -26,8 +29,11 @@ export function buildApp() {
         .use(contractorRoutes)
         .use(projectRoutes)
         .use(zoneRoutes)
+        .use(zonePartRoutes)
         .use(siteActivityRoutes)
-        .use(sitePlanRoutes),
+        .use(sitePlanRoutes)
+        .use(facilityRoutes)
+        .use(siteMapRoutes),
     )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;

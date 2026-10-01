@@ -26,3 +26,24 @@ export const saveAreasBody = t.Object({
     ),
   ),
 });
+
+export const savePointsBody = t.Object({
+  locations: t.Array(
+    t.Object({
+      facilityKey: t.String({ minLength: 1, maxLength: 100 }),
+      view: t.Union([t.Literal("overview"), t.Literal("top")]),
+      x: t.Union([t.Number(), t.Null()]),
+      y: t.Union([t.Number(), t.Null()]),
+    }),
+    { maxItems: 500 },
+  ),
+  zoneColors: t.Optional(
+    t.Array(
+      t.Object({
+        zoneId: uuid,
+        displayColor: t.String({ pattern: "^#[0-9A-Fa-f]{6}$" }),
+      }),
+      { maxItems: 500 },
+    ),
+  ),
+});

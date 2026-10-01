@@ -1,5 +1,6 @@
 export type ActivityStatus = "active" | "attention" | "blocked" | "completed";
 export type ZoneState = ActivityStatus | "idle";
+export type SiteMapView = "overview" | "top";
 
 export interface ZoneOption {
   id: string;
@@ -14,18 +15,23 @@ export interface ZoneOption {
   status: string;
 }
 
-export interface GeometryPoint {
-  x: number;
-  y: number;
-}
-
-export interface PolygonGeometry {
-  type: "polygon";
-  points: GeometryPoint[];
-}
-
-export interface PlanArea {
+export interface ZonePartOption {
   id: string;
+  zoneId: string;
+  code: string;
+  name: string;
+  displayColor: string;
+  mapX: number | null;
+  mapY: number | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface PlanMapPoint {
+  zoneId: string | null;
+  facilityKey: string;
+  view: SiteMapView;
+  facility: { no: number; key: string; name: string };
   zone: {
     id: string;
     code: string;
@@ -33,11 +39,19 @@ export interface PlanArea {
     parentId: string | null;
     sortOrder: number;
     displayColor: string;
-    defaultDisplayColor: string;
-  };
-  geometry: PolygonGeometry;
-  defaultGeometry: PolygonGeometry | null;
-  isCustom: boolean;
+  } | null;
+  x: number;
+  y: number;
+  legacyDerived?: boolean;
+}
+
+export interface SiteFacilityDefinition {
+  no: number;
+  key: string;
+  name: string;
+  zone: ZoneOption | null;
+  overview: { x: number; y: number } | null;
+  topView: { x: number; y: number } | null;
 }
 
 export interface SitePlan {
@@ -45,7 +59,8 @@ export interface SitePlan {
   projectId: string;
   name: string;
   background: { objectKey: string | null; url: string | null; width: number | null; height: number | null };
-  areas: PlanArea[];
+  points: PlanMapPoint[];
+  facilities: SiteFacilityDefinition[];
 }
 
 export interface PlanActivity {
@@ -59,7 +74,10 @@ export interface PlanActivity {
   progressPercent: number;
   startTime: string | null;
   endTime: string | null;
-  zone: { id: string; code: string; name: string };
+  facility?: { id: string; key: string; name: string; code: string | null; isActive: boolean } | null;
+  facilityPart?: { id: string; facilityId: string | null; code: string; name: string; isActive: boolean } | null;
+  zone: { id: string; code: string; name: string } | null;
+  zonePart: { id: string; code: string; name: string; displayColor: string; isActive: boolean } | null;
   contractor: { id: string; code: string; name: string };
 }
 
@@ -72,6 +90,7 @@ export interface ActivityFilters {
 
 export interface CreateActivityInput {
   zoneId: string;
+  zonePartId?: string | null;
   contractorId: string;
   workDate: string;
   title: string;

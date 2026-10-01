@@ -1,15 +1,24 @@
-import { and, asc, eq, sql } from "drizzle-orm";
-import { contractors, projectContractors, siteActivities, zones } from "@/db/schema/index.js";
-import type { Db } from "@/db/client.js";
+﻿import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { normalizePagination } from "@sts/shared";
+import { contractors, facilities, projectContractors, siteActivities, zoneParts, zones } from "@/db/schema/index.js";
+import type { DbExecutor } from "@/db/client.js";
 import type { CreateSiteActivityInput, SiteActivityFilters, UpdateSiteActivityInput } from "./site-activity.type.js";
 
-export async function listActivities(db: Db, projectId: string, f: SiteActivityFilters) {
+const facilityPart = alias(zoneParts, "activity_facility_part");
+function activityConditions(projectId: string, f: SiteActivityFilters) {
   const conditions = [eq(siteActivities.projectId, projectId)];
-  if (f.date) conditions.push(eq(siteActivities.workDate, f.date));
+  const date = f.workDate ?? f.date;
+  if (date) conditions.push(eq(siteActivities.workDate, date));
+  if (f.facilityId) conditions.push(eq(siteActivities.facilityId, f.facilityId));
+  if (f.facilityPartId) conditions.push(eq(siteActivities.facilityPartId, f.facilityPartId));
   if (f.zoneId) conditions.push(eq(siteActivities.zoneId, f.zoneId));
   if (f.contractorId) conditions.push(eq(siteActivities.contractorId, f.contractorId));
   if (f.status) conditions.push(eq(siteActivities.status, f.status));
+  return conditions;
+}
 
+function activityQuery(db: DbExecutor) {
   return db
     .select({
       id: siteActivities.id,
@@ -23,69 +32,147 @@ export async function listActivities(db: Db, projectId: string, f: SiteActivityF
       startTime: siteActivities.startTime,
       endTime: siteActivities.endTime,
       createdAt: siteActivities.createdAt,
+      facility: {
+        id: facilities.id,
+        key: facilities.key,
+        name: facilities.name,
+        code: facilities.code,
+        isActive: facilities.isActive,
+      },
+      facilityPart: {
+        id: facilityPart.id,
+        facilityId: facilityPart.facilityId,
+        code: facilityPart.code,
+        name: facilityPart.name,
+        isActive: facilityPart.isActive,
+      },
       zone: { id: zones.id, code: zones.code, name: zones.name },
+      zonePart: {
+        id: zoneParts.id,
+        code: zoneParts.code,
+        name: zoneParts.name,
+        displayColor: zoneParts.displayColor,
+        isActive: zoneParts.isActive,
+      },
       contractor: { id: contractors.id, code: contractors.code, name: contractors.name },
     })
     .from(siteActivities)
-    .innerJoin(zones, eq(siteActivities.zoneId, zones.id))
-    .innerJoin(contractors, eq(siteActivities.contractorId, contractors.id))
+    .leftJoin(facilities, eq(siteActivities.facilityId, facilities.id))
+    .leftJoin(facilityPart, eq(siteActivities.facilityPartId, facilityPart.id))
+    .leftJoin(zones, eq(siteActivities.zoneId, zones.id))
+    .leftJoin(zoneParts, eq(siteActivities.zonePartId, zoneParts.id))
+    .innerJoin(contractors, eq(siteActivities.contractorId, contractors.id));
+}
+
+export async function listActivities(db: DbExecutor, projectId: string, f: SiteActivityFilters) {
+  const conditions = activityConditions(projectId, f);
+  const { page, pageSize } = normalizePagination({ page: f.page, pageSize: f.pageSize ?? 100 });
+  const [rows, counts] = await Promise.all([
+    activityQuery(db)
+      .where(and(...conditions))
+      .orderBy(
+        desc(
+          sql`CASE ${siteActivities.status} WHEN 'blocked' THEN 4 WHEN 'attention' THEN 3 WHEN 'active' THEN 2 WHEN 'completed' THEN 1 ELSE 0 END`,
+        ),
+        desc(siteActivities.workDate),
+        asc(sql`coalesce(${siteActivities.startTime}, '99:99')`),
+        asc(siteActivities.createdAt),
+        asc(siteActivities.id),
+      )
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(siteActivities)
+      .where(and(...conditions)),
+  ]);
+  return { rows, total: counts[0]?.total ?? 0, page, pageSize };
+}
+
+export function listFacilitySummaries(db: DbExecutor, projectId: string, filters: SiteActivityFilters) {
+  const conditions = [...activityConditions(projectId, filters), isNotNull(siteActivities.facilityId)];
+  return db
+    .select({
+      facilityId: siteActivities.facilityId,
+      activityCount: sql<number>`count(*)::int`,
+      contractorCount: sql<number>`count(DISTINCT ${siteActivities.contractorId})::int`,
+      manpowerCount: sql<number>`coalesce(sum(${siteActivities.manpower}), 0)::int`,
+      highestPriorityStatus: sql<string>`CASE max(CASE ${siteActivities.status} WHEN 'blocked' THEN 4 WHEN 'attention' THEN 3 WHEN 'active' THEN 2 WHEN 'completed' THEN 1 ELSE 0 END) WHEN 4 THEN 'blocked' WHEN 3 THEN 'attention' WHEN 2 THEN 'active' WHEN 1 THEN 'completed' ELSE 'idle' END`,
+    })
+    .from(siteActivities)
     .where(and(...conditions))
-    .orderBy(asc(zones.sortOrder), asc(zones.code), asc(siteActivities.title))
-    .limit(500);
+    .groupBy(siteActivities.facilityId)
+    .orderBy(asc(siteActivities.facilityId));
 }
 
-export async function getActivityById(db: Db, id: string) {
-  const rows = await db.select().from(siteActivities).where(eq(siteActivities.id, id)).limit(1);
-  return rows[0] ?? null;
+export async function getActivityDetail(db: DbExecutor, id: string) {
+  return (await activityQuery(db).where(eq(siteActivities.id, id)).limit(1))[0] ?? null;
 }
 
-export async function isContractorInProject(db: Db, projectId: string, contractorId: string) {
-  const rows = await db
-    .select({ contractorId: projectContractors.contractorId })
-    .from(projectContractors)
-    .where(and(eq(projectContractors.projectId, projectId), eq(projectContractors.contractorId, contractorId)))
-    .limit(1);
-  return rows.length > 0;
+export async function getActivityById(db: DbExecutor, id: string) {
+  return (await db.select().from(siteActivities).where(eq(siteActivities.id, id)).limit(1))[0] ?? null;
+}
+
+export async function isContractorInProject(db: DbExecutor, projectId: string, contractorId: string) {
+  return (
+    (
+      await db
+        .select({ contractorId: projectContractors.contractorId })
+        .from(projectContractors)
+        .where(and(eq(projectContractors.projectId, projectId), eq(projectContractors.contractorId, contractorId)))
+        .limit(1)
+    ).length > 0
+  );
 }
 
 export async function createActivity(
-  db: Db,
+  db: DbExecutor,
   projectId: string,
   input: CreateSiteActivityInput,
   createdBy: string | null,
 ) {
-  const rows = await db
-    .insert(siteActivities)
-    .values({
-      projectId,
-      zoneId: input.zoneId,
-      contractorId: input.contractorId,
-      workDate: input.workDate,
-      title: input.title.trim(),
-      description: input.description?.trim() || null,
-      status: input.status ?? "active",
-      manpower: input.manpower ?? 0,
-      progressPercent: input.progressPercent ?? 0,
-      startTime: input.startTime ?? null,
-      endTime: input.endTime ?? null,
-      createdBy,
-    })
-    .returning();
-  return rows[0]!;
+  return (
+    await db
+      .insert(siteActivities)
+      .values({
+        projectId,
+        facilityId: input.facilityId ?? null,
+        facilityPartId: input.facilityPartId ?? null,
+        zoneId: input.zoneId ?? null,
+        zonePartId: input.zonePartId ?? null,
+        contractorId: input.contractorId,
+        workDate: input.workDate,
+        title: input.title.trim(),
+        description: input.description?.trim() || null,
+        status: input.status ?? "active",
+        manpower: input.manpower ?? 0,
+        progressPercent: input.progressPercent ?? 0,
+        startTime: input.startTime ?? null,
+        endTime: input.endTime ?? null,
+        createdBy,
+      })
+      .returning()
+  )[0]!;
 }
 
-export async function updateActivity(db: Db, id: string, input: UpdateSiteActivityInput) {
-  const patch: Record<string, unknown> = { updatedAt: sql`now()` };
-  if (input.zoneId !== undefined) patch["zoneId"] = input.zoneId;
-  if (input.contractorId !== undefined) patch["contractorId"] = input.contractorId;
-  if (input.workDate !== undefined) patch["workDate"] = input.workDate;
+export async function updateActivity(db: DbExecutor, id: string, input: UpdateSiteActivityInput) {
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  for (const key of [
+    "facilityId",
+    "facilityPartId",
+    "zoneId",
+    "zonePartId",
+    "contractorId",
+    "workDate",
+    "status",
+    "manpower",
+    "progressPercent",
+    "startTime",
+    "endTime",
+  ] as const) {
+    if (input[key] !== undefined) patch[key] = input[key];
+  }
   if (input.title !== undefined) patch["title"] = input.title.trim();
   if (input.description !== undefined) patch["description"] = input.description?.trim() || null;
-  if (input.status !== undefined) patch["status"] = input.status;
-  if (input.manpower !== undefined) patch["manpower"] = input.manpower;
-  if (input.progressPercent !== undefined) patch["progressPercent"] = input.progressPercent;
-  if (input.startTime !== undefined) patch["startTime"] = input.startTime;
-  if (input.endTime !== undefined) patch["endTime"] = input.endTime;
-  const rows = await db.update(siteActivities).set(patch).where(eq(siteActivities.id, id)).returning();
-  return rows[0] ?? null;
+  return (await db.update(siteActivities).set(patch).where(eq(siteActivities.id, id)).returning())[0] ?? null;
 }

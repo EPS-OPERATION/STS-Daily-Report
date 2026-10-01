@@ -26,6 +26,8 @@
     "db:push": "bun --env-file=.env --filter ./apps/api db:push",
     "db:studio": "bun --env-file=.env --filter ./apps/api db:studio",
     "db:seed": "bun --env-file=.env --filter ./apps/api db:seed",
+    "db:seed:sts-default": "bun --env-file=.env --filter ./apps/api db:seed:sts-default",
+    "db:backfill-facilities": "bun --env-file=.env --filter ./apps/api db:backfill-facilities",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f"
@@ -44,7 +46,6 @@
   "dependencies": {
     "konva": "^10.7.0",
     "react-colorful": "^5.8.1",
-    "react-konva": "^19.3.0",
-    "sts-web": "./apps/web"
+    "react-konva": "^19.3.0"
   }
 }

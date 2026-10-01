@@ -3,15 +3,15 @@
 > Living document: ถ้ามีการ update อะไรก็ตามใน repo นี้ (code, config, schema, script, docs, โครงสร้าง,
 > คำสั่ง build/test/deploy) ต้อง update ไฟล์นี้ให้ตรงของจริงใน commit เดียวกัน ห้ามปล่อยล้าสมัย
 
-## สถานะปัจจุบัน (2026-09-30, branch `dev`)
+## สถานะปัจจุบัน (2026-10-01, branch `dev`)
 
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
-- Schema: projects/contractors/auth + zones/site_plans/zone_map_areas/site_activities; seed 1 project, 3 contractors, 21 zones, 13 stored map areas
+- Schema: Project-owned Facilities, dynamic site_map_views and facility_map_markers; Maps reuse site_plans and Parts reuse zone_parts. Additive migrations `0011`–`0013` retain legacy data. `db:seed` creates the development user only.
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
   Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/site-plan` is Site Activity (Konva, DB activities); `/site-plan/config` is separate Zone Configuration; `/daily-reports` (DataGrid mock),
+- Screens: `/site-plan` uses API Maps/Views, Facility point markers and Activity inspector; `/site-configuration` manages Maps/Facilities/Parts, with `/site-plan/config` redirect. `/projects` supports real create/edit/Contractor assignment. Experimental R3F remains isolated. `/daily-reports` (DataGrid mock),
   `/tomorrow`, `/field` + `/evening-report` (mobile-first), `/contractors` (real API); mock ที่ `src/mock/site-data.ts`
 - Auth protects project/site-plan/zone/activity/contractor APIs; `bun test` runs Bun-native regression tests.
 - Quality tooling: root ESLint Flat Config + Prettier; `bun run check` runs lint, format:check, and typecheck. CI and other domains are not yet configured.
@@ -56,7 +56,7 @@
 - MUI v7: type ชื่อ `TypographyVariantsOptions` (ไม่มี `TypographyOptions`); web ห้าม project-reference ไป api
 - DataGrid theme override ต้อง `import type {} from "@mui/x-data-grid/themeAugmentation"` ไม่งั้น key `MuiDataGrid` ไม่รู้จัก
 - MUI v7 Grid ใช้ prop `size={{ xs: 12, md: 6 }}` (ไม่ใช่ `item xs={}`); custom variant `metric` อยู่ใน `theme/augmentation.ts`
-- Site Activity uses Konva on `master-layout-map.png`; mapped polygons only, 0..1 geometry, parent overview rolls up descendant activity status.
+- Site Activity owns canonical `selectedFacilityId`/`selectedFacilityPartId`, retained across dynamic Maps/Views even without a marker; Activity filters/summary run server-side, mobile inspector is a bottom sheet.
 - DataGrid ล็อก layout ผ่าน theme default (`disableColumnMenu/Resize`); reorder ถูกล็อกในตัว DataGrid อยู่แล้ว
   ตั้งผ่าน props/theme ไม่ได้ (forced prop) — sorting ด้วย click header ยังใช้ได้
 - Icons: Outlined ทั้งระบบ (ArrowBack/Forward/MoreVert/Horiz เท่านั้นที่คง filled), registry ที่
@@ -74,20 +74,14 @@
 - Auth phase 1 (dev-only): boundary AuthIdentity (session→user→memberships); ตาราง users/contractor_memberships/sessions
   (token_hash เท่านั้น); routes POST /auth/login, GET /auth/me, POST /auth/logout; cookie sts_session HttpOnly;
   guard requireAuth; ห้าม local-email ใน production (startup fail); seed login: contractor@sts.local (ไม่มีรหัสผ่าน)
-- Site-plan API uses `requireAuth` for reads and writes. Configuration uses one transactional
-  `PUT /site-plans/:id/areas`; Site Activity consumes saved geometry and activities from PostgreSQL.
-- Seed geometry: 13 mapped areas and 8 unmapped zones. `6.2`, `6.3`, and `6.5` stay unmapped until reviewed in Zone Configuration.
-- Konva map (konva+react-konva ใน apps/web): base master-layout-map.png (1586x992) + polygons;
-  vertex/draw/reassign/reset/delete edits stay local until atomic Save; default_geometry is the reset target;
-  normalized saved geometry is PostgreSQL state, viewport and draft coordinates are UI state.
-- Site Activity is `/site-plan`; Zone Configuration is `/site-plan/config` under Administration.
-  Draft edits, reassignment, create, reset, and delete save atomically; cancel/project/plan/navigation changes confirm dirty drafts.
-- Drill-down: overview renders parent polygons only; WBS buttons keep All Zones + every parent visible.
-  Focus reveals immediate children (unmapped children remain labeled); parent status rolls up descendants.
-- Overlaps (`features/site-plan/utils/polygon-overlap.ts` + `polygon-clipping`): analysis runs on mapped
-  physical LEAF zones only (group nodes carry no geometry); parent/descendant ignored, sibling = warning,
-  cross-branch = strong (`MEANINGFUL_OVERLAP_RATIO=0.05` vs smaller polygon). Config panel has Zones/Issues
-  tabs: tree shows ✓/○ plus ⚠ per involved leaf (unmapped stays neutral), Issues lists compact rows with an
-  inspector (focus + dim others + intersection overlay + direct Edit boundary); save confirms strong only.
-  Activity disambiguates same-level clicks via popover; focused parents render as non-interactive outlines.
+- APIs use `requireAuth`; new and reachable legacy configuration writes require explicit default-deny `can_manage_site_configuration`. No real admin grant is inferred. Legacy `PUT /areas` and polygon rows remain for compatibility/backfill.
+- Migration `0007` adds `zone_map_points`, `zone_parts`, and nullable `site_activities.zone_part_id`; existing leaf map rows seed point centers without deleting legacy polygons.
+- Site Configuration has Maps/Facilities sections, uploadable dynamic Views, create/reuse Facility and click/drag marker drafts with Save/Discard. Work Parts belong directly to Facility and need no Zone or marker.
+- Facility UI reuses central PageHeader/EmptyState/StatusChip and MUI theme components; canvas marker colors/fonts use theme tokens and interactive hit targets use ButtonBase with keyboard focus.
+- Uploaded View images use MinIO and expiring signed URLs; `MINIO_PUBLIC_URL` resolves the browser-accessible host separately from Docker's internal endpoint. HTTP FormData leaves multipart headers to the browser.
+- Facility migration audit and progress: `docs/site-facility-architecture-audit.md`, `docs/facility-multi-map-implementation.md`. Maps reuse `site_plans`; Parts reuse `zone_parts`; Zones remain compatibility/internal.
+- `bun run db:backfill-facilities` explicitly reruns persisted legacy backfill and reports unresolved Activity/Part rows. Database fixtures use generated, isolated test databases, never normal seed.
+- `bun run db:seed:sts-default` is optional explicit native STS bootstrap (Project code STS-001, Master Map, actual Overview/Top images uploaded to MinIO, 15 Facilities); idempotent image reuse/original-public upgrade, rollback cleanup, no markers/Parts/Activities/Zones/Contractors/users/grants. Normal db:seed remains user-only.
+- The current local 3D POC is `sts-site-v1-layout-calibrated.glb` (public asset, 11 `FAC_*` roots + Ground); production assets belong in MinIO. Details: `docs/site-plan-readiness.md`.
+- React Three stack: React 19.3.0, three 0.186.0, `@react-three/fiber` 9.8.1, `@react-three/drei` 10.7.9; polygon overlap UI/dependency removed.
 - `packages/env` ต้องมี `@types/bun` ไม่งั้น `process` typecheck ไม่ผ่าน

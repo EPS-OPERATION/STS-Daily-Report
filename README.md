@@ -81,8 +81,20 @@ UUID PKs, `created_at/updated_at` timestamptz. Drizzle config: `apps/api/drizzle
 
 ## 9. Seed data
 
-`bun db:seed` — 1 project, 3 contractors, 21 WBS zones, 13 stored map areas, and sample activities. Idempotent.
+`bun run db:seed` creates/maintains the development user **only**. It never creates product data or grants Site Configuration access.
 Development sign-in uses `contractor@sts.local` with no password; the email-only provider is refused in production.
+
+Optional STS setup for a fresh migrated local/dev database:
+
+```sh
+bun run db:migrate
+bun run db:seed
+bun run db:seed:sts-default  # optional explicit native STS bootstrap
+```
+
+Then explicitly grant Site Configuration access to the chosen account through your authorized administration process and place missing Facility markers in Site Configuration. No permission is granted by either seed command.
+
+`db:seed:sts-default` creates/reuses Project code `STS-001`, its Master Site Layout, Overview/Top Views and 15 native Facilities. Source images in frontend-public are uploaded to MinIO; Views store object keys and the API provides authenticated presigned read URLs. Reruns reuse stored images and upgrade only the original bootstrap public references, preserving user replacements. MinIO must be available. Markers start empty because there is no approved native coordinate dataset. It seeds no Zones, Parts, Activities or Contractors. Database writes commit together; failed uploads roll back writes and newly uploaded unreferenced objects are cleaned up. Existing names, inactive states and placements are preserved. A renamed default Map is reused; ambiguous matching/default Maps cause a rollback. This command is separate from `db:backfill-facilities`, which migrates persisted legacy data.
 
 ## 10. Frontend conventions
 

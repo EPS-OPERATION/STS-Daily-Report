@@ -26,6 +26,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { CommandPalette } from "@/app/command-palette/command-palette.js";
 import { PaletteShortcutHint, useCommandPaletteShortcut } from "@/app/command-palette/shortcut-hint.js";
 import { UserMenu } from "@/features/auth/components/user-menu.js";
+import { useCanManageSiteConfiguration } from "@/features/auth/hooks/use-site-configuration-permission.js";
 import { useCurrentProject } from "@/features/projects/context/project-context.js";
 import { navigationIcons, type NavigationIconKey } from "@/app/icons/navigation-icons.js";
 
@@ -75,13 +76,16 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Administration",
     items: [
       { to: "/projects", label: "Projects", icon: "projects" },
-      { to: "/site-plan/config", label: "Zone Configuration", icon: "zoneConfig" },
+      { to: "/site-configuration", label: "Site Configuration", icon: "zoneConfig" },
       { to: "/settings", label: "Settings", icon: "settings" },
     ],
   },
 ];
 
 function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
+  const canConfigure = useCanManageSiteConfiguration();
+  const { projectId, projects } = useCurrentProject();
+  const currentProject = projects.find((project) => project.id === projectId);
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
       <Box sx={{ px: 2.5, py: 2.5 }}>
@@ -128,55 +132,60 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
               </Typography>
             )}
             <List dense disablePadding sx={{ mt: 0.5 }}>
-              {group.items.map((item) => {
-                const Icon = navigationIcons[item.icon];
-                const button = (
-                  <ListItemButton
-                    key={item.to}
-                    component={NavLink}
-                    to={item.to}
-                    end={item.to === "/" || item.to === "/site-plan"}
-                    onClick={onNavigate}
-                    title={collapsed ? item.label : undefined}
-                    sx={{
-                      borderRadius: 1.5,
-                      mb: 0.25,
-                      color: "#C6D5E5",
-                      position: "relative",
-                      justifyContent: collapsed ? "center" : "flex-start",
-                      "&.active": {
-                        bgcolor: "rgba(39,135,255,0.22)",
-                        color: "#FFFFFF",
-                        "&::before": {
-                          content: '""',
-                          position: "absolute",
-                          left: -12,
-                          top: 8,
-                          bottom: 8,
-                          width: 3,
-                          borderRadius: 3,
-                          bgcolor: "info.main",
+              {group.items
+                .filter((item) => item.to !== "/site-configuration" || canConfigure)
+                .map((item) => {
+                  const Icon = navigationIcons[item.icon];
+                  const button = (
+                    <ListItemButton
+                      key={item.to}
+                      component={NavLink}
+                      to={item.to}
+                      end={item.to === "/" || item.to === "/site-plan"}
+                      onClick={onNavigate}
+                      title={collapsed ? item.label : undefined}
+                      sx={{
+                        borderRadius: 1.5,
+                        mb: 0.25,
+                        color: "#C6D5E5",
+                        position: "relative",
+                        justifyContent: collapsed ? "center" : "flex-start",
+                        "&.active": {
+                          bgcolor: "rgba(39,135,255,0.22)",
+                          color: "#FFFFFF",
+                          "&::before": {
+                            content: '""',
+                            position: "absolute",
+                            left: -12,
+                            top: 8,
+                            bottom: 8,
+                            width: 3,
+                            borderRadius: 3,
+                            bgcolor: "info.main",
+                          },
                         },
-                      },
-                      "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
-                    }}
-                  >
-                    <ListItemIcon sx={{ color: "inherit", minWidth: collapsed ? 0 : 36 }}>
-                      <Icon fontSize="small" aria-hidden="true" />
-                    </ListItemIcon>
-                    {!collapsed && (
-                      <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 13.5, fontWeight: 500 }} />
-                    )}
-                  </ListItemButton>
-                );
-                return collapsed ? (
-                  <Tooltip key={item.to} title={item.label} placement="right" arrow>
-                    {button}
-                  </Tooltip>
-                ) : (
-                  button
-                );
-              })}
+                        "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
+                      }}
+                    >
+                      <ListItemIcon sx={{ color: "inherit", minWidth: collapsed ? 0 : 36 }}>
+                        <Icon fontSize="small" aria-hidden="true" />
+                      </ListItemIcon>
+                      {!collapsed && (
+                        <ListItemText
+                          primary={item.label}
+                          primaryTypographyProps={{ fontSize: 13.5, fontWeight: 500 }}
+                        />
+                      )}
+                    </ListItemButton>
+                  );
+                  return collapsed ? (
+                    <Tooltip key={item.to} title={item.label} placement="right" arrow>
+                      {button}
+                    </Tooltip>
+                  ) : (
+                    button
+                  );
+                })}
             </List>
           </Box>
         ))}
@@ -185,10 +194,10 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
       <Box sx={{ p: collapsed ? 1.5 : 2 }}>
         <Box sx={{ borderRadius: 2, bgcolor: "rgba(255,255,255,0.06)", p: 1.5, textAlign: "center" }}>
           <Typography variant="body2" sx={{ fontWeight: 600, display: collapsed ? "none" : "block" }}>
-            Biomass Power Plant
+            {currentProject?.name ?? "Construction Operations"}
           </Typography>
           <Typography variant="caption" sx={{ color: "#9DB4CC", display: collapsed ? "none" : "block" }}>
-            STS Project
+            STS Platform
           </Typography>
           {collapsed && (
             <Typography variant="caption" sx={{ color: "#FFFFFF", fontWeight: 700 }}>

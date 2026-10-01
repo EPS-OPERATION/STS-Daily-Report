@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "@/app/layouts/app-layout.js";
 import { RequireAuth } from "@/features/auth/components/require-auth.js";
 import { ProjectProvider } from "@/features/projects/context/project-context.js";
@@ -11,7 +11,7 @@ import { LoginPage } from "@/pages/login-page.js";
 import { PlaceholderPage } from "@/pages/placeholder-page.js";
 import { ProjectsPage } from "@/pages/projects-page.js";
 import { SitePlanPage } from "@/pages/site-plan-page.js";
-import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
+import { SiteConfigurationPage } from "@/pages/site-configuration-page.js";
 import { TomorrowPlanPage } from "@/pages/tomorrow-plan-page.js";
 
 export const router = createBrowserRouter([
@@ -30,7 +30,8 @@ export const router = createBrowserRouter([
           { index: true, element: <DashboardPage /> },
           { path: "daily-reports", element: <DailyReportsPage /> },
           { path: "site-plan", element: <SitePlanPage /> },
-          { path: "site-plan/config", element: <SitePlanConfigPage /> },
+          { path: "site-plan/config", element: <Navigate to="/site-configuration" replace /> },
+          { path: "site-configuration", element: <SiteConfigurationPage /> },
           { path: "tomorrow", element: <TomorrowPlanPage /> },
           { path: "contractors", element: <ContractorsPage /> },
           { path: "projects", element: <ProjectsPage /> },

@@ -1,7 +1,13 @@
 import { Elysia } from "elysia";
 import { requireAuth } from "@/middleware/require-auth.js";
-import { ok } from "@/shared/http/response.js";
-import { createActivityService, listActivitiesService, updateActivityService } from "./site-activity.service.js";
+import { ok, paginated } from "@/shared/http/response.js";
+import {
+  createActivityService,
+  getActivityService,
+  listActivitiesService,
+  listFacilitySummariesService,
+  updateActivityService,
+} from "./site-activity.service.js";
 import {
   activityIdParams,
   createActivityBody,
@@ -14,17 +20,20 @@ export const siteActivityRoutes = new Elysia()
   .use(requireAuth)
   .get(
     "/projects/:projectId/activities",
-    async ({ params, query }) =>
-      ok(
-        await listActivitiesService(params.projectId, {
-          date: query.date,
-          zoneId: query.zoneId,
-          contractorId: query.contractorId,
-          status: query.status,
-        }),
-      ),
+    async ({ params, query }) => {
+      const result = await listActivitiesService(params.projectId, query);
+      return paginated(result.rows, result.page, result.pageSize, result.total);
+    },
     { params: projectActivitiesParams, query: listActivitiesQuery },
   )
+  .get(
+    "/projects/:projectId/activity-summaries",
+    async ({ params, query }) => ok(await listFacilitySummariesService(params.projectId, query)),
+    { params: projectActivitiesParams, query: listActivitiesQuery },
+  )
+  .get("/activities/:activityId", async ({ params }) => ok(await getActivityService(params.activityId)), {
+    params: activityIdParams,
+  })
   .post(
     "/projects/:projectId/activities",
     async ({ params, body, auth, set }) => {

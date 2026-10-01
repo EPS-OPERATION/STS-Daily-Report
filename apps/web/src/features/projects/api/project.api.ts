@@ -5,6 +5,7 @@ export interface ProjectOption {
   code: string;
   name: string;
   status: string;
+  description: string | null;
 }
 
 export interface ProjectContractorOption {
@@ -14,10 +15,18 @@ export interface ProjectContractorOption {
 }
 
 export const projectApi = {
-  list(): Promise<{ data: ProjectOption[] }> {
-    return http.get<{ data: ProjectOption[] }>("/projects");
+  list(status: "active" | "inactive" | "all" = "active"): Promise<{ data: ProjectOption[] }> {
+    return http.get<{ data: ProjectOption[] }>(`/projects?status=${status}`);
   },
   listContractors(projectId: string): Promise<{ data: ProjectContractorOption[] }> {
     return http.get<{ data: ProjectContractorOption[] }>(`/projects/${projectId}/contractors`);
+  },
+  save(id: string | null, input: { name: string; code: string; description?: string }) {
+    return id
+      ? http.patch<{ data: ProjectOption }>(`/projects/${id}`, input)
+      : http.post<{ data: ProjectOption }>("/projects", input);
+  },
+  assignContractors(id: string, contractorIds: string[]) {
+    return http.put<{ data: ProjectContractorOption[] }>(`/projects/${id}/contractors`, { contractorIds });
   },
 };

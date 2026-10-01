@@ -15,3 +15,4 @@ export function getDb() {
 }
 
 export type Db = ReturnType<typeof getDb>;
+export type DbExecutor = Pick<Db, "select" | "insert" | "update" | "delete" | "execute">;

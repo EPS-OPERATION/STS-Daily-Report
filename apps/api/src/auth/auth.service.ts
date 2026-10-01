@@ -11,7 +11,12 @@ async function buildContext(userId: string): Promise<AuthContext> {
   const user = found[0];
   if (!user || user.status !== "active") throw new InvalidLoginError();
   return {
-    user: { id: user.id, email: user.email, displayName: user.displayName },
+    user: {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      canManageSiteConfiguration: user.canManageSiteConfiguration,
+    },
     identity: { method: "session" },
   };
 }
@@ -21,7 +26,12 @@ export async function loginWithEmail(email: string): Promise<{ context: AuthCont
   if (!user || user.status !== "active") throw new InvalidLoginError();
   const { token, expiresAt } = await createSession(user.id);
   const context: AuthContext = {
-    user: { id: user.id, email: user.email, displayName: user.displayName },
+    user: {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      canManageSiteConfiguration: user.canManageSiteConfiguration,
+    },
     identity: { method: "session" },
   };
   return { context, token, expiresAt };

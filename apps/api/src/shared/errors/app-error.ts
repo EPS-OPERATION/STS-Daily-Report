@@ -1,5 +1,5 @@
 export type ErrorCode =
-  "VALIDATION_ERROR" | "NOT_FOUND" | "CONFLICT" | "AUTH_REQUIRED" | "INVALID_LOGIN" | "INTERNAL_ERROR";
+  "VALIDATION_ERROR" | "NOT_FOUND" | "CONFLICT" | "AUTH_REQUIRED" | "FORBIDDEN" | "INVALID_LOGIN" | "INTERNAL_ERROR";
 
 export class AppError extends Error {
   constructor(
@@ -37,6 +37,12 @@ export class AuthRequiredError extends AppError {
   }
 }
 
+export class ForbiddenError extends AppError {
+  constructor(message = "Site Configuration management permission is required") {
+    super("FORBIDDEN", 403, message);
+  }
+}
+
 export class InvalidLoginError extends AppError {
   // Generic on purpose: never reveal whether the email exists or is inactive.
   constructor(message = "Unable to sign in with this email.") {
@@ -58,6 +64,13 @@ export function toErrorBody(err: unknown): {
   }
   if (err instanceof Error && err.name === "ValidationError") {
     return { status: 400, body: { error: { code: "VALIDATION_ERROR", message: err.message } } };
+  }
+  const databaseError = err as { code?: string; cause?: { code?: string } } | null;
+  if ((databaseError?.code ?? databaseError?.cause?.code) === "23505") {
+    return {
+      status: 409,
+      body: { error: { code: "CONFLICT", message: "A record with this key or code already exists." } },
+    };
   }
   const message =
     process.env["NODE_ENV"] === "production" ? "Internal server error" : String((err as Error)?.message ?? err);

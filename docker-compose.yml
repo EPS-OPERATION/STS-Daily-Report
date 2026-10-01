@@ -52,6 +52,10 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sts
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
     ports:
       - "3000:3000"
     healthcheck:

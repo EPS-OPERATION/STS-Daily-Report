@@ -1,24 +1,22 @@
 import { getDb } from "@/db/client.js";
 import { getProjectById } from "@/modules/projects/project.repository.js";
-import { getZoneById, updateZoneDisplayColor } from "@/modules/zones/zone.repository.js";
+import { getZoneById, hasZoneChildren, listZones, updateZoneDisplayColor } from "@/modules/zones/zone.repository.js";
 import { normalizeZoneColor } from "@/modules/zones/zone.color.js";
 import { getStorage } from "@/shared/storage/index.js";
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
-import { parseGeometry } from "./site-plan.geometry.js";
+import { parseGeometry, parseNormalizedPoint } from "./site-plan.geometry.js";
 import {
   createArea,
   deleteAreas,
   getDefaultSitePlan,
   getSitePlanById,
   listAreasForPlan,
+  listMarkerDefinitionsForPlan,
   listSitePlans,
+  saveMarkerPositions,
   updateAreaConfig,
 } from "./site-plan.repository.js";
 import type { PolygonGeometry } from "./site-plan.type.js";
-
-function sameGeometry(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-}
 
 export async function listProjectSitePlansService(projectId: string) {
   const db = getDb();
@@ -40,7 +38,51 @@ export async function getProjectSitePlanService(projectId: string, sitePlanId?: 
       sitePlanId: plan.id,
     });
   }
-  const areas = await listAreasForPlan(db, plan.id);
+  const [projectZones, definitions] = await Promise.all([
+    listZones(db, projectId, "all"),
+    listMarkerDefinitionsForPlan(db, plan.id),
+  ]);
+  const facilities = definitions.map((definition) => ({
+    no: definition.no,
+    key: definition.key,
+    name: definition.name,
+    zone: projectZones.find((zone) => zone.id === definition.zoneId) ?? null,
+    overview:
+      definition.overviewX == null || definition.overviewY == null
+        ? null
+        : { x: definition.overviewX, y: definition.overviewY },
+    topView:
+      definition.topViewX == null || definition.topViewY == null
+        ? null
+        : { x: definition.topViewX, y: definition.topViewY },
+  }));
+  const points = facilities.flatMap((facility) => [
+    ...(facility.overview
+      ? [
+          {
+            zoneId: facility.zone?.id ?? null,
+            facilityKey: facility.key,
+            view: "overview" as const,
+            facility: { no: facility.no, key: facility.key, name: facility.name },
+            zone: facility.zone,
+            ...facility.overview,
+          },
+        ]
+      : []),
+    ...(facility.topView
+      ? [
+          {
+            zoneId: facility.zone?.id ?? null,
+            facilityKey: facility.key,
+            view: "top" as const,
+            facility: { no: facility.no, key: facility.key, name: facility.name },
+            zone: facility.zone,
+            ...facility.topView,
+          },
+        ]
+      : []),
+  ]);
+
   return {
     id: plan.id,
     projectId: plan.projectId,
@@ -51,13 +93,8 @@ export async function getProjectSitePlanService(projectId: string, sitePlanId?: 
       width: plan.originalWidth,
       height: plan.originalHeight,
     },
-    areas: areas.map((a) => ({
-      id: a.id,
-      zone: a.zone,
-      geometry: a.geometry,
-      defaultGeometry: a.defaultGeometry,
-      isCustom: a.defaultGeometry != null && !sameGeometry(a.geometry, a.defaultGeometry),
-    })),
+    points,
+    facilities,
   };
 }
 
@@ -70,6 +107,73 @@ export interface BulkAreaInput {
 export interface BulkZoneColorInput {
   zoneId: string;
   displayColor: unknown;
+}
+
+export interface BulkMapPointInput {
+  facilityKey: string;
+  view: "overview" | "top";
+  x: number | null;
+  y: number | null;
+}
+
+export async function saveMapPointsService(
+  sitePlanId: string,
+  locations: BulkMapPointInput[],
+  zoneColors: BulkZoneColorInput[] = [],
+) {
+  const db = getDb();
+  const plan = await getSitePlanById(db, sitePlanId);
+  if (!plan) throw new NotFoundError("Site plan not found", { sitePlanId });
+  const definitions = await listMarkerDefinitionsForPlan(db, sitePlanId);
+  const definitionsByKey = new Map(definitions.map((definition) => [definition.key, definition]));
+  const seen = new Set<string>();
+  const parsed: BulkMapPointInput[] = [];
+  for (const location of locations) {
+    const definition = definitionsByKey.get(location.facilityKey);
+    if (!definition)
+      throw new NotFoundError("Facility marker definition not found", { facilityKey: location.facilityKey });
+    const markerKey = location.view + ":" + location.facilityKey;
+    if (seen.has(markerKey))
+      throw new ValidationError("Facility marker appears more than once in this view", {
+        facilityKey: location.facilityKey,
+      });
+    seen.add(markerKey);
+    if (definition.zoneId) {
+      const zone = await getZoneById(db, definition.zoneId);
+      if (!zone || zone.projectId !== plan.projectId || (await hasZoneChildren(db, zone.id))) {
+        throw new ValidationError("Facility must map to a physical Zone in this project", {
+          facilityKey: location.facilityKey,
+        });
+      }
+    }
+    const bothNull = location.x === null && location.y === null;
+    if (!bothNull && (location.x == null || location.y == null)) {
+      throw new ValidationError("Both marker coordinates must be supplied together", {
+        facilityKey: location.facilityKey,
+      });
+    }
+    const point = bothNull ? null : parseNormalizedPoint({ x: location.x, y: location.y });
+    parsed.push({ facilityKey: location.facilityKey, view: location.view, x: point?.x ?? null, y: point?.y ?? null });
+  }
+
+  const colorIds = new Set<string>();
+  const parsedColors: { zoneId: string; displayColor: string }[] = [];
+  for (const entry of zoneColors) {
+    if (colorIds.has(entry.zoneId))
+      throw new ValidationError("Zone color appears more than once", { zoneId: entry.zoneId });
+    colorIds.add(entry.zoneId);
+    const zone = await getZoneById(db, entry.zoneId);
+    if (!zone) throw new NotFoundError("Zone not found", { zoneId: entry.zoneId });
+    if (zone.projectId !== plan.projectId)
+      throw new ValidationError("Zone does not belong to this project", { zoneId: entry.zoneId });
+    parsedColors.push({ zoneId: entry.zoneId, displayColor: normalizeZoneColor(entry.displayColor) });
+  }
+
+  await db.transaction(async (tx) => {
+    await saveMarkerPositions(tx as never, sitePlanId, parsed);
+    for (const color of parsedColors) await updateZoneDisplayColor(tx as never, color.zoneId, color.displayColor);
+  });
+  return (await getProjectSitePlanService(plan.projectId, sitePlanId)).points;
 }
 
 // One transaction applies drafts, new mappings, and deletions as a unit.

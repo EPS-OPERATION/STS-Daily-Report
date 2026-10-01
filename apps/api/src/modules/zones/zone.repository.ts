@@ -17,6 +17,11 @@ export async function getZoneById(db: Db, id: string) {
   return rows[0] ?? null;
 }
 
+export async function hasZoneChildren(db: Db, zoneId: string) {
+  const rows = await db.select({ id: zones.id }).from(zones).where(eq(zones.parentId, zoneId)).limit(1);
+  return rows.length > 0;
+}
+
 export async function updateZoneDisplayColor(db: Db, zoneId: string, displayColor: string) {
   const rows = await db
     .update(zones)

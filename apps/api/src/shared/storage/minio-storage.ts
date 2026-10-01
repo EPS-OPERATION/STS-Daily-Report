@@ -25,6 +25,19 @@ export function createMinioStorage(env: ApiEnv): StorageService {
       await client.removeObject(bucket, key);
     },
     async getPresignedUrl(key: string, expiresSeconds = 3600) {
+      if (env.MINIO_PUBLIC_URL) {
+        const endpoint = new URL(env.MINIO_PUBLIC_URL);
+        // Resolve region through the internal endpoint; signing must use the browser's Host.
+        const signer = new Client({
+          endPoint: endpoint.hostname,
+          port: Number(endpoint.port || (endpoint.protocol === "https:" ? 443 : 80)),
+          useSSL: endpoint.protocol === "https:",
+          accessKey: env.MINIO_ACCESS_KEY,
+          secretKey: env.MINIO_SECRET_KEY,
+          region: await client.getBucketRegionAsync(bucket),
+        });
+        return signer.presignedGetObject(bucket, key, expiresSeconds);
+      }
       return client.presignedGetObject(bucket, key, expiresSeconds);
     },
   };

@@ -8,6 +8,7 @@ export const activityStatusSchema = z.enum(["active", "attention", "blocked", "c
 export const siteActivityFormSchema = z.object({
   workDate: z.string().regex(DATE_RE, "Use YYYY-MM-DD"),
   zoneId: z.string().uuid("Select a zone"),
+  zonePartId: z.string().uuid().nullable().default(null),
   contractorId: z.string().uuid("Select a contractor"),
   title: z.string().trim().min(1, "Title is required").max(300),
   description: z.string().trim().max(2000).optional(),

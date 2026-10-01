@@ -10,13 +10,21 @@ export const projectActivitiesParams = t.Object({ projectId: uuid });
 
 export const listActivitiesQuery = t.Object({
   date: t.Optional(t.String({ pattern: DATE_RE })),
+  workDate: t.Optional(t.String({ pattern: DATE_RE })),
+  facilityId: t.Optional(uuid),
+  facilityPartId: t.Optional(uuid),
   zoneId: t.Optional(uuid),
   contractorId: t.Optional(uuid),
   status: t.Optional(statusEnum),
+  page: t.Optional(t.Numeric({ minimum: 1, multipleOf: 1 })),
+  pageSize: t.Optional(t.Numeric({ minimum: 1, maximum: 100, multipleOf: 1 })),
 });
 
 export const createActivityBody = t.Object({
-  zoneId: uuid,
+  facilityId: t.Optional(uuid),
+  facilityPartId: t.Optional(t.Union([uuid, t.Null()])),
+  zoneId: t.Optional(uuid),
+  zonePartId: t.Optional(t.Union([uuid, t.Null()])),
   contractorId: uuid,
   workDate: t.String({ pattern: DATE_RE }),
   title: t.String({ minLength: 1, maxLength: 300 }),
@@ -31,7 +39,10 @@ export const createActivityBody = t.Object({
 export const activityIdParams = t.Object({ activityId: uuid });
 
 export const updateActivityBody = t.Object({
+  facilityId: t.Optional(uuid),
+  facilityPartId: t.Optional(t.Union([uuid, t.Null()])),
   zoneId: t.Optional(uuid),
+  zonePartId: t.Optional(t.Union([uuid, t.Null()])),
   contractorId: t.Optional(uuid),
   workDate: t.Optional(t.String({ pattern: DATE_RE })),
   title: t.Optional(t.String({ minLength: 1, maxLength: 300 })),

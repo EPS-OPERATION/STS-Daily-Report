@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { aggregateZoneState, summarizeZone } from "../apps/web/src/features/site-plan/utils/zone-status.js";
 import {
-  getActivityFocusAreas,
+  aggregateZoneState,
+  sortActivitiesByPriority,
+  summarizeZone,
+} from "../apps/web/src/features/site-plan/utils/zone-status.js";
+import {
   getBlankMapClickAction,
   getZoneMapInteraction,
-  getVisibleMapAreas,
   getZoneSubtreeActivities,
 } from "../apps/web/src/features/site-plan/utils/site-plan-map.js";
 import type { PlanActivity } from "../apps/web/src/features/site-plan/types/site-plan.types.js";
@@ -29,27 +31,18 @@ function activity(id: string, status: PlanActivity["status"], manpower: number):
     startTime: null,
     endTime: null,
     zone: { id: "2.1", code: "2.1", name: "Boiler" },
+    zonePart: null,
     contractor: { id, code: id, name: id },
   };
 }
 
 describe("Site Activity map data", () => {
-  it("shows parents in overview and only the focused parent's children", () => {
-    expect(getVisibleMapAreas(areas, null).map((area) => area.zone.code)).toEqual(["1", "2"]);
-    expect(getVisibleMapAreas(areas, "2").map((area) => area.zone.code)).toEqual(["2.1", "2.2"]);
-  });
-
   it("routes parents to focus and leaf zones to activity inspection", () => {
     const zones = areas.map((area) => area.zone);
 
     expect(getZoneMapInteraction("2", zones)).toBe("focus");
     expect(getZoneMapInteraction("2.1", zones)).toBe("inspect");
     expect(getZoneMapInteraction("1", zones)).toBe("inspect");
-  });
-
-  it("fits mapped children first and falls back to parent geometry only when none are mapped", () => {
-    expect(getActivityFocusAreas(areas, "2").map((area) => area.zone.code)).toEqual(["2.1", "2.2"]);
-    expect(getActivityFocusAreas(areas, "1").map((area) => area.zone.code)).toEqual(["1"]);
   });
 
   it("clears a selected child before returning from focused parent to overview", () => {
@@ -84,5 +77,22 @@ describe("Site Activity map data", () => {
       ]),
     ).toBe("blocked");
     expect(aggregateZoneState([])).toBe("idle");
+  });
+
+  it("sorts facility activities by urgency, then start time", () => {
+    const activities = [
+      { ...activity("late-active", "active", 0), startTime: "13:00" },
+      { ...activity("completed", "completed", 0), startTime: "08:00" },
+      { ...activity("attention", "attention", 0), startTime: "10:00" },
+      { ...activity("blocked", "blocked", 0), startTime: "14:00" },
+      { ...activity("early-active", "active", 0), startTime: "09:00" },
+    ];
+    expect(sortActivitiesByPriority(activities).map((item) => item.id)).toEqual([
+      "blocked",
+      "attention",
+      "early-active",
+      "late-active",
+      "completed",
+    ]);
   });
 });

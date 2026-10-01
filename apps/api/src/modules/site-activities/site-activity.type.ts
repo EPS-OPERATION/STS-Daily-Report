@@ -2,13 +2,21 @@ export type SiteActivityStatus = "active" | "attention" | "blocked" | "completed
 
 export interface SiteActivityFilters {
   date?: string;
+  workDate?: string;
+  facilityId?: string;
+  facilityPartId?: string;
   zoneId?: string;
   contractorId?: string;
   status?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface CreateSiteActivityInput {
-  zoneId: string;
+  facilityId?: string;
+  facilityPartId?: string | null;
+  zoneId?: string | null;
+  zonePartId?: string | null;
   contractorId: string;
   workDate: string;
   title: string;
@@ -21,7 +29,10 @@ export interface CreateSiteActivityInput {
 }
 
 export interface UpdateSiteActivityInput {
-  zoneId?: string;
+  facilityId?: string;
+  facilityPartId?: string | null;
+  zoneId?: string | null;
+  zonePartId?: string | null;
   contractorId?: string;
   workDate?: string;
   title?: string;
