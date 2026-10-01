@@ -1,6 +1,6 @@
 import type { TypographyVariantsOptions } from "@mui/material/styles";
 
-const fontStack = `"Inter","Noto Sans Thai",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif`;
+const fontStack = `"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif`;
 
 export const typography: TypographyVariantsOptions = {
   fontFamily: fontStack,

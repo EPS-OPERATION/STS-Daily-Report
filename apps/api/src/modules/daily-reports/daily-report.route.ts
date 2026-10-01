@@ -5,6 +5,11 @@ import {
   deletePhotoService,
   ensureDraftService,
   getCurrentReportService,
+  manpowerSummaryService,
+  manpowerTrendService,
+  positionMixService,
+  listReviewQueueService,
+  reviewReportService,
   submitEveningService,
   submitMorningService,
   uploadPhotoService,
@@ -19,7 +24,11 @@ import {
   projectIdParams,
   reportIdParams,
   reportKeyBody,
+  reviewBody,
+  reviewQueueQuery,
   weeklySummaryQuery,
+  manpowerTrendQuery,
+  dateRangeQuery,
 } from "./daily-report.schema.js";
 
 export const dailyReportRoutes = new Elysia()
@@ -29,7 +38,28 @@ export const dailyReportRoutes = new Elysia()
     async ({ params, query }) => ok(await weeklySummaryService(params.projectId, query.weekStart)),
     { params: projectIdParams, query: weeklySummaryQuery },
   )
+  // Chart data for the weekly meeting page (aggregates only, open like the weekly summary).
+  .get(
+    "/projects/:projectId/position-mix",
+    async ({ params, query }) => ok(await positionMixService(params.projectId, query.from, query.to)),
+    { params: projectIdParams, query: dateRangeQuery },
+  )
+  .get(
+    "/projects/:projectId/manpower-summary",
+    async ({ params, query }) => ok(await manpowerSummaryService(params.projectId, query.from, query.to)),
+    { params: projectIdParams, query: dateRangeQuery },
+  )
+  .get(
+    "/projects/:projectId/manpower-trend",
+    async ({ params, query }) => ok(await manpowerTrendService(params.projectId, query.until, query.weeks ?? 12)),
+    { params: projectIdParams, query: manpowerTrendQuery },
+  )
   .use(requireAuth)
+  .get(
+    "/projects/:projectId/daily-reports/review-queue",
+    async ({ params, query, auth }) => ok(await listReviewQueueService(auth, params.projectId, query.date)),
+    { params: projectIdParams, query: reviewQueueQuery },
+  )
   .get(
     "/projects/:projectId/daily-reports/current",
     async ({ params, query, auth }) =>
@@ -50,6 +80,11 @@ export const dailyReportRoutes = new Elysia()
     "/projects/:projectId/daily-reports/draft",
     async ({ params, body, auth }) => ok(await ensureDraftService(auth, params.projectId, body.date, body.contractorId)),
     { params: projectIdParams, body: reportKeyBody },
+  )
+  .post(
+    "/daily-reports/:reportId/review",
+    async ({ params, body, auth }) => ok(await reviewReportService(auth, params.reportId, body)),
+    { params: reportIdParams, body: reviewBody },
   )
   .post(
     "/daily-reports/:reportId/photos",

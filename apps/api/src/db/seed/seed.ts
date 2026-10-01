@@ -348,16 +348,30 @@ const SAMPLE_PLANS: SamplePlan[] = [
 
 const todayDate = new Date(`${today}T00:00:00Z`);
 const mondayOffset = (todayDate.getUTCDay() + 6) % 7;
-const weekDays = Array.from({ length: mondayOffset + 1 }, (_, i) => {
+// Current week up to today, plus 8 earlier weeks (Mon–Sat) so the manpower trend has history.
+const SAMPLE_HISTORY_WEEKS = 8;
+const weekDays: string[] = [];
+for (let back = -(SAMPLE_HISTORY_WEEKS * 7 + mondayOffset); back <= 0; back++) {
   const d = new Date(todayDate);
-  d.setUTCDate(d.getUTCDate() - mondayOffset + i);
-  return d.toISOString().slice(0, 10);
-});
+  d.setUTCDate(d.getUTCDate() + back);
+  if (back < -mondayOffset && d.getUTCDay() === 0) continue; // no Sunday work in past weeks
+  weekDays.push(d.toISOString().slice(0, 10));
+}
+// Deterministic day-to-day swing in workers (-6..+6) — same every seed run.
+const swing = (date: string, salt: number) => {
+  let h = salt;
+  for (const ch of date) h = (h * 31 + ch.charCodeAt(0)) % 9973;
+  return (h % 13) - 6;
+};
 
 let sampleReports = 0;
 for (const date of weekDays) {
   for (const plan of SAMPLE_PLANS) {
-    const [thaiMale, thaiFemale, foreignMale, foreignFemale] = plan.split;
+    // Apply the swing to workers only, keeping positions = nationality split = allocation.
+    const delta = Math.max(-(plan.positions.worker ?? 0) + 1, swing(date, SAMPLE_PLANS.indexOf(plan) + 7));
+    const [baseThaiMale, thaiFemale, foreignMale, foreignFemale] = plan.split;
+    const thaiMale = Math.max(0, baseThaiMale + delta);
+    const workerDelta = thaiMale - baseThaiMale;
     const inserted = await db
       .insert(dailyReports)
       .values({
@@ -384,7 +398,13 @@ for (const date of weekDays) {
     sampleReports++;
     await db
       .insert(dailyReportPositions)
-      .values(Object.entries(plan.positions).map(([position, headcount]) => ({ reportId, position, headcount: headcount! })));
+      .values(
+        Object.entries(plan.positions).map(([position, headcount]) => ({
+          reportId,
+          position,
+          headcount: headcount! + (position === "worker" ? workerDelta : 0),
+        })),
+      );
     await db
       .insert(dailyReportEquipment)
       .values(Object.entries(plan.equipment).map(([equipmentType, qty]) => ({ reportId, equipmentType, qty: qty! })));
@@ -392,7 +412,7 @@ for (const date of weekDays) {
       plan.alloc.map((a, i) => ({
         reportId,
         buildingId: bid(a.b),
-        headcount: a.n,
+        headcount: a.n + (i === 0 ? workerDelta : 0),
         workDescription: a.work,
         planPercent: a.plan,
         sortOrder: i,

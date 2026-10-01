@@ -11,6 +11,8 @@ import { useState } from "react";
 import { useLogout } from "../hooks/use-logout.js";
 import { useMe } from "../hooks/use-me.js";
 
+import Chip from "@mui/material/Chip";
+
 function initials(name: string | null, email: string): string {
   const source = name?.trim() || email;
   const parts = source.split(/[\s@._-]+/).filter(Boolean);
@@ -27,6 +29,7 @@ export function UserMenu() {
   const user = me.data?.data.user;
   const contractors = me.data?.data.contractors ?? [];
   const label = user?.displayName?.trim() || user?.email || "…";
+  const isContractor = user?.role === "contractor";
 
   return (
     <Box>
@@ -37,18 +40,26 @@ export function UserMenu() {
           onClick={(e) => setAnchor(e.currentTarget)}
           sx={{ p: 0 }}
         >
-          <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: 13 }}>
+          <Avatar sx={{ width: 32, height: 32, bgcolor: isContractor ? "primary.main" : "secondary.main", fontSize: 13 }}>
             {user ? initials(user.displayName, user.email) : "…"}
           </Avatar>
         </IconButton>
         <Box sx={{ display: { xs: "none", lg: "block" }, lineHeight: 1.2 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {label}
-          </Typography>
+          <Stack direction="row" spacing={0.75} alignItems="center">
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {label}
+            </Typography>
+            <Chip
+              label={isContractor ? "Contractor" : "EPS"}
+              size="small"
+              color={isContractor ? "primary" : "info"}
+              sx={{ height: 20, fontSize: 10, fontWeight: 700 }}
+            />
+          </Stack>
           <Typography variant="caption" color="text.secondary">
-            {contractors.length > 0
-              ? `${contractors.length} contractor${contractors.length === 1 ? "" : "s"}`
-              : "STS Platform"}
+            {isContractor
+              ? (contractors[0]?.name ?? "ผู้รับเหมา")
+              : "Owner / EPS QAQC"}
           </Typography>
         </Box>
       </Stack>
@@ -58,11 +69,12 @@ export function UserMenu() {
             {label}
           </Typography>
           {user ? (
-            <Typography variant="caption" color="text.secondary">
-              {user.email}
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              {user.email} · {isContractor ? "ผู้รับเหมา (Contractor)" : "EPS QAQC Team"}
             </Typography>
           ) : null}
         </Box>
+
         <Divider />
         <MenuItem
           onClick={() => {

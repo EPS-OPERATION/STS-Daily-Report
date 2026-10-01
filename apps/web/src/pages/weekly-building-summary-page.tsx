@@ -3,44 +3,50 @@ import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
+import Link from "@mui/material/Link";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/ui/page-header.js";
 import {
   BuildingActivityMatrix,
   MachineryAllocationTable,
+  ManDayByContractorChart,
   RoadUsageTable,
   WorkloadLegend,
   addDaysIso,
+  contractorColorMap,
   mondayOf,
   todayIso,
+  useManpowerSummary,
   useWeeklySummary,
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+type DetailTab = "matrix" | "machinery" | "roads";
 
-// Weekly coordination meeting view (desktop-first): who works in which building
-// each day, labour density, high-risk permits, and machinery double-bookings.
+// Weekly coordination meeting (desktop-first). Charts first, as in the requirements
+// deck; the detailed building × day matrix and booking tables sit in tabs below.
 export function WeeklyBuildingSummaryPage() {
   const [params, setParams] = useSearchParams();
   const today = todayIso();
   const weekStart = mondayOf(ISO_DATE.test(params.get("week") ?? "") ? params.get("week")! : today);
+  const weekEnd = addDaysIso(weekStart, 6);
   const { projectId } = useCurrentProject();
   const summary = useWeeklySummary(projectId, weekStart);
-  const [hideEmpty, setHideEmpty] = useState(false);
+  const manpower = useManpowerSummary(projectId, weekStart, weekEnd);
+  const [tab, setTab] = useState<DetailTab>("matrix");
   const [onlyConflicts, setOnlyConflicts] = useState(false);
 
   const goWeek = (delta: number) => {
@@ -51,30 +57,28 @@ export function WeeklyBuildingSummaryPage() {
 
   const data = summary.data?.data;
   const error = summary.error instanceof HttpError ? summary.error : null;
-  const busiest = data?.buildings.reduce<(typeof data.buildings)[number] | null>(
-    (best, b) => (!best || b.peakHeadcount > best.peakHeadcount ? b : best),
-    null,
-  );
-  const hotCells = data?.buildings.reduce((s, b) => s + b.cells.filter((c) => c.level === "high").length, 0) ?? 0;
+  // One colour per contractor across all charts on the page.
+  const colors = contractorColorMap(manpower.data?.data.contractors.map((c) => c.contractorCode) ?? []);
+  const qaqc = data ? data.requests.requested + data.requests.confirmed + data.requests.inspected + data.requests.closed : 0;
 
   return (
     <Box>
       <PageHeader
-        title="Weekly Building Summary"
-        subtitle="Weekly coordination meeting · allocation by building from contractor morning check-ins"
+        title="สรุปประชุมประจำสัปดาห์"
+        subtitle="Weekly coordination · กำลังคนรายวัน และการใช้อาคาร/เครื่องจักร/ถนน (กราฟกำลังคนเต็มที่หน้า Manpower)"
         actions={
           <Stack direction="row" alignItems="center" spacing={0.5}>
-            <IconButton aria-label="Previous week" onClick={() => goWeek(-1)}>
+            <IconButton aria-label="สัปดาห์ก่อน" onClick={() => goWeek(-1)}>
               <ChevronLeftOutlinedIcon />
             </IconButton>
-            <Typography variant="body1" sx={{ fontWeight: 600, minWidth: 190, textAlign: "center" }}>
-              {dayjs(weekStart).format("D MMM")} – {dayjs(addDaysIso(weekStart, 6)).format("D MMM YYYY")}
+            <Typography variant="body1" sx={{ fontWeight: 600, minWidth: 170, textAlign: "center" }}>
+              {dayjs(weekStart).format("D MMM")} – {dayjs(weekEnd).format("D MMM YYYY")}
             </Typography>
-            <IconButton aria-label="Next week" onClick={() => goWeek(1)}>
+            <IconButton aria-label="สัปดาห์ถัดไป" onClick={() => goWeek(1)}>
               <ChevronRightOutlinedIcon />
             </IconButton>
             <Button variant="outlined" size="small" onClick={() => setParams({}, { replace: true })} disabled={weekStart === mondayOf(today)}>
-              This week
+              สัปดาห์นี้
             </Button>
           </Stack>
         }
@@ -82,139 +86,130 @@ export function WeeklyBuildingSummaryPage() {
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Could not load the weekly summary: {error.message}
+          โหลดข้อมูลไม่สำเร็จ: {error.message}
         </Alert>
       ) : null}
 
       {!data ? (
         <Stack spacing={2}>
-          <Skeleton variant="rounded" height={96} />
-          <Skeleton variant="rounded" height={480} />
+          <Skeleton variant="rounded" height={40} />
+          <Skeleton variant="rounded" height={340} />
         </Stack>
       ) : (
         <Stack spacing={2.5}>
           {summary.isFetching ? <LinearProgress sx={{ position: "fixed", top: 64, left: 0, right: 0, zIndex: 10 }} /> : null}
 
-          <Grid container spacing={2}>
-            <Stat label="Man-days this week" value={data.totals.manDays.toLocaleString()} sub="Sum of daily building headcount" />
-            <Stat
-              label="Man-hours (NMH)"
-              value={data.totals.manHours.toLocaleString()}
-              sub="Headcount × (normal hours + OT)"
+          {/* One quiet line of totals instead of KPI cards. */}
+          <Stack direction="row" flexWrap="wrap" useFlexGap columnGap={3} rowGap={0.5}>
+            <Figure label="Man-days" value={data.totals.manDays.toLocaleString()} />
+            <Figure label="NMH (ชม.)" value={data.totals.manHours.toLocaleString()} />
+            <Figure label="เครื่องจักรจองชน" value={data.totals.conflicts} alert={data.totals.conflicts > 0} />
+            <Figure label="ถนนจองชน" value={data.totals.roadConflicts} alert={data.totals.roadConflicts > 0} />
+            <Figure
+              label="คำขอตรวจ QAQC"
+              value={
+                <Link component={RouterLink} to="/qaqc" underline="hover">
+                  {qaqc}
+                </Link>
+              }
             />
-            <Stat
-              label="Busiest building"
-              value={busiest && busiest.peakHeadcount > 0 ? busiest.name : "—"}
-              sub={busiest && busiest.peakHeadcount > 0 ? `Peak ${busiest.peakHeadcount} people / day` : "No work reported"}
-            />
-            <Stat label="High-density building-days" value={String(hotCells)} sub="Congested areas to coordinate" tone={hotCells ? "warning" : undefined} />
-            <Stat
-              label="Machinery double-bookings"
-              value={String(data.totals.conflicts)}
-              sub={`Overlapping pairs · ${data.totals.possibleConflicts} more to check (no unit no.) · ${data.totals.bookings} bookings`}
-              tone={data.totals.conflicts ? "error" : undefined}
-            />
-            <Stat
-              label="QAQC requests"
-              value={String(
-                data.requests.requested + data.requests.confirmed + data.requests.inspected + data.requests.closed,
+          </Stack>
+
+          {/* Full manpower analytics live on /manpower; the meeting page keeps one chart. */}
+          <ChartPanel
+            title="Man-day รายวัน แยกตามผู้รับเหมา"
+            note="จำนวนคนเข้างานต่อวัน (รายงานเช้า)"
+            action={
+              <Link component={RouterLink} to={`/manpower?period=week&at=${weekStart}`} underline="hover" variant="body2">
+                ดูกำลังคนทั้งหมด →
+              </Link>
+            }
+          >
+            {manpower.data ? (
+              <ManDayByContractorChart days={data.days} daily={manpower.data.data.daily} colors={colors} />
+            ) : (
+              <Skeleton variant="rounded" height={300} />
+            )}
+          </ChartPanel>
+
+          <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper" }}>
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              justifyContent="space-between"
+              alignItems={{ md: "center" }}
+              sx={{ px: 2, borderBottom: 1, borderColor: "divider" }}
+            >
+              <Tabs value={tab} onChange={(_, v: DetailTab) => setTab(v)}>
+                <Tab value="matrix" label="อาคาร × วัน" />
+                <Tab value="machinery" label={`เครื่องจักร${data.totals.conflicts ? ` (${data.totals.conflicts})` : ""}`} />
+                <Tab value="roads" label={`ถนน${data.totals.roadConflicts ? ` (${data.totals.roadConflicts})` : ""}`} />
+              </Tabs>
+              {tab !== "matrix" ? (
+                <FormControlLabel
+                  control={<Switch size="small" checked={onlyConflicts} onChange={(e) => setOnlyConflicts(e.target.checked)} />}
+                  label="เฉพาะที่ชนกัน"
+                />
+              ) : null}
+            </Stack>
+            <Box sx={{ p: 2 }}>
+              {tab === "matrix" ? (
+                <>
+                  <Box sx={{ mb: 1.5 }}>
+                    <WorkloadLegend />
+                  </Box>
+                  <BuildingActivityMatrix days={data.days} rows={data.buildings} today={today} hideEmpty />
+                </>
+              ) : tab === "machinery" ? (
+                <MachineryAllocationTable bookings={data.machinery} onlyConflicts={onlyConflicts} />
+              ) : (
+                <RoadUsageTable roads={onlyConflicts ? data.roads.filter((r) => r.conflict) : data.roads} />
               )}
-              sub={`${data.requests.requested} awaiting confirm · ${data.requests.confirmed} to inspect · ${data.requests.closed} closed`}
-              to="/qaqc"
-            />
-          </Grid>
-
-          <Card>
-            <CardContent>
-              <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1.5 }}>
-                <Box>
-                  <Typography variant="h5">Building Activity Matrix & Workload Heatmap</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Contractor badges show headcount per contractor. Icons mark high-risk permits. Hover a cell for detail.
-                  </Typography>
-                </Box>
-                <FormControlLabel
-                  control={<Switch checked={hideEmpty} onChange={(e) => setHideEmpty(e.target.checked)} />}
-                  label="Hide idle buildings"
-                />
-              </Stack>
-              <Box sx={{ mb: 1.5 }}>
-                <WorkloadLegend />
-              </Box>
-              <BuildingActivityMatrix days={data.days} rows={data.buildings} today={today} hideEmpty={hideEmpty} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
-                <Box>
-                  <Typography variant="h5">Machinery & Request Allocation</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Where each machine is booked, and overlapping bookings of the same unit.
-                  </Typography>
-                </Box>
-                <FormControlLabel
-                  control={<Switch checked={onlyConflicts} onChange={(e) => setOnlyConflicts(e.target.checked)} />}
-                  label="Conflicts only"
-                />
-              </Stack>
-              <MachineryAllocationTable bookings={data.machinery} onlyConflicts={onlyConflicts} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <Typography variant="h5">Road Usage / Closures</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-                Requested the evening before. Red = same road, overlapping hours.
-              </Typography>
-              <RoadUsageTable roads={onlyConflicts ? data.roads.filter((r) => r.conflict) : data.roads} />
-            </CardContent>
-          </Card>
+            </Box>
+          </Box>
         </Stack>
       )}
     </Box>
   );
 }
 
-function Stat({
-  label,
-  value,
-  sub,
-  tone,
-  to,
+function Figure({ label, value, alert }: { label: string; value: ReactNode; alert?: boolean }) {
+  return (
+    <Stack direction="row" spacing={0.75} alignItems="baseline">
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography
+        variant="h5"
+        component="span"
+        sx={{ fontVariantNumeric: "tabular-nums", color: alert ? "error.main" : "text.primary" }}
+      >
+        {value}
+      </Typography>
+    </Stack>
+  );
+}
+
+function ChartPanel({
+  title,
+  note,
+  action,
+  children,
 }: {
-  label: string;
-  value: string;
-  sub: string;
-  tone?: "warning" | "error";
-  to?: string;
+  title: string;
+  note: string;
+  action?: ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 2 }}>
-      <Card
-        {...(to ? { component: RouterLink, to } : {})}
-        sx={{
-          height: "100%",
-          display: "block",
-          textDecoration: "none",
-          borderLeft: tone ? 4 : undefined,
-          borderLeftColor: tone ? `${tone}.main` : undefined,
-        }}
-      >
-        <CardContent>
-          <Typography variant="caption" color="text.secondary">
-            {label}
-          </Typography>
-          <Typography variant="h3" sx={{ my: 0.5, color: tone ? `${tone}.dark` : "text.primary" }} noWrap>
-            {value}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {sub}
-          </Typography>
-        </CardContent>
-      </Card>
-    </Grid>
+    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2, height: "100%" }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={2}>
+        <Typography variant="h5">{title}</Typography>
+        {action}
+      </Stack>
+      <Typography variant="caption" color="text.secondary">
+        {note}
+      </Typography>
+      <Box sx={{ mt: 1 }}>{children}</Box>
+    </Box>
   );
 }

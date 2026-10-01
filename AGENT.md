@@ -15,7 +15,7 @@
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
   Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/` dashboard, `/site-plan`, `/daily-reports` (DataGrid mock), `/tomorrow`, `/weekly-summary` (real API),
+- Screens: `/` dashboard, `/site-plan` (overview [Image 1] + activity drawer), `/daily-reports` (inbox + history), `/tomorrow`, `/weekly-summary` (real API),
   `/field` + `/field/report` (mobile-first; `/evening-report` redirect), `/qaqc` (Daily Request kanban), `/contractors`
 - ยังไม่มี: tests, lint config, CI, production auth, domains manpower/permits/qaqc/materials/drone (ดู README §12/13)
 
@@ -81,17 +81,15 @@
 - Konva map (konva+react-konva ใน apps/web): base master-layout-map.png (1586x992) + SVG→Konva polygons;
   edit mode (vertex drag/add-del point/draw new/assign/reset/delete/bulk save/dirty-confirm); default_geometry
   สำหรับ reset; mobile ดูได้อย่างเดียว; geometry ใน React ไม่มี (PostgreSQL เท่านั้น)
-- Site Plan แยก 2 จอ: /site-plan (operation: filters/map/drawer/Add Activity, parents overview → children เมื่อ focus,
-  idle โปร่งแสง, label เฉพาะ code) vs /site-plan/config (admin: canvas + panel, bulk/PATCH/POST/DELETE/reset);
+- Site Plan แยก 2 จอ: /site-plan (overview hotspots → drawer/Add Activity) vs /site-plan/config (admin: canvas + panel, bulk/PATCH/POST/DELETE/reset);
   seed geometry แมปจริงจากภาพ (16 areas, 5 zones unmapped โดยตั้งใจ ไม่มี subdivision)
-- Drill-down: overview parents อย่างเดียว → กด parent animate focus (ease-out ~280ms) + render children (+outline จาง),
-  breadcrumb All Zones / parent + Back, parent status รวม activities ลูกหลาน
+- Overview hotspots (`mock/site-overview.ts`, x/y % ล้วน): 10 ป้าย → zone จริง, 4 ป้าย (ACC/5.1, 2.2–2.4, 6.4) fallback parent โดย tooltip บอก, TR ไม่มี zone (disabled)
 - `packages/env` ต้องมี `@types/bun` ไม่งั้น `process` typecheck ไม่ผ่าน
 - Daily report: 1 row/contractor/project/date, เช้า/เย็น ส่งอิสระ (เช้า lock เมื่อส่งครบทั้งคู่, เย็น lock ตัวเอง);
   เช้า = เวลา/ชม., อากาศ, คนตามตำแหน่ง (ยอดหลัก) = สัญชาติ/เพศ, เครื่องจักรในไซต์, allocation ลง `buildings` 16 อาคาร
   (≠ WBS zones) รวม = total พอดี (zod + service); เย็น upsert แถวเอง (ไม่ต้องมีเช้า) = อุบัติเหตุ, OT, actual% (ต่ำกว่า plan
   ต้องมี countermeasure), รูป (draft แถวก่อนถ้ายังไม่มี), ลายเซ็น PNG, คำขอพรุ่งนี้; NMH = คน × (ชม.+OT); vocab ที่ `@sts/shared`
-- Weekly summary `GET /projects/:id/weekly-summary?weekStart=`: machinery/permits/roads ตาม target_date; conflict = type+unit
+- Charts (MUI x-charts, สีตาม contractor code จาก `app/theme/chart-palette.ts`): `/manpower` (สัปดาห์/เดือน; `/manpower-summary`, `/position-mix`, `/manpower-trend`), weekly page กราฟเดียว; `weekly-summary`: machinery/permits/roads ตาม target_date; conflict = type+unit
   ซ้ำเวลาเหลื่อม ("possible" ถ้าไม่มี unit), ถนนชื่อเดียวกันเวลาเหลื่อม; seed sample ZCE/LCE/UME (CTR-001 ว่างไว้ทดสอบ)
 - Bun `--hot` segfault บน Windows → `--watch`; FormData ใช้ `http.upload`; form ใน Dialog ต้อง `e.stopPropagation()`
 - คำขอพรุ่งนี้ (machinery/permits/road_usage) ผูก report เย็นวัน T + `target_date`=T+1 (weekly/conflict ใช้ target_date);

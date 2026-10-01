@@ -57,6 +57,13 @@
       "when": 1790753098666,
       "tag": "0007_brief_wolf_cub",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790755496967,
+      "tag": "0008_mute_sebastian_shaw",
+      "breakpoints": true
     }
   ]
 }

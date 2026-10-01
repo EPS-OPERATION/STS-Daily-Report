@@ -17,15 +17,16 @@ import ListItem from "@mui/material/ListItem";
 import ListItemAvatar from "@mui/material/ListItemAvatar";
 import ListItemText from "@mui/material/ListItemText";
 import Stack from "@mui/material/Stack";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs, { type Dayjs } from "dayjs";
 import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { SitePlanSvg } from "@/components/site/site-plan-svg.js";
 import { KpiCard } from "@/components/ui/kpi-card.js";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { SiteWeatherLocationCard } from "@/components/dashboard/site-weather-location-card.js";
 import { HIGHLIGHTS, KPI_BY_RANGE, ZONES } from "@/mock/site-data.js";
 
 type Range = "today" | "week" | "month";
@@ -39,8 +40,19 @@ const HIGHLIGHT_TONE = {
 
 export function DashboardPage() {
   const theme = useTheme();
-  const [range, setRange] = useState<Range>("today");
-  const kpi = KPI_BY_RANGE[range];
+  const [from, setFrom] = useState<Dayjs | null>(dayjs());
+  const [to, setTo] = useState<Dayjs | null>(dayjs());
+
+  // Mock KPIs only exist per bucket — the picked range selects the closest one.
+  const valid = Boolean(from && to && !to!.isBefore(from!, "day"));
+  const days = valid ? to!.diff(from!, "day") : 0;
+  const bucket: Range = days === 0 ? "today" : days < 8 ? "week" : "month";
+  const kpi = KPI_BY_RANGE[bucket];
+  const rangeLabel = !valid
+    ? "End date is before start date — showing today's figures"
+    : days === 0
+      ? from!.format("MMM D, YYYY")
+      : `${from!.format("MMM D")} – ${to!.format("MMM D, YYYY")} (${bucket === "week" ? "weekly" : "monthly"} figures)`;
 
   return (
     <Box>
@@ -48,21 +60,27 @@ export function DashboardPage() {
         title="Project Dashboard"
         subtitle="Overview of construction progress and daily operations"
         actions={
-          <ToggleButtonGroup
-            value={range}
-            exclusive
-            size="small"
-            onChange={(_, v: Range | null) => {
-              if (v) setRange(v);
-            }}
-            aria-label="Time range"
-          >
-            <ToggleButton value="today">Today</ToggleButton>
-            <ToggleButton value="week">This Week</ToggleButton>
-            <ToggleButton value="month">This Month</ToggleButton>
-          </ToggleButtonGroup>
+          <Stack direction="row" spacing={1}>
+            <DatePicker
+              label="From"
+              value={from}
+              onChange={setFrom}
+              slotProps={{ textField: { size: "small" } }}
+              sx={{ width: 150 }}
+            />
+            <DatePicker
+              label="To"
+              value={to}
+              onChange={setTo}
+              slotProps={{ textField: { size: "small" } }}
+              sx={{ width: 150 }}
+            />
+          </Stack>
         }
       />
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: -1.5 }}>
+        {rangeLabel}
+      </Typography>
 
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -112,7 +130,11 @@ export function DashboardPage() {
         </Grid>
       </Grid>
 
+      {/* Site Location Map & TMD Weather Forecast Widget */}
+      <SiteWeatherLocationCard />
+
       <Grid container spacing={2.5}>
+
         <Grid size={{ xs: 12, lg: 8 }}>
           <Card>
             <CardContent sx={{ p: 2.5 }}>

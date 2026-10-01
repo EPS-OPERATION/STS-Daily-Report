@@ -1,4 +1,4 @@
-import { and, asc, between, count, eq, ne, or } from "drizzle-orm";
+import { and, asc, between, count, eq, inArray, ne, or } from "drizzle-orm";
 import {
   buildings,
   contractors,
@@ -189,6 +189,50 @@ export async function listPlannedForDate(db: Db, projectId: string, contractorId
 export async function ensureReport(db: Db, projectId: string, contractorId: string, reportDate: string) {
   await db.insert(dailyReports).values({ projectId, contractorId, reportDate }).onConflictDoNothing();
   return (await getReportByKey(db, projectId, contractorId, reportDate))!;
+}
+
+// EPS review decision on a submitted report (service owns the role/transition rules).
+export async function setReportReview(
+  db: Db,
+  reportId: string,
+  review: { status: "approved" | "rejected"; note: string | null; userId: string },
+) {
+  const now = new Date();
+  await db
+    .update(dailyReports)
+    .set({ reviewStatus: review.status, reviewNote: review.note, reviewedBy: review.userId, reviewedAt: now, updatedAt: now })
+    .where(eq(dailyReports.id, reportId));
+}
+
+// EPS review queue: one row per contractor report for a date (headcount +
+// both shift states + review decision). Caller scopes contractorIds by role.
+export async function listReportsForReview(db: Db, projectId: string, date: string, contractorIds?: string[]) {
+  return db
+    .select({
+      id: dailyReports.id,
+      contractorId: dailyReports.contractorId,
+      contractorCode: contractors.code,
+      contractorName: contractors.name,
+      reportDate: dailyReports.reportDate,
+      morningStatus: dailyReports.morningStatus,
+      eveningStatus: dailyReports.eveningStatus,
+      thaiMale: dailyReports.thaiMale,
+      thaiFemale: dailyReports.thaiFemale,
+      foreignMale: dailyReports.foreignMale,
+      foreignFemale: dailyReports.foreignFemale,
+      reviewStatus: dailyReports.reviewStatus,
+      reviewNote: dailyReports.reviewNote,
+      reviewedAt: dailyReports.reviewedAt,
+    })
+    .from(dailyReports)
+    .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
+    .where(
+      and(
+        eq(dailyReports.projectId, projectId),
+        eq(dailyReports.reportDate, date),
+        contractorIds && contractorIds.length > 0 ? inArray(dailyReports.contractorId, contractorIds) : undefined,
+      ),
+    );
 }
 
 export async function listPositions(db: Db, reportId: string) {
@@ -479,6 +523,7 @@ export async function listReportHoursInRange(db: Db, projectId: string, from: st
     .select({
       reportDate: dailyReports.reportDate,
       contractorId: dailyReports.contractorId,
+      contractorCode: contractors.code,
       thaiMale: dailyReports.thaiMale,
       thaiFemale: dailyReports.thaiFemale,
       foreignMale: dailyReports.foreignMale,
@@ -487,6 +532,7 @@ export async function listReportHoursInRange(db: Db, projectId: string, from: st
       otHours: dailyReports.otHours,
     })
     .from(dailyReports)
+    .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
     .where(
       and(
         eq(dailyReports.projectId, projectId),
@@ -515,4 +561,26 @@ export async function listPermitsInRange(db: Db, projectId: string, from: string
     .from(dailyReportPermits)
     .innerJoin(dailyReports, eq(dailyReportPermits.reportId, dailyReports.id))
     .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReportPermits.targetDate, from, to)));
+}
+
+// Headcount by position per contractor per day (morning shift = who came to work).
+export async function listPositionsInRange(db: Db, projectId: string, from: string, to: string) {
+  return db
+    .select({
+      reportDate: dailyReports.reportDate,
+      contractorId: dailyReports.contractorId,
+      contractorCode: contractors.code,
+      position: dailyReportPositions.position,
+      headcount: dailyReportPositions.headcount,
+    })
+    .from(dailyReportPositions)
+    .innerJoin(dailyReports, eq(dailyReportPositions.reportId, dailyReports.id))
+    .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
+    .where(
+      and(
+        eq(dailyReports.projectId, projectId),
+        eq(dailyReports.morningStatus, "submitted"),
+        between(dailyReports.reportDate, from, to),
+      ),
+    );
 }

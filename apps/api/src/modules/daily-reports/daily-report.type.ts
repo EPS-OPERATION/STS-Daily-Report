@@ -83,6 +83,15 @@ export interface PhotoUploadInput {
   file: File;
 }
 
+// EPS review decision on a submitted report (approved, or rejected with a note
+// the contractor must address — mirrors the inspection pass/fail rule).
+export type ReviewDecision = "approved" | "rejected";
+
+export interface ReviewInput {
+  decision: ReviewDecision;
+  note?: string;
+}
+
 // Booking row used for conflict detection (same shape for submit-time and weekly checks).
 export interface BookingRow {
   id: string;

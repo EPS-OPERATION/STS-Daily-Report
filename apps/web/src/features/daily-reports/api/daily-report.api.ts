@@ -8,7 +8,12 @@ import type {
   InspectionRequest,
   InspectionRequestFields,
   MorningPayload,
+  ReviewPayload,
+  ReviewQueueRow,
   WeeklySummary,
+  PositionMixRow,
+  ManpowerTrendPoint,
+  ManpowerSummary,
 } from "../types/daily-report.types.js";
 
 export const dailyReportApi = {
@@ -63,5 +68,22 @@ export const dailyReportApi = {
   },
   weeklySummary(projectId: string, weekStart: string): Promise<{ data: WeeklySummary }> {
     return http.get(`/projects/${projectId}/weekly-summary?weekStart=${weekStart}`);
+  },
+  // EPS review queue: one row per contractor report for a date (role-scoped server-side).
+  reviewQueue(projectId: string, date: string): Promise<{ data: ReviewQueueRow[] }> {
+    return http.get(`/projects/${projectId}/daily-reports/review-queue?date=${date}`);
+  },
+  // EPS-only decision on a submitted report (403 for contractor role).
+  reviewReport(reportId: string, payload: ReviewPayload): Promise<{ data: DailyReport }> {
+    return http.post(`/daily-reports/${reportId}/review`, payload);
+  },
+  positionMix(projectId: string, from: string, to: string): Promise<{ data: PositionMixRow[] }> {
+    return http.get(`/projects/${projectId}/position-mix?from=${from}&to=${to}`);
+  },
+  manpowerSummary(projectId: string, from: string, to: string): Promise<{ data: ManpowerSummary }> {
+    return http.get(`/projects/${projectId}/manpower-summary?from=${from}&to=${to}`);
+  },
+  manpowerTrend(projectId: string, until: string, weeks: number): Promise<{ data: ManpowerTrendPoint[] }> {
+    return http.get(`/projects/${projectId}/manpower-trend?until=${until}&weeks=${weeks}`);
   },
 };

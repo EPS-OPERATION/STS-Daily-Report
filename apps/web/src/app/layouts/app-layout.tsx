@@ -27,6 +27,7 @@ import { CommandPalette } from "@/app/command-palette/command-palette.js";
 import { PaletteShortcutHint, useCommandPaletteShortcut } from "@/app/command-palette/shortcut-hint.js";
 import { UserMenu } from "@/features/auth/components/user-menu.js";
 import { useCurrentProject } from "@/features/projects/context/project-context.js";
+import { useMe } from "@/features/auth/hooks/use-me.js";
 import { navigationIcons, type NavigationIconKey } from "@/app/icons/navigation-icons.js";
 
 const DRAWER_WIDTH = 248;
@@ -37,22 +38,30 @@ interface NavItem {
   icon: NavigationIconKey;
 }
 
-const GROUPS: { title: string; items: NavItem[] }[] = [
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+  roles: ("contractor" | "eps")[];
+}
+
+const GROUPS: NavGroup[] = [
   {
     title: "Overview",
+    roles: ["eps"],
     items: [{ to: "/", label: "Dashboard", icon: "dashboard" }],
   },
   {
     title: "Daily Operations",
+    roles: ["eps"],
     items: [
       { to: "/daily-reports", label: "Daily Reports", icon: "dailyReports" },
+      { to: "/today-requests", label: "Today Request", icon: "tomorrow" },
       { to: "/site-plan", label: "Site Plan", icon: "sitePlan" },
-      { to: "/tomorrow", label: "Tomorrow Plan", icon: "tomorrow" },
-      { to: "/weekly-summary", label: "Weekly Summary", icon: "weeklySummary" },
     ],
   },
   {
     title: "Project Control",
+    roles: ["eps"],
     items: [
       { to: "/contractors", label: "Contractors", icon: "contractors" },
       { to: "/manpower", label: "Manpower", icon: "manpower" },
@@ -63,6 +72,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
   },
   {
     title: "Progress",
+    roles: ["eps"],
     items: [
       { to: "/progress", label: "Drone Progress", icon: "drone" },
       { to: "/reports", label: "Reports", icon: "reports" },
@@ -70,6 +80,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
   },
   {
     title: "Field App",
+    roles: ["contractor"],
     items: [
       { to: "/field", label: "Contractor Home", icon: "field" },
       { to: "/field/report", label: "Contractor Daily Report", icon: "dailyReports" },
@@ -77,6 +88,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
   },
   {
     title: "Administration",
+    roles: ["eps"],
     items: [
       { to: "/projects", label: "Projects", icon: "projects" },
       { to: "/site-plan/config", label: "Zone Config", icon: "zoneConfig" },
@@ -86,6 +98,11 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
 ];
 
 function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
+  const me = useMe();
+  const role = me.data?.data.user.role ?? "contractor";
+  const isContractor = role === "contractor";
+  const visibleGroups = GROUPS.filter((g) => g.roles.includes(role));
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
       <Box sx={{ px: 2.5, py: 2.5 }}>
@@ -110,15 +127,18 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
             <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, display: collapsed ? "none" : "block" }}>
               STS Platform
             </Typography>
-            <Typography variant="caption" sx={{ color: "#9DB4CC", display: collapsed ? "none" : "block" }}>
-              Construction Operations
+            <Typography
+              variant="caption"
+              sx={{ color: isContractor ? "#60A5FA" : "#9DB4CC", fontWeight: isContractor ? 600 : 400, display: collapsed ? "none" : "block" }}
+            >
+              {isContractor ? "Contractor Field" : "Construction Operations"}
             </Typography>
           </Box>
         </Stack>
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
       <Box className="sts-navy-scroll" sx={{ flexGrow: 1, overflowY: "auto", px: 1.5, py: 1 }}>
-        {GROUPS.map((group) => (
+        {visibleGroups.map((group) => (
           <Box key={group.title} sx={{ mb: 1.5 }}>
             {!collapsed && (
               <Typography
@@ -128,6 +148,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
                 {group.title}
               </Typography>
             )}
+
             <List dense disablePadding sx={{ mt: 0.5 }}>
               {group.items.map((item) => {
                   const Icon = navigationIcons[item.icon];
@@ -189,18 +210,19 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
       <Box sx={{ p: collapsed ? 1.5 : 2 }}>
         <Box sx={{ borderRadius: 2, bgcolor: "rgba(255,255,255,0.06)", p: 1.5, textAlign: "center" }}>
           <Typography variant="body2" sx={{ fontWeight: 600, display: collapsed ? "none" : "block" }}>
-            Biomass Power Plant
+            {isContractor ? (me.data?.data.contractors[0]?.name ?? "Contractor Field") : "Biomass Power Plant"}
           </Typography>
           <Typography variant="caption" sx={{ color: "#9DB4CC", display: collapsed ? "none" : "block" }}>
-            STS Project
+            {isContractor ? "STS Daily Field" : "STS Project"}
           </Typography>
           {collapsed && (
             <Typography variant="caption" sx={{ color: "#FFFFFF", fontWeight: 700 }}>
-              STS
+              {isContractor ? "FIELD" : "STS"}
             </Typography>
           )}
         </Box>
       </Box>
+
     </Box>
   );
 }

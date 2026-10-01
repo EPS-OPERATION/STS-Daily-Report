@@ -3,6 +3,7 @@ import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
@@ -13,16 +14,13 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
-import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { INSPECTION_TYPES, READINESS, type InspectionType, type Readiness } from "@sts/shared";
+import { INSPECTION_TYPES, type InspectionType, type Readiness } from "@sts/shared";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -31,8 +29,8 @@ import { useDeleteRequest, useSaveRequest } from "../hooks/use-daily-report-muta
 import { useInspectionRequests } from "../hooks/use-daily-report-queries.js";
 import { requestSchema, type RequestFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, InspectionRequest } from "../types/daily-report.types.js";
-import { addDaysIso } from "../utils/dates.js";
-import { RequestStatusChip, ReadinessChip } from "./request-chips.js";
+import { BuildingSelect } from "./building-select.js";
+import { RequestStatusChip } from "./request-chips.js";
 
 export function inspectionTypeLabel(code: InspectionType) {
   return INSPECTION_TYPES.find((t) => t.code === code)?.label ?? code;
@@ -63,7 +61,7 @@ export function RequestSection({
       <Stack spacing={1.25}>
         {rows.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            ยังไม่มีคำขอตรวจ — เพิ่มงานที่ต้องการให้ QAQC ตรวจพรุ่งนี้
+            ยังไม่มีคำขอตรวจ — เพิ่มงานที่ต้องการให้ QAQC ตรวจ
           </Typography>
         ) : null}
         {rows.map((r) => {
@@ -74,19 +72,20 @@ export function RequestSection({
                 <Stack direction="row" spacing={1} alignItems="flex-start">
                   <Box
                     sx={{
-                      minWidth: 58,
+                      minWidth: 64,
                       textAlign: "center",
                       borderRadius: 1.5,
                       bgcolor: "primary.light",
                       color: "primary.main",
                       py: 0.5,
+                      px: 0.75,
                     }}
                   >
                     <Typography variant="body2" sx={{ fontWeight: 800, color: "inherit" }}>
                       {r.inspectionTime}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: "inherit" }}>
-                      {r.inspectionDate === addDaysIso(reportDate, 1) ? "พรุ่งนี้" : dayjs(r.inspectionDate).format("D/M")}
+                    <Typography variant="caption" sx={{ color: "inherit", fontWeight: 600 }}>
+                      {dayjs(r.inspectionDate).format("DD/MM/YY")}
                     </Typography>
                   </Box>
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -100,7 +99,6 @@ export function RequestSection({
                     </Typography>
                     <Stack direction="row" spacing={0.5} sx={{ mt: 0.75 }} flexWrap="wrap" useFlexGap>
                       <RequestStatusChip status={r.status} result={r.result} />
-                      <ReadinessChip readiness={r.readiness} />
                     </Stack>
                     {r.epsNote ? (
                       <Typography variant="caption" sx={{ display: "block", mt: 0.5, color: "warning.dark" }}>
@@ -197,7 +195,7 @@ function RequestDialog({
         }
       : {
           buildingId: "",
-          inspectionDate: addDaysIso(reportDate, 1),
+          inspectionDate: reportDate,
           inspectionTime: "09:00",
           inspectionType: "" as InspectionType,
           workItem: "",
@@ -207,11 +205,11 @@ function RequestDialog({
         },
   });
   const { control, handleSubmit } = form;
-  const dateChoices = [1, 2, 3].map((d) => addDaysIso(reportDate, d));
 
   const onSubmit = handleSubmit((v) => {
     const fields = {
       ...v,
+      readiness: "ready" as Readiness,
       location: v.location || undefined,
       drawingRef: v.drawingRef || undefined,
     };
@@ -241,15 +239,30 @@ function RequestDialog({
               <Controller
                 name="inspectionType"
                 control={control}
-                render={({ field, fieldState }) => (
-                  <TextField select label="ประเภทการตรวจ" fullWidth size="small" {...field} error={Boolean(fieldState.error)} helperText={fieldState.error?.message}>
-                    {INSPECTION_TYPES.map((t) => (
-                      <MenuItem key={t.code} value={t.code}>
-                        {t.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                )}
+                render={({ field, fieldState }) => {
+                  const selected = INSPECTION_TYPES.find((t) => t.code === field.value) ?? null;
+                  return (
+                    <Autocomplete
+                      options={INSPECTION_TYPES as readonly { code: InspectionType; label: string }[]}
+                      value={selected}
+                      onChange={(_, item) => field.onChange(item ? item.code : "")}
+                      getOptionLabel={(t) => t.label}
+                      isOptionEqualToValue={(opt, val) => opt.code === val.code}
+                      autoHighlight
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="ประเภทการตรวจ (Inspection Type)"
+                          placeholder="พิมพ์ค้นหา เช่น Rebar, Concrete..."
+                          size="small"
+                          fullWidth
+                          error={Boolean(fieldState.error)}
+                          helperText={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                  );
+                }}
               />
             </Grid>
             <Grid size={12}>
@@ -274,13 +287,13 @@ function RequestDialog({
                 name="buildingId"
                 control={control}
                 render={({ field, fieldState }) => (
-                  <TextField select label="อาคาร" fullWidth size="small" {...field} error={Boolean(fieldState.error)} helperText={fieldState.error?.message}>
-                    {buildings.map((b) => (
-                      <MenuItem key={b.id} value={b.id}>
-                        {b.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                  <BuildingSelect
+                    label="อาคารที่ขอตรวจ"
+                    buildings={buildings}
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                  />
                 )}
               />
             </Grid>
@@ -291,25 +304,25 @@ function RequestDialog({
                 render={({ field }) => <TextField {...field} label="ตำแหน่ง (grid/ชั้น)" placeholder="B1 L3" fullWidth size="small" />}
               />
             </Grid>
-            <Grid size={12}>
-              <Typography variant="caption" color="text.secondary">
-                วันที่ให้ตรวจ
-              </Typography>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Controller
                 name="inspectionDate"
                 control={control}
-                render={({ field }) => (
-                  <ToggleButtonGroup exclusive fullWidth size="small" value={field.value} onChange={(_, v: string | null) => v && field.onChange(v)}>
-                    {dateChoices.map((d, i) => (
-                      <ToggleButton key={d} value={d}>
-                        {i === 0 ? "พรุ่งนี้" : i === 1 ? "มะรืนนี้" : dayjs(d).format("D/M")}
-                      </ToggleButton>
-                    ))}
-                  </ToggleButtonGroup>
+                render={({ field, fieldState }) => (
+                  <TextField
+                    {...field}
+                    type="date"
+                    label="วันที่ขอตรวจ (Inspection Date)"
+                    fullWidth
+                    size="small"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    error={Boolean(fieldState.error)}
+                    helperText={fieldState.error?.message}
+                  />
                 )}
               />
             </Grid>
-            <Grid size={{ xs: 6 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Controller
                 name="inspectionTime"
                 control={control}
@@ -317,7 +330,7 @@ function RequestDialog({
                   <TextField
                     {...field}
                     type="time"
-                    label="เวลา"
+                    label="เวลานัดตรวจ"
                     fullWidth
                     size="small"
                     slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 900 } }}
@@ -327,28 +340,18 @@ function RequestDialog({
                 )}
               />
             </Grid>
-            <Grid size={{ xs: 6 }}>
+            <Grid size={12}>
               <Controller
                 name="drawingRef"
                 control={control}
-                render={({ field }) => <TextField {...field} label="Drawing / Rev." placeholder="Rev.03" fullWidth size="small" />}
-              />
-            </Grid>
-            <Grid size={12}>
-              <Typography variant="caption" color="text.secondary">
-                ความพร้อมหน้างาน
-              </Typography>
-              <Controller
-                name="readiness"
-                control={control}
                 render={({ field }) => (
-                  <ToggleButtonGroup exclusive fullWidth size="small" value={field.value} onChange={(_, v: Readiness | null) => v && field.onChange(v)}>
-                    {READINESS.map((r) => (
-                      <ToggleButton key={r.code} value={r.code}>
-                        {r.labelTh}
-                      </ToggleButton>
-                    ))}
-                  </ToggleButtonGroup>
+                  <TextField
+                    {...field}
+                    label="Drawing / Rev."
+                    placeholder="เช่น STSBPP-EB-C-023 Rev.03"
+                    fullWidth
+                    size="small"
+                  />
                 )}
               />
             </Grid>
@@ -371,3 +374,4 @@ function RequestDialog({
     </Dialog>
   );
 }
+

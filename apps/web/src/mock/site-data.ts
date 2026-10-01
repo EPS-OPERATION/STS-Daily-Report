@@ -128,7 +128,7 @@ export const ZONES: Zone[] = [
   },
 ];
 
-export type ReportStatus = "Draft" | "Submitted" | "Pending" | "Reviewed" | "Approved" | "Rejected";
+export type ReportStatus = "Submitted" | "Pending" | "Reviewed" | "Approved" | "Rejected";
 
 export interface DailyReportRow {
   id: string;
@@ -145,7 +145,7 @@ export const DAILY_REPORTS: DailyReportRow[] = [
   { id: "r1", date: "28 Sep 2026", contractor: "ABC Construction", zone: "Boiler", manpower: 32, qaqc: 4, progress: 53, status: "Submitted" },
   { id: "r2", date: "28 Sep 2026", contractor: "L-Tap", zone: "Turbine", manpower: 18, qaqc: 2, progress: 32, status: "Pending" },
   { id: "r3", date: "28 Sep 2026", contractor: "XYZ Engineering", zone: "WTT", manpower: 24, qaqc: 1, progress: 48, status: "Reviewed" },
-  { id: "r4", date: "28 Sep 2026", contractor: "STS Service", zone: "Electrical", manpower: 16, qaqc: 0, progress: 22, status: "Draft" },
+  { id: "r4", date: "28 Sep 2026", contractor: "STS Service", zone: "Electrical", manpower: 16, qaqc: 0, progress: 22, status: "Pending" },
   { id: "r5", date: "27 Sep 2026", contractor: "ABC Construction", zone: "Utility", manpower: 28, qaqc: 3, progress: 55, status: "Submitted" },
   { id: "r6", date: "27 Sep 2026", contractor: "L-Tap", zone: "Boiler", manpower: 20, qaqc: 1, progress: 41, status: "Approved" },
   { id: "r7", date: "27 Sep 2026", contractor: "XYZ Engineering", zone: "Turbine", manpower: 22, qaqc: 2, progress: 35, status: "Pending" },
@@ -153,6 +153,7 @@ export const DAILY_REPORTS: DailyReportRow[] = [
   { id: "r9", date: "26 Sep 2026", contractor: "STS Service", zone: "Utility", manpower: 14, qaqc: 1, progress: 28, status: "Rejected" },
   { id: "r10", date: "26 Sep 2026", contractor: "L-Tap", zone: "Electrical", manpower: 12, qaqc: 0, progress: 18, status: "Reviewed" },
 ];
+
 
 export interface KpiSet {
   manpower: { value: number; delta: string; spark: number[] };

@@ -1,220 +1,219 @@
-import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import InboxOutlinedIcon from "@mui/icons-material/InboxOutlined";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import Dialog from "@mui/material/Dialog";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import FormControl from "@mui/material/FormControl";
-import Grid from "@mui/material/Grid";
-import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
-import LinearProgress from "@mui/material/LinearProgress";
-import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import dayjs, { type Dayjs } from "dayjs";
 import { useMemo, useState } from "react";
-import { Link as RouterLink, useSearchParams } from "react-router-dom";
+import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
-import { CONTRACTOR_OPTIONS, DAILY_REPORTS, type DailyReportRow } from "@/mock/site-data.js";
+import {
+  ReviewDialog,
+  todayIso,
+  useReviewQueue,
+  type ReviewQueueRow,
+} from "@/features/daily-reports/index.js";
+import { useCurrentProject } from "@/features/projects/index.js";
+import { CONTRACTOR_OPTIONS, DAILY_REPORTS } from "@/mock/site-data.js";
+import { HttpError } from "@/services/http/client.js";
 
-const ZONE_FILTER = ["All Zones", "Biomass", "Boiler", "Turbine", "WTT", "Electrical", "Utility"];
-const STATUS_FILTER = ["All Status", "Draft", "Submitted", "Pending", "Reviewed", "Approved", "Rejected"];
-
+// Friendly EPS page: just two jobs — review new reports, then look back at history.
+// Everything else (summary cards, tabs, contractor grouping, DataGrid, menus) was cut on purpose.
 export function DailyReportsPage() {
-  const [params] = useSearchParams();
-  const [from, setFrom] = useState<Dayjs | null>(dayjs("2026-09-26"));
-  const [to, setTo] = useState<Dayjs | null>(dayjs("2026-09-28"));
+  const [search, setSearch] = useState("");
   const [contractor, setContractor] = useState("All Contractors");
-  const [zone, setZone] = useState("All Zones");
-  const [status, setStatus] = useState("All Status");
-  const [search, setSearch] = useState(params.get("search") ?? "");
-  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [activeRow, setActiveRow] = useState<DailyReportRow | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<ReviewQueueRow | null>(null);
+  const { projectId } = useCurrentProject();
+  const reviewQueue = useReviewQueue(projectId, todayIso());
 
-  const rows = useMemo(() => {
+  const inbox: ReviewQueueRow[] = useMemo(() => {
+    const rows = reviewQueue.data?.data ?? [];
+    // Show only what still needs a decision — approved / rejected live in history.
+    return rows.filter((r) => r.reviewStatus === "pending");
+  }, [reviewQueue.data]);
+
+  const history = useMemo(() => {
     const q = search.trim().toLowerCase();
     return DAILY_REPORTS.filter((r) => {
+      if ((r.status as string) === "Draft") return false;
       if (contractor !== "All Contractors" && r.contractor !== contractor) return false;
-      if (zone !== "All Zones" && r.zone !== zone) return false;
-      if (status !== "All Status" && r.status !== status) return false;
       if (q && !`${r.contractor} ${r.zone} ${r.date}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [contractor, zone, status, search]);
+  }, [contractor, search]);
 
-  const columns: GridColDef<DailyReportRow>[] = [
-    { field: "date", headerName: "Date", width: 120, resizable: false },
-    { field: "contractor", headerName: "Contractor", flex: 1, minWidth: 170, resizable: false },
-    { field: "zone", headerName: "Zone", width: 110, resizable: false },
-    { field: "manpower", headerName: "Manpower", width: 100, type: "number", resizable: false },
-    { field: "qaqc", headerName: "QAQC", width: 80, type: "number", resizable: false },
-    {
-      field: "progress",
-      headerName: "Progress",
-      width: 160,
-      resizable: false,
-      renderCell: (p) => (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%", height: "100%" }}>
-          <LinearProgress variant="determinate" value={p.row.progress} sx={{ flexGrow: 1 }} />
-          <Typography variant="caption" color="text.secondary" sx={{ width: 38, flexShrink: 0, textAlign: "right" }}>
-            {p.row.progress}%
-          </Typography>
-        </Stack>
-      ),
-      sortable: true,
-    },
-    {
-      field: "status",
-      headerName: "Status",
-      width: 130,
-      resizable: false,
-      renderCell: (p) => <StatusChip status={p.row.status} />,
-    },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 80,
-      sortable: false,
-      filterable: false,
-      resizable: false,
-      renderCell: (p) => (
-        <IconButton
-          size="small"
-          aria-label={`Actions for ${p.row.id}`}
-          onClick={(e) => {
-            setActiveRow(p.row);
-            setMenuAnchor(e.currentTarget);
-          }}
-        >
-          <MoreVertIcon fontSize="small" />
-        </IconButton>
-      ),
-    },
-  ];
 
   return (
     <Box>
       <PageHeader
         title="Daily Reports"
-        subtitle="View and manage daily construction reports"
-        actions={
-          <Button component={RouterLink} to="/field/report" startIcon={<AddOutlinedIcon fontSize="small" />}>
-            New Report
-          </Button>
-        }
+        subtitle="New reports arrive here — review them, then approve. Past reports stay in the history log below."
       />
 
+      {/* 1 — Inbox: what needs your decision today */}
       <Card sx={{ mb: 2.5 }}>
         <CardContent sx={{ p: 2.5 }}>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 6, lg: 2.5 }}>
-              <DatePicker label="From" value={from} onChange={setFrom} slotProps={{ textField: { size: "small" } }} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 2.5 }}>
-              <DatePicker label="To" value={to} onChange={setTo} slotProps={{ textField: { size: "small" } }} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel id="f-contractor">Contractor</InputLabel>
-                <Select
-                  labelId="f-contractor"
-                  label="Contractor"
-                  value={contractor}
-                  onChange={(e) => setContractor(e.target.value)}
-                >
-                  <MenuItem value="All Contractors">All Contractors</MenuItem>
-                  {CONTRACTOR_OPTIONS.map((c) => (
-                    <MenuItem key={c} value={c}>
-                      {c}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 1.5 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel id="f-zone">Zone</InputLabel>
-                <Select labelId="f-zone" label="Zone" value={zone} onChange={(e) => setZone(e.target.value)}>
-                  {ZONE_FILTER.map((z) => (
-                    <MenuItem key={z} value={z}>
-                      {z}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 1.5 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel id="f-status">Status</InputLabel>
-                <Select labelId="f-status" label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
-                  {STATUS_FILTER.map((s) => (
-                    <MenuItem key={s} value={s}>
-                      {s}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
-              <TextField label="Search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            </Grid>
-          </Grid>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+            <Typography variant="h5">Inbox — needs your review</Typography>
+            {inbox.length > 0 ? <StatusChip status="pending" label={`${inbox.length} waiting`} /> : null}
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {inbox.length === 0
+              ? "You're all caught up. Nice work!"
+              : "Tap Review to read a report, then Approve or ask the contractor to fix it."}
+          </Typography>
+
+          {!projectId ? (
+            <Alert severity="info">Pick a project above to see today&apos;s incoming reports.</Alert>
+          ) : reviewQueue.isPending ? (
+            <Typography variant="body2" color="text.secondary">
+              Checking for new reports…
+            </Typography>
+          ) : reviewQueue.isError ? (
+            <Alert severity="error">
+              {reviewQueue.error instanceof HttpError ? reviewQueue.error.message : "Could not load new reports"}
+            </Alert>
+          ) : inbox.length === 0 ? (
+            <EmptyState
+              icon={<CheckCircleOutlineIcon />}
+              title="Inbox is empty"
+              description="No reports are waiting for approval right now. New submissions from contractors will appear here."
+            />
+          ) : (
+            <Table size="small" aria-label="Reports waiting for review">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Contractor</TableCell>
+                  <TableCell align="right">Workers</TableCell>
+                  <TableCell>Report</TableCell>
+                  <TableCell align="right">Action</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {inbox.map((q) => (
+                  <TableRow key={q.id} hover>
+                    <TableCell>{q.reportDate}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{q.contractorName}</TableCell>
+                    <TableCell align="right">{q.totalHeadcount}</TableCell>
+                    <TableCell>
+                      <StatusChip status={q.eveningStatus === "submitted" ? "submitted" : "pending"} />
+                    </TableCell>
+
+                    <TableCell align="right">
+                      <Button size="small" variant="contained" onClick={() => setReviewTarget(q)}>
+                        Review
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+      <ReviewDialog report={reviewTarget} onClose={() => setReviewTarget(null)} />
 
-      <Box sx={{ height: 520 }}>
-        <DataGrid
-          rows={rows}
-          columns={columns}
-          initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
-          pageSizeOptions={[5, 10, 25]}
-          disableRowSelectionOnClick
-        />
-      </Box>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-        Showing {rows.length} of {DAILY_REPORTS.length} mock reports. Grid is structured for server-side
-        pagination, sorting and filtering when the backend module lands.
-      </Typography>
+      {/* 2 — History: simple read-only log */}
+      <Card>
+        <CardContent sx={{ p: 2.5 }}>
+          <Typography variant="h5" sx={{ mb: 0.5 }}>
+            History log
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Every past report in one place. Search or pick a contractor to narrow it down.
+          </Typography>
 
-      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
-        <MenuItem
-          onClick={() => {
-            setMenuAnchor(null);
-            setDetailOpen(true);
-          }}
-        >
-          View details
-        </MenuItem>
-      </Menu>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+            <TextField
+              label="Search history"
+              placeholder="Try contractor, zone, or date…"
+              size="small"
+              fullWidth
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel id="history-contractor">Contractor</InputLabel>
+              <Select
+                labelId="history-contractor"
+                label="Contractor"
+                value={contractor}
+                onChange={(e) => setContractor(e.target.value)}
+              >
+                <MenuItem value="All Contractors">All Contractors</MenuItem>
+                {CONTRACTOR_OPTIONS.map((c) => (
+                  <MenuItem key={c} value={c}>
+                    {c}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
 
-      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Report detail</DialogTitle>
-        <DialogContent>
-          {activeRow ? (
-            <Stack spacing={1}>
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                {activeRow.contractor} · {activeRow.zone}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {activeRow.date} · {activeRow.manpower} workers · {activeRow.qaqc} QAQC items ·{" "}
-                {activeRow.progress}% progress
-              </Typography>
-              <StatusChip status={activeRow.status} />
-            </Stack>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+          {history.length === 0 ? (
+            <EmptyState
+              icon={<InboxOutlinedIcon />}
+              title="No reports found"
+              description="Try a different search, or pick another contractor."
+              action={
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    setSearch("");
+                    setContractor("All Contractors");
+                  }}
+                >
+                  Clear search
+                </Button>
+              }
+            />
+          ) : (
+            <Table size="small" aria-label="Report history">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Contractor</TableCell>
+                  <TableCell>Zone</TableCell>
+                  <TableCell align="right">Workers</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {history.map((r) => (
+                  <TableRow key={r.id} hover>
+                    <TableCell>{r.date}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{r.contractor}</TableCell>
+                    <TableCell>{r.zone}</TableCell>
+                    <TableCell align="right">{r.manpower}</TableCell>
+                    <TableCell>
+                      <StatusChip status={r.status} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
+            Showing {history.length} reports. Approval happens in the inbox above — history is read-only.
+          </Typography>
+        </CardContent>
+      </Card>
     </Box>
   );
 }

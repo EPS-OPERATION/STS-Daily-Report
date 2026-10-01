@@ -20,10 +20,12 @@ import {
   insertPhoto,
   listAllocations,
   listAllocationsInRange,
+  listReportsForReview,
   countRequestsByStatusInRange,
   listEquipment,
   listPositions,
   listReportHoursInRange,
+  listPositionsInRange,
   listBookingsForTargetExcluding,
   listPlannedForDate,
   listRoadUsage,
@@ -37,8 +39,9 @@ import {
   listPhotos,
   saveEvening,
   saveMorning,
+  setReportReview,
 } from "./daily-report.repository.js";
-import type { EveningInput, MachineryInput, MorningInput, PermitInput, PhotoUploadInput, RoadUsageInput } from "./daily-report.type.js";
+import type { EveningInput, MachineryInput, MorningInput, PermitInput, PhotoUploadInput, ReviewInput, RoadUsageInput } from "./daily-report.type.js";
 
 const MAX_PHOTOS = 12;
 
@@ -324,6 +327,73 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
   return reportDetail(reportId);
 }
 
+// ---- EPS review ------------------------------------------------------------
+
+// Owner-side QAQC decision on a submitted report. Contractors can never move
+// review_status themselves — same guard shape as the inspection transition.
+export async function reviewReportService(auth: AuthContext, reportId: string, input: ReviewInput) {
+  if (auth.user.role !== "eps") throw new ForbiddenError("Only EPS staff can review daily reports");
+  const report = await getReportById(getDb(), reportId);
+  if (!report) throw new NotFoundError("Daily report not found", { reportId });
+  if (report.morningStatus !== "submitted" && report.eveningStatus !== "submitted") {
+    throw new ConflictError("Nothing submitted yet — there is no report to review", { reportId });
+  }
+  if (input.decision === "rejected" && !input.note?.trim()) {
+    throw new ValidationError("Give the contractor a note describing what to fix");
+  }
+  await setReportReview(getDb(), reportId, {
+    status: input.decision,
+    note: input.note?.trim() ? input.note.trim() : null,
+    userId: auth.user.id,
+  });
+  return reportDetail(reportId);
+}
+
+// ---- EPS review queue ------------------------------------------------------
+
+// One row per contractor report for a date. EPS sees every contractor (Image 2
+// approval table); a contractor user sees only their own companies.
+export async function listReviewQueueService(auth: AuthContext, projectId: string, date: string) {
+  await assertProject(projectId);
+  if (auth.user.role === "eps") {
+    const rows = await listReportsForReview(getDb(), projectId, date);
+    return rows.map(toReviewRow);
+  }
+  const memberships = await listActiveContractorsForUser(getDb(), auth.user.id);
+  if (memberships.length === 0) return [];
+  const rows = await listReportsForReview(
+    getDb(),
+    projectId,
+    date,
+    memberships.map((c) => c.id),
+  );
+  return rows.map(toReviewRow);
+}
+
+function toReviewRow(r: {
+  id: string;
+  contractorId: string;
+  contractorCode: string;
+  contractorName: string;
+  reportDate: string;
+  morningStatus: string;
+  eveningStatus: string;
+  thaiMale: number;
+  thaiFemale: number;
+  foreignMale: number;
+  foreignFemale: number;
+  reviewStatus: string;
+  reviewNote: string | null;
+  reviewedAt: Date | null;
+}) {
+  return {
+    ...r,
+    totalHeadcount: r.thaiMale + r.thaiFemale + r.foreignMale + r.foreignFemale,
+  };
+}
+
+export type ReviewQueueRow = ReturnType<typeof toReviewRow>;
+
 // ---- photos ----------------------------------------------------------------
 
 export async function uploadPhotoService(auth: AuthContext, reportId: string, input: PhotoUploadInput) {
@@ -476,3 +546,113 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
 }
 
 export type WeeklySummary = Awaited<ReturnType<typeof weeklySummaryService>>;
+
+// ---- charts ------------------------------------------------------------------
+
+// Average daily headcount by position per contractor for the week (deck: "Headcount by Position").
+// Averaged over the days each contractor actually reported, so a 3-day crew is not diluted.
+function assertRange(from: string, to: string) {
+  const days = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000;
+  if (!(days >= 0 && days <= 62)) throw new ValidationError("Date range must be 0–62 days", { from, to });
+}
+
+export async function positionMixService(projectId: string, from: string, to: string) {
+  const db = getDb();
+  await assertProject(projectId);
+  assertRange(from, to);
+  const rows = await listPositionsInRange(db, projectId, from, to);
+  const days = new Map<string, Set<string>>();
+  const sums = new Map<string, { contractorId: string; contractorCode: string; position: string; total: number }>();
+  for (const r of rows) {
+    (days.get(r.contractorId) ?? days.set(r.contractorId, new Set()).get(r.contractorId)!).add(r.reportDate);
+    const key = `${r.contractorId}|${r.position}`;
+    const cur = sums.get(key) ?? { contractorId: r.contractorId, contractorCode: r.contractorCode, position: r.position, total: 0 };
+    cur.total += r.headcount;
+    sums.set(key, cur);
+  }
+  return [...sums.values()].map((s) => ({
+    contractorId: s.contractorId,
+    contractorCode: s.contractorCode,
+    position: s.position,
+    avgPerDay: Math.round((s.total / (days.get(s.contractorId)?.size || 1)) * 10) / 10,
+  }));
+}
+
+// Average daily manpower per week for the last `weeks` weeks up to `until` (deck: "Avg. Manday movement").
+// Average is over days that have at least one submitted morning report.
+export async function manpowerTrendService(projectId: string, until: string, weeks: number) {
+  const db = getDb();
+  await assertProject(projectId);
+  const lastWeek = mondayOf(until);
+  const firstWeek = addDays(lastWeek, -7 * (weeks - 1));
+  const rows = await listReportHoursInRange(db, projectId, firstWeek, addDays(lastWeek, 6));
+  const byDay = new Map<string, number>();
+  for (const r of rows) {
+    byDay.set(r.reportDate, (byDay.get(r.reportDate) ?? 0) + r.thaiMale + r.thaiFemale + r.foreignMale + r.foreignFemale);
+  }
+  return Array.from({ length: weeks }, (_, i) => {
+    const weekStart = addDays(firstWeek, i * 7);
+    const daily = Array.from({ length: 7 }, (_, d) => byDay.get(addDays(weekStart, d))).filter((n): n is number => n !== undefined);
+    const manDays = daily.reduce((s, n) => s + n, 0);
+    return {
+      weekStart,
+      weekEnd: addDays(weekStart, 6),
+      reportedDays: daily.length,
+      manDays,
+      // null (not 0) when nobody reported — the chart shows a gap, not a false drop.
+      avgDaily: daily.length ? Math.round(manDays / daily.length) : null,
+    };
+  });
+}
+
+// Manpower page: per-contractor totals (man-days, NMH, nationality/sex) and the
+// per-day headcount behind the stacked chart. Headcount = morning nationality split.
+export async function manpowerSummaryService(projectId: string, from: string, to: string) {
+  const db = getDb();
+  await assertProject(projectId);
+  assertRange(from, to);
+  const rows = await listReportHoursInRange(db, projectId, from, to);
+  const byContractor = new Map<
+    string,
+    { contractorId: string; contractorCode: string; manDays: number; manHours: number; reportedDays: number; thaiMale: number; thaiFemale: number; foreignMale: number; foreignFemale: number }
+  >();
+  const daily: { date: string; contractorCode: string; headcount: number }[] = [];
+  for (const r of rows) {
+    const headcount = r.thaiMale + r.thaiFemale + r.foreignMale + r.foreignFemale;
+    const c = byContractor.get(r.contractorId) ?? {
+      contractorId: r.contractorId,
+      contractorCode: r.contractorCode,
+      manDays: 0,
+      manHours: 0,
+      reportedDays: 0,
+      thaiMale: 0,
+      thaiFemale: 0,
+      foreignMale: 0,
+      foreignFemale: 0,
+    };
+    c.manDays += headcount;
+    c.manHours += manHours(headcount, r.workHours, r.otHours);
+    c.reportedDays += 1;
+    c.thaiMale += r.thaiMale;
+    c.thaiFemale += r.thaiFemale;
+    c.foreignMale += r.foreignMale;
+    c.foreignFemale += r.foreignFemale;
+    byContractor.set(r.contractorId, c);
+    daily.push({ date: r.reportDate, contractorCode: r.contractorCode, headcount });
+  }
+  const contractors = [...byContractor.values()].sort((a, b) => b.manDays - a.manDays);
+  const days = new Set(rows.map((r) => r.reportDate)).size;
+  return {
+    from,
+    to,
+    contractors,
+    daily,
+    totals: {
+      manDays: contractors.reduce((s, c) => s + c.manDays, 0),
+      manHours: contractors.reduce((s, c) => s + c.manHours, 0),
+      reportedDays: days,
+      avgDaily: days ? Math.round(contractors.reduce((s, c) => s + c.manDays, 0) / days) : 0,
+    },
+  };
+}
+

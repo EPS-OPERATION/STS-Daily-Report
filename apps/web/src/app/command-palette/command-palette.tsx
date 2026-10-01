@@ -11,6 +11,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMe } from "@/features/auth/hooks/use-me.js";
 import { buildCommands } from "./command-registry.js";
 import { useCommandPalette } from "./use-command-palette.js";
 
@@ -36,7 +37,9 @@ function ShortcutHint({ label }: { label: string }) {
 
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
-  const commands = useMemo(() => buildCommands(navigate), [navigate]);
+  const me = useMe();
+  const role = me.data?.data.user.role ?? "contractor";
+  const commands = useMemo(() => buildCommands(navigate, role), [navigate, role]);
   const { query, setQuery, groups, groupLabel, activeIndex, activeCommand, setActive, move, execute, flat } =
     useCommandPalette(commands);
 

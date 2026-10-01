@@ -29,6 +29,15 @@ export const currentReportQuery = t.Object({
 
 export const weeklySummaryQuery = t.Object({ weekStart: isoDate });
 
+export const reviewQueueQuery = t.Object({ date: isoDate });
+
+// EPS review decision. Rejection must tell the contractor what to fix
+// (service enforces the note; maxLength keeps the envelope small).
+export const reviewBody = t.Object({
+  decision: t.Union([t.Literal("approved"), t.Literal("rejected")]),
+  note: t.Optional(t.String({ maxLength: 1000 })),
+});
+
 export const morningBody = t.Object({
   date: isoDate,
   contractorId: t.String({ format: "uuid" }),
@@ -125,4 +134,11 @@ export const eveningBody = t.Object({
 export const photoUploadBody = t.Object({
   category: t.Union(PHOTO_CATEGORIES.map((c) => t.Literal(c))),
   file: t.File({ type: "image", maxSize: "10m" }),
+});
+
+export const dateRangeQuery = t.Object({ from: isoDate, to: isoDate });
+
+export const manpowerTrendQuery = t.Object({
+  until: isoDate,
+  weeks: t.Optional(t.Numeric({ minimum: 2, maximum: 52 })),
 });

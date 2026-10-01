@@ -39,3 +39,39 @@ export function useWeeklySummary(projectId: string | null, weekStart: string) {
     placeholderData: keepPreviousData,
   });
 }
+
+export function useReviewQueue(projectId: string | null, date: string) {
+  return useQuery({
+    queryKey: dailyReportKeys.reviewQueue(projectId ?? "", date),
+    queryFn: () => dailyReportApi.reviewQueue(projectId!, date),
+    enabled: Boolean(projectId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function usePositionMix(projectId: string | null, from: string, to: string) {
+  return useQuery({
+    queryKey: dailyReportKeys.positionMix(projectId ?? "", from, to),
+    queryFn: () => dailyReportApi.positionMix(projectId!, from, to),
+    enabled: Boolean(projectId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useManpowerTrend(projectId: string | null, until: string, weeks = 12) {
+  return useQuery({
+    queryKey: dailyReportKeys.trend(projectId ?? "", until, weeks),
+    queryFn: () => dailyReportApi.manpowerTrend(projectId!, until, weeks),
+    enabled: Boolean(projectId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useManpowerSummary(projectId: string | null, from: string, to: string) {
+  return useQuery({
+    queryKey: dailyReportKeys.manpower(projectId ?? "", from, to),
+    queryFn: () => dailyReportApi.manpowerSummary(projectId!, from, to),
+    enabled: Boolean(projectId),
+    placeholderData: keepPreviousData,
+  });
+}

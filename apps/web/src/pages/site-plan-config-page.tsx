@@ -30,8 +30,7 @@ import { useSitePlanEditor } from "@/features/site-plan/hooks/use-site-plan-edit
 import { useSitePlanViewport } from "@/features/site-plan/hooks/use-site-plan-viewport.js";
 import { usePlanZones, useSitePlan } from "@/features/site-plan/hooks/use-site-plan.js";
 import type { PolygonGeometry } from "@/features/site-plan/types/site-plan.types.js";
-import { clampToMap, normalizedToMap } from "@/features/site-plan/utils/coordinates.js";
-import { SITE_MAP_H, SITE_MAP_W } from "@/features/site-plan/components/site-plan-view.js";
+import { clampToMap, normalizedToMap, SITE_MAP_H, SITE_MAP_W } from "@/features/site-plan/utils/coordinates.js";
 
 // Admin screen: WBS map configuration. Separate from the operational
 // Site Plan (contractor activity view) by design.

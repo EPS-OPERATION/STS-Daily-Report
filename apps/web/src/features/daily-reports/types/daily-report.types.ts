@@ -12,9 +12,31 @@ import type {
   WeatherCondition,
   WorkloadLevel,
 } from "@sts/shared";
-
 export type ShiftStatus = "draft" | "submitted";
+
 export type Shift = "morning" | "evening";
+
+// EPS review decision on a submitted report (backend: review_status check).
+export type ReviewStatus = "pending" | "approved" | "rejected";
+
+export interface ReviewQueueRow {
+  id: string;
+  contractorId: string;
+  contractorCode: string;
+  contractorName: string;
+  reportDate: string;
+  morningStatus: ShiftStatus;
+  eveningStatus: ShiftStatus;
+  totalHeadcount: number;
+  reviewStatus: ReviewStatus;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+}
+
+export interface ReviewPayload {
+  decision: "approved" | "rejected";
+  note?: string;
+}
 
 export interface Building {
   id: string;
@@ -117,6 +139,8 @@ export interface DailyReport {
   otHours: number | null;
   eveningStatus: ShiftStatus;
   eveningSubmittedAt: string | null;
+  reviewStatus: ReviewStatus;
+  reviewNote: string | null;
   signatureName: string | null;
   signedAt: string | null;
   hasSignature: boolean;
@@ -272,4 +296,41 @@ export interface InspectionRequestFields {
   location?: string;
   drawingRef?: string;
   readiness: Readiness;
+}
+
+// ---- chart data (weekly meeting page) ----
+
+export interface PositionMixRow {
+  contractorId: string;
+  contractorCode: string;
+  position: string;
+  avgPerDay: number;
+}
+
+export interface ManpowerTrendPoint {
+  weekStart: string;
+  weekEnd: string;
+  reportedDays: number;
+  manDays: number;
+  avgDaily: number | null;
+}
+
+export interface ManpowerContractorTotals {
+  contractorId: string;
+  contractorCode: string;
+  manDays: number;
+  manHours: number;
+  reportedDays: number;
+  thaiMale: number;
+  thaiFemale: number;
+  foreignMale: number;
+  foreignFemale: number;
+}
+
+export interface ManpowerSummary {
+  from: string;
+  to: string;
+  contractors: ManpowerContractorTotals[];
+  daily: { date: string; contractorCode: string; headcount: number }[];
+  totals: { manDays: number; manHours: number; reportedDays: number; avgDaily: number };
 }

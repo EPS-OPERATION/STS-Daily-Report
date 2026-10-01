@@ -45,6 +45,12 @@ export const dailyReports = pgTable(
     // PNG data URL from the tap-to-sign pad (small; bytes of real photos go to MinIO).
     signatureData: text("signature_data"),
     signedAt: timestamp("signed_at", { withTimezone: true }),
+    // EPS review (owner-side QAQC). Contractors submit shifts; only EPS staff
+    // move review_status via the review endpoint (role guard in service).
+    reviewStatus: text("review_status").notNull().default("pending"),
+    reviewNote: text("review_note"),
+    reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -63,6 +69,7 @@ export const dailyReports = pgTable(
     ),
     check("daily_reports_morning_status_check", sql`${t.morningStatus} IN ('draft', 'submitted')`),
     check("daily_reports_evening_status_check", sql`${t.eveningStatus} IN ('draft', 'submitted')`),
+    check("daily_reports_review_status_check", sql`${t.reviewStatus} IN ('pending', 'approved', 'rejected')`),
     index("daily_reports_project_date_idx").on(t.projectId, t.reportDate),
   ],
 );
