@@ -4,7 +4,7 @@ import { getMapViewRecord } from "../../src/modules/site-maps/site-map.repositor
 import { getDb } from "../../src/db/client.js";
 import { getStorage } from "../../src/shared/storage/index.js";
 
-const [projectId, otherProjectId, contractorId, adminEmail, operatorEmail] = Bun.argv.slice(2);
+const [projectId, otherProjectId, contractorId, adminEmail, operatorEmail, contractor2] = Bun.argv.slice(2);
 const app = buildApp();
 const objects: string[] = [];
 
@@ -216,6 +216,34 @@ try {
   assert.equal(
     (await request("GET", `/projects/${projectId}/activities?facilityId=${foreign.id}`, operator)).status,
     400,
+  );
+  assert.equal(
+    (
+      await request("POST", `/projects/${projectId}/activities`, operator, {
+        ...fields,
+        contractorId: contractor2,
+        title: "Unassigned contractor",
+      })
+    ).status,
+    403,
+  );
+  const adminFiled = await create(`/projects/${projectId}/activities`, admin, {
+    ...fields,
+    contractorId: contractor2,
+    title: "Admin filed for unassigned contractor",
+  });
+  assert.equal(adminFiled.contractor.id, contractor2);
+  assert.equal(
+    (await request("PATCH", `/activities/${work.id}`, operator, { title: "Renamed by member" })).status,
+    200,
+  );
+  assert.equal(
+    (await request("PATCH", `/activities/${work.id}`, operator, { contractorId: contractor2 })).status,
+    403,
+  );
+  assert.equal(
+    (await request("PATCH", `/activities/${work.id}`, admin, { contractorId: contractor2 })).status,
+    200,
   );
 
   const png = Buffer.from(

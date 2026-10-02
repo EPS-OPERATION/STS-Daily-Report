@@ -37,7 +37,8 @@ export const siteActivityRoutes = new Elysia()
   .post(
     "/projects/:projectId/activities",
     async ({ params, body, auth, set }) => {
-      const created = await createActivityService(params.projectId, body, auth.user.id);
+      const actor = { userId: auth.user.id, isAdmin: auth.user.canManageSiteConfiguration };
+      const created = await createActivityService(params.projectId, body, actor);
       set.status = 201;
       return ok(created);
     },
@@ -45,6 +46,9 @@ export const siteActivityRoutes = new Elysia()
   )
   .patch(
     "/activities/:activityId",
-    async ({ params, body }) => ok(await updateActivityService(params.activityId, body)),
+    async ({ params, body, auth }) => {
+      const actor = { userId: auth.user.id, isAdmin: auth.user.canManageSiteConfiguration };
+      return ok(await updateActivityService(params.activityId, body, actor));
+    },
     { params: activityIdParams, body: updateActivityBody },
   );

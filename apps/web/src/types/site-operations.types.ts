@@ -100,7 +100,8 @@ export interface SiteActivityInput {
   endTime?: string | null;
 }
 export interface SiteActivityFilters {
-  workDate: string;
+  workDate?: string;
+  before?: string;
   facilityId?: string;
   facilityPartId?: string;
   contractorId?: string;

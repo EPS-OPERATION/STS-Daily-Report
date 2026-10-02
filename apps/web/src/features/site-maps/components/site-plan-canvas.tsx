@@ -231,32 +231,34 @@ export function SitePlanCanvas({
                 }}
               >
                 <Circle radius={24 / viewport.scale} fill={alpha(theme.palette.background.paper, 0.001)} />
+                {marker.idle && !marker.selected ? (
+                  <Circle
+                    radius={10.5 / viewport.scale}
+                    stroke={theme.palette.common.white}
+                    strokeWidth={2 / viewport.scale}
+                  />
+                ) : null}
                 {marker.selected ? (
                   <Circle
-                    radius={12 / viewport.scale}
+                    radius={14 / viewport.scale}
                     stroke={theme.palette.primary.main}
                     strokeWidth={3 / viewport.scale}
-                    fill={theme.palette.background.paper}
                   />
                 ) : null}
                 <Circle
-                  radius={8.5 / viewport.scale}
-                  fill={theme.palette.background.paper}
-                  shadowColor={theme.palette.text.primary}
-                  shadowBlur={5 / viewport.scale}
-                  shadowOpacity={0.25}
-                  stroke={marker.draft ? theme.palette.primary.main : theme.palette.text.primary}
-                  strokeWidth={1.5 / viewport.scale}
-                  dash={marker.draft ? [4 / viewport.scale, 3 / viewport.scale] : undefined}
-                />
-                <Circle
-                  radius={marker.activityCount ? 8.5 / viewport.scale : 5.5 / viewport.scale}
+                  radius={(marker.selected ? 10.5 : 8.5) / viewport.scale}
                   fill={
                     marker.idle ? theme.palette.background.paper : (marker.statusColor ?? theme.palette.text.secondary)
                   }
-                  stroke={marker.idle ? marker.statusColor : undefined}
-                  strokeWidth={marker.idle ? 1.5 / viewport.scale : undefined}
-                  listening={false}
+                  stroke={
+                    marker.draft
+                      ? theme.palette.primary.main
+                      : marker.idle
+                        ? theme.palette.navy.dark
+                        : theme.palette.text.primary
+                  }
+                  strokeWidth={(marker.draft ? 1.5 : 2) / viewport.scale}
+                  dash={marker.draft ? [4 / viewport.scale, 3 / viewport.scale] : undefined}
                 />
                 {marker.activityCount ? (
                   <Text

@@ -54,6 +54,7 @@
         "@mui/x-tree-view": "^8.3.0",
         "@react-three/drei": "10.7.9",
         "@react-three/fiber": "9.8.1",
+        "@sts/shared": "workspace:*",
         "@tanstack/react-query": "^5.80.0",
         "dayjs": "^1.11.13",
         "react": "^19.1.0",

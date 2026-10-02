@@ -14,6 +14,7 @@ import {
   Drawer,
   IconButton,
   LinearProgress,
+  ListItemIcon,
   Menu,
   MenuItem,
   Paper,
@@ -23,12 +24,15 @@ import {
   Tab,
   Tabs,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
+import ArrowDropDownOutlinedIcon from "@mui/icons-material/ArrowDropDownOutlined";
 import MoreVertOutlinedIcon from "@mui/icons-material/MoreVertOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
@@ -37,7 +41,7 @@ import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import RadioButtonUncheckedOutlinedIcon from "@mui/icons-material/RadioButtonUncheckedOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import StarBorderOutlinedIcon from "@mui/icons-material/StarBorderOutlined";
+import StarOutlinedIcon from "@mui/icons-material/StarOutlined";
 import { PageHeader } from "@/components/shared/page-header.js";
 import { PageBreadcrumb } from "@/components/shared/page-breadcrumb.js";
 import { EmptyState } from "@/components/shared/empty-state.js";
@@ -96,6 +100,7 @@ export function SiteConfigurationPage() {
   const [editor, setEditor] = useState<SiteResourceEditor | null>(null);
   const [archive, setArchive] = useState<ArchiveTarget | null>(null);
   const [menu, setMenu] = useState<{ anchor: HTMLElement; kind: ResourceKind; id: string } | null>(null);
+  const [mapMenuAnchor, setMapMenuAnchor] = useState<null | HTMLElement>(null);
   const [pendingChange, setPendingChange] = useState<{ action: () => void } | null>(null);
   const [facilityDrawerOpen, setFacilityDrawerOpen] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false),
@@ -400,13 +405,14 @@ export function SiteConfigurationPage() {
       {message}
     </Alert>
   );
-  const overflow = (kind: ResourceKind, id: string, label: string) => (
+  const overflow = (kind: ResourceKind, id: string, label: string, fixedSize = false) => (
     <Tooltip title={label}>
       <IconButton
         size="small"
         aria-label={label}
         disabled={saving}
         onClick={(event) => setMenu({ anchor: event.currentTarget, kind, id })}
+        sx={fixedSize ? { width: 40, height: 40 } : undefined}
       >
         <MoreVertOutlinedIcon fontSize="small" />
       </IconButton>
@@ -489,14 +495,18 @@ export function SiteConfigurationPage() {
               { label: section === "maps" ? "Maps" : "Facilities" },
             ]}
           />
-          <Tabs
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            color="primary"
             value={section}
-            onChange={(_, value: string) => requestChange(() => setSection(value))}
-            sx={{ minHeight: 40, flexShrink: 0, "& .MuiTab-root": { minHeight: 40, py: 0.5 } }}
+            onChange={(_, value: string | null) => value && requestChange(() => setSection(value))}
+            aria-label="Configuration section"
+            sx={{ height: 40, flexShrink: 0, "& .MuiToggleButton-root": { px: 2.5 } }}
           >
-            <Tab label="Maps" value="maps" />
-            <Tab label="Facilities" value="facilities" />
-          </Tabs>
+            <ToggleButton value="maps">Maps</ToggleButton>
+            <ToggleButton value="facilities">Facilities</ToggleButton>
+          </ToggleButtonGroup>
         </Stack>
       </Stack>
       {error ? (
@@ -516,138 +526,110 @@ export function SiteConfigurationPage() {
             overflow: "hidden",
           }}
         >
-          {!wide ? (
-            <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
-              <TextField
-                select
-                label="Site Map"
-                value={mapId ?? ""}
-                onChange={(event) => selectMap(event.target.value)}
-              >
-                {maps.map((row) => (
-                  <MenuItem key={row.id} value={row.id}>
-                    {row.name}
-                    {!row.isActive ? " (Archived)" : ""}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <Button
-                variant="outlined"
-                startIcon={<AddOutlinedIcon />}
-                onClick={() => requestChange(() => openEditor("map"))}
-                sx={{ flexShrink: 0 }}
-              >
-                Map
-              </Button>
-            </Stack>
-          ) : null}
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: wide ? "180px minmax(0,1fr) 256px" : "minmax(0,1fr)",
-              gap: 1.5,
-              alignItems: "stretch",
-              flex: 1,
-              minHeight: 0,
-            }}
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1}
+            sx={{ flexShrink: 0, mb: 1, flexWrap: "wrap", rowGap: 1 }}
           >
-            {wide ? (
-              <Paper variant="outlined" sx={{ p: 1.5, minHeight: 0, overflowY: "auto" }}>
-                <Stack spacing={1}>
-                  <Typography variant="subtitle1">Site Maps</Typography>
-                  {mapsQuery.isLoading ? (
-                    <Skeleton height={100} />
-                  ) : (
-                    maps.map((row) => (
-                      <Button
-                        key={row.id}
-                        variant={row.id === mapId ? "outlined" : "text"}
-                        color={row.id === mapId ? "primary" : "inherit"}
-                        startIcon={row.isDefault ? <StarBorderOutlinedIcon fontSize="small" /> : undefined}
-                        aria-label={`${row.name}${row.isDefault ? " (Default)" : ""}`}
-                        onClick={() => selectMap(row.id)}
-                        sx={{ textAlign: "left", justifyContent: "flex-start", overflowWrap: "anywhere" }}
-                      >
-                        {row.name}
-                        {!row.isActive ? " (Archived)" : ""}
-                      </Button>
-                    ))
-                  )}
-                  <Button
-                    variant="outlined"
-                    startIcon={<AddOutlinedIcon />}
-                    onClick={() => requestChange(() => openEditor("map"))}
+            {map ? (
+              <>
+                <Button
+                  variant="outlined"
+                  onClick={(event) => setMapMenuAnchor(event.currentTarget)}
+                  startIcon={map.isDefault ? <StarOutlinedIcon fontSize="small" /> : undefined}
+                  endIcon={<ArrowDropDownOutlinedIcon fontSize="small" />}
+                  aria-label="Select Site Map"
+                  sx={{ height: 40, minWidth: 0, maxWidth: { xs: "100%", sm: 280 } }}
+                >
+                  <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                    {map.name}
+                  </Typography>
+                </Button>
+                <Menu anchorEl={mapMenuAnchor} open={!!mapMenuAnchor} onClose={() => setMapMenuAnchor(null)}>
+                  {maps.map((row) => (
+                    <MenuItem
+                      key={row.id}
+                      selected={row.id === mapId}
+                      onClick={() => {
+                        setMapMenuAnchor(null);
+                        selectMap(row.id);
+                      }}
+                    >
+                      {row.isDefault ? "★ " : ""}
+                      {row.name}
+                      {!row.isActive ? " (Archived)" : ""}
+                    </MenuItem>
+                  ))}
+                  <Divider />
+                  <MenuItem
+                    onClick={() => {
+                      setMapMenuAnchor(null);
+                      requestChange(() => openEditor("map"));
+                    }}
                   >
+                    <ListItemIcon>
+                      <AddOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
                     Add Map
-                  </Button>
-                </Stack>
-              </Paper>
+                  </MenuItem>
+                </Menu>
+                {overflow("map", map.id, "Map actions", true)}
+                <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                  View
+                </Typography>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  color="primary"
+                  value={viewId}
+                  onChange={(_, id: string | null) => id && selectView(id)}
+                  aria-label="Map Views"
+                  sx={{ height: 40, flexShrink: 0, "& .MuiToggleButton-root": { px: 2.5 } }}
+                >
+                  {views.map((row) => (
+                    <ToggleButton key={row.id} value={row.id}>
+                      {row.name}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+                <Tooltip title="Add View">
+                  <IconButton
+                    aria-label="Add View"
+                    onClick={() => requestChange(() => openEditor("view"))}
+                    sx={{ width: 40, height: 40 }}
+                  >
+                    <AddOutlinedIcon />
+                  </IconButton>
+                </Tooltip>
+                {view ? overflow("view", view.id, `${view.name} actions`, true) : null}
+              </>
             ) : null}
-            <Paper
-              variant="outlined"
+          </Stack>
+          {map && !wide ? (
+            <Button
+              variant="text"
+              startIcon={<PlaceOutlinedIcon />}
+              onClick={() => setFacilityDrawerOpen(true)}
+              sx={{ m: 1 }}
+            >
+              Facilities · {mapFacilities.filter((row) => points.has(row.id)).length}/{mapFacilities.length} placed
+            </Button>
+          ) : null}
+          <Paper variant="outlined" sx={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
+            <Box
               sx={{
+                position: "relative",
+                flex: "1 1 auto",
                 minWidth: 0,
                 minHeight: 0,
-                overflow: "hidden",
+                bgcolor: "background.default",
                 display: "flex",
                 flexDirection: "column",
               }}
             >
               {map ? (
                 <>
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    sx={{ px: 2, py: 1, flexShrink: 0 }}
-                  >
-                    <Typography variant="h6" sx={{ overflowWrap: "anywhere" }}>
-                      {map.name}
-                    </Typography>
-                    {overflow("map", map.id, "Map actions")}
-                  </Stack>
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    spacing={0.5}
-                    sx={{
-                      px: 1,
-                      minWidth: 0,
-                      borderBottom: 1,
-                      borderColor: "divider",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Tabs
-                      value={viewId ?? false}
-                      onChange={(_, id: string) => selectView(id)}
-                      variant="scrollable"
-                      scrollButtons="auto"
-                      sx={{ flex: 1, minWidth: 0 }}
-                      aria-label="Map Views"
-                    >
-                      {views.map((row) => (
-                        <Tab key={row.id} value={row.id} label={`${row.name}${!row.isActive ? " (Archived)" : ""}`} />
-                      ))}
-                    </Tabs>
-                    {view ? overflow("view", view.id, `${view.name} actions`) : null}
-                    <Tooltip title="Add View">
-                      <IconButton aria-label="Add View" onClick={() => requestChange(() => openEditor("view"))}>
-                        <AddOutlinedIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                  {!wide ? (
-                    <Button
-                      variant="text"
-                      startIcon={<PlaceOutlinedIcon />}
-                      onClick={() => setFacilityDrawerOpen(true)}
-                      sx={{ m: 1 }}
-                    >
-                      Facilities · {mapFacilities.filter((row) => points.has(row.id)).length}/{mapFacilities.length}{" "}
-                      placed
-                    </Button>
-                  ) : null}
                   {viewsQuery.isLoading ? (
                     <Skeleton variant="rectangular" height={420} />
                   ) : viewsQuery.isError ? (
@@ -762,10 +744,7 @@ export function SiteConfigurationPage() {
                           }}
                         >
                           <Typography variant="body2" noWrap>
-                            {facility.name} ·{" "}
-                            {facility.isActive
-                              ? "Drag the point to move it."
-                              : "Archived Facility."}
+                            {facility.name} · {facility.isActive ? "Drag the point to move it." : "Archived Facility."}
                           </Typography>
                           <Button
                             variant="text"
@@ -775,9 +754,7 @@ export function SiteConfigurationPage() {
                             onClick={() => {
                               setPoint(facility.id, null);
                               setPlacementFacilityId(null);
-                              setNotice(
-                                "Placement removed — save changes to apply.",
-                              );
+                              setNotice("Placement removed — save changes to apply.");
                             }}
                             sx={{ flexShrink: 0, borderRadius: 999 }}
                           >
@@ -854,21 +831,25 @@ export function SiteConfigurationPage() {
                   />
                 </Box>
               )}
-            </Paper>
+            </Box>
             {wide ? (
-              <Paper
-                variant="outlined"
+              <Box
                 sx={{
-                  p: 1.5,
-                  height: "100%",
+                  width: 280,
+                  flexShrink: 0,
                   minHeight: 0,
+                  borderLeft: "1px solid",
+                  borderColor: "divider",
+                  p: 1.5,
                   overflow: "hidden",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
               >
                 {placementPanel}
-              </Paper>
+              </Box>
             ) : null}
-          </Box>
+          </Paper>
         </Box>
       ) : (
         <Box

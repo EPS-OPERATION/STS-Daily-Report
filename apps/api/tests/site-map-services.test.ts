@@ -48,9 +48,13 @@ suite("Facility and multi-map service persistence (isolated database)", () => {
       const adminEmail = "explicit-config-fixture@sts.test",
         operatorEmail = "admin-without-grant@sts.test";
       await db`INSERT INTO users(email,display_name,can_manage_site_configuration) VALUES (${adminEmail},'Explicit fixture admin',true),(${operatorEmail},'Default-deny fixture user',false)`;
+      const contractor2 = crypto.randomUUID();
+      await db`INSERT INTO contractors(id,code,name) VALUES (${contractor2},'C2','Unassigned contractor')`;
+      await db`INSERT INTO project_contractors(project_id,contractor_id) VALUES (${project},${contractor2})`;
+      await db`INSERT INTO contractor_memberships(user_id,contractor_id,status) SELECT id,${contractor},'active' FROM users WHERE email=${operatorEmail}`;
       const httpFixture = fileURLToPath(new URL("./fixtures/site-http.ts", import.meta.url));
       const httpChild = Bun.spawn(
-        [Bun.which("bun")!, httpFixture, project, otherProject, contractor, adminEmail, operatorEmail],
+        [Bun.which("bun")!, httpFixture, project, otherProject, contractor, adminEmail, operatorEmail, contractor2],
         {
           env: {
             ...globalThis.process.env,

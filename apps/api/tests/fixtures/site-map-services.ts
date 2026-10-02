@@ -76,26 +76,26 @@ try {
 
   await updateFacilityPartService(accPart.id, { isActive: true });
   const activityInput = { contractorId, workDate: "2026-10-01", title: "Facility work" };
-  await fails(() => createActivityService(projectId, activityInput, null), "VALIDATION_ERROR");
+  await fails(() => createActivityService(projectId, activityInput, { userId: null, isAdmin: true }), "VALIDATION_ERROR");
   await fails(
-    () => createActivityService(projectId, { ...activityInput, facilityId: acc.id, workDate: "2026-02-30" }, null),
+    () => createActivityService(projectId, { ...activityInput, facilityId: acc.id, workDate: "2026-02-30" }, { userId: null, isAdmin: true }),
     "VALIDATION_ERROR",
   );
-  const accWhole = await createActivityService(projectId, { ...activityInput, facilityId: acc.id, manpower: 10 }, null);
+  const accWhole = await createActivityService(projectId, { ...activityInput, facilityId: acc.id, manpower: 10 }, { userId: null, isAdmin: true });
   const accWork = await createActivityService(
     projectId,
     { ...activityInput, facilityId: acc.id, facilityPartId: accPart.id, manpower: 8, status: "blocked" },
-    null,
+    { userId: null, isAdmin: true },
   );
   await createActivityService(
     projectId,
     { ...activityInput, facilityId: tr.id, manpower: 5, status: "completed" },
-    null,
+    { userId: null, isAdmin: true },
   );
   await createActivityService(
     projectId,
     { ...activityInput, facilityId: tr.id, facilityPartId: trPart.id, manpower: 2, status: "attention" },
-    null,
+    { userId: null, isAdmin: true },
   );
   assert.equal(accWhole.facilityPart, null);
   const trWork = await listActivitiesService(projectId, {
@@ -125,19 +125,19 @@ try {
     [[tr.id, 1, 2, "attention"]],
   );
   await fails(
-    () => createActivityService(projectId, { ...activityInput, facilityId: acc.id, facilityPartId: trPart.id }, null),
+    () => createActivityService(projectId, { ...activityInput, facilityId: acc.id, facilityPartId: trPart.id }, { userId: null, isAdmin: true }),
     "VALIDATION_ERROR",
   );
   await fails(
-    () => createActivityService(projectId, { ...activityInput, facilityId: other.id }, null),
+    () => createActivityService(projectId, { ...activityInput, facilityId: other.id }, { userId: null, isAdmin: true }),
     "VALIDATION_ERROR",
   );
   await fails(
-    () => createActivityService(otherProjectId, { ...activityInput, facilityId: other.id }, null),
+    () => createActivityService(otherProjectId, { ...activityInput, facilityId: other.id }, { userId: null, isAdmin: true }),
     "VALIDATION_ERROR",
   );
   await fails(
-    () => createActivityService(projectId, { ...activityInput, facilityId: tr.id, zoneId: crypto.randomUUID() }, null),
+    () => createActivityService(projectId, { ...activityInput, facilityId: tr.id, zoneId: crypto.randomUUID() }, { userId: null, isAdmin: true }),
     "VALIDATION_ERROR",
   );
   await fails(
@@ -145,16 +145,16 @@ try {
     "VALIDATION_ERROR",
   );
   assert.equal((await listActivitiesService(projectId, { facilityPartId: accPart.id })).total, 1);
-  const moved = await updateActivityService(accWork.id, { facilityId: tr.id });
+  const moved = await updateActivityService(accWork.id, { facilityId: tr.id }, { userId: null, isAdmin: true });
   assert.equal(moved.facility!.id, tr.id);
   assert.equal(moved.facilityPart, null);
   assert.equal((await getActivityService(accWork.id)).id, accWork.id);
   await archiveFacilityPartService(trPart.id);
   await fails(
-    () => createActivityService(projectId, { ...activityInput, facilityId: tr.id, facilityPartId: trPart.id }, null),
+    () => createActivityService(projectId, { ...activityInput, facilityId: tr.id, facilityPartId: trPart.id }, { userId: null, isAdmin: true }),
     "VALIDATION_ERROR",
   );
-  await createActivityService(projectId, { ...activityInput, facilityId: tr.id }, null);
+  await createActivityService(projectId, { ...activityInput, facilityId: tr.id }, { userId: null, isAdmin: true });
 
   const master = await createSiteMapService(projectId, { name: "Master" });
   const expansion = await createSiteMapService(projectId, { name: "Expansion" });
@@ -226,7 +226,7 @@ try {
   assert.equal((await listMapViewsService(master.id, "all")).length, 3);
   await archiveFacilityService(tr.id);
   await fails(
-    () => createActivityService(projectId, { ...activityInput, facilityId: tr.id }, null),
+    () => createActivityService(projectId, { ...activityInput, facilityId: tr.id }, { userId: null, isAdmin: true }),
     "VALIDATION_ERROR",
   );
   assert.equal((await getActivityService(accWork.id)).facility!.id, tr.id);

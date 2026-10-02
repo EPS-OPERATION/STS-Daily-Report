@@ -5,11 +5,12 @@ import { getFacilityRecord, getFacilitiesForLegacyZone } from "@/modules/facilit
 import { getFacilityPartRecord } from "@/modules/facilities/facility-part.repository.js";
 import { getDb } from "@/db/client.js";
 import type { SiteActivity } from "@/db/schema/index.js";
-import { NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import {
   createActivity,
   getActivityById,
   getActivityDetail,
+  hasActiveContractorMembership,
   isContractorInProject,
   listActivities,
   listFacilitySummaries,
@@ -54,6 +55,18 @@ function validateWorkDate(date: string) {
 async function assertContractor(projectId: string, contractorId: string) {
   if (!(await isContractorInProject(getDb(), projectId, contractorId)))
     throw new ValidationError("Contractor is not assigned to this Project", { contractorId, projectId });
+}
+
+export interface ActivityActor {
+  userId: string | null;
+  isAdmin: boolean;
+}
+
+async function assertContractorWritable(actor: ActivityActor, projectId: string, contractorId: string) {
+  await assertContractor(projectId, contractorId);
+  if (actor.isAdmin) return;
+  if (!actor.userId || !(await hasActiveContractorMembership(getDb(), actor.userId, contractorId)))
+    throw new ForbiddenError("You are not permitted to submit Activity for this Contractor");
 }
 
 async function assertLegacyContext(projectId: string, zoneId: string, contractorId: string, zonePartId: string | null) {
@@ -140,6 +153,7 @@ async function validateFilters(projectId: string, filters: SiteActivityFilters) 
     throw new ValidationError("Conflicting work date filters");
   const date = filters.workDate ?? filters.date;
   if (date) validateWorkDate(date);
+  if (filters.before) validateWorkDate(filters.before);
   if (filters.page !== undefined && (!Number.isInteger(filters.page) || filters.page < 1))
     throw new ValidationError("Invalid page");
   if (
@@ -179,21 +193,17 @@ export async function getActivityService(id: string) {
   return activity;
 }
 
-export async function createActivityService(
-  projectId: string,
-  input: CreateSiteActivityInput,
-  createdBy: string | null,
-) {
+export async function createActivityService(projectId: string, input: CreateSiteActivityInput, actor: ActivityActor) {
   if (!(await getProjectById(getDb(), projectId))) throw new NotFoundError("Project not found", { projectId });
   validateWorkDate(input.workDate);
   if (!input.title.trim()) throw new ValidationError("Activity title is required");
   const location = await resolveLocation(projectId, input);
-  await assertContractor(projectId, input.contractorId);
-  const row = await createActivity(getDb(), projectId, { ...input, ...location }, createdBy);
+  await assertContractorWritable(actor, projectId, input.contractorId);
+  const row = await createActivity(getDb(), projectId, { ...input, ...location }, actor.userId);
   return getActivityService(row.id);
 }
 
-export async function updateActivityService(id: string, input: UpdateSiteActivityInput) {
+export async function updateActivityService(id: string, input: UpdateSiteActivityInput, actor: ActivityActor) {
   const db = getDb();
   const current = await getActivityById(db, id);
   if (!current) throw new NotFoundError("Activity not found", { id });
@@ -206,10 +216,11 @@ export async function updateActivityService(id: string, input: UpdateSiteActivit
   if (!current.facilityId && !hasLocationInput && current.zoneId) {
     // Preserve unresolved historical rows when changing non-location fields; never guess a Facility.
     await assertLegacyContext(current.projectId, current.zoneId, contractorId, current.zonePartId);
+    await assertContractorWritable(actor, current.projectId, contractorId);
     await updateActivity(db, id, input);
   } else {
     const location = await resolveLocation(current.projectId, input, current);
-    await assertContractor(current.projectId, contractorId);
+    await assertContractorWritable(actor, current.projectId, contractorId);
     await updateActivity(db, id, { ...input, ...location });
   }
   return getActivityService(id);

@@ -16,6 +16,7 @@ export const listActivitiesQuery = t.Object({
   zoneId: t.Optional(uuid),
   contractorId: t.Optional(uuid),
   status: t.Optional(statusEnum),
+  before: t.Optional(t.String({ pattern: DATE_RE })),
   page: t.Optional(t.Numeric({ minimum: 1, multipleOf: 1 })),
   pageSize: t.Optional(t.Numeric({ minimum: 1, maximum: 100, multipleOf: 1 })),
 });

@@ -9,3 +9,4 @@ export * from "./site-plan.schema.js";
 export * from "./site-activity.schema.js";
 export * from "./facility.schema.js";
 export * from "./site-map-view.schema.js";
+export * from "./daily-site-marker.schema.js";

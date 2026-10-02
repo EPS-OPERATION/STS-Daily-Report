@@ -8,6 +8,7 @@ export interface SiteActivityFilters {
   zoneId?: string;
   contractorId?: string;
   status?: string;
+  before?: string;
   page?: number;
   pageSize?: number;
 }

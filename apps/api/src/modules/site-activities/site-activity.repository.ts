@@ -1,7 +1,15 @@
-﻿import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
+﻿import { and, asc, desc, eq, isNotNull, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { normalizePagination } from "@sts/shared";
-import { contractors, facilities, projectContractors, siteActivities, zoneParts, zones } from "@/db/schema/index.js";
+import {
+  contractors,
+  contractorMemberships,
+  facilities,
+  projectContractors,
+  siteActivities,
+  zoneParts,
+  zones,
+} from "@/db/schema/index.js";
 import type { DbExecutor } from "@/db/client.js";
 import type { CreateSiteActivityInput, SiteActivityFilters, UpdateSiteActivityInput } from "./site-activity.type.js";
 
@@ -13,6 +21,7 @@ function activityConditions(projectId: string, f: SiteActivityFilters) {
   if (f.facilityId) conditions.push(eq(siteActivities.facilityId, f.facilityId));
   if (f.facilityPartId) conditions.push(eq(siteActivities.facilityPartId, f.facilityPartId));
   if (f.zoneId) conditions.push(eq(siteActivities.zoneId, f.zoneId));
+  if (f.before) conditions.push(lt(siteActivities.workDate, f.before));
   if (f.contractorId) conditions.push(eq(siteActivities.contractorId, f.contractorId));
   if (f.status) conditions.push(eq(siteActivities.status, f.status));
   return conditions;
@@ -120,6 +129,24 @@ export async function isContractorInProject(db: DbExecutor, projectId: string, c
         .select({ contractorId: projectContractors.contractorId })
         .from(projectContractors)
         .where(and(eq(projectContractors.projectId, projectId), eq(projectContractors.contractorId, contractorId)))
+        .limit(1)
+    ).length > 0
+  );
+}
+
+export async function hasActiveContractorMembership(db: DbExecutor, userId: string, contractorId: string) {
+  return (
+    (
+      await db
+        .select({ userId: contractorMemberships.userId })
+        .from(contractorMemberships)
+        .where(
+          and(
+            eq(contractorMemberships.userId, userId),
+            eq(contractorMemberships.contractorId, contractorId),
+            eq(contractorMemberships.status, "active"),
+          ),
+        )
         .limit(1)
     ).length > 0
   );

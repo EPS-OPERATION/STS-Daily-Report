@@ -11,6 +11,7 @@ import { zoneRoutes } from "@/modules/zones/index.js";
 import { zonePartRoutes } from "@/modules/zone-parts/index.js";
 import { facilityRoutes } from "@/modules/facilities/index.js";
 import { siteMapRoutes } from "@/modules/site-maps/index.js";
+import { dailySiteMarkerRoutes } from "@/modules/daily-site-markers/index.js";
 import { errorPlugin } from "@/plugins/errors.js";
 
 export function buildApp() {
@@ -33,7 +34,8 @@ export function buildApp() {
         .use(siteActivityRoutes)
         .use(sitePlanRoutes)
         .use(facilityRoutes)
-        .use(siteMapRoutes),
+        .use(siteMapRoutes)
+        .use(dailySiteMarkerRoutes),
     )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;

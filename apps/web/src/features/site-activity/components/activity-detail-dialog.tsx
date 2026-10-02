@@ -17,10 +17,12 @@ export function ActivityDetailDialog({
   id,
   onClose,
   onEdit,
+  onCopyToToday,
 }: {
   id: string;
   onClose: () => void;
   onEdit: (activity: SiteActivityRecord) => void;
+  onCopyToToday: (activity: SiteActivityRecord) => void;
 }) {
   const query = useActivityDetail(id),
     activity = query.data?.data;
@@ -69,6 +71,11 @@ export function ActivityDetailDialog({
         <Button variant="text" color="inherit" onClick={onClose}>
           Close
         </Button>
+        {activity ? (
+          <Button variant="text" onClick={() => onCopyToToday(activity)}>
+            Copy to today
+          </Button>
+        ) : null}
         {activity ? (
           <Button variant="contained" onClick={() => onEdit(activity)}>
             Edit Activity
