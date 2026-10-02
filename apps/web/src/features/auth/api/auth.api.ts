@@ -2,8 +2,11 @@ import { http } from "@/services/http/client.js";
 import type { LoginResponse, MeResponse } from "../types/auth.types.js";
 
 export const authApi = {
-  login(email: string): Promise<LoginResponse> {
-    return http.post<LoginResponse>("/auth/login", { email });
+  login(email: string, accessCode?: string): Promise<LoginResponse> {
+    return http.post<LoginResponse>("/auth/login", accessCode ? { email, accessCode } : { email });
+  },
+  config(): Promise<{ data: { accessCodeRequired: boolean } }> {
+    return http.get("/auth/config");
   },
   me(): Promise<MeResponse> {
     return http.get<MeResponse>("/auth/me");

@@ -8,7 +8,7 @@ export function useLogin() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   return useMutation({
-    mutationFn: (email: string) => authApi.login(email),
+    mutationFn: (v: { email: string; accessCode?: string }) => authApi.login(v.email, v.accessCode),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: authKeys.me() });
       const redirect = params.get("redirect");

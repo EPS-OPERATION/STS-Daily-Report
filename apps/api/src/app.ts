@@ -13,6 +13,10 @@ import { siteActivityRoutes } from "@/modules/site-activities/index.js";
 import { sitePlanRoutes } from "@/modules/site-plans/index.js";
 import { zoneRoutes } from "@/modules/zones/index.js";
 import { errorPlugin } from "@/plugins/errors.js";
+import { resolveAuthIdentity } from "@/auth/auth.service.js";
+import { AuthRequiredError } from "@/shared/errors/app-error.js";
+
+const PUBLIC_API = new Set([`${API_PREFIX}/auth/login`, `${API_PREFIX}/auth/config`, `${API_PREFIX}/auth/logout`]);
 
 export function buildApp() {
   // Credentialed browser auth: allow only configured frontend origins, never "*".
@@ -23,6 +27,17 @@ export function buildApp() {
   const app = new Elysia()
     .use(cors({ origin: origins, credentials: true }))
     .use(errorPlugin)
+    // Hosted (production): every API call needs a session except the login itself.
+    // Locally some summary reads stay open, as before.
+    .onBeforeHandle(async ({ request, cookie }) => {
+      const env = getEnv();
+      if (env.NODE_ENV !== "production" || request.method === "OPTIONS") return;
+      const path = new URL(request.url).pathname;
+      if (!path.startsWith(API_PREFIX) || PUBLIC_API.has(path)) return;
+      const jar = (cookie as Record<string, { value?: unknown } | undefined>)[env.SESSION_COOKIE_NAME];
+      const token = typeof jar?.value === "string" ? jar.value : undefined;
+      if (!(await resolveAuthIdentity(token))) throw new AuthRequiredError();
+    })
     .get(HEALTH_PATH, () => ({ status: "ok" }))
     .group(API_PREFIX, (group) =>
       group.use(authRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(inspectionRequestRoutes).use(safetyRoutes),

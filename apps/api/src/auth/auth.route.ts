@@ -1,4 +1,6 @@
+import { timingSafeEqual } from "node:crypto";
 import { Elysia } from "elysia";
+import { InvalidLoginError } from "@/shared/errors/app-error.js";
 import { getEnv } from "@/config/env.js";
 import { ok } from "@/shared/http/response.js";
 import { requireAuth } from "@/middleware/require-auth.js";
@@ -17,8 +19,20 @@ function cookieJar(cookie: Record<string, { value?: unknown } | undefined>) {
   return jar;
 }
 
+// Hosted demo: the email login also needs the shared access code (DEMO_ACCESS_CODE).
+function accessCodeOk(given: string | undefined): boolean {
+  const expected = getEnv().DEMO_ACCESS_CODE;
+  if (!expected) return true;
+  const a = Buffer.from(given ?? "");
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export const authRoutes = new Elysia({ prefix: "/auth" })
+  // Public: tells the login page whether to show the access-code box.
+  .get("/config", () => ok({ accessCodeRequired: Boolean(getEnv().DEMO_ACCESS_CODE) }))
   .post("/login", async ({ body, cookie, set }) => {
+    if (!accessCodeOk(body.accessCode)) throw new InvalidLoginError("Email or access code is not valid.");
     const { context, token, expiresAt } = await loginWithEmail(body.email);
     const env = getEnv();
     const jar = cookieJar(cookie as Record<string, { value?: unknown } | undefined>);

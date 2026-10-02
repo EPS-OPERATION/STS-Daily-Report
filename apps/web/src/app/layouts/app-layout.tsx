@@ -56,6 +56,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { to: "/daily-reports", label: "Daily Reports", icon: "dailyReports" },
       { to: "/today-requests", label: "Daily Request", icon: "tomorrow" },
+      { to: "/site-coordination", label: "Map", icon: "sitePlan" },
       { to: "/site-plan", label: "Site Plan", icon: "sitePlan" },
     ],
   },

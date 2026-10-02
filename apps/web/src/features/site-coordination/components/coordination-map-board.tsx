@@ -212,8 +212,8 @@ export function CoordinationMapBoard({
 
   return (
     <Box>
-      {/* 1. Top Bar: Palette for Contractors OR Meeting Overview for EPS */}
-      {!readOnly ? (
+      {/* 1. Top Bar: Palette for Contractors */}
+      {!readOnly && (
         <Paper
           elevation={0}
           variant="outlined"
@@ -317,55 +317,29 @@ export function CoordinationMapBoard({
             </Stack>
           </Stack>
         </Paper>
-      ) : (
-        <Paper
-          elevation={0}
-          variant="outlined"
-          sx={{
-            p: 1.5,
-            mb: 1.5,
-            borderRadius: 2,
-            bgcolor: "rgba(15, 23, 42, 0.03)",
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 1.5,
-          }}
-        >
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Chip
-              size="small"
-              label="โหมดการประชุม (EPS Meeting Review)"
-              color="primary"
-              sx={{ fontWeight: 800, fontSize: 11 }}
-            />
-            <Typography variant="body2" sx={{ color: "text.secondary", fontSize: 12.5 }}>
-              แสดงข้อมูลตำแหน่งงานของทุกผู้รับเหมา สำหรับใช้ในการประชุมประสานงาน 17:00 น.
-            </Typography>
-          </Stack>
-
-          {/* Contractor Legend */}
-          <Stack direction="row" spacing={1} alignItems="center">
-            {CONTRACTOR_PALETTES.map((c) => (
-              <Stack key={c.code} direction="row" spacing={0.5} alignItems="center">
-                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: c.defaultColor }} />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: "text.primary", fontSize: 11 }}>
-                  {c.name}
-                </Typography>
-              </Stack>
-            ))}
-          </Stack>
-        </Paper>
       )}
 
       {/* Helper hint & Map View switch */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 0.5, mb: 1 }}>
-        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-          {!readOnly
-            ? "💡 คลิกบนผังเพื่อวางตำแหน่ง • ลากจุดหมุด หรือลากกล่องข้อความเพื่อจัดตำแหน่ง • เส้นโยงจะชี้เชื่อมโยงอัตโนมัติ"
-            : "💡 คลิกที่จุดหรือกล่องข้อความบนผัง เพื่อเน้นไฮไลต์และดูรายละเอียด"}
-        </Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} sx={{ px: 0.5, mb: 1 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            {!readOnly
+              ? "💡 คลิกบนผังเพื่อวางตำแหน่ง • ลากจุดหมุด หรือลากกล่องข้อความเพื่อจัดตำแหน่ง • เส้นโยงจะชี้เชื่อมโยงอัตโนมัติ"
+              : "💡 คลิกที่จุดหรือกล่องข้อความบนผัง เพื่อเน้นไฮไลต์และดูรายละเอียด"}
+          </Typography>
+          {readOnly && (
+            <Stack direction="row" spacing={1.25} alignItems="center">
+              {CONTRACTOR_PALETTES.map((c) => (
+                <Stack key={c.code} direction="row" spacing={0.5} alignItems="center">
+                  <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: c.defaultColor }} />
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", fontSize: 11 }}>
+                    {c.name}
+                  </Typography>
+                </Stack>
+              ))}
+            </Stack>
+          )}
+        </Stack>
 
         <ButtonGroup size="small">
           <Button

@@ -10,3 +10,8 @@ drizzle/
 .DS_Store
 .vite/
 coverage/
+.vercel
+
+.vercel
+.env*
+supabase/.temp

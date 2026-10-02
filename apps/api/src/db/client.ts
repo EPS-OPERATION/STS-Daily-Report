@@ -8,7 +8,10 @@ let db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 export function getDb() {
   if (!db) {
     const { DATABASE_URL } = getEnv();
-    const client = postgres(DATABASE_URL, { max: 10 });
+    // Supabase transaction pooler (:6543) multiplexes clients and does not support
+    // prepared statements; keep few connections per instance on hosted deploys.
+    const pooled = /:6543\//.test(DATABASE_URL);
+    const client = postgres(DATABASE_URL, { max: pooled ? 3 : 10, prepare: !pooled });
     db = drizzle(client, { schema });
   }
   return db;

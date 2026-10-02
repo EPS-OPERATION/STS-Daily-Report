@@ -15,6 +15,7 @@ interface NavDef {
 const NAV: NavDef[] = [
   { id: "nav-dashboard", label: "Dashboard", to: "/", iconKey: "dashboard", description: "Project overview and KPIs", keywords: ["home", "overview", "kpi"] },
   { id: "nav-daily-reports", label: "Daily Reports", to: "/daily-reports", iconKey: "dailyReports", description: "View and manage daily reports", keywords: ["report", "list"] },
+  { id: "nav-site-coordination", label: "Map (ผังประสานงาน)", to: "/site-coordination", iconKey: "sitePlan", description: "Interactive site coordination map & callouts", keywords: ["map", "coordination", "callout", "pin", "topdown"] },
   { id: "nav-site-plan", label: "Site Plan", to: "/site-plan", iconKey: "sitePlan", description: "View WBS zones and activities", keywords: ["map", "zone", "wbs", "site"] },
   { id: "nav-today-requests", label: "Daily Request", to: "/today-requests", iconKey: "tomorrow", description: "Daily requests for inspections, machinery, and permits", keywords: ["request", "today", "plan", "permit", "inspection"] },
   { id: "nav-contractors", label: "Contractors", to: "/contractors", iconKey: "contractors", description: "Contractor registry", keywords: ["abc", "contractor", "company"] },

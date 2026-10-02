@@ -15,7 +15,7 @@
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
   Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/` dashboard, `/site-plan`, `/daily-reports` (work done summary + review queue + tomorrow plan tracking), `/tomorrow`, `/weekly-summary`,
+- Screens: `/` dashboard, `/site-coordination` (EPS Map), `/site-plan`, `/daily-reports` (work done summary + review queue + tomorrow plan tracking), `/tomorrow`, `/weekly-summary`,
   `/field` + `/field/report` + `/field/coordination` (Map), `/qaqc` (Daily Request), `/contractors`, `/work-permits`, `/progress` (Drone Progress),
   `/materials` (EPS: totals + log จาก evening check-out, real API)
 - ยังไม่มี: tests, lint config, CI, production auth, domains permits (ดู README §12/13)
@@ -94,3 +94,4 @@
   EPS (`users.role='eps'`, seed eps@sts.local) ย้าย confirmed→inspected(pass/fail)→closed; contractor แก้ได้แค่ draft/requested
 - Site plan = `building_markers` + `building_parts`/`_part_markers` (x/y 0..1 ต่อ view overview|topview|plan[แบบ CAD G A0.02]; EPS ตั้งที่ `/site-plan/config`) + `GET /site-day?date=`; report ยังไม่อ้าง part
 - Safety `/safety` (EPS): `safety_findings` (line walk + รูป MinIO) + `daily_reports.accident_category` (ผู้รับเหมาเลือก 5 หมวด) → stats; PDF = `/safety/report` (print A4, นอก AppLayout)
+- Deploy: Vercel project `sts-daily-report` (Hobby) = `vercel.json` services (web Vite + api container `Dockerfile.vercel`, `/api/*`+`/health`→api); DB Supabase `rwlndwoimtqycwqlmczm` ผ่าน transaction pooler :6543 (`prepare:false`); รูป = Supabase Storage bucket `sts` (`STORAGE_PROVIDER=supabase`); login = demo email + `DEMO_ACCESS_CODE` (`ALLOW_DEMO_LOGIN`), production บังคับ session ทุก API ยกเว้น /auth/*

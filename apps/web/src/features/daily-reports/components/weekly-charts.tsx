@@ -186,9 +186,16 @@ export function ManDayByContractorChart({
         xAxis={[
           {
             scaleType: "band",
-            data: days.map((d) => (week ? `${DAY_TH[(dayjs(d).day() + 6) % 7]} ${dayjs(d).format("D")}` : dayjs(d).format("D"))),
+            data: days,
+            // Date on the first line, the day's total headcount under it.
+            valueFormatter: (d: string, ctx) => {
+              const label = week ? `${DAY_TH[(dayjs(d).day() + 6) % 7]} ${dayjs(d).format("D")}` : dayjs(d).format("D");
+              const total = totals[days.indexOf(d)] ?? 0;
+              return ctx.location === "tick" && total ? `${label}
+${total} คน` : label;
+            },
             tickLabelStyle: { fontSize: 12 },
-            height: 32,
+            height: 48,
           },
         ]}
         // 15% headroom so the day total above the tallest bar is never clipped.
@@ -201,9 +208,12 @@ export function ManDayByContractorChart({
           data: days.map((d) => perDay.get(code)?.get(d) ?? 0),
           valueFormatter: (v: number | null) => (v ? `${v} คน` : null),
         }))}
+        // Each contractor's count inside its segment (hidden when the segment is too thin).
+        barLabel={(item, ctx) => (item.value && ctx.bar.height >= 16 && ctx.bar.width >= 18 ? String(item.value) : null)}
         slots={{ tooltip: CustomStackedBarTooltip }}
         slotProps={legendBottom}
         grid={{ horizontal: true }}
+        sx={{ "& .MuiBarLabel-root": { fill: "#FFFFFF", fontWeight: 700, fontSize: 12 } }}
       />
     </Box>
   );
