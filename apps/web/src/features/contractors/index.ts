@@ -1,5 +1,5 @@
 export * from "./types/contractor.types.js";
-export { contractorKeys } from "./api/contractor.keys.js";
+export { contractorKeys } from "@/consts/query-keys/contractors.js";
 export { contractorApi } from "./api/contractor.api.js";
 export { useContractors } from "./hooks/use-contractors.js";
 export { useContractor } from "./hooks/use-contractor.js";

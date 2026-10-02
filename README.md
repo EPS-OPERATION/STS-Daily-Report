@@ -21,8 +21,8 @@ No Base* classes, no DI framework, no codegen CRUD.
 ## 3. Repository structure
 
 ```text
-apps/web/src: app/{providers,router,layouts,theme} pages/ features/<domain>/{api,components,hooks,schemas,types}
-  components/{ui,site,field} mock/site-data.ts services/http/
+apps/web/src: app/{providers,router,layouts,theme} features/<domain>/{pages,components,hooks,helpers,api,schemas,types}
+  components/shared/ consts/query-keys/ hooks/ types/ mock/site-data.ts services/http/
 apps/api/src: config/ db/{schema,migrations,seed} modules/{contractors,projects,zones,site-activities,site-plans} plugins/ shared/{errors,http,storage}
 packages/{shared,env,typescript-config}  docker-compose.yml  .env.example
 ```
@@ -97,6 +97,8 @@ Then explicitly grant Site Configuration access to the chosen account through yo
 `db:seed:sts-default` creates/reuses Project code `STS-001`, its Master Site Layout, Overview/Top Views and 15 native Facilities. Source images in frontend-public are uploaded to MinIO; Views store object keys and the API provides authenticated presigned read URLs. Reruns reuse stored images and upgrade only the original bootstrap public references, preserving user replacements. MinIO must be available. Markers start empty because there is no approved native coordinate dataset. It seeds no Zones, Parts, Activities or Contractors. Database writes commit together; failed uploads roll back writes and newly uploaded unreferenced objects are cleaned up. Existing names, inactive states and placements are preserved. A renamed default Map is reused; ambiguous matching/default Maps cause a rollback. This command is separate from `db:backfill-facilities`, which migrates persisted legacy data.
 
 ## 10. Frontend conventions
+
+Feature pages and domain components follow the LCenter-inspired layout documented in [Frontend structure](docs/frontend-structure.md). Shared MUI presentation lives in `components/shared`, reusable Site Maps rendering in `features/site-maps`, and query keys in `consts/query-keys`. Existing route URLs and API behavior stay stable.
 
 - Feature owns api/keys/components/hooks/schemas/types; keys via `contractorKeys.all/lists/list/details/detail`.
 - No raw fetch in components; no server state in Context; no global store.

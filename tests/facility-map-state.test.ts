@@ -8,7 +8,7 @@ import {
   switchMapView,
   switchSiteMap,
   updateMarkerDraft,
-} from "../apps/web/src/features/site-plan/utils/facility-map-state.js";
+} from "../apps/web/src/features/site-maps/helpers/facility-map-state.js";
 
 describe("Facility selection and per-View marker drafts", () => {
   it("chooses active defaults and supports arbitrary dynamic Views", () => {

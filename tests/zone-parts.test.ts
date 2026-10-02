@@ -3,9 +3,9 @@ import {
   createActivityBody,
   updateActivityBody,
 } from "../apps/api/src/modules/site-activities/site-activity.schema.js";
-import { siteActivityFormSchema } from "../apps/web/src/features/site-plan/schemas/site-activity.schema.js";
-import type { PlanActivity } from "../apps/web/src/features/site-plan/types/site-plan.types.js";
-import * as zoneStatus from "../apps/web/src/features/site-plan/utils/zone-status.js";
+import { siteActivityFormSchema } from "../apps/web/src/features/site-maps/schemas/site-activity.schema.js";
+import type { PlanActivity } from "../apps/web/src/features/site-maps/types/site-plan.types.js";
+import * as zoneStatus from "../apps/web/src/features/site-maps/helpers/zone-status.js";
 import * as activityService from "../apps/api/src/modules/site-activities/site-activity.service.js";
 
 const validActivity = {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { parseGeometry } from "../apps/api/src/modules/site-plans/site-plan.geometry.js";
-import { mapToNormalized, normalizedToMap } from "../apps/web/src/features/site-plan/utils/coordinates.js";
+import { mapToNormalized, normalizedToMap } from "../apps/web/src/features/site-maps/helpers/coordinates.js";
 
 describe("normalized Site Plan geometry", () => {
   it("accepts a polygon within the normalized coordinate range", () => {

@@ -1,11 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { projectApi } from "../api/project.api.js";
-
-export const projectKeys = {
-  all: ["projects"] as const,
-  list: (status = "active") => [...projectKeys.all, "list", status] as const,
-  contractors: (projectId: string) => [...projectKeys.all, projectId, "contractors"] as const,
-};
+import { projectKeys } from "@/consts/query-keys/projects.js";
 
 export function useProjects(status: "active" | "inactive" | "all" = "active") {
   return useQuery({ queryKey: projectKeys.list(status), queryFn: () => projectApi.list(status), staleTime: 60_000 });

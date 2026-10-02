@@ -2,17 +2,17 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "@/app/layouts/app-layout.js";
 import { RequireAuth } from "@/features/auth/components/require-auth.js";
 import { ProjectProvider } from "@/features/projects/context/project-context.js";
-import { ContractorsPage } from "@/pages/contractors-page.js";
-import { ContractorHomePage } from "@/pages/contractor-home-page.js";
-import { DailyReportsPage } from "@/pages/daily-reports-page.js";
-import { DashboardPage } from "@/pages/dashboard-page.js";
-import { EveningReportPage } from "@/pages/evening-report-page.js";
-import { LoginPage } from "@/pages/login-page.js";
-import { PlaceholderPage } from "@/pages/placeholder-page.js";
-import { ProjectsPage } from "@/pages/projects-page.js";
-import { SitePlanPage } from "@/pages/site-plan-page.js";
-import { SiteConfigurationPage } from "@/pages/site-configuration-page.js";
-import { TomorrowPlanPage } from "@/pages/tomorrow-plan-page.js";
+import { ContractorsPage } from "@/features/contractors/pages/contractors-page.js";
+import { ContractorHomePage } from "@/features/field/pages/contractor-home-page.js";
+import { DailyReportsPage } from "@/features/daily-reports/pages/daily-reports-page.js";
+import { DashboardPage } from "@/features/dashboard/pages/dashboard-page.js";
+import { EveningReportPage } from "@/features/field/pages/evening-report-page.js";
+import { LoginPage } from "@/features/auth/pages/login-page.js";
+import { PlaceholderPage } from "@/components/shared/placeholder-page.js";
+import { ProjectsPage } from "@/features/projects/pages/projects-page.js";
+import { SiteActivityPage } from "@/features/site-activity/pages/site-activity-page.js";
+import { SiteConfigurationPage } from "@/features/site-configuration/pages/site-configuration-page.js";
+import { TomorrowPlanPage } from "@/features/tomorrow-plan/pages/tomorrow-plan-page.js";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -29,7 +29,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <DashboardPage /> },
           { path: "daily-reports", element: <DailyReportsPage /> },
-          { path: "site-plan", element: <SitePlanPage /> },
+          { path: "site-plan", element: <SiteActivityPage /> },
           { path: "site-plan/config", element: <Navigate to="/site-configuration" replace /> },
           { path: "site-configuration", element: <SiteConfigurationPage /> },
           { path: "tomorrow", element: <TomorrowPlanPage /> },

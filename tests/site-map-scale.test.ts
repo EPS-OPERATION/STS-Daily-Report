@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { getSitePlanScaleLimits } from "../apps/web/src/features/site-plan/hooks/use-site-plan-viewport.js";
+import { getSitePlanScaleLimits } from "../apps/web/src/features/site-maps/hooks/use-site-plan-viewport.js";
 
 test("mobile zoom-out decreases the fitted image scale instead of jumping to a desktop minimum", () => {
   const size = { w: 342, h: 400 },

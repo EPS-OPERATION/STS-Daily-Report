@@ -3,14 +3,14 @@
 > Living document: ถ้ามีการ update อะไรก็ตามใน repo นี้ (code, config, schema, script, docs, โครงสร้าง,
 > คำสั่ง build/test/deploy) ต้อง update ไฟล์นี้ให้ตรงของจริงใน commit เดียวกัน ห้ามปล่อยล้าสมัย
 
-## สถานะปัจจุบัน (2026-10-01, branch `dev`)
+## สถานะปัจจุบัน (2026-10-02, branch `dev`)
 
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
 - Schema: Project-owned Facilities, dynamic site_map_views and facility_map_markers; Maps reuse site_plans and Parts reuse zone_parts. Additive migrations `0011`–`0013` retain legacy data. `db:seed` creates the development user only.
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
-  Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
+  Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); shared UI `components/shared/` (StatusChip/KpiCard/PageHeader)
 - Screens: `/site-plan` uses API Maps/Views, Facility point markers and Activity inspector; `/site-configuration` manages Maps/Facilities/Parts, with `/site-plan/config` redirect. `/projects` supports real create/edit/Contractor assignment. Experimental R3F remains isolated. `/daily-reports` (DataGrid mock),
   `/tomorrow`, `/field` + `/evening-report` (mobile-first), `/contractors` (real API); mock ที่ `src/mock/site-data.ts`
 - Auth protects project/site-plan/zone/activity/contractor APIs; `bun test` runs Bun-native regression tests.
@@ -25,7 +25,7 @@
 
 ## Repository map
 
-- `apps/web/src`: `app/{providers,router,layouts,theme}` `pages/` `features/<domain>/` `services/http/`
+- `apps/web/src`: `app/{providers,router,layouts,theme}` `features/<domain>/{pages,components,hooks,helpers}` `components/shared/` `consts/query-keys/` `services/http/`; cross-feature Site Operations API/hooks/DTOs in root services/hooks/types. Details: `docs/frontend-structure.md`.
 - `apps/api/src`: `config/` `db/{schema,migrations,seed}` `modules/<domain>/` `plugins/` `shared/{errors,http,storage}`
 - `packages/shared` (framework-free) `packages/env` (zod contracts) `docker-compose.yml` (pg 5432, minio 9000/9001)
 - ห้าม: `packages/*` import `apps/*`; SQL ใน route; HTTP logic ใน repository; Base*/DI framework

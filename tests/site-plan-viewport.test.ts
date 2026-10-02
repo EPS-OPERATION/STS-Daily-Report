@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
 
-const viewportModule = await import("../apps/web/src/features/site-plan/hooks/use-site-plan-viewport.js");
+const viewportModule = await import("../apps/web/src/features/site-maps/hooks/use-site-plan-viewport.js");
 const observeContainer = (viewportModule as unknown as Record<string, unknown>).observeSitePlanContainer as
   ((element: HTMLDivElement | null, onResize: (size: { w: number; h: number }) => void) => () => void) | undefined;
 

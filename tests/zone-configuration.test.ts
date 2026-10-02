@@ -6,7 +6,7 @@ import {
   getZoneDescendantIds,
   getZoneDescendantPoints,
   getZoneMapInteraction,
-} from "../apps/web/src/features/site-plan/utils/site-plan-map.js";
+} from "../apps/web/src/features/site-maps/helpers/site-plan-map.js";
 
 const zones = [
   { id: "z1", code: "1", name: "Biomass", parentId: null },

@@ -5,9 +5,9 @@ import {
   getSiteViewPoints,
   markerDraftKey,
   placementProgress,
-} from "../apps/web/src/features/site-plan/utils/site-map-views.js";
+} from "../apps/web/src/features/site-maps/helpers/site-map-views.js";
 import { resolveSitePlanPoints } from "../apps/api/src/modules/site-plans/site-plan.geometry.js";
-import type { PlanMapPoint } from "../apps/web/src/features/site-plan/types/site-plan.types.js";
+import type { PlanMapPoint } from "../apps/web/src/features/site-maps/types/site-plan.types.js";
 
 describe("independent image views", () => {
   const zone = {

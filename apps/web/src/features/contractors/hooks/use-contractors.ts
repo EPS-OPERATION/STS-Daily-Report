@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { contractorApi } from "../api/contractor.api.js";
-import { contractorKeys } from "../api/contractor.keys.js";
+import { contractorKeys } from "@/consts/query-keys/contractors.js";
 import type { ContractorFilters } from "../types/contractor.types.js";
 
 export function useContractors(filters: ContractorFilters) {

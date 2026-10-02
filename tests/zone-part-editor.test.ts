@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import type { ZonePartOption } from "../apps/web/src/features/site-plan/types/site-plan.types.js";
+import type { ZonePartOption } from "../apps/web/src/features/site-maps/types/site-plan.types.js";
 
-const editorPath = "../apps/web/src/features/zone-configuration/utils/" + "zone-part-editor.js";
+const editorPath = "../apps/web/src/features/zone-configuration/helpers/" + "zone-part-editor.js";
 const zonePartEditor = await import(editorPath).catch(() => null);
 
 const part: ZonePartOption = {

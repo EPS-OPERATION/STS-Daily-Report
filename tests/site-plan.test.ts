@@ -3,13 +3,13 @@ import {
   aggregateZoneState,
   sortActivitiesByPriority,
   summarizeZone,
-} from "../apps/web/src/features/site-plan/utils/zone-status.js";
+} from "../apps/web/src/features/site-maps/helpers/zone-status.js";
 import {
   getBlankMapClickAction,
   getZoneMapInteraction,
   getZoneSubtreeActivities,
-} from "../apps/web/src/features/site-plan/utils/site-plan-map.js";
-import type { PlanActivity } from "../apps/web/src/features/site-plan/types/site-plan.types.js";
+} from "../apps/web/src/features/site-maps/helpers/site-plan-map.js";
+import type { PlanActivity } from "../apps/web/src/features/site-maps/types/site-plan.types.js";
 
 const areas = [
   { zone: { id: "1", code: "1", name: "Biomass", parentId: null, sortOrder: 1 } },
