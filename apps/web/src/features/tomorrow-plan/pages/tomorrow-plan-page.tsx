@@ -8,7 +8,9 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
 import { useState } from "react";
-import { PageHeader } from "@/components/shared/page-header.js";
+import { CompactPageHeader } from "@/components/shared/compact-page-header.js";
+import { navigationIcons } from "@/app/icons/navigation-icons.js";
+import { useCurrentProject } from "@/features/projects/context/project-context.js";
 import { TOMORROW_PLAN } from "@/mock/site-data.js";
 
 const TARGET = dayjs("2026-09-29");
@@ -56,13 +58,18 @@ function MonthGrid() {
   );
 }
 
+const TomorrowIcon = navigationIcons.tomorrow;
+
 export function TomorrowPlanPage() {
   const [view, setView] = useState<"timeline" | "calendar">("timeline");
+  const { projectId, projects } = useCurrentProject();
+  const projectName = projects.find((project) => project.id === projectId)?.name ?? "Project";
   return (
     <Box>
-      <PageHeader
+      <CompactPageHeader
+        icon={<TomorrowIcon fontSize="small" color="primary" />}
         title="Tomorrow's Plan"
-        subtitle="29 September 2026 · operational timeline is the primary view"
+        items={[{ label: projectName, to: "/projects" }, { label: "Tomorrow Plan" }]}
         actions={
           <ToggleButtonGroup
             value={view}

@@ -25,7 +25,9 @@ import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { SitePlanSvg } from "@/features/dashboard/components/site-plan-svg.js";
 import { KpiCard } from "@/components/shared/kpi-card.js";
-import { PageHeader } from "@/components/shared/page-header.js";
+import { CompactPageHeader } from "@/components/shared/compact-page-header.js";
+import { navigationIcons } from "@/app/icons/navigation-icons.js";
+import { useCurrentProject } from "@/features/projects/context/project-context.js";
 import { HIGHLIGHTS, KPI_BY_RANGE, ZONES } from "@/mock/site-data.js";
 
 type Range = "today" | "week" | "month";
@@ -37,16 +39,21 @@ const HIGHLIGHT_TONE = {
   success: { bg: "#E7F6EC", fg: "#16A34A", icon: InfoOutlinedIcon },
 } as const;
 
+const DashboardIcon = navigationIcons.dashboard;
+
 export function DashboardPage() {
   const theme = useTheme();
   const [range, setRange] = useState<Range>("today");
+  const { projectId, projects } = useCurrentProject();
+  const projectName = projects.find((project) => project.id === projectId)?.name ?? "Project";
   const kpi = KPI_BY_RANGE[range];
 
   return (
     <Box>
-      <PageHeader
+      <CompactPageHeader
+        icon={<DashboardIcon fontSize="small" color="primary" />}
         title="Project Dashboard"
-        subtitle="Overview of construction progress and daily operations"
+        items={[{ label: projectName, to: "/projects" }, { label: "Dashboard" }]}
         actions={
           <ToggleButtonGroup
             value={range}

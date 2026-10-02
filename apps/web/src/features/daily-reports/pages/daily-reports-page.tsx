@@ -23,15 +23,21 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs, { type Dayjs } from "dayjs";
 import { useMemo, useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
-import { PageHeader } from "@/components/shared/page-header.js";
+import { CompactPageHeader } from "@/components/shared/compact-page-header.js";
+import { navigationIcons } from "@/app/icons/navigation-icons.js";
+import { useCurrentProject } from "@/features/projects/context/project-context.js";
 import { StatusChip } from "@/components/shared/status-chip.js";
 import { CONTRACTOR_OPTIONS, DAILY_REPORTS, type DailyReportRow } from "@/mock/site-data.js";
 
 const ZONE_FILTER = ["All Zones", "Biomass", "Boiler", "Turbine", "WTT", "Electrical", "Utility"];
 const STATUS_FILTER = ["All Status", "Draft", "Submitted", "Pending", "Reviewed", "Approved", "Rejected"];
 
+const ReportIcon = navigationIcons.dailyReports;
+
 export function DailyReportsPage() {
   const [params] = useSearchParams();
+  const { projectId, projects } = useCurrentProject();
+  const projectName = projects.find((project) => project.id === projectId)?.name ?? "Project";
   const [from, setFrom] = useState<Dayjs | null>(dayjs("2026-09-26"));
   const [to, setTo] = useState<Dayjs | null>(dayjs("2026-09-28"));
   const [contractor, setContractor] = useState("All Contractors");
@@ -105,9 +111,10 @@ export function DailyReportsPage() {
 
   return (
     <Box>
-      <PageHeader
+      <CompactPageHeader
+        icon={<ReportIcon fontSize="small" color="primary" />}
         title="Daily Reports"
-        subtitle="View and manage daily construction reports"
+        items={[{ label: projectName, to: "/projects" }, { label: "Daily Reports" }]}
         actions={
           <Button component={RouterLink} to="/evening-report" startIcon={<AddOutlinedIcon fontSize="small" />}>
             New Report

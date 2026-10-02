@@ -30,6 +30,7 @@ export function SitePlanCanvas({
   mapH,
   markers = [],
   showLabels = true,
+  cursor = "default",
   stageDraggable,
   viewport,
   containerRef,
@@ -47,6 +48,7 @@ export function SitePlanCanvas({
   mapH: number;
   markers?: CanvasMarker[];
   showLabels?: boolean;
+  cursor?: React.CSSProperties["cursor"];
   stageDraggable: boolean;
   viewport: Viewport;
   containerRef: React.RefCallback<HTMLDivElement>;
@@ -142,7 +144,10 @@ export function SitePlanCanvas({
   const handleBackgroundClick = () => onStageClick();
 
   return (
-    <div ref={containerRef} style={{ width: "100%", height: "100%", position: "relative", touchAction: "none" }}>
+    <div
+      ref={containerRef}
+      style={{ width: "100%", height: "100%", position: "relative", touchAction: "none", cursor }}
+    >
       {loading ? (
         <LinearProgress
           aria-label="Loading site image"
@@ -222,7 +227,7 @@ export function SitePlanCanvas({
                 onMouseLeave={(event) => {
                   setHoveredKey(null);
                   const stage = event.target.getStage();
-                  if (stage) stage.container().style.cursor = "default";
+                  if (stage) stage.container().style.cursor = cursor ?? "default";
                 }}
               >
                 <Circle radius={24 / viewport.scale} fill={alpha(theme.palette.background.paper, 0.001)} />

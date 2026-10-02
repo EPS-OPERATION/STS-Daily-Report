@@ -4,6 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Alert,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
   Button,
   Checkbox,
@@ -12,10 +15,13 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  LinearProgress,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import ExpandMoreOutlinedIcon from "@mui/icons-material/ExpandMoreOutlined";
+import { ImageUploadDropzone } from "./image-upload-dropzone.js";
 import { siteOperationsApi as api } from "@/services/site-operations.api.js";
 
 type Kind = "map" | "view" | "facility" | "part";
@@ -23,6 +29,7 @@ export interface SiteResourceEditor {
   kind: Kind;
   id?: string;
   parentId?: string;
+  imageOnly?: boolean;
   initial?: {
     name?: string;
     code?: string | null;
@@ -94,7 +101,7 @@ export function SiteResourceDialog({
       setFieldError("code", { message: "Part code is required" });
       return;
     }
-    if (editor.kind === "view" && !editor.id && !file) {
+    if (editor.kind === "view" && (!editor.id || editor.imageOnly) && !file) {
       setError("Choose an image for this View.");
       return;
     }
@@ -147,6 +154,7 @@ export function SiteResourceDialog({
           });
         }
       }
+      setSavedId(id);
       await onSaved(editor.kind, id!);
       onClose();
     } catch (failure) {
@@ -158,20 +166,26 @@ export function SiteResourceDialog({
     <Dialog open onClose={() => !isSubmitting && onClose()} fullWidth maxWidth="sm">
       <Box component="form" onSubmit={submit}>
         <DialogTitle>
-          {editor.id ? "Edit" : "Add"} {label}
+          {editor.imageOnly
+            ? "Replace image"
+            : `${editor.id ? "Edit" : "Create"} ${editor.kind === "map" ? "Site Map" : label}`}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {error ? <Alert severity="error">{error}</Alert> : null}
-            <TextField
-              label={`${label} name`}
-              {...register("name")}
-              error={!!errors.name}
-              helperText={errors.name?.message}
-            />
+            {!editor.imageOnly ? (
+              <TextField
+                required
+                label={`${label} name`}
+                {...register("name")}
+                error={!!errors.name}
+                helperText={errors.name?.message}
+              />
+            ) : null}
             {editor.kind === "facility" || editor.kind === "part" ? (
               <TextField
                 label={editor.kind === "part" ? "Part code" : "Code (optional)"}
+                required={editor.kind === "part"}
                 {...register("code")}
                 error={!!errors.code}
                 helperText={errors.code?.message}
@@ -179,61 +193,78 @@ export function SiteResourceDialog({
             ) : null}
             {editor.kind === "map" ? (
               <TextField label="Description" multiline rows={2} {...register("description")} />
-            ) : (
-              <TextField
-                label="Display order"
-                type="number"
-                {...register("sortOrder")}
-                error={!!errors.sortOrder}
-                helperText={errors.sortOrder?.message}
-              />
-            )}
-            {editor.kind === "view" ? (
-              <>
-                <Typography component="label" htmlFor="site-view-image">
-                  Map image
-                </Typography>
-                <input
-                  id="site-view-image"
-                  aria-label="Map image"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                />
-                <Typography variant="caption" color="text.secondary">
-                  PNG, JPEG or WebP, up to 20 MB. {editor.id ? "Choose a file to replace the image." : ""}
-                </Typography>
-                {editor.initial?.imageUrl ? (
-                  <Box
-                    component="img"
-                    src={editor.initial.imageUrl}
-                    alt="Current Map View"
-                    sx={{ width: "100%", maxHeight: 180, objectFit: "contain" }}
-                  />
-                ) : null}
-              </>
             ) : null}
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <FormControlLabel
-                  label="Active"
-                  control={<Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} />}
-                />
-              )}
-            />
+            {editor.kind === "view" ? (
+              <ImageUploadDropzone
+                file={file}
+                currentUrl={editor.initial?.imageUrl}
+                disabled={isSubmitting}
+                onChange={setFile}
+              />
+            ) : null}
+            {editor.kind === "part" ? (
+              <Controller
+                name="isActive"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    label="Active"
+                    control={<Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} />}
+                  />
+                )}
+              />
+            ) : null}
             {editor.kind === "map" ? (
               <Controller
                 name="isDefault"
                 control={control}
                 render={({ field }) => (
                   <FormControlLabel
-                    label="Default Map"
+                    label="Make this the default map"
                     control={<Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} />}
                   />
                 )}
               />
+            ) : null}
+            {(editor.id || editor.kind === "part") && !editor.imageOnly ? (
+              <Accordion variant="outlined" disableGutters elevation={0}>
+                <AccordionSummary expandIcon={<ExpandMoreOutlinedIcon />}>
+                  <Typography variant="body2">Advanced settings</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Stack spacing={1.5}>
+                    {editor.kind !== "map" ? (
+                      <TextField
+                        label="Display order"
+                        type="number"
+                        {...register("sortOrder")}
+                        error={!!errors.sortOrder}
+                        helperText={errors.sortOrder?.message}
+                      />
+                    ) : null}
+                    {editor.kind !== "part" ? (
+                      <Controller
+                        name="isActive"
+                        control={control}
+                        render={({ field }) => (
+                          <FormControlLabel
+                            label="Active"
+                            control={
+                              <Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} />
+                            }
+                          />
+                        )}
+                      />
+                    ) : null}
+                  </Stack>
+                </AccordionDetails>
+              </Accordion>
+            ) : null}
+            {isSubmitting && editor.kind === "view" && file ? (
+              <Stack spacing={1}>
+                <Typography variant="caption">Uploading Map image…</Typography>
+                <LinearProgress aria-label="Uploading Map image" />
+              </Stack>
             ) : null}
           </Stack>
         </DialogContent>
@@ -242,7 +273,11 @@ export function SiteResourceDialog({
             Cancel
           </Button>
           <Button disabled={isSubmitting} variant="contained" type="submit">
-            {isSubmitting ? "Saving…" : `Save ${label}`}
+            {isSubmitting
+              ? "Saving…"
+              : editor.imageOnly
+                ? "Replace image"
+                : `${editor.id ? "Save" : "Create"} ${label}`}
           </Button>
         </DialogActions>
       </Box>

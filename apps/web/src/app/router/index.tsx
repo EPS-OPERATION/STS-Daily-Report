@@ -42,6 +42,7 @@ export const router = createBrowserRouter([
             element: (
               <PlaceholderPage
                 title="Manpower"
+                iconKey="manpower"
                 blurb="Track workforce headcount by contractor, zone and worker type. This module follows the contractors reference pattern."
               />
             ),
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
             element: (
               <PlaceholderPage
                 title="Work Permits"
+                iconKey="workPermits"
                 blurb="Issue and approve high-risk work permits with expiry and zone linkage. This module follows the contractors reference pattern."
               />
             ),
@@ -60,6 +62,7 @@ export const router = createBrowserRouter([
             element: (
               <PlaceholderPage
                 title="QAQC"
+                iconKey="qaqc"
                 blurb="Manage QAQC requests, inspections and RFI status per zone and contractor."
               />
             ),
@@ -69,6 +72,7 @@ export const router = createBrowserRouter([
             element: (
               <PlaceholderPage
                 title="Materials"
+                iconKey="materials"
                 blurb="Record material deliveries, quantities and suppliers linked to daily reports."
               />
             ),
@@ -78,6 +82,7 @@ export const router = createBrowserRouter([
             element: (
               <PlaceholderPage
                 title="Drone Progress"
+                iconKey="drone"
                 blurb="Compare periodic drone captures against planned progress per zone."
               />
             ),
@@ -87,6 +92,7 @@ export const router = createBrowserRouter([
             element: (
               <PlaceholderPage
                 title="Reports"
+                iconKey="reports"
                 blurb="Export and review consolidated operational reports across projects."
               />
             ),
@@ -96,6 +102,7 @@ export const router = createBrowserRouter([
             element: (
               <PlaceholderPage
                 title="Settings"
+                iconKey="settings"
                 blurb="Project configuration. Authentication is handled via server sessions."
               />
             ),

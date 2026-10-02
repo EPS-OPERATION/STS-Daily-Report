@@ -19,7 +19,6 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { PageHeader } from "@/components/shared/page-header.js";
 import { EmptyState } from "@/components/shared/empty-state.js";
 import FolderOutlinedIcon from "@mui/icons-material/FolderOutlined";
 import { useCanManageSiteConfiguration } from "@/features/auth/hooks/use-site-configuration-permission.js";
@@ -102,17 +101,13 @@ export function ProjectsPage() {
   };
   return (
     <Box>
-      <PageHeader
-        title="Projects"
-        subtitle="Create a Project, then set up its Maps and Facilities."
-        actions={
-          canManage ? (
-            <Button variant="contained" onClick={() => setEditor("new")}>
-              Add Project
-            </Button>
-          ) : undefined
-        }
-      />
+      {canManage ? (
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2, flexShrink: 0 }}>
+          <Button variant="contained" onClick={() => setEditor("new")} sx={{ flexShrink: 0 }}>
+            Add Project
+          </Button>
+        </Box>
+      ) : null}
       {projects.isLoading ? <LinearProgress /> : null}
       {projects.isError ? (
         <Alert severity="error">

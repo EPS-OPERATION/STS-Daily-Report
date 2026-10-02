@@ -27,6 +27,8 @@ import {
 } from "@mui/material";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import { PageHeader } from "@/components/shared/page-header.js";
+import { CompactPageHeader } from "@/components/shared/compact-page-header.js";
+import { navigationIcons } from "@/app/icons/navigation-icons.js";
 import { StatusChip } from "@/components/shared/status-chip.js";
 import { useCurrentProject } from "@/features/projects/context/project-context.js";
 import { useProjectContractors } from "@/features/projects/hooks/use-projects.js";
@@ -57,11 +59,14 @@ import { FacilityActivityDialog } from "@/features/site-activity/components/faci
 import { ActivityDetailDialog } from "@/features/site-activity/components/activity-detail-dialog.js";
 import type { Facility, FacilityState, OperationalStatus, SiteActivityRecord } from "@/types/site-operations.types.js";
 
+const ActivityIcon = navigationIcons.sitePlan;
+
 export function SiteActivityView() {
   const theme = useTheme(),
     compact = useMediaQuery(theme.breakpoints.down("md"));
   const canManage = useCanManageSiteConfiguration();
-  const { projectId } = useCurrentProject();
+  const { projectId, projects } = useCurrentProject();
+  const projectName = projects.find((project) => project.id === projectId)?.name ?? "Project";
   const client = useQueryClient();
   const [selection, setSelection] = useState(emptyFacilitySelection);
   const [workDate, setWorkDate] = useState(() => dayjs().format("YYYY-MM-DD"));
@@ -317,21 +322,46 @@ export function SiteActivityView() {
       </Box>
     );
   return (
-    <Box>
-      <PageHeader
+    // Fill exactly the space below the app shell (64px topbar + 1px border +
+    // 48px main padding) so the map flexes instead of pushing the screen into a scroll.
+    <Box
+      sx={{
+        height: { xs: "auto", md: "calc(100dvh - 113px)" },
+        display: "flex",
+        flexDirection: "column",
+        overflow: { xs: "visible", md: "hidden" },
+        minHeight: 0,
+      }}
+    >
+      <CompactPageHeader
+        icon={<ActivityIcon fontSize="small" color="primary" />}
         title="Site Activity"
-        subtitle="See where work is happening, then inspect Activities by Facility."
+        items={[{ label: projectName, to: "/projects" }, { label: "Site Activity" }]}
         actions={
           <Button variant="contained" onClick={() => setEditor("new")}>
             Add Activity
           </Button>
         }
       />
-      <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+      <Paper
+        variant="outlined"
+        sx={{
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          flex: { xs: "none", md: "1 1 auto" },
+          minHeight: 0,
+        }}
+      >
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={1}
-          sx={{ p: 1.5, borderBottom: "1px solid", borderColor: "divider" }}
+          sx={{
+            p: 1.5,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            flexShrink: 0,
+          }}
         >
           {maps.length > 1 ? (
             <TextField
@@ -367,7 +397,16 @@ export function SiteActivityView() {
             ))}
           </ToggleButtonGroup>
         </Stack>
-        <Grid container spacing={1.25} sx={{ p: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
+        <Grid
+          container
+          spacing={1.25}
+          sx={{
+            p: 1.5,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            flexShrink: 0,
+          }}
+        >
           <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
             <DatePicker
               label="Work date"
@@ -462,7 +501,14 @@ export function SiteActivityView() {
             {selectedFacility.name} is not placed on this View. Its Activities remain available.
           </Alert>
         ) : null}
-        <Box sx={{ display: "flex", height: { xs: "auto", md: "clamp(520px, calc(100vh - 290px), 720px)" } }}>
+        <Box
+          sx={{
+            display: "flex",
+            height: { xs: "auto", md: "auto" },
+            flex: { xs: "none", md: "1 1 auto" },
+            minHeight: 0,
+          }}
+        >
           <Box
             sx={{
               position: "relative",
@@ -552,6 +598,7 @@ export function SiteActivityView() {
                 minWidth: 280,
                 maxWidth: 440,
                 flexShrink: 0,
+                minHeight: 0,
                 borderLeft: "1px solid",
                 borderColor: "divider",
               }}
