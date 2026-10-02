@@ -76,17 +76,23 @@ function activityQuery(db: DbExecutor) {
 export async function listActivities(db: DbExecutor, projectId: string, f: SiteActivityFilters) {
   const conditions = activityConditions(projectId, f);
   const { page, pageSize } = normalizePagination({ page: f.page, pageSize: f.pageSize ?? 100 });
+  const isRecentQuery = !!f.before && !f.workDate && !f.date;
+  const statusPriority = desc(
+    sql`CASE ${siteActivities.status} WHEN 'blocked' THEN 4 WHEN 'attention' THEN 3 WHEN 'active' THEN 2 WHEN 'completed' THEN 1 ELSE 0 END`,
+  );
   const [rows, counts] = await Promise.all([
     activityQuery(db)
       .where(and(...conditions))
       .orderBy(
-        desc(
-          sql`CASE ${siteActivities.status} WHEN 'blocked' THEN 4 WHEN 'attention' THEN 3 WHEN 'active' THEN 2 WHEN 'completed' THEN 1 ELSE 0 END`,
-        ),
-        desc(siteActivities.workDate),
-        asc(sql`coalesce(${siteActivities.startTime}, '99:99')`),
-        asc(siteActivities.createdAt),
-        asc(siteActivities.id),
+        ...(isRecentQuery
+          ? [desc(siteActivities.workDate), desc(siteActivities.createdAt), asc(siteActivities.id)]
+          : [
+              statusPriority,
+              desc(siteActivities.workDate),
+              asc(sql`coalesce(${siteActivities.startTime}, '99:99')`),
+              asc(siteActivities.createdAt),
+              asc(siteActivities.id),
+            ]),
       )
       .limit(pageSize)
       .offset((page - 1) * pageSize),

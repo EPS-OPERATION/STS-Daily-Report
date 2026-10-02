@@ -72,8 +72,8 @@ export function ActivityDetailDialog({
           Close
         </Button>
         {activity ? (
-          <Button variant="text" onClick={() => onCopyToToday(activity)}>
-            Copy to today
+          <Button variant="text" onClick={() => onCopyToToday(activity)} aria-label={`Use ${activity.title} again`}>
+            Use again
           </Button>
         ) : null}
         {activity ? (

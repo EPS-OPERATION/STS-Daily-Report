@@ -163,15 +163,17 @@ export function FacilityActivityDialog({
     [contextFacilityId, singleWritableId, defaultDate],
   );
   const suggestionsQuery = useFacilityActivities(projectId, suggestionFilters, !activity && !!contextFacilityId);
-  const rankedSuggestions = useMemo(
-    () =>
-      rankSuggestions(suggestionsQuery.data?.data ?? [], {
-        contractorId: singleWritableId ?? null,
-        partId: defaultPartId ?? null,
-        limit: 5,
-      }),
-    [suggestionsQuery.data, singleWritableId, defaultPartId],
-  );
+  const rankedSuggestions = useMemo(() => {
+    const cutoff = dayjs(defaultDate).subtract(7, "day").format("YYYY-MM-DD");
+    const windowed = (suggestionsQuery.data?.data ?? []).filter(
+      (row) => row.workDate >= cutoff && row.workDate < defaultDate,
+    );
+    return rankSuggestions(windowed, {
+      contractorId: singleWritableId ?? null,
+      partId: defaultPartId ?? null,
+      limit: 5,
+    });
+  }, [suggestionsQuery.data, singleWritableId, defaultPartId, defaultDate]);
   const contextFacility = facilities.data?.data.find((row) => row.id === contextFacilityId);
   const canSuggest = !activity && !!contextFacilityId && contextFacility?.isActive !== false;
 
@@ -336,7 +338,13 @@ export function FacilityActivityDialog({
                             {row.facilityPart ? ` · ${row.facilityPart.code}` : ""}
                           </Typography>
                         </Box>
-                        <Button size="small" variant="outlined" onClick={() => applyReuse(row)} sx={{ flexShrink: 0 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => applyReuse(row)}
+                          aria-label={`Use ${row.title} again`}
+                          sx={{ flexShrink: 0 }}
+                        >
                           Use again
                         </Button>
                       </Paper>
@@ -484,9 +492,14 @@ export function FacilityActivityDialog({
                 {...register("description")}
               />
               {reuseSource ? (
-                <Typography variant="caption" color="text.secondary">
-                  Review today&apos;s values
-                </Typography>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Based on: {reuseSource.title} · {relativeDayLabel(reuseSource.workDate, defaultDate)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Review today&apos;s values
+                  </Typography>
+                </Stack>
               ) : null}
               <Grid container spacing={2}>
                 <Grid size={{ xs: 6 }}>
@@ -624,7 +637,8 @@ export function FacilityActivityDialog({
               </Accordion>
               {duplicate && dupAcked ? (
                 <Alert severity="warning">
-                  A similar Activity already exists today. Press Save Activity again to save anyway.
+                  A similar Activity already exists for this date (“{duplicate.title}”). Press Save Activity again to
+                  save anyway.
                 </Alert>
               ) : null}
             </Stack>
