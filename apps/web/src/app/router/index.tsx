@@ -23,6 +23,7 @@ import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
 import { ContractorCoordinationPage } from "@/pages/contractor-coordination-page.js";
 import { TodayRequestsPage } from "@/pages/today-requests-page.js";
 
+
 function RootIndex() {
   const me = useMe();
   if (me.isLoading) return null;
@@ -32,7 +33,8 @@ function RootIndex() {
   return <DashboardPage />;
 }
 
-export const router = createBrowserRouter([
+
+const appRoutes = [
   { path: "/login", element: <LoginPage /> },
   {
     path: "/",
@@ -89,5 +91,11 @@ export const router = createBrowserRouter([
       },
     ],
   },
-]);
+];
 
+const isPagesMock = import.meta.env.BASE_URL === "/STS-Daily-Report/";
+
+export const router = createBrowserRouter(
+  isPagesMock ? [{ path: "/", element: <ContractorCoordinationPage /> }] : appRoutes,
+  { basename: import.meta.env.BASE_URL },
+);
