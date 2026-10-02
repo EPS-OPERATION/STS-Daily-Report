@@ -26,11 +26,14 @@ import {
   useCoordinationState,
 } from "@/features/site-coordination/index.js";
 
+
 export function ContractorCoordinationPage() {
-  const me = useMe();
+  const isPagesMock = import.meta.env.BASE_URL === "/STS-Daily-Report/";
+  const me = useMe(!isPagesMock);
   const userContractors = me.data?.data.contractors ?? [];
   const primaryContractor = userContractors[0];
   const userContractorCode = primaryContractor?.code ?? "UME";
+
 
   const {
     filteredMarkers,
@@ -48,8 +51,10 @@ export function ContractorCoordinationPage() {
     resetToDefault,
   } = useCoordinationState();
 
+
   const [filterMode, setFilterMode] = useState<"all" | "mine">("all");
   const [cardDeleteTarget, setCardDeleteTarget] = useState<SiteCalloutMarker | null>(null);
+
 
   const handleFilterModeChange = (newMode: "all" | "mine") => {
     setFilterMode(newMode);
@@ -59,6 +64,7 @@ export function ContractorCoordinationPage() {
       setSelectedContractor("all");
     }
   };
+
 
   return (
     <Box sx={{ maxWidth: { xs: 540, md: 1200 }, mx: "auto", pb: { xs: 10, md: 4 } }}>
@@ -90,6 +96,7 @@ export function ContractorCoordinationPage() {
         </CardContent>
       </Card>
 
+
       {/* Visibility Toggle: All Contractors vs My Work */}
       <Stack
         direction="row"
@@ -114,6 +121,7 @@ export function ContractorCoordinationPage() {
           </ToggleButton>
         </ToggleButtonGroup>
 
+
         <Button
           size="small"
           variant="text"
@@ -125,6 +133,7 @@ export function ContractorCoordinationPage() {
           รีเซ็ต
         </Button>
       </Stack>
+
 
       {/* Top-View Map Board */}
       <Card sx={{ mb: 2.5 }}>
@@ -145,16 +154,19 @@ export function ContractorCoordinationPage() {
         </CardContent>
       </Card>
 
+
       {/* Marker Cards Stream for Field Workers */}
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
         รายการจุดงานในพื้นที่ ({filteredMarkers.length})
       </Typography>
+
 
       <Stack spacing={1.5} sx={{ mb: 4 }}>
         {filteredMarkers.map((m) => {
           const iconObj = SITE_ICONS.find((i) => i.type === m.icon);
           const isSelected = m.id === activeMarkerId;
           const isMine = m.contractorCode === userContractorCode;
+
 
           return (
             <Card
@@ -212,6 +224,7 @@ export function ContractorCoordinationPage() {
                   </Button>
                 </Stack>
 
+
                 <Typography variant="body2" sx={{ fontWeight: 700, color: "#0F172A", mt: 0.5 }}>
                   {m.text}
                 </Typography>
@@ -220,6 +233,7 @@ export function ContractorCoordinationPage() {
           );
         })}
       </Stack>
+
 
       {/* Delete Confirmation Dialog for Card Stream */}
       <Dialog
@@ -302,8 +316,9 @@ export function ContractorCoordinationPage() {
         </DialogActions>
       </Dialog>
 
+
       {/* Mobile Field Bottom Nav */}
-      <FieldBottomNav />
+      {!isPagesMock && <FieldBottomNav />}
     </Box>
   );
 }
