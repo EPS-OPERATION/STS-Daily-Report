@@ -32,9 +32,8 @@ import { PageHeader } from "@/components/ui/page-header.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import {
   ContractorBadge,
-  MachineryAllocationTable,
   ReviewDialog,
-  RoadUsageTable,
+  TomorrowPlanTable,
   WorkDoneSummaryTable,
   addDaysIso,
   formatThaiDate,
@@ -44,11 +43,9 @@ import {
   useReviewQueue,
   useWeeklySummary,
   type InspectionRequest,
-  type ReportEquipmentRequest,
   type ReviewQueueRow,
   type ReviewStatus,
-  type WeeklyBooking,
-  type WeeklySummary,
+  type TomorrowActivityItem,
   type WorkDoneItem,
 } from "@/features/daily-reports/index.js";
 import { useSiteDay } from "@/features/site-plan/index.js";
@@ -442,6 +439,165 @@ function getSampleWorkDoneItems(date: string): WorkDoneItem[] {
   ];
 }
 
+// Domain-accurate fallback sample planned activities for tomorrow
+function getSampleTomorrowActivities(tomorrow: string): TomorrowActivityItem[] {
+  return [
+    {
+      id: "tomorrow-sample-1",
+      reportDate: tomorrow,
+      contractorCode: "CTR-002",
+      contractorName: "ZCE Construction",
+      buildingCode: "1.1",
+      buildingName: "Fuel Yard",
+      workDescription: "งานผูกเหล็กและเทคอนกรีตลานกองเชื้อเพลิง",
+      headcount: 12,
+      planPercent: 100,
+      linkedResource: "ขอรถโม่คอนกรีต 4 คัน",
+    },
+    {
+      id: "tomorrow-sample-2",
+      reportDate: tomorrow,
+      contractorCode: "CTR-002",
+      contractorName: "ZCE Construction",
+      buildingCode: "1.2",
+      buildingName: "Waste bunker",
+      workDescription: "งานติดตั้งเหล็กเสริมผนัง bunker EL.+10.30 - EL.+15.00",
+      headcount: 10,
+      planPercent: 100,
+      linkedResource: "ใบอนุญาต: ทำงานบนที่สูง",
+    },
+    {
+      id: "tomorrow-sample-3",
+      reportDate: tomorrow,
+      contractorCode: "CTR-002",
+      contractorName: "ZCE Construction",
+      buildingCode: "0.1",
+      buildingName: "Road & Drainage",
+      workDescription: "งานปรับระดับบดอัดหินคลุกถนน Main Road ทางเข้าโครงการ",
+      headcount: 8,
+      planPercent: 100,
+      linkedResource: "ขอรถบดสั่นสะเทือน 10T",
+    },
+    {
+      id: "tomorrow-sample-4",
+      reportDate: tomorrow,
+      contractorCode: "CTR-002",
+      contractorName: "ZCE Construction",
+      buildingCode: "1.1",
+      buildingName: "Tipping Hall",
+      workDescription: "งานประกอบโครงสร้างเหล็กหลังคา Tipping Hall",
+      headcount: 8,
+      planPercent: 80,
+      linkedResource: "ขอจองเครน 50 ตัน",
+    },
+    {
+      id: "tomorrow-sample-5",
+      reportDate: tomorrow,
+      contractorCode: "CTR-003",
+      contractorName: "LCE Electrical",
+      buildingCode: "2.1",
+      buildingName: "Boiler Building",
+      workDescription: "งานเชื่อม Piping boiler H3F005 และ Fin wall ด้านซ้ายช่วงที่ 2",
+      headcount: 14,
+      planPercent: 100,
+      linkedResource: "ขอตรวจ QAQC: NDT รอยเชื่อม (10:30)",
+    },
+    {
+      id: "tomorrow-sample-6",
+      reportDate: tomorrow,
+      contractorCode: "CTR-003",
+      contractorName: "LCE Electrical",
+      buildingCode: "2.1",
+      buildingName: "Dearerator Boiler",
+      workDescription: "งานติดตั้ง L-Bolt Deaerator & Reaction tower EL+10.00",
+      headcount: 10,
+      planPercent: 100,
+      linkedResource: "ขอตรวจ QAQC: ระดับ Bolt (14:00)",
+    },
+    {
+      id: "tomorrow-sample-7",
+      reportDate: tomorrow,
+      contractorCode: "CTR-003",
+      contractorName: "LCE Electrical",
+      buildingCode: "4.1",
+      buildingName: "TG Hall",
+      workDescription: "งานเดินท่อไอน้ำ Main Steam Pipe เชื่อมต่อไปยัง Turbine",
+      headcount: 12,
+      planPercent: 100,
+      linkedResource: "ขอจองเครน 25 ตัน, ใบอนุญาต Hot Work",
+    },
+    {
+      id: "tomorrow-sample-8",
+      reportDate: tomorrow,
+      contractorCode: "CTR-003",
+      contractorName: "LCE Electrical",
+      buildingCode: "5.1",
+      buildingName: "Transformer Yard",
+      workDescription: "งานดึงสายเคเบิลแรงสูง MV 22kV เข้าหม้อแปลงหลัก",
+      headcount: 8,
+      planPercent: 100,
+    },
+    {
+      id: "tomorrow-sample-9",
+      reportDate: tomorrow,
+      contractorCode: "CTR-004",
+      contractorName: "UME Engineering",
+      buildingCode: "4.1",
+      buildingName: "TG Hall",
+      workDescription: "งานยก ประกอบ และติดตั้งชุด Generator 1 (Stator & Rotor)",
+      headcount: 16,
+      planPercent: 100,
+      linkedResource: "ขอจองเครน 150 ตัน, ใบอนุญาตยกของหนัก",
+    },
+    {
+      id: "tomorrow-sample-10",
+      reportDate: tomorrow,
+      contractorCode: "CTR-004",
+      contractorName: "UME Engineering",
+      buildingCode: "1.1",
+      buildingName: "Fuel Silo",
+      workDescription: "งานติดตั้ง Polary Support Silo และโครงสายพานลำเลียง",
+      headcount: 10,
+      planPercent: 100,
+      linkedResource: "ขอรถกระเช้า Boom Lift 24M",
+    },
+    {
+      id: "tomorrow-sample-11",
+      reportDate: tomorrow,
+      contractorCode: "CTR-004",
+      contractorName: "UME Engineering",
+      buildingCode: "3.1",
+      buildingName: "Bagfilter",
+      workDescription: "งานประกอบโครงสร้าง Bagfilter Hoppers และราวกั้นตกทางเดิน",
+      headcount: 8,
+      planPercent: 100,
+      linkedResource: "ใบอนุญาต: ทำงานบนที่สูง",
+    },
+    {
+      id: "tomorrow-sample-12",
+      reportDate: tomorrow,
+      contractorCode: "CTR-004",
+      contractorName: "UME Engineering",
+      buildingCode: "6.1",
+      buildingName: "Cooling Tower",
+      workDescription: "งานติดตั้งชุดใบพัด Cooling Tower Fan Unit 1-2",
+      headcount: 6,
+      planPercent: 100,
+    },
+    {
+      id: "tomorrow-sample-13",
+      reportDate: tomorrow,
+      contractorCode: "CTR-001",
+      contractorName: "PPW Construction",
+      buildingCode: "0.2",
+      buildingName: "Fence & Security Gate",
+      workDescription: "งานก่อกำแพงกันดินแนวรั้วโครงการฝั่งทิศตะวันออก",
+      headcount: 8,
+      planPercent: 100,
+    },
+  ];
+}
+
 // Admin check & Daily Report summary for contractors.
 // Supports single day or date range filtering with contractor filter.
 export function DailyReportsPage() {
@@ -460,9 +616,11 @@ export function DailyReportsPage() {
   const [reviewTarget, setReviewTarget] = useState<ReviewQueueRow | null>(null);
 
   const { projectId } = useCurrentProject();
+  const tomorrow = addDaysIso(todayIso(), 1);
   const reviewQueue = useReviewQueue(projectId, isRange ? { from, to } : from);
   const inspections = useInspectionRequests(projectId, { from, to, by: "report" });
   const siteDay = useSiteDay(projectId, from, to);
+  const siteDayTomorrow = useSiteDay(projectId, tomorrow, tomorrow);
 
   const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
@@ -541,7 +699,6 @@ export function DailyReportsPage() {
   }, [contractorNames, workDoneItems]);
 
   // Tomorrow plan: requests raised in evening reports with target_date = tomorrow.
-  const tomorrow = addDaysIso(todayIso(), 1);
   const tomorrowWeek = useWeeklySummary(projectId, mondayOf(tomorrow));
   const codeOfContractor = useMemo(() => {
     const m = new Map<string, string>();
@@ -563,6 +720,40 @@ export function DailyReportsPage() {
     return { machinery, roads, equipment };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tomorrowWeek.data, tomorrow, contractor, codeOfContractor]);
+
+  // Aggregate tomorrow planned activities across all contractors (from real DB or domain sample)
+  const tomorrowActivities: TomorrowActivityItem[] = useMemo(() => {
+    const buildings = siteDayTomorrow.data?.data?.buildings ?? [];
+    const items: TomorrowActivityItem[] = [];
+
+    for (const b of buildings) {
+      for (let i = 0; i < (b.activities ?? []).length; i++) {
+        const a = b.activities[i];
+        items.push({
+          id: `real-${a.reportDate}-${a.contractorCode}-${b.id}-${i}`,
+          reportDate: a.reportDate,
+          contractorCode: a.contractorCode,
+          contractorName: a.contractorName,
+          buildingCode: b.code,
+          buildingName: b.name,
+          workDescription: a.workDescription,
+          headcount: a.headcount,
+          planPercent: a.planPercent,
+        });
+      }
+    }
+
+    if (items.length > 0) return items;
+    return getSampleTomorrowActivities(tomorrow);
+  }, [siteDayTomorrow.data, tomorrow]);
+
+  // Combined list of contractors for tomorrow's activities
+  const tomorrowContractorNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of contractorNames) set.add(c);
+    for (const item of tomorrowActivities) set.add(item.contractorName);
+    return [...set].sort();
+  }, [contractorNames, tomorrowActivities]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -734,12 +925,14 @@ export function DailyReportsPage() {
               isRange={isRange}
             />
           ) : viewMode === "tomorrow-plan" ? (
-            /* View 3: Tomorrow Plan — requests raised for tomorrow, same summary style */
-            <TomorrowPlanView
+            /* View 3: Tomorrow Plan — activities & requests raised for tomorrow */
+            <TomorrowPlanTable
               tomorrow={tomorrow}
-              contractor={contractor}
+              items={tomorrowActivities}
+              contractors={tomorrowContractorNames}
+              selectedContractor={contractor}
+              onSelectContractor={setContractor}
               plans={tomorrowPlans}
-              loading={tomorrowWeek.isPending}
               inspections={requestList.filter(
                 (r) => r.inspectionDate === tomorrow && (contractor === "All Contractors" || r.contractorName === contractor),
               )}
@@ -910,180 +1103,3 @@ export function DailyReportsPage() {
   );
 }
 
-// Tomorrow plan detail in the Work Done Summary style: everything contractors
-// raised in evening reports for tomorrow (machinery, equipment, roads) plus
-// QAQC inspections scheduled for tomorrow.
-function TomorrowPlanView({
-  tomorrow,
-  contractor,
-  plans,
-  loading,
-  inspections,
-}: {
-  tomorrow: string;
-  contractor: string;
-  plans: {
-    machinery: WeeklyBooking[];
-    roads: WeeklySummary["roads"];
-    equipment: ReportEquipmentRequest[];
-  } | null;
-  loading: boolean;
-  inspections: InspectionRequest[];
-}) {
-  if (loading || !plans) {
-    return (
-      <Stack spacing={2}>
-        <Skeleton variant="rounded" height={90} />
-        <Skeleton variant="rounded" height={200} />
-      </Stack>
-    );
-  }
-  const total = plans.machinery.length + plans.roads.length + plans.equipment.length + inspections.length;
-  const scope = contractor === "All Contractors" ? "ทุกผู้รับเหมา" : contractor;
-  return (
-    <Box>
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {(
-          [
-            ["คำขอทั้งหมด", `${total} รายการ`, `สำหรับ ${formatThaiDate(tomorrow)} · ${scope}`],
-            ["เครื่องจักร", `${plans.machinery.length} รายการ`, ""],
-            ["อุปกรณ์ + ถนน", `${plans.equipment.length + plans.roads.length} รายการ`, ""],
-            ["ตรวจ QAQC", `${inspections.length} รายการ`, ""],
-          ] as const
-        ).map(([label, value, sub]) => (
-          <Grid key={label} size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card variant="outlined">
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {label}
-                </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, my: 0.5 }}>
-                  {value}
-                </Typography>
-                {sub ? (
-                  <Typography variant="caption" color="text.secondary">
-                    {sub}
-                  </Typography>
-                ) : null}
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      {total === 0 ? (
-        <EmptyState
-          icon={<EventNoteOutlinedIcon />}
-          title="ยังไม่มีแผนงานพรุ่งนี้"
-          description="ผู้รับเหมายังไม่ได้ส่งคำขอสำหรับวันพรุ่งนี้ — รายการจะปรากฏที่นี่หลังส่งรายงานเย็น"
-        />
-      ) : (
-        <Stack spacing={2.5}>
-          <Card variant="outlined">
-            <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
-                จองเครื่องจักรพรุ่งนี้
-              </Typography>
-              {plans.machinery.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  ไม่มีการจองเครื่องจักร
-                </Typography>
-              ) : (
-                <MachineryAllocationTable bookings={plans.machinery} onlyConflicts={false} />
-              )}
-            </CardContent>
-          </Card>
-
-          <Card variant="outlined">
-            <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
-                เครื่องมือ / อุปกรณ์พรุ่งนี้
-              </Typography>
-              {plans.equipment.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  ไม่มีการขออุปกรณ์
-                </Typography>
-              ) : (
-                <Table size="small" aria-label="Tomorrow equipment requests">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>ผู้รับเหมา</TableCell>
-                      <TableCell>อุปกรณ์</TableCell>
-                      <TableCell align="right">จำนวน</TableCell>
-                      <TableCell>อาคาร</TableCell>
-                      <TableCell>วัตถุประสงค์</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {plans.equipment.map((e) => (
-                      <TableRow key={e.id} hover>
-                        <TableCell sx={{ fontWeight: 600 }}>{e.contractorCode}</TableCell>
-                        <TableCell>{e.equipmentType}</TableCell>
-                        <TableCell align="right">{e.qty}</TableCell>
-                        <TableCell>{e.buildingCode}</TableCell>
-                        <TableCell>{e.purpose ?? "—"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card variant="outlined">
-            <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
-                ถนนพรุ่งนี้
-              </Typography>
-              {plans.roads.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  ไม่มีการขอใช้ถนน
-                </Typography>
-              ) : (
-                <RoadUsageTable roads={plans.roads} />
-              )}
-            </CardContent>
-          </Card>
-
-          <Card variant="outlined">
-            <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
-                ตรวจ QAQC พรุ่งนี้
-              </Typography>
-              {inspections.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  ไม่มีการนัดตรวจ QAQC
-                </Typography>
-              ) : (
-                <Table size="small" aria-label="Tomorrow QAQC inspections">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>เวลา</TableCell>
-                      <TableCell>ผู้รับเหมา</TableCell>
-                      <TableCell>งานที่ขอตรวจ</TableCell>
-                      <TableCell>อาคาร</TableCell>
-                      <TableCell>สถานะ</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {inspections.map((r) => (
-                      <TableRow key={r.id} hover>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>{r.inspectionTime}</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>{r.contractorName}</TableCell>
-                        <TableCell>{r.workItem}</TableCell>
-                        <TableCell>{r.buildingCode}</TableCell>
-                        <TableCell>
-                          <StatusChip status={r.status} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </Stack>
-      )}
-    </Box>
-  );
-}

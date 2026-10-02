@@ -8,4 +8,5 @@ app.listen(env.API_PORT, () => {
   console.log(`api listening on http://localhost:${env.API_PORT}`);
 });
 
+export default app;
 export type { App } from "./app.js";

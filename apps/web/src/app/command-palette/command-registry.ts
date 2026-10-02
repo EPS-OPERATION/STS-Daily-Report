@@ -16,7 +16,6 @@ const NAV: NavDef[] = [
   { id: "nav-dashboard", label: "Dashboard", to: "/", iconKey: "dashboard", description: "Project overview and KPIs", keywords: ["home", "overview", "kpi"] },
   { id: "nav-daily-reports", label: "Daily Reports", to: "/daily-reports", iconKey: "dailyReports", description: "View and manage daily reports", keywords: ["report", "list"] },
   { id: "nav-site-plan", label: "Site Plan", to: "/site-plan", iconKey: "sitePlan", description: "View WBS zones and activities", keywords: ["map", "zone", "wbs", "site"] },
-  { id: "nav-site-coordination", label: "Map", to: "/site-coordination", iconKey: "sitePlan", description: "Top-view collaborative site coordination map", keywords: ["map", "meeting", "coordination", "crane", "machine", "ผัง"] },
   { id: "nav-today-requests", label: "Daily Request", to: "/today-requests", iconKey: "tomorrow", description: "Daily requests for inspections, machinery, and permits", keywords: ["request", "today", "plan", "permit", "inspection"] },
   { id: "nav-contractors", label: "Contractors", to: "/contractors", iconKey: "contractors", description: "Contractor registry", keywords: ["abc", "contractor", "company"] },
   { id: "nav-manpower", label: "Manpower", to: "/manpower", iconKey: "manpower", description: "Workforce headcount", keywords: ["worker", "people", "labour", "labor"] },

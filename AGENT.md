@@ -15,7 +15,7 @@
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
   Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/` dashboard, `/site-plan`, `/site-coordination` (Map: collaborative CAD callout board), `/daily-reports` (work done summary + review queue), `/tomorrow`, `/weekly-summary`,
+- Screens: `/` dashboard, `/site-plan`, `/daily-reports` (work done summary + review queue + tomorrow plan tracking), `/tomorrow`, `/weekly-summary`,
   `/field` + `/field/report` + `/field/coordination` (Map), `/qaqc` (Daily Request), `/contractors`, `/work-permits`, `/progress` (Drone Progress),
   `/materials` (EPS: totals + log จาก evening check-out, real API)
 - ยังไม่มี: tests, lint config, CI, production auth, domains permits (ดู README §12/13)

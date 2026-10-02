@@ -20,7 +20,6 @@ import { SafetyPage } from "@/pages/safety-page.js";
 import { SafetyReportPrintPage } from "@/pages/safety-report-page.js";
 import { SitePlanPage } from "@/pages/site-plan-page.js";
 import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
-import { SiteCoordinationPage } from "@/pages/site-coordination-page.js";
 import { ContractorCoordinationPage } from "@/pages/contractor-coordination-page.js";
 import { TodayRequestsPage } from "@/pages/today-requests-page.js";
 
@@ -64,7 +63,6 @@ export const router = createBrowserRouter([
             element: <RoleGuard allowedRoles={["eps"]} redirectTo="/field" />,
             children: [
               { path: "daily-reports", element: <DailyReportsPage /> },
-              { path: "site-coordination", element: <SiteCoordinationPage /> },
               { path: "site-plan", element: <SitePlanPage /> },
               { path: "site-plan/config", element: <SitePlanConfigPage /> },
               { path: "today-requests", element: <TodayRequestsPage /> },
