@@ -87,7 +87,7 @@ export function CoordinationMapBoard({
     moved: boolean;
   } | null>(null);
 
-  const mapSrc = mapView === "plan" ? "/site-plan/site-plan-drawing.png" : "/site-plan/site-model-topdown.png";
+    const mapSrc = mapView === "plan" ? `${import.meta.env.BASE_URL}site-plan/site-plan-drawing.png` : `${import.meta.env.BASE_URL}site-plan/site-model-topdown.png`;
 
   const pointFrom = (clientX: number, clientY: number) => {
     const rect = surfaceRef.current?.getBoundingClientRect();
