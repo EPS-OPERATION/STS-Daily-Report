@@ -9,19 +9,22 @@ interface ProjectContextValue {
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
+const isPagesMock = import.meta.env.BASE_URL === "/STS-Daily-Report/";
+const mockProjects = [{ id: "pages-mock", code: "STS", name: "STS Site Coordination (Mock)" }];
 
 // Current project context shared by the topbar selector and feature screens.
 // Defaults to the first active project once loaded.
 export function ProjectProvider({ children }: { children: ReactNode }) {
-  const query = useProjects();
+  const query = useProjects(!isPagesMock);
   const [overrideId, setOverrideId] = useState<string | null>(null);
-  const projects = useMemo(() => query.data?.data ?? [], [query.data]);
+  const fetchedProjects = useMemo(() => query.data?.data ?? [], [query.data]);
+  const projects = isPagesMock ? mockProjects : fetchedProjects;
 
   const value: ProjectContextValue = {
     projectId: overrideId ?? projects[0]?.id ?? null,
     setProjectId: setOverrideId,
     projects,
-    loading: query.isLoading,
+    loading: !isPagesMock && query.isLoading,
   };
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
 }

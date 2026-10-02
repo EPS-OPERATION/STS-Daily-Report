@@ -21,6 +21,7 @@ import { SafetyReportPrintPage } from "@/pages/safety-report-page.js";
 import { SitePlanPage } from "@/pages/site-plan-page.js";
 import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
 import { ContractorCoordinationPage } from "@/pages/contractor-coordination-page.js";
+import { PagesMockFieldReportPage } from "@/pages/pages-mock-field-report-page.js";
 import { TodayRequestsPage } from "@/pages/today-requests-page.js";
 
 
@@ -96,6 +97,22 @@ const appRoutes = [
 const isPagesMock = import.meta.env.BASE_URL === "/STS-Daily-Report/";
 
 export const router = createBrowserRouter(
-  isPagesMock ? [{ path: "/", element: <ContractorCoordinationPage /> }] : appRoutes,
+  isPagesMock
+    ? [
+        {
+          path: "/",
+          element: <AppLayout />,
+          children: [
+            { index: true, element: <Navigate to="/field" replace /> },
+            { path: "field", element: <ContractorHomePage /> },
+            { path: "field/report", element: <PagesMockFieldReportPage /> },
+            { path: "field/coordination", element: <ContractorCoordinationPage /> },
+            { path: "daily-reports", element: <Navigate to="/field/report" replace /> },
+            { path: "work-permits", element: <Navigate to="/field" replace /> },
+            { path: "*", element: <Navigate to="/field" replace /> },
+          ],
+        },
+      ]
+    : appRoutes,
   { basename: import.meta.env.BASE_URL },
 );

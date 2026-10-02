@@ -7,8 +7,8 @@ export const projectKeys = {
   contractors: (projectId: string) => [...projectKeys.all, projectId, "contractors"] as const,
 };
 
-export function useProjects() {
-  return useQuery({ queryKey: projectKeys.list(), queryFn: () => projectApi.list(), staleTime: 60_000 });
+export function useProjects(enabled = true) {
+  return useQuery({ queryKey: projectKeys.list(), queryFn: () => projectApi.list(), enabled, staleTime: 60_000 });
 }
 
 export function useProjectContractors(projectId: string | null) {

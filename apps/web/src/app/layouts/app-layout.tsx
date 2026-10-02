@@ -31,6 +31,7 @@ import { useMe } from "@/features/auth/hooks/use-me.js";
 import { navigationIcons, type NavigationIconKey } from "@/app/icons/navigation-icons.js";
 
 const DRAWER_WIDTH = 248;
+const isPagesMock = import.meta.env.BASE_URL === "/STS-Daily-Report/";
 
 interface NavItem {
   to: string;
@@ -95,10 +96,12 @@ const GROUPS: NavGroup[] = [
 ];
 
 function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
-  const me = useMe();
+  const me = useMe(!isPagesMock);
   const role = me.data?.data.user.role ?? "contractor";
   const isContractor = role === "contractor";
-  const visibleGroups = GROUPS.filter((g) => g.roles.includes(role));
+  const visibleGroups = isPagesMock
+    ? GROUPS.filter((g) => g.title === "Field App")
+    : GROUPS.filter((g) => g.roles.includes(role));
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
@@ -231,7 +234,7 @@ export function AppLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const desktop = useMediaQuery("(min-width:900px)");
 
-  useCommandPaletteShortcut(paletteOpen, setPaletteOpen);
+  useCommandPaletteShortcut(paletteOpen && !isPagesMock, setPaletteOpen);
 
   const sidebarWidth = collapsed ? 76 : DRAWER_WIDTH;
 
@@ -316,7 +319,8 @@ export function AppLayout() {
                 ))}
               </Select>
             </FormControl>
-            <Button
+            {!isPagesMock && (
+              <Button
               variant="outlined"
               color="inherit"
               size="small"
@@ -338,14 +342,20 @@ export function AppLayout() {
               }}
             >
               Search anything…
-            </Button>
+              </Button>
+            )}
             <Box sx={{ flexGrow: 1 }} />
-            <IconButton aria-label="Notifications">
-              <Badge color="error" variant="dot">
-                <NotificationsNoneOutlinedIcon />
-              </Badge>
-            </IconButton>
-            <UserMenu />
+            {!isPagesMock && (
+              <>
+                <IconButton aria-label="Notifications">
+                  <Badge color="error" variant="dot">
+                    <NotificationsNoneOutlinedIcon />
+                  </Badge>
+                </IconButton>
+                <UserMenu />
+              </>
+            )}
+            {isPagesMock && <Typography variant="body2" color="text.secondary">Mock user · UME</Typography>}
           </Toolbar>
         </Box>
 
@@ -353,7 +363,7 @@ export function AppLayout() {
           <Outlet />
         </Box>
       </Box>
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      {!isPagesMock && <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />}
     </Box>
   );
 }
