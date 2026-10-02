@@ -78,7 +78,7 @@ export function TodayRequestsPage() {
     <Box>
       <PageHeader
         title="Daily Request"
-        subtitle="คำขอประจำวันจากผู้รับเหมา (ส่งในรายงานเย็นของวันก่อน) — เครื่องจักร อุปกรณ์ ถนน และ QAQC"
+        subtitle="คำขอประจำวันจากผู้รับเหมา (ส่งในรายงานบ่ายของวันก่อน) — เครื่องจักร อุปกรณ์ ถนน และ QAQC"
         actions={
           <DateRangeFields from={from} to={to} maxDays={62} onChange={setRange} />
         }

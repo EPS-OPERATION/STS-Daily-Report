@@ -22,7 +22,7 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
   return (
     <Stack spacing={2}>
       <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
-        {report.morningStatus === "submitted" ? "ส่งรายงานครบทั้งเช้าและเย็นแล้ว" : "ส่งรายงานเย็นแล้ว (ไม่มีรายงานเช้า)"}
+        {report.morningStatus === "submitted" ? "ส่งรายงานครบทั้งเช้าและบ่ายแล้ว" : "ส่งรายงานบ่ายแล้ว (ไม่มีรายงานเช้า)"}
         {report.eveningSubmittedAt ? ` · ${dayjs(report.eveningSubmittedAt).format("HH:mm")}` : ""} — รอ EPS ตรวจสอบ
       </Alert>
       <Card>
@@ -96,7 +96,7 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
       <SectionCard
         index={1}
         title="คำขอสำหรับวันพรุ่งนี้ (Tomorrow's Requests)"
-        subtitle={`สำหรับ ${formatThaiDate(report.requestsForDate)} — ส่งแล้วพร้อมรายงานเย็น`}
+        subtitle={`สำหรับ ${formatThaiDate(report.requestsForDate)} — ส่งแล้วพร้อมรายงานบ่าย`}
       >
         {report.machinery.length + report.equipmentRequests.length + report.permits.length + report.roadUsage.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>

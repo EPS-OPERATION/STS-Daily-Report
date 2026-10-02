@@ -31,7 +31,7 @@ export function PaletteShortcutHint() {
     <Box
       component="span"
       sx={{
-        fontSize: 8,
+        fontSize: 12,
         color: "text.disabled",
         whiteSpace: "nowrap",
       }}

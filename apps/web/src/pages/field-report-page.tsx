@@ -110,7 +110,7 @@ export function FieldReportPage() {
             </ToggleButton>
             <ToggleButton value="evening">
               <WbTwilightOutlinedIcon fontSize="small" />
-              เย็น<Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}> — Check-out</Box>
+              บ่าย<Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}> — Check-out</Box>
               {eveningDone ? <CheckCircleOutlineIcon fontSize="small" color="success" /> : null}
             </ToggleButton>
           </ToggleButtonGroup>
@@ -158,7 +158,7 @@ export function FieldReportPage() {
           report={report}
           buildings={buildings.data?.data ?? []}
           onSubmitted={() => {
-            setToast("ส่งรายงานเย็นเรียบร้อย");
+            setToast("ส่งรายงานบ่ายเรียบร้อย");
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />

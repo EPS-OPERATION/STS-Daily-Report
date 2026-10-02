@@ -117,6 +117,13 @@ export const roadUsageSchema = z
   })
   .refine((r) => r.startTime < r.endTime, { message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม", path: ["endTime"] });
 
+// Materials on site today (paper form "Add Material on site"): free-text name + qty + unit.
+export const materialSchema = z.object({
+  name: z.string().trim().min(1, "ระบุชื่อวัสดุ").max(120),
+  qty: z.number().gt(0, "ต้องมากกว่า 0").max(1000000),
+  unit: z.string().trim().min(1, "เลือกหน่วย").max(20),
+});
+
 export const eveningSchema = z
   .object({
     otHours: z.number().min(0, "ต้องไม่ติดลบ").max(24, "ไม่เกิน 24 ชม."),
@@ -138,6 +145,8 @@ export const eveningSchema = z
     equipmentRequests: z.array(equipmentRequestSchema),
     permits: z.array(permitSchema),
     roadUsage: z.array(roadUsageSchema),
+    // Materials on site today.
+    materials: z.array(materialSchema).max(30),
   })
   .superRefine((v, ctx) => {
     if (v.accidentOccurred === null) {
@@ -157,6 +166,14 @@ export const eveningSchema = z
           message: "ผลงานต่ำกว่าแผน — ต้องระบุสาเหตุและมาตรการแก้ไข",
         });
       }
+    });
+    const seenMaterials = new Set<string>();
+    v.materials.forEach((m, i) => {
+      const key = `${m.name.trim().toLowerCase()}|${m.unit.trim().toLowerCase()}`;
+      if (seenMaterials.has(key)) {
+        ctx.addIssue({ code: "custom", path: ["materials", i, "name"], message: "วัสดุ + หน่วยนี้ซ้ำ" });
+      }
+      seenMaterials.add(key);
     });
     if (v.otHours * 2 !== Math.round(v.otHours * 2)) {
       ctx.addIssue({ code: "custom", path: ["otHours"], message: "กรอกทีละ 0.5 ชม." });

@@ -18,6 +18,7 @@ import {
   dailyReportAllocations,
   dailyReportEquipment,
   dailyReportMachinery,
+  dailyReportMaterials,
   dailyReportPermits,
   dailyReportPositions,
   dailyReportRoadUsage,
@@ -348,6 +349,7 @@ type SamplePlan = {
   alloc: Array<{ b: BuildingCode; n: number; work: string; plan: number }>;
   permits: Array<{ b: BuildingCode; type: PermitType; workers: number }>;
   machines: Array<{ b: BuildingCode; type: MachineType; tag?: string; from: string; to: string; purpose: string }>;
+  materials: Array<{ name: string; qty: number; unit: string }>;
 };
 const SAMPLE_PLANS: SamplePlan[] = [
   {
@@ -367,6 +369,10 @@ const SAMPLE_PLANS: SamplePlan[] = [
       { b: "BLR", type: "Mobile Crane 50T", tag: "CR-01", from: "08:00", to: "12:00", purpose: "Lift boiler steel line A–D" },
       { b: "BLR", type: "Boom Lift", from: "13:00", to: "17:00", purpose: "Weld platform L3" },
     ],
+    materials: [
+      { name: "เหล็กเส้น", qty: 2.5, unit: "ton" },
+      { name: "ลวดผูกเหล็ก", qty: 30, unit: "kg" },
+    ],
   },
   {
     contractorId: SAMPLE_CONTRACTORS[1]!.id,
@@ -380,6 +386,10 @@ const SAMPLE_PLANS: SamplePlan[] = [
     ],
     permits: [{ b: "ACC", type: "lifting", workers: 4 }],
     machines: [{ b: "ACC", type: "Mobile Crane 50T", tag: "CR-01", from: "10:00", to: "15:00", purpose: "Set ACC fan deck panels" }],
+    materials: [
+      { name: "ปูนซีเมนต์", qty: 120, unit: "bag" },
+      { name: "ทรายหยาบ", qty: 8, unit: "m³" },
+    ],
   },
   {
     contractorId: SAMPLE_CONTRACTORS[2]!.id,
@@ -392,6 +402,7 @@ const SAMPLE_PLANS: SamplePlan[] = [
     ],
     permits: [{ b: "STK", type: "height", workers: 8 }],
     machines: [{ b: "STK", type: "Boom Lift", from: "08:00", to: "17:00", purpose: "Stack platform welding" }],
+    materials: [{ name: "คอนกรีตผสมเสร็จ", qty: 15, unit: "m³" }],
   },
 ];
 
@@ -457,6 +468,9 @@ for (const date of weekDays) {
     await db
       .insert(dailyReportEquipment)
       .values(Object.entries(plan.equipment).map(([equipmentType, qty]) => ({ reportId, equipmentType, qty: qty! })));
+    await db.insert(dailyReportMaterials).values(
+      plan.materials.map((m) => ({ reportId, materialName: m.name, qty: String(m.qty), unit: m.unit })),
+    );
     await db.insert(dailyReportAllocations).values(
       plan.alloc.map((a, i) => ({
         reportId,
@@ -498,6 +512,26 @@ for (const date of weekDays) {
         purpose: zce ? "Crane outrigger setup" : "Concrete mixer staging",
       });
     }
+  }
+}
+
+// Backfill materials for reports seeded before the materials table existed (idempotent).
+{
+  const existing = await db
+    .select({ id: dailyReports.id, contractorId: dailyReports.contractorId })
+    .from(dailyReports)
+    .where(eq(dailyReports.projectId, PROJECT_ID));
+  const withMaterials = new Set(
+    (await db.select({ reportId: dailyReportMaterials.reportId }).from(dailyReportMaterials)).map((r) => r.reportId),
+  );
+  for (const r of existing) {
+    if (withMaterials.has(r.id)) continue;
+    const plan = SAMPLE_PLANS.find((p) => p.contractorId === r.contractorId);
+    if (!plan) continue;
+    await db
+      .insert(dailyReportMaterials)
+      .values(plan.materials.map((m) => ({ reportId: r.id, materialName: m.name, qty: String(m.qty), unit: m.unit })))
+      .onConflictDoNothing();
   }
 }
 

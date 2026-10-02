@@ -1,4 +1,4 @@
-import { and, asc, between, count, desc, eq, inArray, ne, or } from "drizzle-orm";
+import { and, asc, between, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import {
   buildings,
   contractors,
@@ -6,6 +6,7 @@ import {
   dailyReportEquipment,
   dailyReportEquipmentRequests,
   dailyReportMachinery,
+  dailyReportMaterials,
   dailyReportPermits,
   dailyReportPhotos,
   dailyReportPositions,
@@ -286,6 +287,83 @@ export async function listReportsForReview(
     .orderBy(desc(dailyReports.reportDate), contractors.code);
 }
 
+export interface MaterialsLogFilter {
+  from?: string;
+  to?: string;
+  search?: string;
+  contractorId?: string;
+  limit: number;
+  offset: number;
+}
+
+// EPS materials dashboard: what each contractor reported on site per day.
+function materialsLogWhere(projectId: string, f: Omit<MaterialsLogFilter, "limit" | "offset">) {
+  return and(
+    eq(dailyReports.projectId, projectId),
+    f.from && f.to
+      ? between(dailyReports.reportDate, f.from, f.to)
+      : f.from
+        ? eq(dailyReports.reportDate, f.from)
+        : undefined,
+    f.contractorId ? eq(dailyReports.contractorId, f.contractorId) : undefined,
+    f.search ? ilike(dailyReportMaterials.materialName, `%${f.search}%`) : undefined,
+  );
+}
+
+export async function listMaterialsLog(db: Db, projectId: string, f: MaterialsLogFilter) {
+  return db
+    .select({
+      id: dailyReportMaterials.id,
+      reportDate: dailyReports.reportDate,
+      contractorId: dailyReports.contractorId,
+      contractorCode: contractors.code,
+      contractorName: contractors.name,
+      materialName: dailyReportMaterials.materialName,
+      qty: dailyReportMaterials.qty,
+      unit: dailyReportMaterials.unit,
+    })
+    .from(dailyReportMaterials)
+    .innerJoin(dailyReports, eq(dailyReportMaterials.reportId, dailyReports.id))
+    .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
+    .where(materialsLogWhere(projectId, f))
+    .orderBy(desc(dailyReports.reportDate), contractors.code, asc(dailyReportMaterials.materialName))
+    .limit(f.limit)
+    .offset(f.offset);
+}
+
+export async function countMaterialsLog(
+  db: Db,
+  projectId: string,
+  f: Omit<MaterialsLogFilter, "limit" | "offset">,
+) {
+  const rows = await db
+    .select({ n: count() })
+    .from(dailyReportMaterials)
+    .innerJoin(dailyReports, eq(dailyReportMaterials.reportId, dailyReports.id))
+    .where(materialsLogWhere(projectId, f));
+  return rows[0]?.n ?? 0;
+}
+
+export async function summarizeMaterials(
+  db: Db,
+  projectId: string,
+  f: Omit<MaterialsLogFilter, "limit" | "offset">,
+) {
+  const rows = await db
+    .select({
+      materialName: dailyReportMaterials.materialName,
+      unit: dailyReportMaterials.unit,
+      entries: count(),
+      totalQty: sql<string>`sum(${dailyReportMaterials.qty})`,
+    })
+    .from(dailyReportMaterials)
+    .innerJoin(dailyReports, eq(dailyReportMaterials.reportId, dailyReports.id))
+    .where(materialsLogWhere(projectId, f))
+    .groupBy(dailyReportMaterials.materialName, dailyReportMaterials.unit)
+    .orderBy(desc(count()));
+  return rows.map((r) => ({ materialName: r.materialName, unit: r.unit, entries: r.entries, totalQty: Number(r.totalQty) }));
+}
+
 export async function listPositions(db: Db, reportId: string) {
   return db
     .select({ position: dailyReportPositions.position, headcount: dailyReportPositions.headcount })
@@ -298,6 +376,19 @@ export async function listEquipment(db: Db, reportId: string) {
     .select({ equipmentType: dailyReportEquipment.equipmentType, qty: dailyReportEquipment.qty })
     .from(dailyReportEquipment)
     .where(eq(dailyReportEquipment.reportId, reportId));
+}
+
+export async function listMaterials(db: Db, reportId: string) {
+  const rows = await db
+    .select({
+      materialName: dailyReportMaterials.materialName,
+      qty: dailyReportMaterials.qty,
+      unit: dailyReportMaterials.unit,
+    })
+    .from(dailyReportMaterials)
+    .where(eq(dailyReportMaterials.reportId, reportId))
+    .orderBy(asc(dailyReportMaterials.materialName));
+  return rows.map((r) => ({ materialName: r.materialName, qty: Number(r.qty), unit: r.unit }));
 }
 
 export async function listPhotos(db: Db, reportId: string) {
@@ -435,6 +526,7 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
     await tx.delete(dailyReportEquipmentRequests).where(eq(dailyReportEquipmentRequests.reportId, reportId));
     await tx.delete(dailyReportPermits).where(eq(dailyReportPermits.reportId, reportId));
     await tx.delete(dailyReportRoadUsage).where(eq(dailyReportRoadUsage.reportId, reportId));
+    await tx.delete(dailyReportMaterials).where(eq(dailyReportMaterials.reportId, reportId));
     if (input.machinery.length > 0) {
       await tx.insert(dailyReportMachinery).values(
         input.machinery.map((m) => ({
@@ -483,6 +575,16 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
           startTime: r.startTime,
           endTime: r.endTime,
           purpose: r.purpose.trim(),
+        })),
+      );
+    }
+    if (input.materials.length > 0) {
+      await tx.insert(dailyReportMaterials).values(
+        input.materials.map((m) => ({
+          reportId,
+          materialName: m.name.trim(),
+          qty: String(m.qty),
+          unit: m.unit.trim(),
         })),
       );
     }

@@ -139,7 +139,7 @@ export function RequestSection({
       </Button>
       {!eveningSubmitted && rows.some((r) => r.status === "draft") ? (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-          คำขอที่เป็น Draft จะถูกส่งให้ QAQC อัตโนมัติเมื่อกดส่งรายงานเย็น
+          คำขอที่เป็น Draft จะถูกส่งให้ QAQC อัตโนมัติเมื่อกดส่งรายงานบ่าย
         </Typography>
       ) : null}
       {remove.error instanceof HttpError ? (

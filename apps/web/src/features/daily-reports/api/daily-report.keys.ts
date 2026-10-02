@@ -20,4 +20,9 @@ export const dailyReportKeys = {
       projectId,
       typeof params === "string" ? params : `${params.from ?? ""}_${params.to ?? ""}_${params.date ?? ""}`,
     ] as const,
+  materialLists: () => [...dailyReportKeys.all, "materials"] as const,
+  materials: (
+    projectId: string,
+    filters: { from?: string; to?: string; search?: string; contractorId?: string; page: number; pageSize: number },
+  ) => [...dailyReportKeys.materialLists(), projectId, filters] as const,
 };

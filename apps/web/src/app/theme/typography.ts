@@ -1,6 +1,8 @@
 import type { TypographyVariantsOptions } from "@mui/material/styles";
 
-const fontStack = `"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif`;
+// Inter for Latin, Noto Sans Thai (loopless, modern) for Thai — without it Windows falls back
+// to a small looped system Thai font.
+const fontStack = `"Inter","Noto Sans Thai",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif`;
 
 export const typography: TypographyVariantsOptions = {
   fontFamily: fontStack,
@@ -10,8 +12,8 @@ export const typography: TypographyVariantsOptions = {
   h4: { fontSize: 20, fontWeight: 600, lineHeight: 1.4 },
   h5: { fontSize: 18, fontWeight: 600, lineHeight: 1.4 },
   h6: { fontSize: 16, fontWeight: 600, lineHeight: 1.4 },
-  body1: { fontSize: 14, fontWeight: 400, lineHeight: 1.55 },
-  body2: { fontSize: 13, fontWeight: 400, lineHeight: 1.5 },
-  caption: { fontSize: 12, fontWeight: 400, lineHeight: 1.5 },
-  button: { fontSize: 14, fontWeight: 600, textTransform: "none" as const },
+  body1: { fontSize: 15, fontWeight: 400, lineHeight: 1.6 },
+  body2: { fontSize: 14, fontWeight: 400, lineHeight: 1.55 },
+  caption: { fontSize: 14, fontWeight: 400, lineHeight: 1.5 },
+  button: { fontSize: 15, fontWeight: 600, textTransform: "none" as const },
 };

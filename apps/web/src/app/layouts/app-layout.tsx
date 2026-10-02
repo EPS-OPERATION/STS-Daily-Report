@@ -56,6 +56,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { to: "/daily-reports", label: "Daily Reports", icon: "dailyReports" },
       { to: "/today-requests", label: "Daily Request", icon: "tomorrow" },
+      { to: "/site-coordination", label: "Map", icon: "sitePlan" },
       { to: "/site-plan", label: "Site Plan", icon: "sitePlan" },
     ],
   },
@@ -84,6 +85,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { to: "/field", label: "Contractor Home", icon: "field" },
       { to: "/field/report", label: "Contractor Daily Report", icon: "dailyReports" },
+      { to: "/field/coordination", label: "Map", icon: "sitePlan" },
     ],
   },
   {
@@ -125,7 +127,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
             </Typography>
             <Typography
               variant="caption"
-              sx={{ color: isContractor ? "#60A5FA" : "#9DB4CC", fontWeight: isContractor ? 600 : 400, display: collapsed ? "none" : "block" }}
+              sx={{ color: isContractor ? "#60A5FA" : "#9DB4CC", fontWeight: isContractor ? 600 : 400, fontSize: 12, whiteSpace: "nowrap", display: collapsed ? "none" : "block" }}
             >
               {isContractor ? "Contractor Field" : "Construction Operations"}
             </Typography>
@@ -139,7 +141,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
             {!collapsed && (
               <Typography
                 variant="caption"
-                sx={{ px: 1.5, color: "#7E96B3", textTransform: "uppercase", letterSpacing: 0.8, fontSize: 11 }}
+                sx={{ px: 1.5, color: "#7E96B3", textTransform: "uppercase", letterSpacing: 0.8, fontSize: 12 }}
               >
                 {group.title}
               </Typography>

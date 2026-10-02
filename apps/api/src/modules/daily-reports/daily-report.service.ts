@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { REQUEST_STATUSES, manHours, workloadLevel, type PermitType, type RequestStatus } from "@sts/shared";
+import { REQUEST_STATUSES, manHours, normalizePagination, workloadLevel, type PermitType, type RequestStatus } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import type { AuthContext } from "@/auth/auth.types.js";
@@ -26,6 +26,10 @@ import {
   listEquipment,
   listEquipmentRequests,
   listEquipmentRequestsInRange,
+  listMaterials,
+  listMaterialsLog,
+  countMaterialsLog,
+  summarizeMaterials,
   listPositions,
   listReportHoursInRange,
   listPositionsInRange,
@@ -98,7 +102,7 @@ async function reportDetail(reportId: string) {
   if (!report) throw new NotFoundError("Daily report not found", { reportId });
   // machinery / permits / roadUsage on a report are the requests it raised for the next day.
   const tomorrow = addDays(report.reportDate, 1);
-  const [positions, equipment, allocations, machinery, equipmentRequests, permits, roadUsage, photos, bookings, others, otherRoads] =
+  const [positions, equipment, allocations, machinery, equipmentRequests, permits, roadUsage, photos, bookings, others, otherRoads, materials] =
     await Promise.all([
       listPositions(db, reportId),
       listEquipment(db, reportId),
@@ -111,6 +115,7 @@ async function reportDetail(reportId: string) {
       listBookingsForReport(db, reportId),
       listBookingsForTargetExcluding(db, report.projectId, tomorrow, reportId),
       listRoadUsageForTargetExcluding(db, report.projectId, tomorrow, reportId),
+      listMaterials(db, reportId),
     ]);
   const ownIds = new Set(bookings.map((b) => b.id));
   const conflicts = findMachineryConflicts([...bookings, ...others]).filter(
@@ -143,6 +148,7 @@ async function reportDetail(reportId: string) {
     equipmentRequests,
     permits,
     roadUsage,
+    materials,
     requestsForDate: tomorrow,
     photos: photosWithUrls,
     roadConflicts: findRoadConflicts([...roadUsage, ...otherRoads])
@@ -331,6 +337,22 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
     input.permits,
     input.roadUsage,
   );
+  // Materials on site: one row per material + unit, positive quantity.
+  const seenMaterials = new Set<string>();
+  for (const m of input.materials) {
+    const name = m.name.trim();
+    const unit = m.unit.trim();
+    if (!name) throw new ValidationError("Material name is required");
+    if (!unit) throw new ValidationError("Material unit is required", { material: name });
+    if (!Number.isFinite(m.qty) || m.qty <= 0) {
+      throw new ValidationError("Material quantity must be above 0", { material: name });
+    }
+    const key = `${name.toLowerCase()}|${unit.toLowerCase()}`;
+    if (seenMaterials.has(key)) {
+      throw new ValidationError("Each material + unit may appear only once", { material: name });
+    }
+    seenMaterials.add(key);
+  }
 
   // Actuals are only possible for buildings the morning shift planned.
   const allocations = report ? await listAllocations(db, report.id) : [];
@@ -424,6 +446,33 @@ function toReviewRow(r: {
 }
 
 export type ReviewQueueRow = ReturnType<typeof toReviewRow>;
+
+// ---- materials dashboard ---------------------------------------------------
+// EPS view of what contractors reported on site (open read, like weekly summary).
+export async function materialsService(
+  projectId: string,
+  query: { from?: string; to?: string; search?: string; contractorId?: string; page?: string; pageSize?: string },
+) {
+  const db = getDb();
+  await assertProject(projectId);
+  const p = normalizePagination(query as Record<string, unknown>);
+  const filter = {
+    from: query.from,
+    to: query.to,
+    search: query.search?.trim() || undefined,
+    contractorId: query.contractorId,
+  };
+  const [rows, total, summary] = await Promise.all([
+    listMaterialsLog(db, projectId, { ...filter, limit: p.pageSize, offset: (p.page - 1) * p.pageSize }),
+    countMaterialsLog(db, projectId, filter),
+    summarizeMaterials(db, projectId, filter),
+  ]);
+  return {
+    data: rows.map((r) => ({ ...r, qty: Number(r.qty) })),
+    summary,
+    meta: { page: p.page, pageSize: p.pageSize, total },
+  };
+}
 
 // ---- photos ----------------------------------------------------------------
 

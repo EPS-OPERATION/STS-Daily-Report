@@ -87,3 +87,21 @@ export function useDailyRequests(projectId: string | null, from: string, to: str
     placeholderData: keepPreviousData,
   });
 }
+
+export interface MaterialsFilters {
+  from?: string;
+  to?: string;
+  search?: string;
+  contractorId?: string;
+  page: number;
+  pageSize: number;
+}
+
+export function useMaterials(projectId: string | null, filters: MaterialsFilters) {
+  return useQuery({
+    queryKey: dailyReportKeys.materials(projectId ?? "", filters),
+    queryFn: () => dailyReportApi.materials(projectId!, filters),
+    enabled: Boolean(projectId),
+    placeholderData: keepPreviousData,
+  });
+}

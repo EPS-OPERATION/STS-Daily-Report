@@ -20,7 +20,7 @@ function ShortcutHint({ label }: { label: string }) {
     <Box
       component="span"
       sx={{
-        fontSize: 11,
+        fontSize: 12,
         color: "text.secondary",
         border: "1px solid",
         borderColor: "divider",
@@ -101,7 +101,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
               <Typography
                 variant="caption"
                 color="text.secondary"
-                sx={{ px: 1.5, textTransform: "uppercase", letterSpacing: 0.8, fontSize: 11 }}
+                sx={{ px: 1.5, textTransform: "uppercase", letterSpacing: 0.8, fontSize: 12 }}
               >
                 {groupLabel(g.group)}
               </Typography>
@@ -138,7 +138,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                         primary={cmd.label}
                         secondary={cmd.description}
                         primaryTypographyProps={{ fontSize: 14, fontWeight: selected ? 600 : 500 }}
-                        secondaryTypographyProps={{ fontSize: 12 }}
+                        secondaryTypographyProps={{ fontSize: 13 }}
                       />
                       {selected ? <ShortcutHint label="Enter" /> : null}
                     </ListItemButton>

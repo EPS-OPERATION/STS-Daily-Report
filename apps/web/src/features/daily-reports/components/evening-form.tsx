@@ -28,6 +28,7 @@ import { RequestSection } from "./request-section.js";
 import { SectionCard } from "./section-card.js";
 import { SignaturePad } from "./signature-pad.js";
 import { EquipmentRequests, MachineryRequests, PermitRequests, RoadUsageRequests } from "./tomorrow-requests.js";
+import { MaterialInputs } from "./material-inputs.js";
 
 // Evening check-out. Independent of the morning shift: without a morning report there
 // is simply no plan to report actuals against. Also where tomorrow's requests are made.
@@ -88,6 +89,11 @@ export function EveningForm({
         endTime: r.endTime,
         purpose: r.purpose,
       })),
+      materials: (report?.materials ?? []).map((m) => ({
+        name: m.materialName,
+        qty: m.qty,
+        unit: m.unit,
+      })),
       progress: allocations.map((a) => ({
         allocationId: a.id,
         planPercent: a.planPercent,
@@ -145,6 +151,11 @@ export function EveningForm({
           startTime: r.startTime,
           endTime: r.endTime,
           purpose: r.purpose.trim(),
+        })),
+        materials: v.materials.map((m) => ({
+          name: m.name.trim(),
+          qty: m.qty,
+          unit: m.unit.trim(),
         })),
       },
       { onSuccess: onSubmitted },
@@ -256,7 +267,7 @@ export function EveningForm({
       <SectionCard index={3} tone="navy" title="ผลงานจริงรายอาคาร (Status % vs Plan %)" subtitle="ดึงแผนจากรายงานเช้า">
         {allocations.length === 0 ? (
           <Alert severity="info">
-            ไม่มีแผนจากรายงานเช้า — ส่งรายงานเย็นได้ตามปกติ (ถ้าต้องการบันทึกผลงานรายอาคาร ให้กรอกรายงานเช้าก่อน)
+            ไม่มีแผนจากรายงานเช้า — ส่งรายงานบ่ายได้ตามปกติ (ถ้าต้องการบันทึกผลงานรายอาคาร ให้กรอกรายงานเช้าก่อน)
           </Alert>
         ) : (
           <Stack spacing={1.5}>
@@ -280,7 +291,7 @@ export function EveningForm({
         index={5}
         tone="navy"
         title="คำขอและแผนงานสำหรับวันพรุ่งนี้ (Tomorrow's Requests)"
-        subtitle={`สำหรับ ${formatThaiDate(tomorrow)} — ใช้ในประชุมประสานงาน 17:00 ส่งพร้อมรายงานเย็น`}
+        subtitle={`สำหรับ ${formatThaiDate(tomorrow)} — ใช้ในประชุมประสานงาน 17:00 ส่งพร้อมรายงานบ่าย`}
       >
         <SubHeading>ขอตรวจ QAQC</SubHeading>
         <RequestSection
@@ -304,7 +315,16 @@ export function EveningForm({
         <PermitRequests control={control} buildings={buildings} />
       </SectionCard>
 
-      <SectionCard index={6} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
+      <SectionCard
+        index={6}
+        tone="navy"
+        title="วัสดุหน้างาน (Materials on site)"
+        subtitle="วัสดุที่รับเข้าหรือใช้ไปวันนี้ — กรอกเฉพาะที่มี"
+      >
+        <MaterialInputs control={control} />
+      </SectionCard>
+
+      <SectionCard index={7} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
         <Stack spacing={1.5}>
           <Controller
             name="signatureName"
@@ -347,7 +367,7 @@ export function EveningForm({
         }}
       >
         <Button type="submit" size="large" fullWidth disabled={submit.isPending} sx={{ bgcolor: "navy.main" }}>
-          {submit.isPending ? "กำลังส่ง…" : "ส่งรายงานเย็น (Check-out)"}
+          {submit.isPending ? "กำลังส่ง…" : "ส่งรายงานบ่าย (Check-out)"}
         </Button>
       </Box>
     </Box>

@@ -1,7 +1,9 @@
 import TrendingDownOutlinedIcon from "@mui/icons-material/TrendingDownOutlined";
 import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
 import Card from "@mui/material/Card";
+import CardActionArea from "@mui/material/CardActionArea";
 import CardContent from "@mui/material/CardContent";
+import { Link as RouterLink } from "react-router-dom";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
@@ -17,6 +19,8 @@ export interface KpiCardProps {
   icon: ReactNode;
   iconBg: string;
   iconFg: string;
+  /** Optional page link — the whole card becomes clickable. */
+  to?: string;
 }
 
 // Enterprise KPI: label row, inline value+unit (never wraps), delta row.
@@ -31,6 +35,7 @@ export function KpiCard({
   icon,
   iconBg,
   iconFg,
+  to,
 }: KpiCardProps) {
   const theme = useTheme();
   const subColor =
@@ -41,7 +46,12 @@ export function KpiCard({
         : theme.palette.text.secondary;
   const TrendIcon = trend === "down" ? TrendingDownOutlinedIcon : TrendingUpOutlinedIcon;
   return (
-    <Card>
+    <Card sx={{ height: "100%" }}>
+      <CardActionArea
+        {...(to ? { component: RouterLink, to } : { disabled: true })}
+        aria-label={to ? `${label} — open page` : undefined}
+        sx={{ height: "100%", "&.Mui-disabled": { opacity: 1 } }}
+      >
       <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
         <Stack direction="row" spacing={1.25} alignItems="center">
           <span
@@ -86,6 +96,7 @@ export function KpiCard({
           </Typography>
         </Stack>
       </CardContent>
+      </CardActionArea>
     </Card>
   );
 }

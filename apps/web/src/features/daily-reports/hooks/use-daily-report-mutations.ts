@@ -12,6 +12,7 @@ function useInvalidateReports() {
     void queryClient.invalidateQueries({ queryKey: dailyReportKeys.weeklies() });
     void queryClient.invalidateQueries({ queryKey: dailyReportKeys.requestLists() });
     void queryClient.invalidateQueries({ queryKey: dailyReportKeys.reviewLists() });
+    void queryClient.invalidateQueries({ queryKey: dailyReportKeys.materialLists() });
   };
 }
 

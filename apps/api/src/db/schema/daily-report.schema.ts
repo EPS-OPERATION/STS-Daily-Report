@@ -114,6 +114,26 @@ export const dailyReportEquipment = pgTable(
   ],
 );
 
+// Materials on site today (evening check-out) with quantity + unit.
+// Free-text names — contractors type what was delivered/used.
+export const dailyReportMaterials = pgTable(
+  "daily_report_materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reportId: uuid("report_id")
+      .notNull()
+      .references(() => dailyReports.id, { onDelete: "cascade" }),
+    materialName: text("material_name").notNull(),
+    qty: numeric("qty").notNull(),
+    unit: text("unit").notNull().default("pcs"),
+  },
+  (t) => [
+    unique("daily_report_materials_report_name_unit_unique").on(t.reportId, t.materialName, t.unit),
+    check("daily_report_materials_qty_check", sql`${t.qty} > 0`),
+    index("daily_report_materials_report_idx").on(t.reportId),
+  ],
+);
+
 // Morning: people placed in a building + planned %. Evening: actual % (+ countermeasure when behind).
 export const dailyReportAllocations = pgTable(
   "daily_report_allocations",

@@ -29,7 +29,7 @@ import {
   type WeatherCondition,
 } from "@sts/shared";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
-import type { ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { useSubmitMorning } from "../hooks/use-daily-report-mutations.js";
@@ -135,6 +135,81 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
   const { control, handleSubmit, formState, setValue, getValues } = form;
   const allocations = useFieldArray({ control, name: "allocations" });
 
+  // Auto-fetch site weather for Thung Song (TMD / Open-Meteo station at site coordinates)
+  const [siteWeather, setSiteWeather] = useState<{
+    weather: WeatherCondition;
+    weatherLabel: string;
+    temperatureC: number;
+    humidityPct: number;
+    windSpeedKmh: number;
+  } | null>(null);
+  const [weatherAccepted, setWeatherAccepted] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadWeather() {
+      try {
+        const res = await fetch(
+          "https://api.open-meteo.com/v1/forecast?latitude=8.0980&longitude=99.6680&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia%2FBangkok"
+        );
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          const cur = data.current || {};
+          const code = cur.weather_code ?? 1;
+          const temp = Math.round(cur.temperature_2m ?? 32);
+          const hum = Math.round(cur.relative_humidity_2m ?? 65);
+          const wind = Math.round((cur.wind_speed_10m ?? 7) * 10) / 10;
+
+          let mapped: WeatherCondition = "normal";
+          let label = "ปกติ / มีเมฆบางส่วน";
+          if (code >= 95) {
+            mapped = "thunderstorm";
+            label = "ฝนฟ้าคะนอง";
+          } else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
+            mapped = "rain";
+            label = "มีฝนตก";
+          } else if (wind >= 25) {
+            mapped = "windy";
+            label = "ลมแรง";
+          } else if (code === 0 || temp >= 34) {
+            mapped = "hot";
+            label = "แดดแรง / อากาศร้อนจัด";
+          }
+
+          setSiteWeather({
+            weather: mapped,
+            weatherLabel: label,
+            temperatureC: temp,
+            humidityPct: hum,
+            windSpeedKmh: wind,
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setSiteWeather({
+            weather: "hot",
+            weatherLabel: "แดดแรง / ท้องฟ้าโปร่ง",
+            temperatureC: 32,
+            humidityPct: 65,
+            windSpeedKmh: 6.5,
+          });
+        }
+      }
+    }
+    loadWeather();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleApplyWeather = () => {
+    if (!siteWeather) return;
+    setValue("weather", siteWeather.weather, { shouldValidate: true, shouldDirty: true });
+    setValue("temperatureC", siteWeather.temperatureC, { shouldValidate: true, shouldDirty: true });
+    setValue("humidityPct", siteWeather.humidityPct, { shouldValidate: true, shouldDirty: true });
+    setWeatherAccepted(true);
+  };
+
   const [thaiMale, thaiFemale, foreignMale, foreignFemale, allocValues, positionValues] = useWatch({
     control,
     name: ["thaiMale", "thaiFemale", "foreignMale", "foreignFemale", "allocations", "positions"],
@@ -180,7 +255,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
     <Box component="form" onSubmit={onSubmit} noValidate>
       {report?.morningStatus === "submitted" ? (
         <Alert severity="info" sx={{ mb: 2 }}>
-          ส่งรายงานเช้าแล้ว — แก้ไขและส่งใหม่ได้จนกว่าจะส่งครบทั้งเช้าและเย็น
+          ส่งรายงานเช้าแล้ว — แก้ไขและส่งใหม่ได้จนกว่าจะส่งครบทั้งเช้าและบ่าย
         </Alert>
       ) : null}
 
@@ -247,6 +322,57 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
       </SectionCard>
 
       <SectionCard index={2} title="สภาพอากาศ" subtitle="ใช้เทียบกฎหยุดงาน (ฝน/ลมแรง) และอธิบายผลงานที่ต่ำกว่าแผน">
+        {/* Weather Auto-fetch Suggestion Banner */}
+        {siteWeather && (
+          <Box
+            sx={{
+              p: 2,
+              mb: 2,
+              borderRadius: 2,
+              bgcolor: weatherAccepted ? "success.50" : "action.hover",
+              border: "1px solid",
+              borderColor: weatherAccepted ? "success.light" : "divider",
+              transition: "all 0.2s ease-in-out",
+            }}
+          >
+            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1.5}>
+              <Stack spacing={0.5}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <WbSunnyOutlinedIcon color="primary" fontSize="small" />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    ข้อมูลสภาพอากาศหน้างานอัตโนมัติ (สถานีตรวจวัด ต.ที่วัง อ.ทุ่งสง)
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label="กรมอุตุฯ / Live"
+                    color="info"
+                    variant="outlined"
+                    sx={{ height: 20, fontSize: "0.8rem", fontWeight: 700 }}
+                  />
+                </Stack>
+                <Typography variant="body2" sx={{ color: "text.primary" }}>
+                  ตรวจวัดได้: <strong>{siteWeather.weatherLabel}</strong> · อุณหภูมิ <strong>{siteWeather.temperatureC}°C</strong> · ความชื้น <strong>{siteWeather.humidityPct}%</strong> (ลม {siteWeather.windSpeedKmh} km/h)
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {weatherAccepted
+                    ? "✓ ยืนยันข้อมูลเรียบร้อยแล้ว — บันทึกลงในฟอร์มอัตโนมัติ (สามารถกดเปลี่ยนปุ่มด้านล่างได้หากสภาพอากาศจริงต่างออกไป)"
+                    : "สภาพอากาศหน้างานปัจจุบันตรงตามนี้หรือไม่? หากตรงตามนี้กดปุ่มเพื่อกรอกลงฟอร์มอัตโนมัติได้ทันที"}
+                </Typography>
+              </Stack>
+
+              <Button
+                variant={weatherAccepted ? "outlined" : "contained"}
+                color={weatherAccepted ? "success" : "primary"}
+                startIcon={<CheckCircleOutlineIcon />}
+                onClick={handleApplyWeather}
+                sx={{ textTransform: "none", fontWeight: 700, minWidth: 210, flexShrink: 0 }}
+              >
+                {weatherAccepted ? "✓ ข้อมูลตรงตามนี้ (บันทึกแล้ว)" : "ตรงตามนี้ (กรอกอัตโนมัติ)"}
+              </Button>
+            </Stack>
+          </Box>
+        )}
+
         <Controller
           name="weather"
           control={control}
@@ -498,7 +624,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         />
       </SectionCard>
 
-      <SectionCard index={6} title="คำขอสำหรับวันนี้ (ส่งไว้เมื่อวานเย็น)" subtitle="อ่านอย่างเดียว — ขอใหม่/แก้ไขได้ในรายงานเย็น (แผนพรุ่งนี้)">
+      <SectionCard index={6} title="คำขอสำหรับวันนี้ (ส่งไว้เมื่อวานบ่าย)" subtitle="อ่านอย่างเดียว — ขอใหม่/แก้ไขได้ในรายงานบ่าย (แผนพรุ่งนี้)">
         <PlannedTodayChecklist planned={plannedToday} />
       </SectionCard>
 

@@ -132,8 +132,8 @@ export function ContractorHomePage() {
       </Typography>
       <Grid container spacing={1.5} sx={{ mb: 2 }}>
         {[
+          { label: "Map", icon: <MapOutlinedIcon />, to: "/field/coordination" },
           { label: "Evening Report", icon: <DescriptionOutlinedIcon />, to: "/field/report?shift=evening" },
-          { label: "View Plan", icon: <MapOutlinedIcon />, to: "/tomorrow" },
         ].map((a) => (
           <Grid key={a.label} size={{ xs: 6, md: 3 }}>
             <Card

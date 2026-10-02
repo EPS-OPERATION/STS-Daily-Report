@@ -3,21 +3,22 @@
 > Living document: ถ้ามีการ update อะไรก็ตามใน repo นี้ (code, config, schema, script, docs, โครงสร้าง,
 > คำสั่ง build/test/deploy) ต้อง update ไฟล์นี้ให้ตรงของจริงใน commit เดียวกัน ห้ามปล่อยล้าสมัย
 
-## สถานะปัจจุบัน (2026-09-30, branch `improvement/daily-report` — กฎ git ดู `PROJECT_WORKFLOW.md`)
+## สถานะปัจจุบัน (2026-10-02, branch `improvement/daily-report` — กฎ git ดู `PROJECT_WORKFLOW.md`)
 
 - Agent docs: `CLAUDE.md` (entry, import ไฟล์นี้), `SKILLS.md` (index), skills ที่ `.claude/skills/`
   (`sts-*`, `impeccable`, `web-design-guidelines`, `vercel-react-best-practices`) — design system อยู่ที่ `DESIGN.md` และ `.impeccable/`
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
-- Schema (migrations `0000`–`0012`): projects, contractors, project_contractors, users(role)/memberships/sessions, zones,
+- Schema (migrations `0000`–`0013`): projects, contractors, project_contractors, users(role)/memberships/sessions, zones,
   site_plans/zone_map_areas, site_activities, buildings, daily_reports(+_positions/_equipment/_allocations/_machinery/
-  _permits/_road_usage/_photos), inspection_requests
+  _permits/_road_usage/_photos/_materials), inspection_requests
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
   Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/` dashboard, `/site-plan` (overview [Image 1] + activity drawer), `/daily-reports` (summary + review queue + date range), `/tomorrow`, `/weekly-summary` (real API),
-  `/field` + `/field/report` (mobile-first; `/evening-report` redirect), `/qaqc` (Daily Request kanban), `/contractors`
-- ยังไม่มี: tests, lint config, CI, production auth, domains manpower/permits/qaqc/materials/drone (ดู README §12/13)
+- Screens: `/` dashboard, `/site-plan`, `/site-coordination` (Map: collaborative CAD callout board), `/daily-reports` (work done summary + review queue), `/tomorrow`, `/weekly-summary`,
+  `/field` + `/field/report` + `/field/coordination` (Map), `/qaqc` (Daily Request), `/contractors`, `/work-permits`, `/progress` (Drone Progress),
+  `/materials` (EPS: totals + log จาก evening check-out, real API)
+- ยังไม่มี: tests, lint config, CI, production auth, domains permits (ดู README §12/13)
 
 ## กฎการ update ไฟล์นี้ (บังคับ)
 
@@ -85,7 +86,7 @@
 - Daily report: 1 row/contractor/project/date, เช้า/เย็น ส่งอิสระ (เช้า lock เมื่อส่งครบทั้งคู่, เย็น lock ตัวเอง);
   เช้า = เวลา/ชม., อากาศ, คนตามตำแหน่ง (ยอดหลัก) = สัญชาติ/เพศ, เครื่องจักรในไซต์, allocation ลง `buildings` 15 อาคาร (ลำดับตามไซต์, BMS inactive)
   (≠ WBS zones) รวม = total พอดี (zod + service); เย็น upsert แถวเอง (ไม่ต้องมีเช้า) = อุบัติเหตุ, OT, actual% (ต่ำกว่า plan
-  ต้องมี countermeasure), รูป (draft แถวก่อนถ้ายังไม่มี), ลายเซ็น PNG, คำขอพรุ่งนี้; NMH = คน × (ชม.+OT); vocab ที่ `@sts/shared`
+  ต้องมี countermeasure), รูป (draft แถวก่อนถ้ายังไม่มี), ลายเซ็น PNG, วัสดุหน้างาน (ชื่ออิสระ+qty+unit, ไม่ซ้ำ), คำขอพรุ่งนี้; NMH = คน × (ชม.+OT); vocab ที่ `@sts/shared`
 - Charts (MUI x-charts, สีตาม contractor code จาก `app/theme/chart-palette.ts`): `/manpower` (สัปดาห์/เดือน; `/manpower-summary`, `/position-mix`, `/manpower-trend`), weekly page กราฟเดียว; `weekly-summary`: machinery/permits/roads ตาม target_date (ปิด rule base จองชนตาม requirement); seed sample ZCE/LCE/UME (CTR-001 ว่างไว้ทดสอบ)
 - Bun `--hot` segfault บน Windows → `--watch`; FormData ใช้ `http.upload`; form ใน Dialog ต้อง `e.stopPropagation()`
 - คำขอพรุ่งนี้ (machinery[เวลา optional=ทั้งวัน]+purpose/equipment_requests[qty ไม่มีเวลา]/permits/road_usage) ผูก report เย็นวัน T + `target_date`=T+1;

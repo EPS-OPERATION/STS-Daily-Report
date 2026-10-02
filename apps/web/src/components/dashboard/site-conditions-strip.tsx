@@ -12,16 +12,18 @@ import { Weather3DIcon } from "./weather-3d-icons.js";
 // site-weather-location-card.tsx). Open-Meteo, no API key.
 const SITE = { lat: 8.098, lon: 99.668, name: "Thi Wang, Thung Song, Nakhon Si Thammarat" };
 
+const TH_DAYS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
+
 type Icon = "sunny" | "cloudy" | "rain" | "heavy-rain" | "thunderstorm" | "fog";
 
 function condition(code: number): { label: string; icon: Icon } {
-  if (code === 0) return { label: "Sunny", icon: "sunny" };
-  if (code <= 3) return { label: "Partly cloudy", icon: "cloudy" };
-  if (code === 45 || code === 48) return { label: "Fog", icon: "fog" };
-  if (code >= 51 && code <= 67) return { label: "Rain", icon: "rain" };
-  if (code >= 80 && code <= 82) return { label: "Heavy rain", icon: "heavy-rain" };
-  if (code >= 95) return { label: "Thunderstorm", icon: "thunderstorm" };
-  return { label: "Cloudy", icon: "cloudy" };
+  if (code === 0) return { label: "แดดจัด", icon: "sunny" };
+  if (code <= 3) return { label: "มีเมฆบางส่วน", icon: "cloudy" };
+  if (code === 45 || code === 48) return { label: "หมอก", icon: "fog" };
+  if (code >= 51 && code <= 67) return { label: "ฝนตก", icon: "rain" };
+  if (code >= 80 && code <= 82) return { label: "ฝนตกหนัก", icon: "heavy-rain" };
+  if (code >= 95) return { label: "พายุฝนฟ้าคะนอง", icon: "thunderstorm" };
+  return { label: "มีเมฆมาก", icon: "cloudy" };
 }
 
 interface Forecast {
@@ -87,7 +89,7 @@ export function SiteConditionsStrip() {
             borderRadius: 1,
             bgcolor: "background.paper",
             boxShadow: 1,
-            fontSize: 12,
+            fontSize: 13,
           }}
         >
           {SITE.name} <OpenInNewIcon sx={{ fontSize: 14 }} />
@@ -99,7 +101,7 @@ export function SiteConditionsStrip() {
           <Skeleton variant="rounded" width="100%" height={110} sx={{ bgcolor: "rgba(255,255,255,0.1)" }} />
         ) : !now || !cond ? (
           <Typography variant="body2" sx={{ color: "inherit", opacity: 0.8 }}>
-            Weather unavailable (needs internet)
+            ไม่สามารถโหลดข้อมูลสภาพอากาศได้ (ต้องเชื่อมต่ออินเทอร์เน็ต)
           </Typography>
         ) : (
           <>
@@ -112,11 +114,11 @@ export function SiteConditionsStrip() {
                 {cond.label}
               </Typography>
               <Typography variant="caption" sx={{ color: "inherit", opacity: 0.8, display: "block" }}>
-                Wind {Math.round(now.wind_speed_10m)} km/h · Humidity {now.relative_humidity_2m}% · Rain {now.precipitation} mm
+                ลม {Math.round(now.wind_speed_10m)} กม./ชม. · ความชื้น {now.relative_humidity_2m}% · ฝน {now.precipitation} มม.
               </Typography>
               {rainy ? (
                 <Typography variant="caption" sx={{ color: "warning.light", fontWeight: 700 }}>
-                  Check stop-work rules for height & lifting
+                  ตรวจสอบเกณฑ์หยุดงานบนที่สูงและงานยก
                 </Typography>
               ) : null}
             </Box>
@@ -126,15 +128,15 @@ export function SiteConditionsStrip() {
                 return (
                   <Box key={d} sx={{ textAlign: "center", px: 1, py: 0.75, borderRadius: 1.5, bgcolor: "rgba(255,255,255,0.08)", minWidth: 62 }}>
                     <Typography variant="caption" sx={{ color: "inherit", fontWeight: 700, display: "block" }}>
-                      {i === 0 ? "Today" : i === 1 ? "Tomorrow" : dayjs(d).format("ddd")}
+                      {i === 0 ? "วันนี้" : i === 1 ? "พรุ่งนี้" : TH_DAYS[dayjs(d).day()]}
                     </Typography>
                     <Weather3DIcon condition={c.icon} size={30} />
                     <Typography variant="caption" sx={{ color: "inherit", display: "block" }}>
                       {Math.round(w.data!.daily.temperature_2m_max[i] ?? 0)}° / {Math.round(w.data!.daily.temperature_2m_min[i] ?? 0)}°
                     </Typography>
                     {w.data!.daily.precipitation_probability_max ? (
-                      <Typography variant="caption" sx={{ color: "inherit", opacity: 0.75, fontSize: 10 }}>
-                        Rain {w.data!.daily.precipitation_probability_max[i]}%
+                      <Typography variant="caption" sx={{ color: "inherit", opacity: 0.75, fontSize: 12 }}>
+                        ฝน {w.data!.daily.precipitation_probability_max[i]}%
                       </Typography>
                     ) : null}
                   </Box>

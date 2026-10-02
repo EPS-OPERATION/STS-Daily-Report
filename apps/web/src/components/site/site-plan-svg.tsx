@@ -81,7 +81,7 @@ export function SitePlanSvg({
               x={z.labelX}
               y={z.labelY + 16}
               textAnchor="middle"
-              fontSize={12}
+              fontSize={13}
               fontWeight={600}
               fill={theme.palette.text.secondary}
             >

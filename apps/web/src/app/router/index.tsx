@@ -10,7 +10,9 @@ import { DevGeometryMapper } from "@/pages/dev-geometry-mapper.js";
 import { FieldReportPage } from "@/pages/field-report-page.js";
 import { LoginPage } from "@/pages/login-page.js";
 import { NotFoundPage } from "@/pages/not-found-page.js";
+import { DroneProgressPage } from "@/pages/drone-progress-page.js";
 import { ManpowerPage } from "@/pages/manpower-page.js";
+import { MaterialsPage } from "@/pages/materials-page.js";
 import { PlaceholderPage } from "@/pages/placeholder-page.js";
 import { WorkPermitsPage } from "@/pages/work-permits-page.js";
 import { QaqcBoardPage } from "@/pages/qaqc-board-page.js";
@@ -18,6 +20,8 @@ import { SafetyPage } from "@/pages/safety-page.js";
 import { SafetyReportPrintPage } from "@/pages/safety-report-page.js";
 import { SitePlanPage } from "@/pages/site-plan-page.js";
 import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
+import { SiteCoordinationPage } from "@/pages/site-coordination-page.js";
+import { ContractorCoordinationPage } from "@/pages/contractor-coordination-page.js";
 import { TodayRequestsPage } from "@/pages/today-requests-page.js";
 
 function RootIndex() {
@@ -50,6 +54,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "field", element: <ContractorHomePage /> },
               { path: "field/report", element: <FieldReportPage /> },
+              { path: "field/coordination", element: <ContractorCoordinationPage /> },
               // Legacy link from the old 5-step wizard.
               { path: "evening-report", element: <Navigate to="/field/report?shift=evening" replace /> },
             ],
@@ -59,6 +64,7 @@ export const router = createBrowserRouter([
             element: <RoleGuard allowedRoles={["eps"]} redirectTo="/field" />,
             children: [
               { path: "daily-reports", element: <DailyReportsPage /> },
+              { path: "site-coordination", element: <SiteCoordinationPage /> },
               { path: "site-plan", element: <SitePlanPage /> },
               { path: "site-plan/config", element: <SitePlanConfigPage /> },
               { path: "today-requests", element: <TodayRequestsPage /> },
@@ -72,19 +78,13 @@ export const router = createBrowserRouter([
               { path: "work-permits", element: <WorkPermitsPage /> },
               { path: "qaqc", element: <QaqcBoardPage /> },
               { path: "safety", element: <SafetyPage /> },
+              { path: "materials", element: <MaterialsPage /> },
+              { path: "progress", element: <DroneProgressPage /> },
               {
-                path: "materials",
-                element: <PlaceholderPage title="Materials" blurb="Record material deliveries, quantities and suppliers linked to daily reports." />,
+                path: "settings",
+                element: <PlaceholderPage title="Settings" blurb="Project configuration. Authentication is handled via server sessions." />,
               },
-              {
-                path: "progress",
-                element: <PlaceholderPage title="Drone Progress" blurb="Compare periodic drone captures against planned progress per zone." />,
-              },
-          {
-            path: "settings",
-            element: <PlaceholderPage title="Settings" blurb="Project configuration. Authentication is handled via server sessions." />,
-          },
-          { path: "*", element: <NotFoundPage /> },
+              { path: "*", element: <NotFoundPage /> },
             ],
           },
         ],

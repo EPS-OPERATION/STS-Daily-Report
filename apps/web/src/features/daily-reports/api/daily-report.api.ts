@@ -7,6 +7,7 @@ import type {
   EveningPayload,
   InspectionRequest,
   InspectionRequestFields,
+  MaterialsSummary,
   MorningPayload,
   ReviewPayload,
   ReviewQueueRow,
@@ -99,5 +100,18 @@ export const dailyReportApi = {
   },
   dailyRequests(projectId: string, from: string, to: string): Promise<{ data: DailyRequests }> {
     return http.get(`/projects/${projectId}/daily-requests?from=${from}&to=${to}`);
+  },
+  materials(
+    projectId: string,
+    filters: { from?: string; to?: string; search?: string; contractorId?: string; page: number; pageSize: number },
+  ): Promise<{ data: MaterialsSummary }> {
+    const q = new URLSearchParams();
+    if (filters.from) q.set("from", filters.from);
+    if (filters.to) q.set("to", filters.to);
+    if (filters.search) q.set("search", filters.search);
+    if (filters.contractorId) q.set("contractorId", filters.contractorId);
+    q.set("page", String(filters.page));
+    q.set("pageSize", String(filters.pageSize));
+    return http.get(`/projects/${projectId}/daily-reports/materials?${q.toString()}`);
   },
 };

@@ -70,7 +70,7 @@ export function BuildingSelect({
                   variant="outlined"
                   sx={{
                     fontWeight: 700,
-                    fontSize: "0.75rem",
+                    fontSize: "0.8rem",
                     height: 22,
                     borderColor: "primary.main",
                     color: "primary.main",

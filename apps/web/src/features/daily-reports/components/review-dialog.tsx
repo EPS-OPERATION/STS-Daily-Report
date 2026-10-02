@@ -191,6 +191,7 @@ function createMockDailyReport(row: ReviewQueueRow): DailyReport {
     ],
     requestsForDate: row.reportDate,
     photos: [],
+    materials: [],
     machineryConflicts: [],
     roadConflicts: [],
   };
@@ -286,7 +287,7 @@ export function ReviewDialog({
             />
             <StatusChip
               status={report?.eveningStatus ?? "draft"}
-              label={`เย็น: ${report?.eveningStatus === "submitted" ? "ส่งแล้ว" : "รอส่ง"}`}
+              label={`บ่าย: ${report?.eveningStatus === "submitted" ? "ส่งแล้ว" : "รอส่ง"}`}
             />
             <StatusChip
               status={report?.reviewStatus === "pending" ? "submitted" : report?.reviewStatus ?? "submitted"}

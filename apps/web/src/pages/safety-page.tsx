@@ -110,7 +110,7 @@ export function SafetyPage() {
 
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, lg: 6 }}>
-              <Panel title="STATISTIC" note="จากรายงานเย็นของผู้รับเหมา (ประเภทเหตุการณ์) + ชั่วโมงทำงาน">
+              <Panel title="STATISTIC" note="จากรายงานบ่ายของผู้รับเหมา (ประเภทเหตุการณ์) + ชั่วโมงทำงาน">
                 <StatisticTable stats={s} compact />
               </Panel>
             </Grid>

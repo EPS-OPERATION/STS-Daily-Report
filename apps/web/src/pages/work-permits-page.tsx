@@ -147,7 +147,7 @@ export function WorkPermitsPage() {
                 <BarChart
                   height={chartData.length * 34 + 70}
                   layout="horizontal"
-                  yAxis={[{ scaleType: "band", data: chartData.map(([c]) => c), tickLabelStyle: { fontSize: 12 } }]}
+                  yAxis={[{ scaleType: "band", data: chartData.map(([c]) => c), tickLabelStyle: { fontSize: 13 } }]}
                   series={[
                     {
                       data: chartData.map(([, n]) => n),

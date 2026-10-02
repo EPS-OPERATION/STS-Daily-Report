@@ -53,7 +53,7 @@ export function UserMenu() {
               label={isContractor ? "Contractor" : "EPS"}
               size="small"
               color={isContractor ? "primary" : "info"}
-              sx={{ height: 20, fontSize: 10, fontWeight: 700 }}
+              sx={{ height: 20, fontSize: 12, fontWeight: 700 }}
             />
           </Stack>
           <Typography variant="caption" color="text.secondary">

@@ -28,12 +28,12 @@ export function ContractorBadge({ code, headcount, title }: { code: string; head
       title={title}
       label={headcount !== undefined ? `${code} ${headcount}` : code}
       sx={{
-        height: 20,
+        height: 22,
         borderRadius: 1,
         bgcolor: swatch.bg,
         color: swatch.fg,
         fontWeight: 700,
-        fontSize: 11,
+        fontSize: 12,
         "& .MuiChip-label": { px: 0.75 },
       }}
     />

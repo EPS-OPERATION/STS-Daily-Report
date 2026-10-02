@@ -60,11 +60,11 @@ export const components: Components<Omit<Theme, "components">> = {
   },
   MuiOutlinedInput: {
     styleOverrides: {
-      root: { borderRadius: 8, fontSize: 14, backgroundColor: "#FFFFFF" },
+      root: { borderRadius: 8, fontSize: 15, backgroundColor: "#FFFFFF" },
     },
   },
   MuiInputLabel: {
-    styleOverrides: { root: { fontSize: 14 } },
+    styleOverrides: { root: { fontSize: 15 } },
   },
   MuiSelect: {
     defaultProps: { size: "small" },
@@ -84,7 +84,7 @@ export const components: Components<Omit<Theme, "components">> = {
   MuiCardHeader: {
     styleOverrides: {
       title: { fontSize: 16, fontWeight: 600 },
-      subheader: { fontSize: 13 },
+      subheader: { fontSize: 14 },
     },
   },
   MuiPaper: {
@@ -96,7 +96,7 @@ export const components: Components<Omit<Theme, "components">> = {
   MuiChip: {
     styleOverrides: {
       root: { fontWeight: 600, borderRadius: 6 },
-      sizeSmall: { height: 24, fontSize: 12 },
+      sizeSmall: { height: 26, fontSize: 13 },
     },
   },
   MuiDialog: {
@@ -132,11 +132,11 @@ export const components: Components<Omit<Theme, "components">> = {
   },
   MuiTooltip: {
     styleOverrides: {
-      tooltip: { fontSize: 12, borderRadius: 6, backgroundColor: "#101828" },
+      tooltip: { fontSize: 13, borderRadius: 6, backgroundColor: "#101828" },
     },
   },
   MuiAlert: {
-    styleOverrides: { root: { borderRadius: 8, fontSize: 13 } },
+    styleOverrides: { root: { borderRadius: 8, fontSize: 14 } },
   },
   MuiTabs: {
     styleOverrides: {
@@ -145,7 +145,7 @@ export const components: Components<Omit<Theme, "components">> = {
   },
   MuiTableCell: {
     styleOverrides: {
-      root: { fontSize: 13, borderColor: "#E4E7EC" },
+      root: { fontSize: 14, borderColor: "#E4E7EC" },
       head: { fontWeight: 600, color: "#667085", backgroundColor: "#F9FAFB" },
     },
   },
@@ -174,7 +174,7 @@ export const components: Components<Omit<Theme, "components">> = {
         border: "1px solid #E4E7EC",
         borderRadius: 10,
         backgroundColor: "#FFFFFF",
-        fontSize: 13,
+        fontSize: 14,
         "--DataGrid-t-color-background-base": "#FFFFFF",
       } as React.CSSProperties,
       columnHeaders: {

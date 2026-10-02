@@ -33,7 +33,7 @@ export function SectionCard({
               color: "common.white",
               display: "grid",
               placeItems: "center",
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: 700,
               mt: 0.25,
             }}

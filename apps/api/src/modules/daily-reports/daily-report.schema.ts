@@ -145,6 +145,24 @@ export const eveningBody = t.Object({
     }),
     { maxItems: 20 },
   ),
+  // Materials on site today (paper form "Add Material on site").
+  materials: t.Array(
+    t.Object({
+      name: t.String({ minLength: 1, maxLength: 120 }),
+      qty: t.Number({ minimum: 0, maximum: 1000000 }),
+      unit: t.String({ minLength: 1, maxLength: 20 }),
+    }),
+    { maxItems: 30 },
+  ),
+});
+
+export const materialsQuery = t.Object({
+  from: t.Optional(isoDate),
+  to: t.Optional(isoDate),
+  search: t.Optional(t.String({ maxLength: 120 })),
+  contractorId: t.Optional(t.String({ format: "uuid" })),
+  page: t.Optional(t.String()),
+  pageSize: t.Optional(t.String()),
 });
 
 export const photoUploadBody = t.Object({

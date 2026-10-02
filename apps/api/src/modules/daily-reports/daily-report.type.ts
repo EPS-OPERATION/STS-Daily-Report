@@ -67,6 +67,13 @@ export interface RoadUsageInput {
   purpose: string;
 }
 
+// Materials on site today (evening check-out): free-text name + qty + unit.
+export interface MaterialInput {
+  name: string;
+  qty: number;
+  unit: string;
+}
+
 export interface EveningProgressInput {
   allocationId: string;
   actualPercent: number;
@@ -88,6 +95,7 @@ export interface EveningInput {
   equipmentRequests: EquipmentRequestInput[];
   permits: PermitInput[];
   roadUsage: RoadUsageInput[];
+  materials: MaterialInput[];
 }
 
 export interface PhotoUploadInput {

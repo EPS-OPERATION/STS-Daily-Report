@@ -7,6 +7,7 @@ import {
   ensureDraftService,
   getCurrentReportService,
   manpowerSummaryService,
+  materialsService,
   siteDayService,
   dailyRequestsService,
   manpowerTrendService,
@@ -21,6 +22,7 @@ import {
 import {
   currentReportQuery,
   eveningBody,
+  materialsQuery,
   morningBody,
   photoParams,
   photoUploadBody,
@@ -52,6 +54,12 @@ export const dailyReportRoutes = new Elysia()
     "/projects/:projectId/daily-requests",
     async ({ params, query }) => ok(await dailyRequestsService(params.projectId, query.from, query.to)),
     { params: projectIdParams, query: dateRangeQuery },
+  )
+  // EPS materials dashboard (aggregated rows only, open like the weekly summary).
+  .get(
+    "/projects/:projectId/daily-reports/materials",
+    async ({ params, query }) => ok(await materialsService(params.projectId, query)),
+    { params: projectIdParams, query: materialsQuery },
   )
   .get(
     "/projects/:projectId/site-day",

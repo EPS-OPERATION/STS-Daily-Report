@@ -21,7 +21,7 @@ export function PlannedTodayChecklist({ planned }: { planned: PlannedToday }) {
   if (empty) {
     return (
       <Typography variant="body2" color="text.secondary">
-        ไม่มีคำขอสำหรับวันนี้ (คำขอต้องส่งในรายงานเย็นของเมื่อวาน)
+        ไม่มีคำขอสำหรับวันนี้ (คำขอต้องส่งในรายงานบ่ายของเมื่อวาน)
       </Typography>
     );
   }

@@ -119,6 +119,29 @@ export interface ReportRoadUsage {
   contractorCode: string;
 }
 
+export interface ReportMaterial {
+  materialName: string;
+  qty: number;
+  unit: string;
+}
+
+export interface MaterialLogRow {
+  id: string;
+  reportDate: string;
+  contractorId: string;
+  contractorCode: string;
+  contractorName: string;
+  materialName: string;
+  qty: number;
+  unit: string;
+}
+
+export interface MaterialsSummary {
+  data: MaterialLogRow[];
+  summary: { materialName: string; unit: string; entries: number; totalQty: number }[];
+  meta: { page: number; pageSize: number; total: number };
+}
+
 export interface ReportMachineryConflict {
   targetDate: string;
   machineType: string;
@@ -167,6 +190,8 @@ export interface DailyReport {
   equipmentRequests: ReportEquipmentRequest[];
   permits: ReportPermit[];
   roadUsage: ReportRoadUsage[];
+  /** Materials on site today (evening check-out). */
+  materials: ReportMaterial[];
   requestsForDate: string;
   photos: ReportPhoto[];
   machineryConflicts: ReportMachineryConflict[];
@@ -234,6 +259,7 @@ export interface EveningPayload {
   equipmentRequests: { buildingId: string; equipmentType: SiteEquipmentType; qty: number; purpose?: string }[];
   permits: { buildingId: string; permitType: PermitType; otherLabel?: string; workers: number }[];
   roadUsage: { buildingId: string; roadLocation: string; startTime: string; endTime: string; purpose: string }[];
+  materials: { name: string; qty: number; unit: string }[];
 }
 
 // ---- weekly summary ----
