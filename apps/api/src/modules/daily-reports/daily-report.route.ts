@@ -1,11 +1,14 @@
 import { Elysia } from "elysia";
 import { requireAuth } from "@/middleware/require-auth.js";
 import { ok } from "@/shared/http/response.js";
+import { ValidationError } from "@/shared/errors/app-error.js";
 import {
   deletePhotoService,
   ensureDraftService,
   getCurrentReportService,
   manpowerSummaryService,
+  siteDayService,
+  dailyRequestsService,
   manpowerTrendService,
   positionMixService,
   listReviewQueueService,
@@ -29,6 +32,7 @@ import {
   weeklySummaryQuery,
   manpowerTrendQuery,
   dateRangeQuery,
+  siteDayQuery,
 } from "./daily-report.schema.js";
 
 export const dailyReportRoutes = new Elysia()
@@ -45,6 +49,21 @@ export const dailyReportRoutes = new Elysia()
     { params: projectIdParams, query: dateRangeQuery },
   )
   .get(
+    "/projects/:projectId/daily-requests",
+    async ({ params, query }) => ok(await dailyRequestsService(params.projectId, query.from, query.to)),
+    { params: projectIdParams, query: dateRangeQuery },
+  )
+  .get(
+    "/projects/:projectId/site-day",
+    async ({ params, query }) => {
+      const from = query.from ?? query.date ?? query.to;
+      const to = query.to ?? query.date ?? query.from;
+      if (!from || !to) throw new ValidationError("Give date, or from and to");
+      return ok(await siteDayService(params.projectId, from <= to ? from : to, from <= to ? to : from));
+    },
+    { params: projectIdParams, query: siteDayQuery },
+  )
+  .get(
     "/projects/:projectId/manpower-summary",
     async ({ params, query }) => ok(await manpowerSummaryService(params.projectId, query.from, query.to)),
     { params: projectIdParams, query: dateRangeQuery },
@@ -57,7 +76,7 @@ export const dailyReportRoutes = new Elysia()
   .use(requireAuth)
   .get(
     "/projects/:projectId/daily-reports/review-queue",
-    async ({ params, query, auth }) => ok(await listReviewQueueService(auth, params.projectId, query.date)),
+    async ({ params, query, auth }) => ok(await listReviewQueueService(auth, params.projectId, query)),
     { params: projectIdParams, query: reviewQueueQuery },
   )
   .get(

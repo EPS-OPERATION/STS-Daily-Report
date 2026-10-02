@@ -13,7 +13,8 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { MachineType, PermitType, SiteEquipmentType } from "@sts/shared";
+import { ACCIDENT_CATEGORIES, type MachineType, type PermitType, type SiteEquipmentType } from "@sts/shared";
+import MenuItem from "@mui/material/MenuItem";
 import { Controller, useFieldArray, useForm, useWatch, type Control } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { useEnsureDraft, useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
@@ -58,6 +59,7 @@ export function EveningForm({
       otHours: report?.otHours ?? 0,
       accidentOccurred: report?.accidentOccurred ?? null,
       accidentNote: report?.accidentNote ?? "",
+      accidentCategory: report?.accidentCategory ?? null,
       machinery: (report?.machinery ?? []).map((m) => ({
         machineType: m.machineType,
         unitTag: m.unitTag ?? "",
@@ -109,6 +111,7 @@ export function EveningForm({
         otHours: v.otHours,
         accidentOccurred: v.accidentOccurred ?? false,
         accidentNote: v.accidentOccurred ? v.accidentNote?.trim() : undefined,
+        accidentCategory: v.accidentOccurred ? (v.accidentCategory ?? undefined) : undefined,
         progress: v.progress.map((p) => ({
           allocationId: p.allocationId,
           actualPercent: p.actualPercent,
@@ -186,6 +189,31 @@ export function EveningForm({
             </>
           )}
         />
+        {accident ? (
+          <Controller
+            name="accidentCategory"
+            control={control}
+            render={({ field, fieldState }) => (
+              <TextField
+                select
+                label="ประเภทเหตุการณ์"
+                value={field.value ?? ""}
+                onChange={(e) => field.onChange(e.target.value || null)}
+                fullWidth
+                size="small"
+                sx={{ mt: 1.5 }}
+                error={Boolean(fieldState.error)}
+                helperText={fieldState.error?.message}
+              >
+                {ACCIDENT_CATEGORIES.map((c) => (
+                  <MenuItem key={c.code} value={c.code}>
+                    {c.labelTh}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
+        ) : null}
         {accident ? (
           <Controller
             name="accidentNote"

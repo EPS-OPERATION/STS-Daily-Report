@@ -11,11 +11,11 @@ export function useBuildings(projectId: string | null) {
   });
 }
 
-export function useCurrentReport(projectId: string | null, date: string) {
+export function useCurrentReport(projectId: string | null, date: string, contractorId?: string) {
   return useQuery({
-    queryKey: dailyReportKeys.current(projectId ?? "", date),
-    queryFn: () => dailyReportApi.current(projectId!, date),
-    enabled: Boolean(projectId),
+    queryKey: dailyReportKeys.current(projectId ?? "", date, contractorId),
+    queryFn: () => dailyReportApi.current(projectId!, date, contractorId),
+    enabled: Boolean(projectId && date),
   });
 }
 
@@ -40,10 +40,13 @@ export function useWeeklySummary(projectId: string | null, weekStart: string) {
   });
 }
 
-export function useReviewQueue(projectId: string | null, date: string) {
+export function useReviewQueue(
+  projectId: string | null,
+  params: { date?: string; from?: string; to?: string } | string,
+) {
   return useQuery({
-    queryKey: dailyReportKeys.reviewQueue(projectId ?? "", date),
-    queryFn: () => dailyReportApi.reviewQueue(projectId!, date),
+    queryKey: dailyReportKeys.reviewQueue(projectId ?? "", params),
+    queryFn: () => dailyReportApi.reviewQueue(projectId!, params),
     enabled: Boolean(projectId),
     placeholderData: keepPreviousData,
   });
@@ -71,6 +74,15 @@ export function useManpowerSummary(projectId: string | null, from: string, to: s
   return useQuery({
     queryKey: dailyReportKeys.manpower(projectId ?? "", from, to),
     queryFn: () => dailyReportApi.manpowerSummary(projectId!, from, to),
+    enabled: Boolean(projectId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useDailyRequests(projectId: string | null, from: string, to: string) {
+  return useQuery({
+    queryKey: dailyReportKeys.dailyRequests(projectId ?? "", from, to),
+    queryFn: () => dailyReportApi.dailyRequests(projectId!, from, to),
     enabled: Boolean(projectId),
     placeholderData: keepPreviousData,
   });

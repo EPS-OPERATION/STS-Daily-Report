@@ -1,4 +1,5 @@
 import type {
+  AccidentCategory,
   Discipline,
   InspectionResult,
   InspectionType,
@@ -147,6 +148,7 @@ export interface DailyReport {
   manHours: number;
   accidentOccurred: boolean | null;
   accidentNote: string | null;
+  accidentCategory: AccidentCategory | null;
   positions: { position: PositionCode; headcount: number }[];
   equipment: { equipmentType: SiteEquipmentType; qty: number }[];
   morningStatus: ShiftStatus;
@@ -224,6 +226,7 @@ export interface EveningPayload {
   otHours: number;
   accidentOccurred: boolean;
   accidentNote?: string;
+  accidentCategory?: AccidentCategory;
   progress: { allocationId: string; actualPercent: number; countermeasure?: string }[];
   signatureName: string;
   signatureData: string;
@@ -363,4 +366,12 @@ export interface ManpowerSummary {
   daily: { date: string; contractorCode: string; headcount: number }[];
   byBuilding: { buildingId: string; code: string; name: string; contractors: Record<string, number> }[];
   totals: { manDays: number; manHours: number; reportedDays: number; avgDaily: number };
+}
+
+export interface DailyRequests {
+  from: string;
+  to: string;
+  machinery: WeeklyBooking[];
+  equipmentRequests: ReportEquipmentRequest[];
+  roads: (ReportRoadUsage & { conflict: boolean })[];
 }

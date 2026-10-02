@@ -2,7 +2,7 @@ export * from "./types/daily-report.types.js";
 export { dailyReportKeys } from "./api/daily-report.keys.js";
 export { dailyReportApi } from "./api/daily-report.api.js";
 export { useBuildings, useCurrentReport, useInspectionRequests, useReviewQueue, useWeeklySummary } from "./hooks/use-daily-report-queries.js";
-export { useManpowerSummary, useManpowerTrend, usePositionMix } from "./hooks/use-daily-report-queries.js";
+export { useDailyRequests, useManpowerSummary, useManpowerTrend, usePositionMix } from "./hooks/use-daily-report-queries.js";
 export {
   useSubmitMorning,
   useSubmitEvening,
@@ -22,6 +22,7 @@ export { BuildingActivityMatrix, WorkloadLegend } from "./components/building-ac
 export { BuildingOperationsHub } from "./components/building-operations-hub.js";
 export {
   ManDayByContractorChart,
+  ManDaySmallMultiples,
   ManpowerByBuildingChart,
   ManpowerTrendChart,
   NationalityByContractorChart,

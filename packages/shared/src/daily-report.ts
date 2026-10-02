@@ -203,3 +203,29 @@ export function timeWindowsOverlap(aStart: string, aEnd: string, bStart: string,
 export function manHours(headcount: number, workHours: number | null, otHours: number | null): number {
   return headcount * ((workHours ?? 0) + (otHours ?? 0));
 }
+
+// ---- Safety ----------------------------------------------------------------
+
+// EPS weekly safety statistic categories (contractor picks one when an accident occurred).
+export const ACCIDENT_CATEGORIES = [
+  { code: "lti", label: "Loss Time Injury", labelTh: "บาดเจ็บถึงขั้นหยุดงาน (LTI)" },
+  { code: "non_lti", label: "Non-Loss Time Injury", labelTh: "บาดเจ็บไม่ถึงขั้นหยุดงาน" },
+  { code: "property_damage", label: "Property Damage", labelTh: "ทรัพย์สินเสียหาย" },
+  { code: "near_miss", label: "Near miss accident", labelTh: "เกือบเกิดอุบัติเหตุ (Near miss)" },
+  { code: "emergency", label: "Emergency (Fire, Explosion)", labelTh: "เหตุฉุกเฉิน (ไฟไหม้ ระเบิด)" },
+] as const;
+export type AccidentCategory = (typeof ACCIDENT_CATEGORIES)[number]["code"];
+export const ACCIDENT_CATEGORY_CODES = ACCIDENT_CATEGORIES.map((c) => c.code) as AccidentCategory[];
+// Injuries reset the "days without an accident" counter.
+export const INJURY_CATEGORIES: AccidentCategory[] = ["lti", "non_lti"];
+
+// Line walk finding (EPS safety inspection).
+export const FINDING_TYPES = [
+  { code: "unsafe_act", label: "Unsafe Act.", labelTh: "การกระทำที่ไม่ปลอดภัย" },
+  { code: "unsafe_condition", label: "Unsafe con.", labelTh: "สภาพที่ไม่ปลอดภัย" },
+] as const;
+export type FindingType = (typeof FINDING_TYPES)[number]["code"];
+export const FINDING_TYPE_CODES = FINDING_TYPES.map((t) => t.code) as FindingType[];
+
+export const FINDING_STATUSES = ["open", "done"] as const;
+export type FindingStatus = (typeof FINDING_STATUSES)[number];

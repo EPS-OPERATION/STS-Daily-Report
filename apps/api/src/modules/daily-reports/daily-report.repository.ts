@@ -1,4 +1,4 @@
-import { and, asc, between, count, eq, inArray, ne, or } from "drizzle-orm";
+import { and, asc, between, count, desc, eq, inArray, ne, or } from "drizzle-orm";
 import {
   buildings,
   contractors,
@@ -242,9 +242,17 @@ export async function setReportReview(
     .where(eq(dailyReports.id, reportId));
 }
 
-// EPS review queue: one row per contractor report for a date (headcount +
+// EPS review queue: one row per contractor report for a date or date range (headcount +
 // both shift states + review decision). Caller scopes contractorIds by role.
-export async function listReportsForReview(db: Db, projectId: string, date: string, contractorIds?: string[]) {
+export async function listReportsForReview(
+  db: Db,
+  projectId: string,
+  range: { date?: string; from?: string; to?: string } | string,
+  contractorIds?: string[],
+) {
+  const r = typeof range === "string" ? { date: range } : range;
+  const from = r.from ?? r.date;
+  const to = r.to ?? r.date ?? from;
   return db
     .select({
       id: dailyReports.id,
@@ -267,10 +275,15 @@ export async function listReportsForReview(db: Db, projectId: string, date: stri
     .where(
       and(
         eq(dailyReports.projectId, projectId),
-        eq(dailyReports.reportDate, date),
+        from && to
+          ? between(dailyReports.reportDate, from, to)
+          : from
+            ? eq(dailyReports.reportDate, from)
+            : undefined,
         contractorIds && contractorIds.length > 0 ? inArray(dailyReports.contractorId, contractorIds) : undefined,
       ),
-    );
+    )
+    .orderBy(desc(dailyReports.reportDate), contractors.code);
 }
 
 export async function listPositions(db: Db, reportId: string) {
@@ -388,6 +401,7 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
       otHours: input.otHours,
       accidentOccurred: input.accidentOccurred,
       accidentNote: input.accidentOccurred ? input.accidentNote?.trim() || null : null,
+      accidentCategory: input.accidentOccurred ? (input.accidentCategory ?? null) : null,
       signatureName: input.signatureName.trim(),
       signatureData: input.signatureData,
       signedAt: now,
@@ -636,4 +650,30 @@ export async function listPositionsInRange(db: Db, projectId: string, from: stri
         between(dailyReports.reportDate, from, to),
       ),
     );
+}
+
+// Morning allocations for one day with the work description (site plan drawer).
+export async function listAllocationDetailsInRange(db: Db, projectId: string, from: string, to: string) {
+  return db
+    .select({
+      reportDate: dailyReports.reportDate,
+      buildingId: dailyReportAllocations.buildingId,
+      contractorCode: contractors.code,
+      contractorName: contractors.name,
+      headcount: dailyReportAllocations.headcount,
+      workDescription: dailyReportAllocations.workDescription,
+      planPercent: dailyReportAllocations.planPercent,
+      actualPercent: dailyReportAllocations.actualPercent,
+    })
+    .from(dailyReportAllocations)
+    .innerJoin(dailyReports, eq(dailyReportAllocations.reportId, dailyReports.id))
+    .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
+    .where(
+      and(
+        eq(dailyReports.projectId, projectId),
+        eq(dailyReports.morningStatus, "submitted"),
+        between(dailyReports.reportDate, from, to),
+      ),
+    )
+    .orderBy(asc(dailyReports.reportDate), asc(contractors.code));
 }

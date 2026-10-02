@@ -15,22 +15,21 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { useState, type ReactNode } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
+import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { useMe } from "@/features/auth/index.js";
 import {
   ContractorBadge,
   RequestStatusChip,
   inspectionTypeLabel,
-  mondayOf,
   timeWindowLabel,
   todayIso,
   useInspectionRequests,
   useTransitionRequest,
-  useWeeklySummary,
+  useDailyRequests,
   type InspectionRequest,
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
@@ -38,29 +37,40 @@ import { HttpError } from "@/services/http/client.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Daily Request: everything contractors asked for on one day (sent the evening
-// before) — machines, equipment, road usage and QAQC inspections (RFI).
+// Daily Request: everything contractors asked for on the selected day or date range
+// (sent the evening before) — machines, equipment, road usage and QAQC inspections (RFI).
 // EPS records RFI results here: pass / not pass (correct) → first-pass yield.
 export function TodayRequestsPage() {
   const [params, setParams] = useSearchParams();
-  const date = ISO_DATE.test(params.get("date") ?? "") ? params.get("date")! : todayIso();
+  // Range from the URL; an old ?date= link still works as a one-day range.
+  const single = ISO_DATE.test(params.get("date") ?? "") ? params.get("date")! : todayIso();
+  const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : single;
+  const rawTo = ISO_DATE.test(params.get("to") ?? "") ? params.get("to")! : rawFrom;
+  const from = rawFrom <= rawTo ? rawFrom : rawTo;
+  const to = rawFrom <= rawTo ? rawTo : rawFrom;
+  const isRange = from !== to;
   const { projectId } = useCurrentProject();
   const isEps = useMe().data?.data.user.role === "eps";
-  const week = useWeeklySummary(projectId, mondayOf(date));
-  const rfi = useInspectionRequests(projectId, { from: date, to: date, by: "inspection" });
+  const week = useDailyRequests(projectId, from, to);
+  const rfi = useInspectionRequests(projectId, { from, to, by: "inspection" });
   const move = useTransitionRequest();
   const [notPass, setNotPass] = useState<InspectionRequest | null>(null);
 
   const data = week.data?.data;
-  const machines = (data?.machinery ?? []).filter((m) => m.targetDate === date);
-  const equipment = (data?.equipmentRequests ?? []).filter((e) => e.targetDate === date);
-  const roads = (data?.roads ?? []).filter((r) => r.targetDate === date);
+  const machines = data?.machinery ?? [];
+  const equipment = data?.equipmentRequests ?? [];
+  const roads = data?.roads ?? [];
+  // In a range every row needs its date; one day stays uncluttered.
+  const dayCol = (d: string) => (isRange ? [dayjs(d).format("ddd D MMM")] : []);
+  const dayHead = isRange ? ["Date"] : [];
   const inspections = (rfi.data?.data ?? []).filter((r) => r.status !== "draft");
   const loadError = [week.error, rfi.error].find((e) => e instanceof HttpError) as HttpError | undefined;
 
-  const setDate = (d: string) => {
+  const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
-    p.set("date", d);
+    p.delete("date");
+    p.set("from", f);
+    p.set("to", t);
     setParams(p, { replace: true });
   };
 
@@ -70,13 +80,7 @@ export function TodayRequestsPage() {
         title="Daily Request"
         subtitle="คำขอประจำวันจากผู้รับเหมา (ส่งในรายงานเย็นของวันก่อน) — เครื่องจักร อุปกรณ์ ถนน และ QAQC"
         actions={
-          <DatePicker
-            label="วันที่"
-            value={dayjs(date)}
-            onChange={(v) => v?.isValid() && setDate(v.format("YYYY-MM-DD"))}
-            format="D MMM YYYY"
-            slotProps={{ textField: { size: "small", sx: { width: 180 } } }}
-          />
+          <DateRangeFields from={from} to={to} maxDays={62} onChange={setRange} />
         }
       />
 
@@ -105,13 +109,12 @@ export function TodayRequestsPage() {
           <Section title="Machine request">
             <SimpleTable
               empty="ไม่มีการจองเครื่องจักร"
-              head={["Machine", "Unit", "Building", "Contractor", "Time", "Purpose"]}
+              head={[...dayHead, "Machine", "Building", "Contractor", "Time", "วัตถุประสงค์"]}
               rows={machines.map((m) => ({
                 key: m.id,
-                tone: m.conflict === "conflict" ? "error" : m.conflict === "possible" ? "warning" : undefined,
                 cells: [
+                  ...dayCol(m.targetDate),
                   <b key="m">{m.machineType}</b>,
-                  m.unitTag ?? "—",
                   m.buildingName,
                   <ContractorBadge key="c" code={m.contractorCode} />,
                   timeWindowLabel(m.startTime, m.endTime),
@@ -119,20 +122,22 @@ export function TodayRequestsPage() {
                 ],
               }))}
             />
-            {machines.some((m) => m.conflict) ? (
-              <Typography variant="caption" color="error.main">
-                แถวสีแดง = เครื่องเดียวกันถูกจองเวลาชนกัน · สีเหลือง = เวลาชนแต่ไม่ได้ระบุหมายเลขเครื่อง
-              </Typography>
-            ) : null}
           </Section>
 
           <Section title="Equipment request">
             <SimpleTable
               empty="ไม่มีการขอเครื่องมือ/อุปกรณ์"
-              head={["Equipment", "Qty", "Building", "Contractor", "Purpose"]}
+              head={[...dayHead, "Equipment", "Qty", "Building", "Contractor", "วัตถุประสงค์"]}
               rows={equipment.map((e) => ({
                 key: e.id,
-                cells: [<b key="e">{e.equipmentType}</b>, e.qty, e.buildingName, <ContractorBadge key="c" code={e.contractorCode} />, e.purpose ?? "—"],
+                cells: [
+                  ...dayCol(e.targetDate),
+                  <b key="e">{e.equipmentType}</b>,
+                  e.qty,
+                  e.buildingName,
+                  <ContractorBadge key="c" code={e.contractorCode} />,
+                  e.purpose ?? "—",
+                ],
               }))}
             />
           </Section>
@@ -140,11 +145,11 @@ export function TodayRequestsPage() {
           <Section title="Road usage">
             <SimpleTable
               empty="ไม่มีการขอใช้/ปิดถนน"
-              head={["Road / lane", "Time", "Contractor", "Next to", "Purpose"]}
+              head={[...dayHead, "Road / lane", "Time", "Contractor", "Next to", "วัตถุประสงค์"]}
               rows={roads.map((r) => ({
                 key: r.id,
-                tone: r.conflict ? "error" : undefined,
                 cells: [
+                  ...dayCol(r.targetDate),
                   <b key="r">{r.roadLocation}</b>,
                   `${r.startTime}–${r.endTime}`,
                   <ContractorBadge key="c" code={r.contractorCode} />,
@@ -165,10 +170,11 @@ export function TodayRequestsPage() {
           >
             <SimpleTable
               empty="ไม่มีคำขอตรวจ"
-              head={["Type", "Time", "Contractor", "Work item", "Building", "Status"]}
+              head={[...dayHead, "Type", "Time", "Contractor", "Work item", "Building", "Status"]}
               rows={inspections.map((r) => ({
                 key: r.id,
                 cells: [
+                  ...dayCol(r.inspectionDate),
                   "RFI",
                   r.inspectionTime,
                   <b key="c">{r.contractorName}</b>,

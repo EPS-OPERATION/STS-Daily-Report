@@ -20,6 +20,7 @@ import {
   insertPhoto,
   listAllocations,
   listAllocationsInRange,
+  listAllocationDetailsInRange,
   listReportsForReview,
   countRequestsByStatusInRange,
   listEquipment,
@@ -320,6 +321,9 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
   if (input.accidentOccurred && !input.accidentNote?.trim()) {
     throw new ValidationError("Describe the accident when one occurred");
   }
+  if (input.accidentOccurred && !input.accidentCategory) {
+    throw new ValidationError("Choose the accident category");
+  }
   validateTomorrow(
     new Set((await listBuildings(db, projectId)).map((b) => b.id)),
     input.machinery,
@@ -374,12 +378,16 @@ export async function reviewReportService(auth: AuthContext, reportId: string, i
 
 // ---- EPS review queue ------------------------------------------------------
 
-// One row per contractor report for a date. EPS sees every contractor (Image 2
+// One row per contractor report for a date or date range. EPS sees every contractor (Image 2
 // approval table); a contractor user sees only their own companies.
-export async function listReviewQueueService(auth: AuthContext, projectId: string, date: string) {
+export async function listReviewQueueService(
+  auth: AuthContext,
+  projectId: string,
+  range: { date?: string; from?: string; to?: string },
+) {
   await assertProject(projectId);
   if (auth.user.role === "eps") {
-    const rows = await listReportsForReview(getDb(), projectId, date);
+    const rows = await listReportsForReview(getDb(), projectId, range);
     return rows.map(toReviewRow);
   }
   const memberships = await listActiveContractorsForUser(getDb(), auth.user.id);
@@ -387,7 +395,7 @@ export async function listReviewQueueService(auth: AuthContext, projectId: strin
   const rows = await listReportsForReview(
     getDb(),
     projectId,
-    date,
+    range,
     memberships.map((c) => c.id),
   );
   return rows.map(toReviewRow);
@@ -699,3 +707,72 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   };
 }
 
+// Site plan: everything happening in each building on one day — people and work
+// (morning allocation) plus what was requested for that day (evening before).
+// Range-aware: for one day `headcount` = people that day; for a range it is man-days
+// (sum over days) and `avgDaily` = man-days / days with any report in the range.
+export async function siteDayService(projectId: string, from: string, to: string) {
+  const db = getDb();
+  await assertProject(projectId);
+  assertRange(from, to);
+  const [buildingList, allocations, machinery, equipment, roads, permits, inspections] = await Promise.all([
+    listBuildings(db, projectId),
+    listAllocationDetailsInRange(db, projectId, from, to),
+    listBookingsInRange(db, projectId, from, to),
+    listEquipmentRequestsInRange(db, projectId, from, to),
+    listRoadUsageInRange(db, projectId, from, to),
+    listPermitsInRange(db, projectId, from, to),
+    listRequests(db, projectId, { from, to, by: "inspection" }),
+  ]);
+  const machineClash = new Set(findMachineryConflicts(machinery).flatMap((c) => c.bookingIds));
+  const reportedDays = Math.max(1, new Set(allocations.map((a) => a.reportDate)).size);
+  return {
+    date: from,
+    from,
+    to,
+    reportedDays,
+    buildings: buildingList.map((b) => {
+      const work = allocations.filter((a) => a.buildingId === b.id);
+      const contractors = [...new Set(work.map((a) => a.contractorCode))];
+      const headcount = work.reduce((s, a) => s + a.headcount, 0);
+      return {
+        id: b.id,
+        code: b.code,
+        name: b.name,
+        nameTh: b.nameTh,
+        headcount,
+        avgDaily: Math.round(headcount / reportedDays),
+        contractors,
+        activities: work,
+        machinery: machinery.filter((m) => m.buildingId === b.id).map((m) => ({ ...m, conflict: machineClash.has(m.id) })),
+        equipment: equipment.filter((e) => e.buildingId === b.id),
+        roads: roads.filter((r) => r.buildingId === b.id),
+        permits: permits.filter((p) => p.buildingId === b.id),
+        inspections: inspections.filter((r) => r.buildingId === b.id && r.status !== "draft"),
+      };
+    }),
+  };
+}
+
+// Daily Request page: everything requested for target dates in [from, to].
+export async function dailyRequestsService(projectId: string, from: string, to: string) {
+  const db = getDb();
+  await assertProject(projectId);
+  assertRange(from, to);
+  const [machinery, equipment, roads] = await Promise.all([
+    listBookingsInRange(db, projectId, from, to),
+    listEquipmentRequestsInRange(db, projectId, from, to),
+    listRoadUsageInRange(db, projectId, from, to),
+  ]);
+  const conflicts = findMachineryConflicts(machinery);
+  const clash = new Map<string, "conflict" | "possible">();
+  for (const c of conflicts) for (const id of c.bookingIds) if (clash.get(id) !== "conflict") clash.set(id, c.severity);
+  const roadClash = new Set(findRoadConflicts(roads).flatMap((c) => c.ids));
+  return {
+    from,
+    to,
+    machinery: machinery.map((m) => ({ ...m, conflict: clash.get(m.id) ?? null })),
+    equipmentRequests: equipment,
+    roads: roads.map((r) => ({ ...r, conflict: roadClash.has(r.id) })),
+  };
+}

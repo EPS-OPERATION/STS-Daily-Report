@@ -1,5 +1,6 @@
 import { t } from "elysia";
 import {
+  ACCIDENT_CATEGORY_CODES,
   DISCIPLINE_CODES,
   MACHINE_TYPES,
   PERMIT_TYPE_CODES,
@@ -29,7 +30,11 @@ export const currentReportQuery = t.Object({
 
 export const weeklySummaryQuery = t.Object({ weekStart: isoDate });
 
-export const reviewQueueQuery = t.Object({ date: isoDate });
+export const reviewQueueQuery = t.Object({
+  date: t.Optional(isoDate),
+  from: t.Optional(isoDate),
+  to: t.Optional(isoDate),
+});
 
 // EPS review decision. Rejection must tell the contractor what to fix
 // (service enforces the note; maxLength keeps the envelope small).
@@ -88,6 +93,7 @@ export const eveningBody = t.Object({
   otHours: t.Number({ minimum: 0, maximum: 24, multipleOf: 0.5 }),
   accidentOccurred: t.Boolean(),
   accidentNote: t.Optional(t.String({ maxLength: 1000 })),
+  accidentCategory: t.Optional(t.Union(ACCIDENT_CATEGORY_CODES.map((c) => t.Literal(c)))),
   progress: t.Array(
     t.Object({
       allocationId: t.String({ format: "uuid" }),
@@ -145,6 +151,9 @@ export const photoUploadBody = t.Object({
   category: t.Union(PHOTO_CATEGORIES.map((c) => t.Literal(c))),
   file: t.File({ type: "image", maxSize: "10m" }),
 });
+
+// `date` = single day (kept for old links); `from`/`to` = range.
+export const siteDayQuery = t.Object({ date: t.Optional(isoDate), from: t.Optional(isoDate), to: t.Optional(isoDate) });
 
 export const dateRangeQuery = t.Object({ from: isoDate, to: isoDate });
 

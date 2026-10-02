@@ -67,6 +67,7 @@ const GROUPS: NavGroup[] = [
       { to: "/manpower", label: "Manpower", icon: "manpower" },
       { to: "/work-permits", label: "Work Permits", icon: "workPermits" },
       { to: "/qaqc", label: "QAQC", icon: "qaqc" },
+      { to: "/safety", label: "Safety", icon: "safety" },
       { to: "/materials", label: "Materials", icon: "materials" },
     ],
   },
@@ -75,7 +76,6 @@ const GROUPS: NavGroup[] = [
     roles: ["eps"],
     items: [
       { to: "/progress", label: "Drone Progress", icon: "drone" },
-      { to: "/reports", label: "Reports", icon: "reports" },
     ],
   },
   {
@@ -89,11 +89,7 @@ const GROUPS: NavGroup[] = [
   {
     title: "Administration",
     roles: ["eps"],
-    items: [
-      { to: "/projects", label: "Projects", icon: "projects" },
-      { to: "/site-plan/config", label: "Zone Config", icon: "zoneConfig" },
-      { to: "/settings", label: "Settings", icon: "settings" },
-    ],
+    items: [{ to: "/settings", label: "Settings", icon: "settings" }],
   },
 ];
 

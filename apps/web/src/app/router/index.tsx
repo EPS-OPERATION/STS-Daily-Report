@@ -12,8 +12,10 @@ import { LoginPage } from "@/pages/login-page.js";
 import { NotFoundPage } from "@/pages/not-found-page.js";
 import { ManpowerPage } from "@/pages/manpower-page.js";
 import { PlaceholderPage } from "@/pages/placeholder-page.js";
-import { ProjectsPage } from "@/pages/projects-page.js";
+import { WorkPermitsPage } from "@/pages/work-permits-page.js";
 import { QaqcBoardPage } from "@/pages/qaqc-board-page.js";
+import { SafetyPage } from "@/pages/safety-page.js";
+import { SafetyReportPrintPage } from "@/pages/safety-report-page.js";
 import { SitePlanPage } from "@/pages/site-plan-page.js";
 import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
 import { TodayRequestsPage } from "@/pages/today-requests-page.js";
@@ -34,6 +36,10 @@ export const router = createBrowserRouter([
     element: <RequireAuth />,
     errorElement: <RouteErrorBoundary />,
     children: [
+      {
+        element: <RoleGuard allowedRoles={["eps"]} redirectTo="/field" />,
+        children: [{ path: "safety/report", element: <SafetyReportPrintPage /> }],
+      },
       {
         element: <AppLayout />,
         children: [
@@ -60,15 +66,12 @@ export const router = createBrowserRouter([
               { path: "tomorrow", element: <Navigate to="/today-requests" replace /> },
               { path: "weekly-summary", element: <Navigate to="/today-requests" replace /> },
               { path: "contractors", element: <ContractorsPage /> },
-              { path: "projects", element: <ProjectsPage /> },
               // Dev-only geometry mapper: reachable by URL, never linked in navigation.
               { path: "dev/map-zones", element: <DevGeometryMapper /> },
               { path: "manpower", element: <ManpowerPage /> },
-              {
-                path: "work-permits",
-                element: <PlaceholderPage title="Work Permits" blurb="Issue and approve high-risk work permits with expiry and zone linkage. This module follows the contractors reference pattern." />,
-              },
+              { path: "work-permits", element: <WorkPermitsPage /> },
               { path: "qaqc", element: <QaqcBoardPage /> },
+              { path: "safety", element: <SafetyPage /> },
               {
                 path: "materials",
                 element: <PlaceholderPage title="Materials" blurb="Record material deliveries, quantities and suppliers linked to daily reports." />,
@@ -76,10 +79,6 @@ export const router = createBrowserRouter([
               {
                 path: "progress",
                 element: <PlaceholderPage title="Drone Progress" blurb="Compare periodic drone captures against planned progress per zone." />,
-              },
-              {
-                path: "reports",
-                element: <PlaceholderPage title="Reports" blurb="Export and review consolidated operational reports across projects." />,
               },
           {
             path: "settings",

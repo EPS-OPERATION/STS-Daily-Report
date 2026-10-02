@@ -5,17 +5,17 @@
 
 ## สถานะปัจจุบัน (2026-09-30, branch `improvement/daily-report` — กฎ git ดู `PROJECT_WORKFLOW.md`)
 
-- Agent docs: `CLAUDE.md` (entry, import ไฟล์นี้), `SKILLS.md` (index), skills ที่ `.claude/skills/sts-*`
-  (domain / api-module / web-feature / verify / git-safety) — แก้ recipe ใน code ต้องแก้ skill ใน commit เดียวกัน
+- Agent docs: `CLAUDE.md` (entry, import ไฟล์นี้), `SKILLS.md` (index), skills ที่ `.claude/skills/`
+  (`sts-*`, `impeccable`, `web-design-guidelines`, `vercel-react-best-practices`) — design system อยู่ที่ `DESIGN.md` และ `.impeccable/`
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
-- Schema (migrations `0000`–`0009`): projects, contractors, project_contractors, users(role)/memberships/sessions, zones,
+- Schema (migrations `0000`–`0012`): projects, contractors, project_contractors, users(role)/memberships/sessions, zones,
   site_plans/zone_map_areas, site_activities, buildings, daily_reports(+_positions/_equipment/_allocations/_machinery/
   _permits/_road_usage/_photos), inspection_requests
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
   Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/` dashboard, `/site-plan` (overview [Image 1] + activity drawer), `/daily-reports` (inbox + history), `/tomorrow`, `/weekly-summary` (real API),
+- Screens: `/` dashboard, `/site-plan` (overview [Image 1] + activity drawer), `/daily-reports` (summary + review queue + date range), `/tomorrow`, `/weekly-summary` (real API),
   `/field` + `/field/report` (mobile-first; `/evening-report` redirect), `/qaqc` (Daily Request kanban), `/contractors`
 - ยังไม่มี: tests, lint config, CI, production auth, domains manpower/permits/qaqc/materials/drone (ดู README §12/13)
 
@@ -77,21 +77,19 @@
   guard requireAuth; ห้าม local-email ใน production (startup fail); seed login: contractor@sts.local (ไม่มีรหัสผ่าน)
 - Site-plan vertical (real DB): ตาราง zones/site_plans/zone_map_areas/site_activities (geometry normalized 0..1 JSONB);
   modules zones/site-activities/site-plans/projects; writes กันด้วย requireAuth; reads เปิด; seed 21 zones/1 plan/6 areas;
-  frontend features/site-plan + features/projects (ProjectProvider); background drawing รอไฟล์ master-layout.jpg
-- Konva map (konva+react-konva ใน apps/web): base master-layout-map.png (1586x992) + SVG→Konva polygons;
-  edit mode (vertex drag/add-del point/draw new/assign/reset/delete/bulk save/dirty-confirm); default_geometry
-  สำหรับ reset; mobile ดูได้อย่างเดียว; geometry ใน React ไม่มี (PostgreSQL เท่านั้น)
-- Site Plan แยก 2 จอ: /site-plan (overview hotspots → drawer/Add Activity) vs /site-plan/config (admin: canvas + panel, bulk/PATCH/POST/DELETE/reset);
-  seed geometry แมปจริงจากภาพ (16 areas, 5 zones unmapped โดยตั้งใจ ไม่มี subdivision)
+  frontend features/site-plan + features/projects (ProjectProvider)
+- /site-plan = overview hotspots → drawer/Add Activity (ไม่มี 2D map, ไม่มี /site-plan/config แล้ว);
+  seed geometry ยังอยู่ใน DB (16 areas, 5 zones unmapped โดยตั้งใจ ไม่มี subdivision)
 - Overview hotspots (`mock/site-overview.ts`, x/y % ล้วน): 10 ป้าย → zone จริง, 4 ป้าย (ACC/5.1, 2.2–2.4, 6.4) fallback parent โดย tooltip บอก, TR ไม่มี zone (disabled)
 - `packages/env` ต้องมี `@types/bun` ไม่งั้น `process` typecheck ไม่ผ่าน
 - Daily report: 1 row/contractor/project/date, เช้า/เย็น ส่งอิสระ (เช้า lock เมื่อส่งครบทั้งคู่, เย็น lock ตัวเอง);
   เช้า = เวลา/ชม., อากาศ, คนตามตำแหน่ง (ยอดหลัก) = สัญชาติ/เพศ, เครื่องจักรในไซต์, allocation ลง `buildings` 15 อาคาร (ลำดับตามไซต์, BMS inactive)
   (≠ WBS zones) รวม = total พอดี (zod + service); เย็น upsert แถวเอง (ไม่ต้องมีเช้า) = อุบัติเหตุ, OT, actual% (ต่ำกว่า plan
   ต้องมี countermeasure), รูป (draft แถวก่อนถ้ายังไม่มี), ลายเซ็น PNG, คำขอพรุ่งนี้; NMH = คน × (ชม.+OT); vocab ที่ `@sts/shared`
-- Charts (MUI x-charts, สีตาม contractor code จาก `app/theme/chart-palette.ts`): `/manpower` (สัปดาห์/เดือน; `/manpower-summary`, `/position-mix`, `/manpower-trend`), weekly page กราฟเดียว; `weekly-summary`: machinery/permits/roads ตาม target_date; conflict = type+unit
-  ซ้ำเวลาเหลื่อม ("possible" ถ้าไม่มี unit), ถนนชื่อเดียวกันเวลาเหลื่อม; seed sample ZCE/LCE/UME (CTR-001 ว่างไว้ทดสอบ)
+- Charts (MUI x-charts, สีตาม contractor code จาก `app/theme/chart-palette.ts`): `/manpower` (สัปดาห์/เดือน; `/manpower-summary`, `/position-mix`, `/manpower-trend`), weekly page กราฟเดียว; `weekly-summary`: machinery/permits/roads ตาม target_date (ปิด rule base จองชนตาม requirement); seed sample ZCE/LCE/UME (CTR-001 ว่างไว้ทดสอบ)
 - Bun `--hot` segfault บน Windows → `--watch`; FormData ใช้ `http.upload`; form ใน Dialog ต้อง `e.stopPropagation()`
 - คำขอพรุ่งนี้ (machinery[เวลา optional=ทั้งวัน]+purpose/equipment_requests[qty ไม่มีเวลา]/permits/road_usage) ผูก report เย็นวัน T + `target_date`=T+1;
   QAQC = `inspection_requests` ผูก contractor+report_date; draft จนส่งเย็น → requested;
   EPS (`users.role='eps'`, seed eps@sts.local) ย้าย confirmed→inspected(pass/fail)→closed; contractor แก้ได้แค่ draft/requested
+- Site plan = `building_markers` + `building_parts`/`_part_markers` (x/y 0..1 ต่อ view overview|topview|plan[แบบ CAD G A0.02]; EPS ตั้งที่ `/site-plan/config`) + `GET /site-day?date=`; report ยังไม่อ้าง part
+- Safety `/safety` (EPS): `safety_findings` (line walk + รูป MinIO) + `daily_reports.accident_category` (ผู้รับเหมาเลือก 5 หมวด) → stats; PDF = `/safety/report` (print A4, นอก AppLayout)

@@ -3,13 +3,11 @@ import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import Link from "@mui/material/Link";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
@@ -47,7 +45,6 @@ export function WeeklyBuildingSummaryPage() {
   const summary = useWeeklySummary(projectId, weekStart);
   const manpower = useManpowerSummary(projectId, weekStart, weekEnd);
   const [tab, setTab] = useState<DetailTab>("matrix");
-  const [onlyConflicts, setOnlyConflicts] = useState(false);
 
   const goWeek = (delta: number) => {
     const p = new URLSearchParams(params);
@@ -103,8 +100,8 @@ export function WeeklyBuildingSummaryPage() {
           <Stack direction="row" flexWrap="wrap" useFlexGap columnGap={3} rowGap={0.5}>
             <Figure label="Man-days" value={data.totals.manDays.toLocaleString()} />
             <Figure label="NMH (ชม.)" value={data.totals.manHours.toLocaleString()} />
-            <Figure label="เครื่องจักรจองชน" value={data.totals.conflicts} alert={data.totals.conflicts > 0} />
-            <Figure label="ถนนจองชน" value={data.totals.roadConflicts} alert={data.totals.roadConflicts > 0} />
+            <Figure label="เครื่องจักรที่ขอ" value={data.totals.bookings} />
+            <Figure label="ขอใช้ถนน" value={data.roads.length} />
             <Figure
               label="คำขอตรวจ QAQC"
               value={
@@ -141,15 +138,9 @@ export function WeeklyBuildingSummaryPage() {
             >
               <Tabs value={tab} onChange={(_, v: DetailTab) => setTab(v)}>
                 <Tab value="matrix" label="อาคาร × วัน" />
-                <Tab value="machinery" label={`เครื่องจักร${data.totals.conflicts ? ` (${data.totals.conflicts})` : ""}`} />
-                <Tab value="roads" label={`ถนน${data.totals.roadConflicts ? ` (${data.totals.roadConflicts})` : ""}`} />
+                <Tab value="machinery" label={`เครื่องจักร (${data.totals.bookings})`} />
+                <Tab value="roads" label={`ถนน (${data.roads.length})`} />
               </Tabs>
-              {tab !== "matrix" ? (
-                <FormControlLabel
-                  control={<Switch size="small" checked={onlyConflicts} onChange={(e) => setOnlyConflicts(e.target.checked)} />}
-                  label="เฉพาะที่ชนกัน"
-                />
-              ) : null}
             </Stack>
             <Box sx={{ p: 2 }}>
               {tab === "matrix" ? (
@@ -160,9 +151,9 @@ export function WeeklyBuildingSummaryPage() {
                   <BuildingActivityMatrix days={data.days} rows={data.buildings} today={today} hideEmpty />
                 </>
               ) : tab === "machinery" ? (
-                <MachineryAllocationTable bookings={data.machinery} onlyConflicts={onlyConflicts} />
+                <MachineryAllocationTable bookings={data.machinery} onlyConflicts={false} />
               ) : (
-                <RoadUsageTable roads={onlyConflicts ? data.roads.filter((r) => r.conflict) : data.roads} />
+                <RoadUsageTable roads={data.roads} />
               )}
             </Box>
           </Box>

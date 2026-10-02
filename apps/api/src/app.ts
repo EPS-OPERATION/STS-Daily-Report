@@ -7,6 +7,7 @@ import { buildingRoutes } from "@/modules/buildings/index.js";
 import { contractorRoutes } from "@/modules/contractors/index.js";
 import { dailyReportRoutes } from "@/modules/daily-reports/index.js";
 import { inspectionRequestRoutes } from "@/modules/inspection-requests/index.js";
+import { safetyRoutes } from "@/modules/safety/index.js";
 import { projectRoutes } from "@/modules/projects/index.js";
 import { siteActivityRoutes } from "@/modules/site-activities/index.js";
 import { sitePlanRoutes } from "@/modules/site-plans/index.js";
@@ -24,7 +25,7 @@ export function buildApp() {
     .use(errorPlugin)
     .get(HEALTH_PATH, () => ({ status: "ok" }))
     .group(API_PREFIX, (group) =>
-      group.use(authRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(inspectionRequestRoutes),
+      group.use(authRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(inspectionRequestRoutes).use(safetyRoutes),
     )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;

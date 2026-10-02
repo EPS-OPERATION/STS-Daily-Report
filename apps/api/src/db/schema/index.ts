@@ -8,3 +8,4 @@ export * from "./site-plan.schema.js";
 export * from "./site-activity.schema.js";
 export * from "./building.schema.js";
 export * from "./daily-report.schema.js";
+export * from "./safety.schema.js";

@@ -1,4 +1,5 @@
 import type {
+  AccidentCategory,
   Discipline,
   MachineType,
   PermitType,
@@ -79,6 +80,7 @@ export interface EveningInput {
   otHours: number;
   accidentOccurred: boolean;
   accidentNote?: string;
+  accidentCategory?: AccidentCategory;
   progress: EveningProgressInput[];
   signatureName: string;
   signatureData: string;

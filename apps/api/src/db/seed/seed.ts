@@ -1,4 +1,4 @@
-import { inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   BUILDINGS,
   RETIRED_BUILDING_CODES,
@@ -12,6 +12,7 @@ import {
 } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import {
+  buildingMarkers,
   buildings,
   contractorMemberships,
   dailyReportAllocations,
@@ -22,6 +23,7 @@ import {
   dailyReportRoadUsage,
   dailyReports,
   inspectionRequests,
+  safetyFindings,
   contractors,
   projectContractors,
   projects,
@@ -289,6 +291,41 @@ const buildingIdByCode = new Map(
 );
 const bid = (code: BuildingCode) => buildingIdByCode.get(code)!;
 
+// Starting marker positions (0..1 of each image). Admins move them on /site-plan/config;
+// re-seeding never overwrites a placed marker. Positions = the leader-line dots baked
+// into site-model-iso.png (overview) and site-model-topdown.png (top view); plan = BLD.CODE
+// letters on site-plan-drawing.png (CAD G A0.02).
+const MARKER_SEED: Record<BuildingCode, { overview: [number, number]; topview: [number, number]; plan: [number, number] }> = {
+  RWP: { overview: [0.508, 0.212], topview: [0.169, 0.185], plan: [0.81, 0.89] },
+  WTK: { overview: [0.373, 0.264], topview: [0.144, 0.331], plan: [0.866, 0.593] },
+  WTP: { overview: [0.324, 0.3], topview: [0.133, 0.465], plan: [0.866, 0.482] },
+  CT: { overview: [0.268, 0.388], topview: [0.161, 0.615], plan: [0.849, 0.369] },
+  CMP: { overview: [0.194, 0.457], topview: [0.17, 0.712], plan: [0.85, 0.318] },
+  ACC: { overview: [0.22, 0.6], topview: [0.26, 0.74], plan: [0.725, 0.274] },
+  TG: { overview: [0.4, 0.5], topview: [0.3, 0.52], plan: [0.713, 0.489] },
+  TR: { overview: [0.49, 0.36], topview: [0.317, 0.4], plan: [0.744, 0.545] },
+  BLR: { overview: [0.756, 0.414], topview: [0.465, 0.179], plan: [0.601, 0.493] },
+  BMT: { overview: [0.953, 0.54], topview: [0.617, 0.19], plan: [0.48, 0.718] },
+  BAB: { overview: [0.814, 0.574], topview: [0.54, 0.283], plan: [0.528, 0.664] },
+  FAS: { overview: [0.753, 0.655], topview: [0.532, 0.457], plan: [0.515, 0.62] },
+  DOT: { overview: [0.635, 0.814], topview: [0.524, 0.576], plan: [0.528, 0.48] },
+  FGT: { overview: [0.584, 0.805], topview: [0.466, 0.578], plan: [0.56, 0.38] },
+  STK: { overview: [0.485, 0.822], topview: [0.446, 0.707], plan: [0.588, 0.326] },
+};
+await db
+  .insert(buildingMarkers)
+  .values(
+    Object.entries(MARKER_SEED).flatMap(([code, m]) =>
+      (["overview", "topview", "plan"] as const).map((view) => ({
+        buildingId: bid(code as BuildingCode),
+        view,
+        x: m[view][0],
+        y: m[view][1],
+      })),
+    ),
+  )
+  .onConflictDoNothing();
+
 // --- Sample contractor daily reports for the current week (dev only) ---
 // Codes follow the site badges (ZCE/LCE/UME). Contractor A (the dev login) gets
 // no report for today so the morning/evening flow can be exercised from scratch.
@@ -510,6 +547,62 @@ await db
     }),
   )
   .onConflictDoNothing({ target: inspectionRequests.id });
+
+// --- Sample safety line walk + contractor-reported accidents (dev only, idempotent) ---
+const ZCE = SAMPLE_CONTRACTORS[0]!.id;
+const LCE = SAMPLE_CONTRACTORS[1]!.id;
+const UME = SAMPLE_CONTRACTORS[2]!.id;
+const OPEN_HOLE = { obs: "พบช่องเปิดและหลุมลึกไม่ปิดล้อมพื้นที่", act: "ปิดล้อมพื้นที่ด้วย Pipe นั่งร้าน และติดป้ายเตือนอันตราย" };
+const CABLE = { obs: "สายไฟวางพาดผ่านถนน โดยไม่ป้องกันหากรถเหยียบ", act: "ครอบด้วยเหล็กชั่วคราวเพื่อป้องกันรถเหยียบสายไฟชำรุด" };
+const NO_HARNESS = { obs: "คนงานทำงานบนที่สูงไม่คล้องเข็มขัดนิรภัย", act: "หยุดงาน อบรม และตรวจเข็มขัดก่อนขึ้นทำงาน" };
+const FINDINGS: Array<{ day: number; c: string; b: BuildingCode; t: "unsafe_act" | "unsafe_condition"; f: { obs: string; act: string }; open?: boolean }> = [
+  { day: -2, c: ZCE, b: "TG", t: "unsafe_condition", f: OPEN_HOLE },
+  { day: -2, c: ZCE, b: "TG", t: "unsafe_condition", f: OPEN_HOLE },
+  { day: -2, c: ZCE, b: "TG", t: "unsafe_condition", f: OPEN_HOLE },
+  { day: -2, c: ZCE, b: "TG", t: "unsafe_condition", f: OPEN_HOLE },
+  { day: 0, c: ZCE, b: "TG", t: "unsafe_act", f: CABLE, open: true },
+  { day: -9, c: LCE, b: "ACC", t: "unsafe_act", f: NO_HARNESS },
+  { day: -16, c: UME, b: "STK", t: "unsafe_condition", f: OPEN_HOLE },
+  { day: -23, c: LCE, b: "CT", t: "unsafe_condition", f: CABLE },
+  { day: -30, c: ZCE, b: "BLR", t: "unsafe_act", f: NO_HARNESS },
+  { day: -38, c: UME, b: "BLR", t: "unsafe_condition", f: OPEN_HOLE },
+  { day: -45, c: LCE, b: "ACC", t: "unsafe_condition", f: OPEN_HOLE },
+  { day: -52, c: ZCE, b: "TG", t: "unsafe_act", f: CABLE },
+];
+await db
+  .insert(safetyFindings)
+  .values(
+    FINDINGS.map((x, i) => {
+      const d = addDays(today, x.day);
+      return {
+        projectId: PROJECT_ID,
+        itemNo: i + 1,
+        observation: x.f.obs,
+        buildingId: bid(x.b),
+        actionToBeTaken: x.f.act,
+        contractorId: x.c,
+        inspectionDate: d,
+        expectedCompleteDate: d,
+        status: x.open ? "open" : "done",
+        closedAt: x.open ? null : new Date(`${d}T10:00:00Z`),
+        findingType: x.t,
+      };
+    }),
+  )
+  .onConflictDoNothing();
+
+// A few categorised accidents on existing sample reports (property damage + near misses).
+for (const [day, contractorId, category, note] of [
+  [-50, LCE, "property_damage", "รถเครนชนรั้วชั่วคราวเสียหาย"],
+  [-39, ZCE, "near_miss", "วัสดุตกจากที่สูง ไม่มีผู้บาดเจ็บ"],
+  [-25, UME, "near_miss", "รถขุดถอยเกือบชนคนงาน"],
+  [-11, ZCE, "near_miss", "สลิงยกของเสียดสีขาด ของไม่ตก"],
+] as const) {
+  await db
+    .update(dailyReports)
+    .set({ accidentOccurred: true, accidentCategory: category, accidentNote: note })
+    .where(and(eq(dailyReports.contractorId, contractorId), eq(dailyReports.reportDate, addDays(today, day))));
+}
 
 console.log(
   `seed ok: 1 project, 6 contractors, 1 user, 1 membership, 21 zones, 1 plan, 16 areas, 4 activities, ${BUILDINGS.length} buildings, ${sampleReports} new sample daily reports`,

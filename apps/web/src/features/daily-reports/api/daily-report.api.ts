@@ -14,14 +14,16 @@ import type {
   PositionMixRow,
   ManpowerTrendPoint,
   ManpowerSummary,
+  DailyRequests,
 } from "../types/daily-report.types.js";
 
 export const dailyReportApi = {
   buildings(projectId: string): Promise<{ data: Building[] }> {
     return http.get(`/projects/${projectId}/buildings`);
   },
-  current(projectId: string, date: string): Promise<CurrentReportResponse> {
-    return http.get(`/projects/${projectId}/daily-reports/current?date=${date}`);
+  current(projectId: string, date: string, contractorId?: string): Promise<CurrentReportResponse> {
+    const q = contractorId ? `?date=${date}&contractorId=${contractorId}` : `?date=${date}`;
+    return http.get(`/projects/${projectId}/daily-reports/current${q}`);
   },
   submitMorning(projectId: string, payload: MorningPayload): Promise<{ data: DailyReport }> {
     return http.put(`/projects/${projectId}/daily-reports/morning`, payload);
@@ -69,9 +71,18 @@ export const dailyReportApi = {
   weeklySummary(projectId: string, weekStart: string): Promise<{ data: WeeklySummary }> {
     return http.get(`/projects/${projectId}/weekly-summary?weekStart=${weekStart}`);
   },
-  // EPS review queue: one row per contractor report for a date (role-scoped server-side).
-  reviewQueue(projectId: string, date: string): Promise<{ data: ReviewQueueRow[] }> {
-    return http.get(`/projects/${projectId}/daily-reports/review-queue?date=${date}`);
+  // EPS review queue: one row per contractor report for a date or date range (role-scoped server-side).
+  reviewQueue(
+    projectId: string,
+    params: { date?: string; from?: string; to?: string } | string,
+  ): Promise<{ data: ReviewQueueRow[] }> {
+    const q =
+      typeof params === "string"
+        ? `date=${params}`
+        : params.from && params.to
+          ? `from=${params.from}&to=${params.to}`
+          : `date=${params.date ?? params.from ?? ""}`;
+    return http.get(`/projects/${projectId}/daily-reports/review-queue?${q}`);
   },
   // EPS-only decision on a submitted report (403 for contractor role).
   reviewReport(reportId: string, payload: ReviewPayload): Promise<{ data: DailyReport }> {
@@ -85,5 +96,8 @@ export const dailyReportApi = {
   },
   manpowerTrend(projectId: string, until: string, weeks: number): Promise<{ data: ManpowerTrendPoint[] }> {
     return http.get(`/projects/${projectId}/manpower-trend?until=${until}&weeks=${weeks}`);
+  },
+  dailyRequests(projectId: string, from: string, to: string): Promise<{ data: DailyRequests }> {
+    return http.get(`/projects/${projectId}/daily-requests?from=${from}&to=${to}`);
   },
 };

@@ -40,6 +40,9 @@ dashboards, replacing LINE messages and paper "Daily Request & Report" forms.
 | `.claude/skills/sts-domain/SKILL.md` | Modelling reports, forms, dashboards, WBS/zones, contractors, safety metrics |
 | `.claude/skills/sts-api-module/SKILL.md` | Adding/changing an Elysia + Drizzle module, table or migration |
 | `.claude/skills/sts-web-feature/SKILL.md` | Adding/changing a React feature, page, form, grid or dashboard widget |
+| `.claude/skills/impeccable/SKILL.md` | Frontend craft & UX/UI design director: typography, colors, layout, Polish/Critique/Audit/Shape playbooks, EPS design system tokens in `DESIGN.md` |
+| `.claude/skills/web-design-guidelines/SKILL.md` | Web design principles, layout hierarchy, cognitive load, user feedback |
+| `.claude/skills/vercel-react-best-practices/SKILL.md` | Modern React patterns, component optimization, bundle size |
 | `.claude/skills/sts-verify/SKILL.md` | Before saying work is done; running the stack; port/docker/db problems |
 | `.claude/skills/sts-git-safety/SKILL.md` | Any git command that commits, rebases, pushes or touches another branch |
 

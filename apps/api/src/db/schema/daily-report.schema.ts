@@ -38,6 +38,8 @@ export const dailyReports = pgTable(
     otHours: numeric("ot_hours", { precision: 4, scale: 1, mode: "number" }),
     accidentOccurred: boolean("accident_occurred"),
     accidentNote: text("accident_note"),
+    // One of ACCIDENT_CATEGORIES (lti / non_lti / property_damage / near_miss / emergency).
+    accidentCategory: text("accident_category"),
     eveningStatus: text("evening_status").notNull().default("draft"),
     eveningSubmittedAt: timestamp("evening_submitted_at", { withTimezone: true }),
     eveningSubmittedBy: uuid("evening_submitted_by").references(() => users.id, { onDelete: "set null" }),
@@ -66,6 +68,10 @@ export const dailyReports = pgTable(
     check(
       "daily_reports_weather_check",
       sql`${t.weather} IS NULL OR ${t.weather} IN ('thunderstorm', 'rain', 'hot', 'windy', 'normal')`,
+    ),
+    check(
+      "daily_reports_accident_category_check",
+      sql`${t.accidentCategory} IS NULL OR ${t.accidentCategory} IN ('lti', 'non_lti', 'property_damage', 'near_miss', 'emergency')`,
     ),
     check("daily_reports_morning_status_check", sql`${t.morningStatus} IN ('draft', 'submitted')`),
     check("daily_reports_evening_status_check", sql`${t.eveningStatus} IN ('draft', 'submitted')`),

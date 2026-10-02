@@ -1,5 +1,4 @@
 import Box from "@mui/material/Box";
-import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -30,11 +29,10 @@ export function MachineryAllocationTable({ bookings, onlyConflicts }: { bookings
           <TableRow>
             <TableCell>Date</TableCell>
             <TableCell>Machine</TableCell>
-            <TableCell>Unit</TableCell>
             <TableCell>Building</TableCell>
             <TableCell>Contractor</TableCell>
             <TableCell>Time</TableCell>
-            <TableCell>Purpose</TableCell>
+            <TableCell>วัตถุประสงค์</TableCell>
             <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
@@ -45,14 +43,14 @@ export function MachineryAllocationTable({ bookings, onlyConflicts }: { bookings
             return (
               <TableRow
                 key={b.id}
-                sx={{
-                  bgcolor: b.conflict === "conflict" ? "error.light" : b.conflict === "possible" ? "warning.light" : undefined,
-                  "& td": newGroup && i > 0 ? { borderTop: 2, borderTopColor: "divider" } : undefined,
-                }}
+                sx={
+                  newGroup && i > 0
+                    ? { "& td": { borderTop: 2, borderTopColor: "divider" } }
+                    : undefined
+                }
               >
                 <TableCell sx={{ whiteSpace: "nowrap" }}>{newGroup ? dayjs(b.targetDate).format("ddd D MMM") : ""}</TableCell>
                 <TableCell sx={{ fontWeight: newGroup ? 700 : 400 }}>{b.machineType}</TableCell>
-                <TableCell sx={{ fontFamily: "monospace" }}>{b.unitTag ?? "—"}</TableCell>
                 <TableCell>{b.buildingName}</TableCell>
                 <TableCell>
                   <ContractorBadge code={b.contractorCode} />
@@ -62,25 +60,13 @@ export function MachineryAllocationTable({ bookings, onlyConflicts }: { bookings
                 </TableCell>
                 <TableCell>{b.purpose ?? "—"}</TableCell>
                 <TableCell>
-                  {b.conflict === "conflict" ? (
-                    <StatusChip status="blocked" label="Double-booked" />
-                  ) : b.conflict === "possible" ? (
-                    <StatusChip status="attention" label="Check unit" />
-                  ) : (
-                    <StatusChip status="active" label="OK" />
-                  )}
+                  <StatusChip status="active" label="OK" />
                 </TableCell>
               </TableRow>
             );
           })}
         </TableBody>
       </Table>
-      <Stack direction="row" spacing={2} sx={{ px: 2, py: 1 }}>
-        <Typography variant="caption" color="text.secondary">
-          Double-booked = same machine type and unit number with overlapping hours. Check unit = overlapping hours but at least
-          one booking has no unit number.
-        </Typography>
-      </Stack>
     </Box>
   );
 }
@@ -103,13 +89,13 @@ export function RoadUsageTable({ roads }: { roads: WeeklySummary["roads"] }) {
             <TableCell>Time</TableCell>
             <TableCell>Contractor</TableCell>
             <TableCell>Next to</TableCell>
-            <TableCell>Purpose</TableCell>
+            <TableCell>วัตถุประสงค์</TableCell>
             <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {roads.map((r) => (
-            <TableRow key={r.id} sx={{ bgcolor: r.conflict ? "error.light" : undefined }}>
+            <TableRow key={r.id}>
               <TableCell sx={{ whiteSpace: "nowrap" }}>{dayjs(r.targetDate).format("ddd D MMM")}</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>{r.roadLocation}</TableCell>
               <TableCell sx={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
@@ -121,7 +107,7 @@ export function RoadUsageTable({ roads }: { roads: WeeklySummary["roads"] }) {
               <TableCell>{r.buildingName}</TableCell>
               <TableCell>{r.purpose}</TableCell>
               <TableCell>
-                {r.conflict ? <StatusChip status="blocked" label="Clash" /> : <StatusChip status="active" label="OK" />}
+                <StatusChip status="active" label="OK" />
               </TableCell>
             </TableRow>
           ))}

@@ -6,3 +6,8 @@ export { useSiteActivities } from "./hooks/use-site-activities.js";
 export { useCreateSiteActivity } from "./hooks/use-create-site-activity.js";
 export { SiteOverviewCard } from "./components/site-overview-card.js";
 export { aggregateZoneState, summarizeZone } from "./utils/zone-status.js";
+export * from "./types/site-map.types.js";
+export { siteMapApi } from "./api/site-map.api.js";
+export { useSiteMap, useSiteDay, useSiteMapWriter } from "./hooks/use-site-map.js";
+export { SiteMapImage, type MapMarker } from "./components/site-map-image.js";
+export { BuildingDayPanel } from "./components/building-day-panel.js";

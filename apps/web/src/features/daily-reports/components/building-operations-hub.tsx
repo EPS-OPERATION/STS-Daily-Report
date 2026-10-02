@@ -5,7 +5,6 @@ import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import GridViewOutlinedIcon from "@mui/icons-material/GridViewOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
-import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -97,7 +96,7 @@ export function BuildingOperationsHub({
   const [selectedDayIdx, setSelectedDayIdx] = useState<number>(defaultDayIndex);
   const [selectedBuildingCode, setSelectedBuildingCode] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"plot" | "grid">("plot");
-  const [filterType, setFilterType] = useState<"all" | "active" | "permits" | "machinery" | "conflicts" | "qaqc">("all");
+  const [filterType, setFilterType] = useState<"all" | "active" | "permits" | "machinery" | "qaqc">("all");
 
   const selectedDate = summary.days[selectedDayIdx] ?? summary.days[0] ?? todayIso;
   const isToday = selectedDate === todayIso;
@@ -112,7 +111,6 @@ export function BuildingOperationsHub({
         row: WeeklyBuildingRow;
         cell: WeeklyCell;
         machinery: WeeklyBooking[];
-        conflicts: WeeklyBooking[];
         inspections: InspectionRequest[];
       }
     >();
@@ -131,8 +129,6 @@ export function BuildingOperationsHub({
         (m) => m.targetDate === selectedDate && m.buildingCode === b.code,
       );
 
-      const bConflicts = bMachinery.filter((m) => m.conflict !== null);
-
       const bInspections = inspections.filter(
         (ins) => ins.inspectionDate === selectedDate && ins.buildingCode === b.code,
       );
@@ -141,7 +137,6 @@ export function BuildingOperationsHub({
         row: b,
         cell,
         machinery: bMachinery,
-        conflicts: bConflicts,
         inspections: bInspections,
       });
     });
@@ -162,7 +157,6 @@ export function BuildingOperationsHub({
       if (filterType === "active") return b.cell.headcount > 0;
       if (filterType === "permits") return b.cell.permits.length > 0;
       if (filterType === "machinery") return b.machinery.length > 0;
-      if (filterType === "conflicts") return b.conflicts.length > 0;
       if (filterType === "qaqc") return b.inspections.length > 0;
       return true;
     });
@@ -269,7 +263,6 @@ export function BuildingOperationsHub({
               { id: "active", label: "มีกิจกรรม/คนทำงาน" },
               { id: "permits", label: "🛡️ มีใบอนุญาตงานเสี่ยง" },
               { id: "machinery", label: "🚜 มีเครื่องจักร" },
-              { id: "conflicts", label: "⚠️ เครื่องจักรชนกัน" },
               { id: "qaqc", label: "🔍 มีนัดตรวจ QAQC" },
             ].map((f) => (
               <Chip
@@ -277,7 +270,7 @@ export function BuildingOperationsHub({
                 label={f.label}
                 size="small"
                 variant={filterType === f.id ? "filled" : "outlined"}
-                color={filterType === f.id ? (f.id === "conflicts" ? "error" : "primary") : "default"}
+                color={filterType === f.id ? "primary" : "default"}
                 onClick={() => setFilterType(f.id as any)}
                 sx={{ cursor: "pointer", fontWeight: filterType === f.id ? 700 : 500 }}
               />
@@ -300,7 +293,6 @@ export function BuildingOperationsHub({
             {dayData.dayRoads.map((r, i) => (
               <Typography key={i} variant="caption">
                 • <b>{r.roadLocation}</b> ({r.startTime} – {r.endTime}): {r.purpose}
-                {r.conflict ? <span style={{ color: "red", fontWeight: 700 }}> [พบการขอใช้ทางทับซ้อน!]</span> : null}
               </Typography>
             ))}
           </Stack>
@@ -412,7 +404,6 @@ export function BuildingOperationsHub({
               const cell = data?.cell;
               const hasWork = cell && cell.headcount > 0;
               const isVisible = filteredBuildingCodes.includes(code);
-              const hasConflicts = (data?.conflicts.length ?? 0) > 0;
               const hasPermits = (cell?.permits.length ?? 0) > 0;
               const hasQAQC = (data?.inspections.length ?? 0) > 0;
               const isSelected = selectedBuildingCode === code;
@@ -431,7 +422,7 @@ export function BuildingOperationsHub({
                     opacity: isVisible ? 1 : 0.2,
                     cursor: "pointer",
                     transition: "all 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
-                    zIndex: isSelected ? 5 : hasConflicts ? 4 : 2,
+                    zIndex: isSelected ? 5 : 2,
                     "&:hover": {
                       transform: "scale(1.03)",
                       zIndex: 10,
@@ -448,26 +439,20 @@ export function BuildingOperationsHub({
                       flexDirection: "column",
                       justifyContent: "space-between",
                       backdropFilter: "blur(6px)",
-                      bgcolor: hasConflicts
-                        ? "rgba(185, 28, 28, 0.75)"
-                        : hasWork
-                          ? isSelected
-                            ? "rgba(14, 165, 233, 0.7)"
-                            : "rgba(15, 76, 129, 0.65)"
-                          : "rgba(30, 41, 59, 0.55)",
+                      bgcolor: hasWork
+                        ? isSelected
+                          ? "rgba(14, 165, 233, 0.7)"
+                          : "rgba(15, 76, 129, 0.65)"
+                        : "rgba(30, 41, 59, 0.55)",
                       border: "1.5px solid",
-                      borderColor: hasConflicts
-                        ? "#EF4444"
-                        : isSelected
-                          ? "#38BDF8"
-                          : hasWork
-                            ? "#60A5FA"
-                            : "rgba(255,255,255,0.18)",
-                      boxShadow: hasConflicts
-                        ? "0 0 16px rgba(239, 68, 68, 0.5)"
-                        : isSelected
-                          ? "0 0 16px rgba(56, 189, 248, 0.5)"
-                          : "0 4px 12px rgba(0,0,0,0.3)",
+                      borderColor: isSelected
+                        ? "#38BDF8"
+                        : hasWork
+                          ? "#60A5FA"
+                          : "rgba(255,255,255,0.18)",
+                      boxShadow: isSelected
+                        ? "0 0 16px rgba(56, 189, 248, 0.5)"
+                        : "0 4px 12px rgba(0,0,0,0.3)",
                     }}
                   >
                     {/* Top Row: Building Code & Headcount */}
@@ -478,7 +463,7 @@ export function BuildingOperationsHub({
                           fontWeight: 800,
                           fontSize: "0.75rem",
                           letterSpacing: "0.04em",
-                          color: hasConflicts ? "#FEE2E2" : "#FFFFFF",
+                          color: "#FFFFFF",
                         }}
                       >
                         {meta.code}
@@ -519,20 +504,8 @@ export function BuildingOperationsHub({
 
                     {/* Bottom Indicator Badges */}
                     <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
-                      {/* Conflict Badge */}
-                      {hasConflicts ? (
-                        <Tooltip title={`⚠️ พบการจองเครื่องจักรชนกัน ${data?.conflicts.length} รายการ!`}>
-                          <Chip
-                            size="small"
-                            icon={<WarningAmberOutlinedIcon sx={{ color: "#FFFFFF !important", fontSize: 13 }} />}
-                            label="ชนกัน"
-                            sx={{ height: 18, fontSize: "0.6rem", bgcolor: "#DC2626", color: "#FFF", fontWeight: 700, px: 0.2 }}
-                          />
-                        </Tooltip>
-                      ) : null}
-
                       {/* Machinery Badge */}
-                      {(data?.machinery.length ?? 0) > 0 && !hasConflicts ? (
+                      {(data?.machinery.length ?? 0) > 0 ? (
                         <Tooltip title={`มีเครื่องจักรทำงาน ${data?.machinery.length} เครื่อง`}>
                           <Chip
                             size="small"
@@ -587,7 +560,6 @@ export function BuildingOperationsHub({
             const data = dayData.buildingMap.get(code);
             const cell = data?.cell;
             const hasWork = cell && cell.headcount > 0;
-            const hasConflicts = (data?.conflicts.length ?? 0) > 0;
             const isVisible = filteredBuildingCodes.includes(code);
 
             if (!isVisible) return null;
@@ -600,11 +572,7 @@ export function BuildingOperationsHub({
                     height: "100%",
                     borderRadius: 2.5,
                     border: 1.5,
-                    borderColor: hasConflicts
-                      ? "error.main"
-                      : hasWork
-                        ? "primary.main"
-                        : "divider",
+                    borderColor: hasWork ? "primary.main" : "divider",
                     transition: "transform 0.15s ease",
                     "&:hover": { transform: "translateY(-2px)" },
                   }}
@@ -647,15 +615,6 @@ export function BuildingOperationsHub({
                           ไม่มีผู้รับเหมาในวันนี้
                         </Typography>
                       )}
-
-                      {/* Conflict Alert */}
-                      {hasConflicts ? (
-                        <Alert severity="error" sx={{ py: 0.2, px: 1, "& .MuiAlert-message": { py: 0.2 } }}>
-                          <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                            ⚠️ เครื่องจักรจองเวลาชนกัน!
-                          </Typography>
-                        </Alert>
-                      ) : null}
 
                       {/* Quick Summary Badges */}
                       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -798,8 +757,8 @@ export function BuildingOperationsHub({
                       sx={{
                         p: 1.5,
                         borderRadius: 2,
-                        borderColor: m.conflict ? "error.main" : "divider",
-                        bgcolor: m.conflict ? alpha(theme.palette.error.light, 0.15) : "background.paper",
+                        borderColor: "divider",
+                        bgcolor: "background.paper",
                       }}
                     >
                       <Stack spacing={0.5}>
@@ -812,11 +771,6 @@ export function BuildingOperationsHub({
                         <Typography variant="caption" color="text.secondary">
                           เวลา: <b>{m.startTime} – {m.endTime}</b>
                         </Typography>
-                        {m.conflict ? (
-                          <Typography variant="caption" sx={{ color: "error.main", fontWeight: 700 }}>
-                            ⚠️ เวลาการใช้งานทับซ้อนกับผู้รับเหมาอื่น กรุณาประสานงานเพื่อสลับเวลา!
-                          </Typography>
-                        ) : null}
                       </Stack>
                     </Card>
                   ))}

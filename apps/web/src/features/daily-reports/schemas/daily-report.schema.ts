@@ -1,4 +1,5 @@
 import {
+  ACCIDENT_CATEGORY_CODES,
   DISCIPLINE_CODES,
   INSPECTION_TYPE_CODES,
   MACHINE_TYPES,
@@ -121,6 +122,7 @@ export const eveningSchema = z
     otHours: z.number().min(0, "ต้องไม่ติดลบ").max(24, "ไม่เกิน 24 ชม."),
     accidentOccurred: z.boolean({ required_error: "เลือกว่าเกิดอุบัติเหตุหรือไม่" }).nullable(),
     accidentNote: z.string().trim().max(1000).optional(),
+    accidentCategory: z.enum(asTuple(ACCIDENT_CATEGORY_CODES)).nullable(),
     progress: z.array(
       z.object({
         allocationId: z.string(),
@@ -140,6 +142,9 @@ export const eveningSchema = z
   .superRefine((v, ctx) => {
     if (v.accidentOccurred === null) {
       ctx.addIssue({ code: "custom", path: ["accidentOccurred"], message: "เลือกว่าเกิดอุบัติเหตุหรือไม่" });
+    }
+    if (v.accidentOccurred && !v.accidentCategory) {
+      ctx.addIssue({ code: "custom", path: ["accidentCategory"], message: "เลือกประเภทเหตุการณ์" });
     }
     if (v.accidentOccurred && !v.accidentNote) {
       ctx.addIssue({ code: "custom", path: ["accidentNote"], message: "อธิบายเหตุการณ์และการดำเนินการ" });

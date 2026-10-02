@@ -40,6 +40,9 @@ data source that feeds dashboards — replacing free-text LINE messages and pape
 | `sts-domain` | Modelling reports, forms, dashboards, WBS/zones, contractors, safety metrics |
 | `sts-api-module` | Adding/changing an Elysia + Drizzle module, table, or migration |
 | `sts-web-feature` | Adding/changing a React feature, page, form, grid, or dashboard widget |
+| `impeccable` | Frontend craft & UX/UI design director: typography, colors, layout, Polish/Critique/Audit/Shape playbooks, EPS design system tokens in `DESIGN.md` |
+| `web-design-guidelines` | Web design principles, layout hierarchy, cognitive load, user feedback |
+| `vercel-react-best-practices` | Modern React patterns, component optimization, bundle size |
 | `sts-verify` | Before saying work is done; running the stack locally; debugging ports/docker/db |
 | `sts-git-safety` | Any git command that commits, rebases, pushes, or touches another branch |
 
