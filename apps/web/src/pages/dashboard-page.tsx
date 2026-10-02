@@ -1,6 +1,12 @@
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
+import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import HealthAndSafetyOutlinedIcon from "@mui/icons-material/HealthAndSafetyOutlined";
 import TrendingDownOutlinedIcon from "@mui/icons-material/TrendingDownOutlined";
 import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import Grid from "@mui/material/Grid";
@@ -8,16 +14,15 @@ import Link from "@mui/material/Link";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import type { SvgIconProps } from "@mui/material/SvgIcon";
 import dayjs from "dayjs";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
-import { navigationIcons, type NavigationIconKey } from "@/app/icons/navigation-icons.js";
 import { SiteConditionsStrip } from "@/components/dashboard/site-conditions-strip.js";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
-import { StatusChip } from "@/components/ui/status-chip.js";
 import {
-  ManDaySmallMultiples,
+  ManDayByContractorChart,
   addDaysIso,
   contractorColorMap,
   inspectionTypeLabel,
@@ -32,35 +37,16 @@ import { useSiteDay } from "@/features/site-plan/index.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-type Health = "ok" | "check" | "issue";
-const HEALTH_CHIP: Record<Health, { status: string; label: string }> = {
-  ok: { status: "active", label: "On track" },
-  check: { status: "attention", label: "Check" },
-  issue: { status: "blocked", label: "Issue" },
-};
-
-interface ModuleRow {
-  page: string; // = sidebar page name
-  icon: NavigationIconKey;
-  to: string;
-  value: ReactNode;
-  unit: string;
-  facts: string[];
-  health: Health;
-  trend?: number | null;
-}
-
 interface ActionItem {
   key: string;
-  severity: "issue" | "check";
-  page: string;
+  tone: "error" | "warning";
   title: string;
   detail: string;
   to: string;
 }
 
-// PM dashboard: one status board with the vital number of every module (row = page,
-// click = open that page with the same range), what needs follow-up, and man-days.
+// PM dashboard: the vital number of every module for the chosen range, each tile a
+// quick link to its page (same range), plus one "needs attention" list. All live data.
 export function DashboardPage() {
   const [params, setParams] = useSearchParams();
   const today = todayIso();
@@ -69,13 +55,15 @@ export function DashboardPage() {
   const from = rawFrom <= rawTo ? rawFrom : rawTo;
   const to = rawFrom <= rawTo ? rawTo : rawFrom;
   const span = dayjs(to).diff(dayjs(from), "day") + 1;
+  const prevFrom = addDaysIso(from, -span);
+  const prevTo = addDaysIso(from, -1);
   const q = `from=${from}&to=${to}`;
   // Submission check is for the last day that has already started.
   const checkDay = to > today ? today : to;
 
   const { projectId } = useCurrentProject();
   const manpower = useManpowerSummary(projectId, from, to);
-  const manpowerPrev = useManpowerSummary(projectId, addDaysIso(from, -span), addDaysIso(from, -1));
+  const manpowerPrev = useManpowerSummary(projectId, prevFrom, prevTo);
   const contractors = useProjectContractors(projectId);
   const requests = useDailyRequests(projectId, from, to);
   const rfi = useInspectionRequests(projectId, { from, to, by: "inspection" });
@@ -85,338 +73,300 @@ export function DashboardPage() {
 
   const setRange = (f: string, t: string) => setParams({ from: f, to: t }, { replace: true });
 
-  const mp = manpower.data?.data;
-  const req = requests.data?.data;
-  const s = safety.data?.data;
-  const loading = !mp || !req || !rfi.data || !s || !site.data;
-
   // ---- derive vitals ----
+  const mp = manpower.data?.data;
+  const mpPrev = manpowerPrev.data?.data;
   const avg = mp?.totals.avgDaily ?? 0;
-  const prev = manpowerPrev.data?.data;
-  const trend = prev && prev.totals.reportedDays ? avg - prev.totals.avgDaily : null;
+  const avgPrev = mpPrev?.totals.avgDaily ?? 0;
+  const delta = mpPrev && mpPrev.totals.reportedDays ? avg - avgPrev : null;
 
   const allContractors = contractors.data?.data ?? [];
-  const submitted = new Set((mp?.daily ?? []).filter((d) => d.date === checkDay).map((d) => d.contractorCode));
-  const missing = allContractors.filter((c) => !submitted.has(c.code));
+  const reportedOnLastDay = new Set((mp?.daily ?? []).filter((d) => d.date === checkDay).map((d) => d.contractorCode));
+  const missing = allContractors.filter((c) => !reportedOnLastDay.has(c.code));
 
+  const req = requests.data?.data;
   const machineClash = (req?.machinery ?? []).filter((m) => m.conflict === "conflict");
   const roadClash = (req?.roads ?? []).filter((r) => r.conflict);
-  const clashes = machineClash.length + roadClash.length;
   const buildings = site.data?.data.buildings ?? [];
   const permits = buildings.flatMap((b) => b.permits);
 
   const rfiRows = (rfi.data?.data ?? []).filter((r) => r.status !== "draft");
   const rfiWaiting = rfiRows.filter((r) => r.status === "requested" || r.status === "confirmed");
-  const rfiDone = rfiRows.filter((r) => r.result);
-  const rfiPassPct = rfiDone.length ? Math.round((rfiDone.filter((r) => r.result === "pass").length / rfiDone.length) * 100) : null;
   const rfiNotReady = rfiWaiting.filter((r) => r.readiness !== "ready" || !r.drawingRef);
 
-  const allFindings = findings.data?.data ?? [];
-  const openFindings = allFindings.filter((f) => f.status === "open");
-  const overdue = openFindings.filter((f) => f.expectedCompleteDate && f.expectedCompleteDate < today);
+  const s = safety.data?.data;
+  const overdueFindings = (findings.data?.data ?? []).filter((f) => f.status === "open" && f.expectedCompleteDate && f.expectedCompleteDate < today);
 
   const behind = buildings.flatMap((b) =>
-    b.activities.filter((a) => a.actualPercent !== null && a.actualPercent < a.planPercent).map((a) => ({ ...a, buildingName: b.name, buildingId: b.id })),
+    b.activities
+      .filter((a) => a.actualPercent !== null && a.actualPercent < a.planPercent)
+      .map((a) => ({ ...a, buildingName: b.name, buildingId: b.id })),
   );
-  const behindBuildings = new Set(behind.map((a) => a.buildingId)).size;
+  const behindBuildings = new Set(behind.map((a) => a.buildingId));
 
-  const rows: ModuleRow[] = loading
-    ? []
-    : [
-        {
-          page: "Manpower",
-          icon: "manpower",
-          to: `/manpower?${q}`,
-          value: avg.toLocaleString(),
-          unit: span > 1 ? "people / day (avg)" : "people",
-          trend,
-          facts: [`${mp.totals.manDays.toLocaleString()} man-days`, `${mp.totals.manHours.toLocaleString()} NMH`, `${mp.contractors.length} contractors`],
-          health: "ok",
-        },
-        {
-          page: "Daily Reports",
-          icon: "dailyReports",
+  // ---- one attention list for the PM ----
+  const actions: ActionItem[] = [
+    ...machineClash.map((m) => ({
+      key: `m-${m.id}`,
+      tone: "error" as const,
+      title: `Machine double-booked · ${m.machineType}${m.unitTag ? ` (${m.unitTag})` : ""}`,
+      detail: `${m.contractorCode} @ ${m.buildingName} · ${dayjs(m.targetDate).format("D MMM")} ${m.startTime ?? ""}`,
+      to: `/today-requests?${q}`,
+    })),
+    ...roadClash.map((r) => ({
+      key: `r-${r.id}`,
+      tone: "error" as const,
+      title: `Road clash · ${r.roadLocation}`,
+      detail: `${r.contractorCode} · ${dayjs(r.targetDate).format("D MMM")} ${r.startTime}–${r.endTime}`,
+      to: `/today-requests?${q}`,
+    })),
+    ...overdueFindings.map((f) => ({
+      key: `f-${f.id}`,
+      tone: "error" as const,
+      title: `Safety finding overdue · item ${f.itemNo}`,
+      detail: `${f.contractorCode ?? "-"} · ${f.observation}`,
+      to: `/safety`,
+    })),
+    ...rfiNotReady.map((r) => ({
+      key: `q-${r.id}`,
+      tone: "warning" as const,
+      title: `RFI not ready · ${inspectionTypeLabel(r.inspectionType)}`,
+      detail: `${r.contractorCode} · ${r.workItem} · ${dayjs(r.inspectionDate).format("D MMM")} ${r.inspectionTime}${!r.drawingRef ? " · no drawing" : ""}`,
+      to: `/qaqc?${q}`,
+    })),
+    ...behind.slice(0, 6).map((a, i) => ({
+      key: `b-${i}`,
+      tone: "warning" as const,
+      title: `Behind plan · ${a.buildingName}`,
+      detail: `${a.contractorCode} · ${a.workDescription} · ${a.actualPercent}% of ${a.planPercent}% plan`,
+      to: `/site-plan?${q}&b=${a.buildingId}`,
+    })),
+    ...(checkDay === today
+      ? missing.map((c) => ({
+          key: `n-${c.id}`,
+          tone: "warning" as const,
+          title: `No morning report · ${c.code}`,
+          detail: c.name,
           to: `/daily-reports`,
-          value: `${allContractors.length - missing.length}/${allContractors.length}`,
-          unit: `morning reports · ${dayjs(checkDay).format("D MMM")}`,
-          facts: missing.length ? [`Missing: ${missing.map((c) => c.code).join(", ")}`] : ["All contractors submitted"],
-          health: missing.length ? "check" : "ok",
-        },
-        {
-          page: "Daily Request",
-          icon: "tomorrow",
-          to: `/today-requests?${q}`,
-          value: req.machinery.length + req.equipmentRequests.length + req.roads.length,
-          unit: "requests",
-          facts: [`${req.machinery.length} machine`, `${req.equipmentRequests.length} equipment`, `${req.roads.length} road`, clashes ? `${clashes} clashes` : "no clashes"],
-          health: clashes ? "issue" : "ok",
-        },
-        {
-          page: "Work Permits",
-          icon: "workPermits",
-          to: `/today-requests?${q}`,
-          value: permits.length,
-          unit: "PTW",
-          facts: [`${permits.reduce((n, p) => n + p.workers, 0)} workers under permit`],
-          health: "ok",
-        },
-        {
-          page: "QAQC",
-          icon: "qaqc",
-          to: `/qaqc?${q}`,
-          value: rfiWaiting.length,
-          unit: "RFI waiting",
-          facts: [`${rfiDone.length} inspected`, rfiPassPct === null ? "no results yet" : `${rfiPassPct}% first-pass`, rfiNotReady.length ? `${rfiNotReady.length} not ready` : "all ready"],
-          health: rfiNotReady.length ? "check" : "ok",
-        },
-        {
-          page: "Safety",
-          icon: "safety",
-          to: `/safety?${q}`,
-          value: s.daysWithoutAccident.toLocaleString(),
-          unit: "days without accident",
-          facts: [`${s.tiles.accidents} accident · ${s.tiles.lti} LTI · ${s.tiles.nearMiss} near miss`, `${openFindings.length} open findings${overdue.length ? ` (${overdue.length} overdue)` : ""}`],
-          health: s.tiles.accidents || s.tiles.lti ? "issue" : overdue.length ? "check" : "ok",
-        },
-        {
-          page: "Site Plan",
-          icon: "sitePlan",
-          to: `/site-plan?${q}`,
-          value: behindBuildings,
-          unit: "buildings behind plan",
-          facts: [`${behind.length} activities behind`, `${buildings.filter((b) => b.headcount > 0).length} buildings active`],
-          health: behind.length ? "check" : "ok",
-        },
-      ];
+        }))
+      : []),
+  ];
 
-  const actions: ActionItem[] = loading
-    ? []
-    : [
-        ...machineClash.map((m) => ({
-          key: `m-${m.id}`,
-          severity: "issue" as const,
-          page: "Daily Request",
-          title: `Machine double-booked · ${m.machineType}${m.unitTag ? ` (${m.unitTag})` : ""}`,
-          detail: `${m.contractorCode} · ${m.buildingName} · ${dayjs(m.targetDate).format("D MMM")} ${m.startTime ?? "all day"}`,
-          to: `/today-requests?${q}`,
-        })),
-        ...roadClash.map((r) => ({
-          key: `r-${r.id}`,
-          severity: "issue" as const,
-          page: "Daily Request",
-          title: `Road clash · ${r.roadLocation}`,
-          detail: `${r.contractorCode} · ${dayjs(r.targetDate).format("D MMM")} ${r.startTime}–${r.endTime}`,
-          to: `/today-requests?${q}`,
-        })),
-        ...overdue.map((f) => ({
-          key: `f-${f.id}`,
-          severity: "issue" as const,
-          page: "Safety",
-          title: `Finding overdue · item ${f.itemNo}`,
-          detail: `${f.contractorCode ?? "-"} · ${f.observation}`,
-          to: `/safety`,
-        })),
-        ...rfiNotReady.map((r) => ({
-          key: `q-${r.id}`,
-          severity: "check" as const,
-          page: "QAQC",
-          title: `RFI not ready · ${inspectionTypeLabel(r.inspectionType)}`,
-          detail: `${r.contractorCode} · ${r.workItem} · ${dayjs(r.inspectionDate).format("D MMM")} ${r.inspectionTime}${r.drawingRef ? "" : " · no drawing"}`,
-          to: `/qaqc?${q}`,
-        })),
-        ...behind.slice(0, 6).map((a, i) => ({
-          key: `b-${i}`,
-          severity: "check" as const,
-          page: "Site Plan",
-          title: `Behind plan · ${a.buildingName}`,
-          detail: `${a.contractorCode} · ${a.workDescription} · ${a.actualPercent}% of ${a.planPercent}%`,
-          to: `/site-plan?${q}&b=${a.buildingId}`,
-        })),
-        ...(checkDay === today
-          ? missing.map((c) => ({
-              key: `n-${c.id}`,
-              severity: "check" as const,
-              page: "Daily Reports",
-              title: `No morning report · ${c.code}`,
-              detail: c.name,
-              to: `/daily-reports`,
-            }))
-          : []),
-      ];
+  const loading = !mp || !req || !rfi.data || !s || !site.data;
 
   return (
     <Box>
       <PageHeader
         title="Project Dashboard"
-        subtitle="Vital numbers from every page · click a row to open it with the same dates"
+        subtitle="Key numbers from every page · click a card to open it with the same dates"
         actions={<DateRangeFields from={from} to={to} maxDays={62} onChange={setRange} />}
       />
 
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 2.5 }}>
         <SiteConditionsStrip />
       </Box>
 
       {loading ? (
-        <Stack spacing={1}>
-          {Array.from({ length: 7 }, (_, i) => (
-            <Skeleton key={i} variant="rounded" height={64} />
+        <Grid container spacing={2}>
+          {Array.from({ length: 6 }, (_, i) => (
+            <Grid key={i} size={{ xs: 12, sm: 6, lg: 4 }}>
+              <Skeleton variant="rounded" height={150} />
+            </Grid>
           ))}
-        </Stack>
-      ) : (
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, lg: 8 }}>
-            <SectionTitle title="Status board" note={`${dayjs(from).format("D MMM")}${span > 1 ? ` – ${dayjs(to).format("D MMM YYYY")}` : dayjs(from).format(" YYYY")}`} />
-            <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", overflow: "hidden" }}>
-              {rows.map((r, i) => (
-                <StatusRow key={r.page} row={r} last={i === rows.length - 1} />
-              ))}
-            </Box>
-          </Grid>
-
-          <Grid size={{ xs: 12, lg: 4 }}>
-            <SectionTitle title="Needs follow-up" note={actions.length ? `${actions.length} items` : "nothing open"} />
-            <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", maxHeight: 520, overflow: "auto" }}>
-              {actions.length === 0 ? (
-                <Typography variant="body1" color="text.secondary" sx={{ p: 4, textAlign: "center" }}>
-                  No clashes, overdue findings or late reports in this range.
-                </Typography>
-              ) : (
-                actions.map((a, i) => (
-                  <Link
-                    key={a.key}
-                    component={RouterLink}
-                    to={a.to}
-                    underline="none"
-                    color="inherit"
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.5,
-                      px: 2,
-                      py: 1.25,
-                      borderTop: i ? 1 : 0,
-                      borderColor: "divider",
-                      "&:hover": { bgcolor: "grey.50" },
-                      "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: -2 },
-                    }}
-                  >
-                    <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <StatusChip status={HEALTH_CHIP[a.severity].status} label={a.page} />
-                        <Typography variant="body1" sx={{ fontWeight: 600 }} noWrap>
-                          {a.title}
-                        </Typography>
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary" noWrap sx={{ mt: 0.5 }}>
-                        {a.detail}
-                      </Typography>
-                    </Box>
-                    <ChevronRightIcon sx={{ color: "text.disabled" }} />
-                  </Link>
-                ))
-              )}
-            </Box>
-          </Grid>
-
-          <Grid size={12}>
-            <SectionTitle
-              title="Man-days"
-              note={span > 1 ? "Daily headcount, same scale for every contractor" : "Pick a longer range to see the daily pattern"}
-              action={
-                <Link component={RouterLink} to={`/manpower?${q}`} underline="hover" variant="body1">
-                  Open Manpower
-                </Link>
-              }
-            />
-            <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2.5 }}>
-              <ManDaySmallMultiples
-                days={Array.from({ length: span }, (_, i) => addDaysIso(from, i))}
-                daily={mp.daily}
-                colors={contractorColorMap(mp.contractors.map((c) => c.contractorCode))}
-              />
-            </Box>
-          </Grid>
         </Grid>
+      ) : (
+        <>
+          <Grid container spacing={2}>
+            <Vital
+              to={`/manpower?${q}`}
+              icon={EngineeringOutlinedIcon}
+              label="Manpower"
+              value={avg.toLocaleString()}
+              unit={span > 1 ? "people / day (avg)" : "people"}
+              trend={delta}
+            />
+            <Vital
+              to={`/daily-reports`}
+              icon={DescriptionOutlinedIcon}
+              label="Daily Reports"
+              value={`${allContractors.length - missing.length}/${allContractors.length}`}
+              unit={`submitted · ${dayjs(checkDay).format("D MMM")}`}
+              tone={missing.length ? "warning" : "success"}
+            />
+            <Vital
+              to={`/today-requests?${q}`}
+              icon={AssignmentOutlinedIcon}
+              label="Daily Request"
+              value={req.machinery.length + req.equipmentRequests.length + req.roads.length}
+              unit={`requests · ${permits.length} PTW`}
+              tone={machineClash.length + roadClash.length ? "error" : undefined}
+            />
+            <Vital
+              to={`/qaqc?${q}`}
+              icon={FactCheckOutlinedIcon}
+              label="QAQC"
+              value={rfiWaiting.length}
+              unit="RFI waiting"
+              tone={rfiNotReady.length ? "warning" : undefined}
+            />
+            <Vital
+              to={`/safety?${q}`}
+              icon={HealthAndSafetyOutlinedIcon}
+              label="Safety"
+              value={s.daysWithoutAccident}
+              unit="days without accident"
+              tone={s.tiles.accidents ? "error" : overdueFindings.length ? "warning" : "success"}
+            />
+            <Vital
+              to={`/site-plan?${q}`}
+              icon={MapOutlinedIcon}
+              label="Site Plan"
+              value={behindBuildings.size}
+              unit="buildings behind plan"
+              tone={behind.length ? "warning" : "success"}
+            />
+          </Grid>
+
+          <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
+            <Grid size={{ xs: 12, lg: 5 }}>
+              <Panel title="Needs follow-up" note={actions.length ? `${actions.length} items` : undefined}>
+                {actions.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
+                    Nothing open in this range
+                  </Typography>
+                ) : (
+                  <Stack spacing={0.5} sx={{ maxHeight: 360, overflow: "auto" }}>
+                    {actions.map((a) => (
+                      <Link
+                        key={a.key}
+                        component={RouterLink}
+                        to={a.to}
+                        underline="none"
+                        color="inherit"
+                        sx={{ display: "flex", gap: 1.25, p: 1, borderRadius: 1.5, "&:hover": { bgcolor: "grey.50" } }}
+                      >
+                        <Box sx={{ width: 8, flexShrink: 0, borderRadius: 1, bgcolor: a.tone === "error" ? "error.main" : "warning.main" }} />
+                        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            {a.title}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
+                            {a.detail}
+                          </Typography>
+                        </Box>
+                        <ArrowForwardIcon sx={{ fontSize: 16, color: "text.disabled", alignSelf: "center" }} />
+                      </Link>
+                    ))}
+                  </Stack>
+                )}
+              </Panel>
+            </Grid>
+            <Grid size={{ xs: 12, lg: 7 }}>
+              <Panel
+                title="Man-days"
+                note={span > 1 ? "Daily headcount by contractor" : "Pick a longer range to see the trend"}
+                action={
+                  <Link component={RouterLink} to={`/manpower?${q}`} underline="hover" variant="body2">
+                    Open Manpower →
+                  </Link>
+                }
+              >
+                <ManDayByContractorChart
+                  days={Array.from({ length: span }, (_, i) => addDaysIso(from, i))}
+                  daily={mp.daily}
+                  colors={contractorColorMap(mp.contractors.map((c) => c.contractorCode))}
+                />
+              </Panel>
+            </Grid>
+          </Grid>
+        </>
       )}
     </Box>
   );
 }
 
-function SectionTitle({ title, note, action }: { title: string; note?: string; action?: ReactNode }) {
+function Vital({
+  to,
+  icon: Icon,
+  label,
+  value,
+  unit,
+  tone,
+  trend,
+}: {
+  to: string;
+  icon: ComponentType<SvgIconProps>;
+  label: string;
+  value: ReactNode;
+  unit: string;
+  tone?: "success" | "warning" | "error";
+  trend?: number | null;
+}) {
   return (
-    <Stack direction="row" alignItems="baseline" spacing={1.5} sx={{ mb: 1.25 }}>
-      <Typography variant="h4" component="h2">
-        {title}
-      </Typography>
-      {note ? (
-        <Typography variant="body2" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>
-          {note}
-        </Typography>
-      ) : null}
-      {action ? <Box sx={{ ml: "auto !important" }}>{action}</Box> : null}
-    </Stack>
-  );
-}
-
-function StatusRow({ row, last }: { row: ModuleRow; last: boolean }) {
-  const Icon = navigationIcons[row.icon];
-  const chip = HEALTH_CHIP[row.health];
-  return (
-    <ButtonBase
-      component={RouterLink}
-      to={row.to}
-      sx={{
-        width: "100%",
-        display: "grid",
-        gridTemplateColumns: { xs: "1fr auto", md: "168px 132px minmax(0, 1fr) auto auto" },
-        alignItems: "center",
-        columnGap: 2,
-        rowGap: 0.5,
-        textAlign: "left",
-        px: 2,
-        py: 1.5,
-        borderBottom: last ? 0 : 1,
-        borderColor: "divider",
-        transition: "background-color 120ms",
-        "&:hover": { bgcolor: "grey.50" },
-        "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: -2 },
-      }}
-    >
-      <Stack direction="row" spacing={1.25} alignItems="center">
-        <Icon sx={{ color: "primary.main" }} />
-        <Typography variant="h5" component="span">
-          {row.page}
-        </Typography>
-      </Stack>
-      <Box sx={{ display: { xs: "none", md: "block" } }}>
-        <Stack direction="row" alignItems="baseline" spacing={0.75}>
-          <Typography variant="h3" component="span" sx={{ fontVariantNumeric: "tabular-nums" }}>
-            {row.value}
+    <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
+      <ButtonBase
+        component={RouterLink}
+        to={to}
+        sx={{
+          width: "100%",
+          height: "100%",
+          display: "block",
+          textAlign: "left",
+          border: 1,
+          borderColor: "divider",
+          borderLeft: tone ? 4 : 1,
+          borderLeftColor: tone ? `${tone}.main` : "divider",
+          borderRadius: 2,
+          bgcolor: "background.paper",
+          p: 2,
+          transition: "box-shadow 120ms, border-color 120ms",
+          "&:hover": { boxShadow: 2, borderColor: "primary.main" },
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+          <Icon sx={{ color: "primary.main", fontSize: 24 }} />
+          <Typography variant="h5" component="h2" sx={{ flexGrow: 1 }}>
+            {label}
           </Typography>
-          {row.trend !== undefined && row.trend !== null ? (
-            <Stack direction="row" alignItems="center" sx={{ color: row.trend >= 0 ? "success.dark" : "error.main" }}>
-              {row.trend >= 0 ? <TrendingUpOutlinedIcon sx={{ fontSize: 16 }} /> : <TrendingDownOutlinedIcon sx={{ fontSize: 16 }} />}
+          <ArrowForwardIcon sx={{ fontSize: 18, color: "text.disabled" }} />
+        </Stack>
+        <Stack direction="row" alignItems="baseline" spacing={1}>
+          <Typography variant="h3" component="span" sx={{ fontVariantNumeric: "tabular-nums", color: tone && tone !== "success" ? `${tone}.dark` : "text.primary" }}>
+            {value}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {unit}
+          </Typography>
+          {trend !== undefined && trend !== null ? (
+            <Stack direction="row" alignItems="center" spacing={0.25} sx={{ color: trend >= 0 ? "success.dark" : "error.main", ml: "auto !important" }}>
+              {trend >= 0 ? <TrendingUpOutlinedIcon sx={{ fontSize: 16 }} /> : <TrendingDownOutlinedIcon sx={{ fontSize: 16 }} />}
               <Typography variant="caption" sx={{ color: "inherit", fontWeight: 700 }}>
-                {row.trend >= 0 ? "+" : ""}
-                {row.trend}
+                {trend >= 0 ? "+" : ""}
+                {trend} vs prev.
               </Typography>
             </Stack>
           ) : null}
         </Stack>
-        <Typography variant="caption" color="text.secondary">
-          {row.unit}
-        </Typography>
-      </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ gridColumn: { xs: "1 / -1", md: "auto" }, order: { xs: 3, md: 0 } }}>
-        <Box component="span" sx={{ display: { md: "none" }, fontWeight: 700, color: "text.primary" }}>
-          {row.value} {row.unit} ·{" "}
+      </ButtonBase>
+    </Grid>
+  );
+}
+
+function Panel({ title, note, action, children }: { title: string; note?: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2, height: "100%" }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={2} sx={{ mb: 1 }}>
+        <Box>
+          <Typography variant="h4" component="h2">{title}</Typography>
+          {note ? (
+            <Typography variant="body2" color="text.secondary">
+              {note}
+            </Typography>
+          ) : null}
         </Box>
-        {row.facts.join(" · ")}
-      </Typography>
-      <Box sx={{ justifySelf: "end" }}>
-        <StatusChip status={chip.status} label={chip.label} />
-      </Box>
-      <ChevronRightIcon sx={{ color: "text.disabled", display: { xs: "none", md: "block" } }} />
-    </ButtonBase>
+        {action}
+      </Stack>
+      {children}
+    </Box>
   );
 }

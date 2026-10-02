@@ -60,7 +60,7 @@ export function ManDayByContractorChart({
           tickLabelStyle: { fontSize: 11 },
         },
       ]}
-      yAxis={[{ label: "คน", width: 48 }]}
+      yAxis={[{ label: "People", width: 48 }]}
       series={codes.map((code) => ({
         id: code,
         label: code,
@@ -192,69 +192,5 @@ export function ManpowerByBuildingChart({
       slotProps={legendBottom}
       grid={{ vertical: true }}
     />
-  );
-}
-
-
-// Man-days per day as small multiples: one mini chart per contractor on a shared
-// y-scale, so each contractor's own pattern is readable (stacked bars hide it).
-export function ManDaySmallMultiples({
-  days,
-  daily,
-  colors,
-}: {
-  days: string[];
-  daily: ManpowerSummary["daily"];
-  colors: Map<string, string>;
-}) {
-  if (daily.length === 0) return <Empty text="No morning reports in this range" />;
-  const byCode = new Map<string, Map<string, number>>();
-  for (const r of daily) {
-    const m = byCode.get(r.contractorCode) ?? new Map<string, number>();
-    m.set(r.date, (m.get(r.date) ?? 0) + r.headcount);
-    byCode.set(r.contractorCode, m);
-  }
-  const codes = [...byCode.keys()].sort((a, b) => a.localeCompare(b));
-  const max = Math.max(1, ...daily.map((d) => d.headcount));
-  const week = days.length <= 7;
-  return (
-    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: `repeat(${Math.min(codes.length, 3)}, minmax(0, 1fr))` }, gap: 2 }}>
-      {codes.map((code) => {
-        const m = byCode.get(code)!;
-        const values = days.map((d) => m.get(d) ?? 0);
-        const reported = values.filter((v) => v > 0);
-        const avg = reported.length ? Math.round(reported.reduce((s, v) => s + v, 0) / reported.length) : 0;
-        return (
-          <Box key={code}>
-            <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-              <Box sx={{ width: 10, height: 10, borderRadius: "2px", bgcolor: colors.get(code) ?? CHART_OTHER }} />
-              <Typography variant="body1" sx={{ fontWeight: 700 }}>
-                {code}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ ml: "auto", fontVariantNumeric: "tabular-nums" }}>
-                avg {avg}/day · {values.reduce((s, v) => s + v, 0).toLocaleString()} man-days
-              </Typography>
-            </Box>
-            <BarChart
-              height={150}
-              borderRadius={2}
-              margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
-              xAxis={[
-                {
-                  scaleType: "band",
-                  data: days.map((d) => (week ? dayjs(d).format("ddd") : dayjs(d).format("D"))),
-                  tickLabelStyle: { fontSize: 10 },
-                  tickLabelInterval: week ? "auto" : (_v: string, i: number) => i % 5 === 0,
-                },
-              ]}
-              yAxis={[{ max, width: 30, tickLabelStyle: { fontSize: 10 } }]}
-              series={[{ id: code, label: code, color: colors.get(code) ?? CHART_OTHER, data: values, valueFormatter: (v: number | null) => `${v ?? 0} people` }]}
-              grid={{ horizontal: true }}
-              hideLegend
-            />
-          </Box>
-        );
-      })}
-    </Box>
   );
 }
