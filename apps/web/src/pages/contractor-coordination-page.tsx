@@ -27,12 +27,16 @@ import {
 } from "@/features/site-coordination/index.js";
 
 
+
+
 export function ContractorCoordinationPage() {
   const isPagesMock = import.meta.env.BASE_URL === "/STS-Daily-Report/";
   const me = useMe(!isPagesMock);
   const userContractors = me.data?.data.contractors ?? [];
   const primaryContractor = userContractors[0];
   const userContractorCode = primaryContractor?.code ?? "UME";
+
+
 
 
   const {
@@ -52,8 +56,12 @@ export function ContractorCoordinationPage() {
   } = useCoordinationState();
 
 
+
+
   const [filterMode, setFilterMode] = useState<"all" | "mine">("all");
   const [cardDeleteTarget, setCardDeleteTarget] = useState<SiteCalloutMarker | null>(null);
+
+
 
 
   const handleFilterModeChange = (newMode: "all" | "mine") => {
@@ -64,6 +72,8 @@ export function ContractorCoordinationPage() {
       setSelectedContractor("all");
     }
   };
+
+
 
 
   return (
@@ -81,7 +91,7 @@ export function ContractorCoordinationPage() {
                 />
                 <Chip
                   size="small"
-                  label="แชร์ข้อมูลร่วมกันทุกเจ้า"
+                  label={isPagesMock ? "Mock preview" : "แชร์ข้อมูลร่วมกันทุกเจ้า"}
                   sx={{ bgcolor: "rgba(255,255,255,0.15)", color: "#FFFFFF", fontSize: 11 }}
                 />
               </Stack>
@@ -89,12 +99,14 @@ export function ContractorCoordinationPage() {
                 Map (ผังประสานงานหน้างาน)
               </Typography>
               <Typography variant="caption" sx={{ color: "#9DB4CC" }}>
-                คลิกบนผังเพื่อวางจุดงานและกล่องข้อความ ทุกเจ้าจะเห็นร่วมกันทันที
+                {isPagesMock ? "ข้อมูลตัวอย่างบันทึกเฉพาะ browser นี้" : "คลิกบนผังเพื่อวางจุดงานและกล่องข้อความ ทุกเจ้าจะเห็นร่วมกันทันที"}
               </Typography>
             </Box>
           </Stack>
         </CardContent>
       </Card>
+
+
 
 
       {/* Visibility Toggle: All Contractors vs My Work */}
@@ -122,6 +134,8 @@ export function ContractorCoordinationPage() {
         </ToggleButtonGroup>
 
 
+
+
         <Button
           size="small"
           variant="text"
@@ -133,6 +147,8 @@ export function ContractorCoordinationPage() {
           รีเซ็ต
         </Button>
       </Stack>
+
+
 
 
       {/* Top-View Map Board */}
@@ -155,10 +171,14 @@ export function ContractorCoordinationPage() {
       </Card>
 
 
+
+
       {/* Marker Cards Stream for Field Workers */}
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
         รายการจุดงานในพื้นที่ ({filteredMarkers.length})
       </Typography>
+
+
 
 
       <Stack spacing={1.5} sx={{ mb: 4 }}>
@@ -166,6 +186,8 @@ export function ContractorCoordinationPage() {
           const iconObj = SITE_ICONS.find((i) => i.type === m.icon);
           const isSelected = m.id === activeMarkerId;
           const isMine = m.contractorCode === userContractorCode;
+
+
 
 
           return (
@@ -225,6 +247,8 @@ export function ContractorCoordinationPage() {
                 </Stack>
 
 
+
+
                 <Typography variant="body2" sx={{ fontWeight: 700, color: "#0F172A", mt: 0.5 }}>
                   {m.text}
                 </Typography>
@@ -233,6 +257,8 @@ export function ContractorCoordinationPage() {
           );
         })}
       </Stack>
+
+
 
 
       {/* Delete Confirmation Dialog for Card Stream */}
@@ -315,6 +341,8 @@ export function ContractorCoordinationPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+
 
 
       {/* Mobile Field Bottom Nav */}
