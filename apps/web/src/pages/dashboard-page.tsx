@@ -22,7 +22,7 @@ import { SiteConditionsStrip } from "@/components/dashboard/site-conditions-stri
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import {
-  ManDayByContractorChart,
+  ManDayPerContractorChart,
   addDaysIso,
   contractorColorMap,
   inspectionTypeLabel,
@@ -264,16 +264,15 @@ export function DashboardPage() {
             <Grid size={{ xs: 12, lg: 7 }}>
               <Panel
                 title="Man-days"
-                note={span > 1 ? "Daily headcount by contractor" : "Pick a longer range to see the trend"}
+                note={`Total per contractor · ${mp.totals.manDays.toLocaleString()} man-days`}
                 action={
                   <Link component={RouterLink} to={`/manpower?${q}`} underline="hover" variant="body2">
                     Open Manpower →
                   </Link>
                 }
               >
-                <ManDayByContractorChart
-                  days={Array.from({ length: span }, (_, i) => addDaysIso(from, i))}
-                  daily={mp.daily}
+                <ManDayPerContractorChart
+                  contractors={mp.contractors}
                   colors={contractorColorMap(mp.contractors.map((c) => c.contractorCode))}
                 />
               </Panel>

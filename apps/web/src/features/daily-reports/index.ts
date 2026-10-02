@@ -22,6 +22,7 @@ export { BuildingActivityMatrix, WorkloadLegend } from "./components/building-ac
 export { BuildingOperationsHub } from "./components/building-operations-hub.js";
 export {
   ManDayByContractorChart,
+  ManDayPerContractorChart,
   ManpowerByBuildingChart,
   ManpowerTrendChart,
   NationalityByContractorChart,

@@ -194,3 +194,43 @@ export function ManpowerByBuildingChart({
     />
   );
 }
+
+// Man-days in the range, one bar per contractor (value on top) — PM view on the dashboard.
+export function ManDayPerContractorChart({
+  contractors,
+  colors,
+}: {
+  contractors: ManpowerSummary["contractors"];
+  colors: Map<string, string>;
+}) {
+  if (contractors.length === 0) return <Empty text="No morning reports in this range" />;
+  const rows = [...contractors].sort((a, b) => a.contractorCode.localeCompare(b.contractorCode));
+  const codes = rows.map((r) => r.contractorCode);
+  return (
+    <BarChart
+      height={300}
+      borderRadius={4}
+      hideLegend
+      margin={{ top: 24 }}
+      xAxis={[
+        {
+          scaleType: "band",
+          data: codes,
+          categoryGapRatio: 0.5,
+          colorMap: { type: "ordinal", values: codes, colors: codes.map((c) => colors.get(c) ?? CHART_OTHER) },
+        },
+      ]}
+      yAxis={[{ label: "Man-days", width: 56 }]}
+      series={[
+        {
+          id: "manDays",
+          label: "Man-days",
+          data: rows.map((r) => r.manDays),
+          barLabel: (item) => (item.value ? item.value.toLocaleString() : null),
+          barLabelPlacement: "outside",
+          valueFormatter: (v: number | null) => (v === null ? null : `${v.toLocaleString()} man-days`),
+        },
+      ]}
+    />
+  );
+}
