@@ -1,3 +1,4 @@
+import { useState } from "react";
 import AddAPhotoOutlinedIcon from "@mui/icons-material/AddAPhotoOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import Alert from "@mui/material/Alert";
@@ -11,6 +12,7 @@ import type { PhotoCategory } from "@sts/shared";
 import { HttpError } from "@/services/http/client.js";
 import { useDeletePhoto, useUploadPhoto } from "../hooks/use-daily-report-mutations.js";
 import type { ReportPhoto } from "../types/daily-report.types.js";
+import { compressImage } from "../utils/image-compression.js";
 
 const CATEGORIES: { key: PhotoCategory; label: string; hint: string }[] = [
   { key: "progress", label: "ความคืบหน้างาน (Progress)", hint: "ภาพผลงานที่ทำได้วันนี้" },
@@ -33,15 +35,33 @@ export function PhotoSection({
 }) {
   const upload = useUploadPhoto();
   const remove = useDeletePhoto();
-  const error = upload.error ?? remove.error;
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [customError, setCustomError] = useState<string | null>(null);
+  const isUploading = upload.isPending || uploadStatus !== null;
+  const error = customError ?? (upload.error instanceof HttpError ? upload.error.message : remove.error instanceof HttpError ? remove.error.message : null);
 
   const onPick = async (category: PhotoCategory, files: FileList | null) => {
     const list = Array.from(files ?? []);
     if (list.length === 0) return;
+    setCustomError(null);
     const id = reportId ?? (await ensureReportId?.().catch(() => null));
-    if (!id) return;
-    for (const file of list) {
-      await upload.mutateAsync({ reportId: id, category, file }).catch(() => undefined);
+    if (!id) {
+      setCustomError("ไม่พบร่างรายงาน กรุณาลองใหม่อีกครั้ง");
+      return;
+    }
+
+    try {
+      for (let i = 0; i < list.length; i++) {
+        const rawFile = list[i]!;
+        setUploadStatus(`กำลังบีบอัดรูป (${i + 1}/${list.length})...`);
+        const optimized = await compressImage(rawFile, { maxDimension: 1600, quality: 0.8 });
+        setUploadStatus(`กำลังส่งรูป (${i + 1}/${list.length})...`);
+        await upload.mutateAsync({ reportId: id, category, file: optimized });
+      }
+    } catch {
+      setCustomError("อัปโหลดไม่สำเร็จ อาจเกิดจากสัญญาณอินเทอร์เน็ตหน้างานไม่เสถียร กรุณาลองใหม่");
+    } finally {
+      setUploadStatus(null);
     }
   };
 
@@ -94,11 +114,11 @@ export function PhotoSection({
                 <Button
                   component="label"
                   variant="outlined"
-                  disabled={upload.isPending}
+                  disabled={isUploading}
                   sx={{ aspectRatio: "1", borderStyle: "dashed", flexDirection: "column", gap: 0.5, minWidth: 0 }}
                 >
-                  {upload.isPending ? <CircularProgress size={20} /> : <AddAPhotoOutlinedIcon />}
-                  <Typography variant="caption">เพิ่มรูป</Typography>
+                  {isUploading ? <CircularProgress size={20} /> : <AddAPhotoOutlinedIcon />}
+                  <Typography variant="caption">{isUploading ? (uploadStatus ?? "ส่งรูป...") : "เพิ่มรูป"}</Typography>
                   <input
                     type="file"
                     accept="image/*"
@@ -117,7 +137,8 @@ export function PhotoSection({
           </Box>
         );
       })}
-      {error instanceof HttpError ? <Alert severity="error">{error.message}</Alert> : null}
+      {uploadStatus ? <Alert severity="info" icon={<CircularProgress size={16} />}>{uploadStatus}</Alert> : null}
+      {error ? <Alert severity="error">{error}</Alert> : null}
     </Stack>
   );
 }

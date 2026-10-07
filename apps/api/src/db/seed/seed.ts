@@ -341,6 +341,23 @@ await db
   .values(SAMPLE_CONTRACTORS.map((c) => ({ projectId: PROJECT_ID, contractorId: c.id })))
   .onConflictDoNothing();
 
+// One login per sample contractor: contractor01→ZCE, 02→LCE, 03→UME (email only, no password).
+const SAMPLE_USERS = SAMPLE_CONTRACTORS.map((c, i) => ({
+  id: `aaaaaaaa-aaaa-4aaa-8aaa-00000000000${i + 1}`,
+  email: `contractor0${i + 1}@sts.local`,
+  displayName: `Contractor 0${i + 1} (${c.code})`,
+  status: "active" as const,
+  contractorId: c.id,
+}));
+await db
+  .insert(users)
+  .values(SAMPLE_USERS.map(({ contractorId: _, ...u }) => u))
+  .onConflictDoNothing({ target: users.id });
+await db
+  .insert(contractorMemberships)
+  .values(SAMPLE_USERS.map((u) => ({ userId: u.id, contractorId: u.contractorId, status: "active" as const })))
+  .onConflictDoNothing();
+
 type SamplePlan = {
   contractorId: string;
   split: [number, number, number, number];

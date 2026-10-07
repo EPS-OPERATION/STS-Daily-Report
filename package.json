@@ -15,6 +15,7 @@
     "build:web": "bun --filter ./apps/web build",
     "build:api": "bun --filter ./apps/api build",
     "typecheck": "bun --filter '*' typecheck",
+    "test": "bun test",
     "lint": "echo \"lint: no eslint config yet (see agent.md)\" && exit 0",
     "db:generate": "bun --filter ./apps/api db:generate",
     "db:migrate": "bun --filter ./apps/api db:migrate",

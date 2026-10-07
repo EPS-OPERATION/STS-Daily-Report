@@ -18,7 +18,7 @@
 - Screens: `/` dashboard, `/site-coordination` (EPS Map), `/site-plan`, `/daily-reports` (work done summary + review queue + tomorrow plan tracking), `/tomorrow`, `/weekly-summary`,
   `/field` + `/field/report` + `/field/coordination` (Map), `/qaqc` (Daily Request), `/contractors`, `/work-permits`, `/progress` (Drone Progress),
   `/materials` (EPS: totals + log จาก evening check-out, real API)
-- ยังไม่มี: tests, lint config, CI, production auth, domains permits (ดู README §12/13)
+- ยังไม่มี: lint config, CI, production auth, domains permits (ดู README §12/13); unit tests เริ่มต้นที่ `bun test`
 
 ## กฎการ update ไฟล์นี้ (บังคับ)
 
@@ -36,7 +36,7 @@
 
 ## คำสั่งจริง (source: root `package.json#scripts`)
 
-- `bun dev | dev:web | dev:api`, `bun build | build:web | build:api`, `bun typecheck` (ทุก workspace)
+- `bun dev | dev:web | dev:api`, `bun build | build:web | build:api`, `bun typecheck`, `bun test`
 - `bun db:generate | db:migrate | db:push | db:studio | db:seed` (ผ่าน `apps/api`)
 - `bun docker:up | docker:down | docker:logs`
 - Setup: `cp .env.example .env && bun install && bun docker:up && bun db:migrate && bun db:seed && bun dev`
@@ -75,7 +75,7 @@
   Dockerfiles build จาก repo root (Bun workspaces), web เสิร์ฟผ่าน nginx + SPA fallback
 - Auth phase 1 (dev-only): boundary AuthIdentity (session→user→memberships); ตาราง users/contractor_memberships/sessions
   (token_hash เท่านั้น); routes POST /auth/login, GET /auth/me, POST /auth/logout; cookie sts_session HttpOnly;
-  guard requireAuth; ห้าม local-email ใน production (startup fail); seed login: contractor@sts.local (ไม่มีรหัสผ่าน)
+  guard requireAuth; ห้าม local-email ใน production (startup fail); seed login: contractor@sts.local + contractor01/02/03@sts.local (=ZCE/LCE/UME) (ไม่มีรหัสผ่าน)
 - Site-plan vertical (real DB): ตาราง zones/site_plans/zone_map_areas/site_activities (geometry normalized 0..1 JSONB);
   modules zones/site-activities/site-plans/projects; writes กันด้วย requireAuth; reads เปิด; seed 21 zones/1 plan/6 areas;
   frontend features/site-plan + features/projects (ProjectProvider)

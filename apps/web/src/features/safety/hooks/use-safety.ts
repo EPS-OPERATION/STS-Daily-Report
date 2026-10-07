@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { compressImage } from "@/features/daily-reports/index.js";
 import { safetyApi, safetyKeys } from "../api/safety.api.js";
 import type { FindingInput } from "../types/safety.types.js";
 
@@ -28,8 +29,14 @@ export function useSaveFinding(projectId: string | null) {
       const pid = projectId!;
       const id = v.id ?? (await safetyApi.create(pid, v.input)).data.id;
       if (v.id) await safetyApi.update(pid, v.id, v.input);
-      if (v.findingPhoto) await safetyApi.uploadPhoto(pid, id, "finding", v.findingPhoto);
-      if (v.closePhoto) await safetyApi.uploadPhoto(pid, id, "close", v.closePhoto);
+      if (v.findingPhoto) {
+        const compressedFinding = await compressImage(v.findingPhoto, { maxDimension: 1600, quality: 0.8 });
+        await safetyApi.uploadPhoto(pid, id, "finding", compressedFinding);
+      }
+      if (v.closePhoto) {
+        const compressedClose = await compressImage(v.closePhoto, { maxDimension: 1600, quality: 0.8 });
+        await safetyApi.uploadPhoto(pid, id, "close", compressedClose);
+      }
       return id;
     },
     onSettled: () => qc.invalidateQueries({ queryKey: safetyKeys.all }),
