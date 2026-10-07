@@ -569,35 +569,56 @@ const SAMPLE_REQUESTS: Array<{
   status: RequestStatus;
   readiness: "ready" | "preparing" | "not_ready";
   result?: "pass" | "fail";
+  loc?: string;
+  dwg?: string;
 }> = [
-  { id: "e1000000-0000-4000-8000-000000000001", c: 0, b: "BLR", day: 0, time: "09:00", type: "rebar", item: "Rebar B1 L2", status: "confirmed", readiness: "ready" },
-  { id: "e1000000-0000-4000-8000-000000000002", c: 1, b: "ACC", day: 0, time: "10:30", type: "formwork", item: "Formwork ACC wall W3", status: "requested", readiness: "preparing" },
-  { id: "e1000000-0000-4000-8000-000000000003", c: 2, b: "STK", day: 1, time: "13:00", type: "concrete", item: "Concrete Stack base L3", status: "requested", readiness: "not_ready" },
-  { id: "e1000000-0000-4000-8000-000000000004", c: 0, b: "TG", day: -1, time: "14:00", type: "welding", item: "TG platform weld joints", status: "inspected", readiness: "ready", result: "fail" },
-  { id: "e1000000-0000-4000-8000-000000000005", c: 1, b: "CT", day: -2, time: "09:30", type: "survey", item: "Cooling tower setting-out", status: "closed", readiness: "ready", result: "pass" },
+  { id: "e1000000-0000-4000-8000-000000000001", c: 0, b: "BLR", day: 0, time: "09:00", type: "rebar", item: "Rebar B1 L2", status: "confirmed", readiness: "ready", loc: "Grid B1–B3", dwg: "STSBPP-C-BLR-201" },
+  { id: "e1000000-0000-4000-8000-000000000002", c: 1, b: "ACC", day: 0, time: "10:30", type: "formwork", item: "Formwork ACC wall W3", status: "requested", readiness: "preparing", loc: "Wall W3 EL.+3.50", dwg: "STSBPP-C-ACC-114" },
+  { id: "e1000000-0000-4000-8000-000000000003", c: 2, b: "STK", day: 1, time: "13:00", type: "concrete", item: "Concrete Stack base L3", status: "requested", readiness: "not_ready", loc: "Base slab L3", dwg: "STSBPP-C-STK-102" },
+  { id: "e1000000-0000-4000-8000-000000000004", c: 0, b: "TG", day: -1, time: "14:00", type: "welding", item: "TG platform weld joints", status: "inspected", readiness: "ready", result: "fail", loc: "Platform EL.+8.00", dwg: "STSBPP-S-TG-305" },
+  { id: "e1000000-0000-4000-8000-000000000005", c: 1, b: "CT", day: -2, time: "09:30", type: "survey", item: "Cooling tower setting-out", status: "closed", readiness: "ready", result: "pass", loc: "Foundation F1–F4" },
+  // today
+  { id: "e1000000-0000-4000-8000-000000000006", c: 2, b: "TG", day: 0, time: "08:30", type: "bolt_torque", item: "Anchor bolt torque TG pedestal", status: "confirmed", readiness: "ready", loc: "Pedestal P2", dwg: "STSBPP-S-TG-210" },
+  { id: "e1000000-0000-4000-8000-000000000007", c: 0, b: "FGT", day: 0, time: "13:30", type: "steel_erection", item: "FGT support steel column C4–C6", status: "requested", readiness: "ready", loc: "Axis 4–6", dwg: "STSBPP-S-FGT-120" },
+  { id: "e1000000-0000-4000-8000-000000000008", c: 1, b: "WTP", day: 0, time: "15:00", type: "piping", item: "Hydrotest raw water line 150A", status: "requested", readiness: "preparing", loc: "Pipe rack PR-2", dwg: "STSBPP-P-WTP-402" },
+  // tomorrow
+  { id: "e1000000-0000-4000-8000-000000000009", c: 0, b: "BLR", day: 1, time: "08:00", type: "concrete", item: "Concrete pour boiler pedestal B2", status: "requested", readiness: "ready", loc: "Pedestal B2", dwg: "STSBPP-C-BLR-205" },
+  { id: "e1000000-0000-4000-8000-000000000010", c: 1, b: "ACC", day: 1, time: "09:30", type: "rebar", item: "Rebar ACC column C7–C9", status: "requested", readiness: "preparing", loc: "Column C7–C9", dwg: "STSBPP-C-ACC-121" },
+  { id: "e1000000-0000-4000-8000-000000000011", c: 2, b: "CMP", day: 1, time: "10:30", type: "electrical", item: "Cable tray & cable pulling MCC-1", status: "requested", readiness: "ready", loc: "Compressor room", dwg: "STSBPP-E-CMP-501" },
+  // history
+  { id: "e1000000-0000-4000-8000-000000000012", c: 0, b: "BLR", day: -3, time: "10:00", type: "welding", item: "Boiler header butt welds", status: "closed", readiness: "ready", result: "pass", loc: "Header H1", dwg: "STSBPP-M-BLR-330" },
+  { id: "e1000000-0000-4000-8000-000000000013", c: 2, b: "STK", day: -4, time: "14:30", type: "formwork", item: "Stack ring beam formwork", status: "closed", readiness: "ready", result: "pass", loc: "Ring beam EL.+6.00" },
+  { id: "e1000000-0000-4000-8000-000000000014", c: 1, b: "ACC", day: -5, time: "09:00", type: "concrete", item: "ACC footing F12 pour", status: "inspected", readiness: "ready", result: "pass", loc: "Footing F12", dwg: "STSBPP-C-ACC-108" },
+  { id: "e1000000-0000-4000-8000-000000000015", c: 0, b: "TG", day: -6, time: "11:00", type: "painting", item: "TG steel primer DFT check", status: "closed", readiness: "ready", result: "fail", loc: "Beams B10–B14", dwg: "STSBPP-S-TG-312" },
+  { id: "e1000000-0000-4000-8000-000000000016", c: 2, b: "BMT", day: -7, time: "13:00", type: "survey", item: "Conveyor gallery setting-out", status: "closed", readiness: "ready", result: "pass", loc: "Trestle T1–T5" },
+  { id: "e1000000-0000-4000-8000-000000000017", c: 0, b: "FAS", day: -9, time: "09:30", type: "rebar", item: "Fly ash silo wall rebar lift 2", status: "closed", readiness: "ready", result: "pass", loc: "Wall lift 2", dwg: "STSBPP-C-FAS-140" },
+  { id: "e1000000-0000-4000-8000-000000000018", c: 1, b: "RWP", day: -11, time: "10:00", type: "piping", item: "Raw water pump suction line", status: "closed", readiness: "ready", result: "pass", loc: "Pump pit", dwg: "STSBPP-P-RWP-401" },
+  { id: "e1000000-0000-4000-8000-000000000019", c: 2, b: "DOT", day: -13, time: "14:00", type: "bolt_torque", item: "Diesel tank anchor bolts", status: "closed", readiness: "ready", result: "pass", loc: "Tank T-01" },
+  { id: "e1000000-0000-4000-8000-000000000020", c: 0, b: "BAB", day: -14, time: "08:30", type: "formwork", item: "Bottom ash bunker wall formwork", status: "closed", readiness: "ready", result: "pass", loc: "Wall W1–W2", dwg: "STSBPP-C-BAB-130" },
 ];
-await db
-  .insert(inspectionRequests)
-  .values(
-    SAMPLE_REQUESTS.map((r) => {
-      const inspectionDate = addDays(today, r.day);
-      return {
-        id: r.id,
-        projectId: PROJECT_ID,
-        contractorId: SAMPLE_CONTRACTORS[r.c]!.id,
-        buildingId: bid(r.b),
-        reportDate: r.day > 0 ? today : inspectionDate,
-        inspectionDate,
-        inspectionTime: r.time,
-        inspectionType: r.type,
-        workItem: r.item,
-        readiness: r.readiness,
-        status: r.status,
-        result: r.result ?? null,
-      };
-    }),
-  )
-  .onConflictDoNothing({ target: inspectionRequests.id });
+// Dates are relative to the seed day; re-seeding rolls the samples forward so
+// today/tomorrow always have requests to show.
+for (const r of SAMPLE_REQUESTS) {
+  const inspectionDate = addDays(today, r.day);
+  const row = {
+    contractorId: SAMPLE_CONTRACTORS[r.c]!.id,
+    buildingId: bid(r.b),
+    reportDate: r.day > 0 ? addDays(today, r.day - 1) : inspectionDate,
+    inspectionDate,
+    inspectionTime: r.time,
+    inspectionType: r.type,
+    workItem: r.item,
+    location: r.loc ?? null,
+    drawingRef: r.dwg ?? null,
+    readiness: r.readiness,
+    status: r.status,
+    result: r.result ?? null,
+  };
+  await db
+    .insert(inspectionRequests)
+    .values({ id: r.id, projectId: PROJECT_ID, ...row })
+    .onConflictDoUpdate({ target: inspectionRequests.id, set: row });
+}
 
 // --- Sample safety line walk + contractor-reported accidents (dev only, idempotent) ---
 const ZCE = SAMPLE_CONTRACTORS[0]!.id;

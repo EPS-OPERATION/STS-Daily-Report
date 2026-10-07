@@ -65,7 +65,7 @@ export function MaterialsPage() {
 
   return (
     <Box>
-      <PageHeader title="Materials" subtitle="วัสดุหน้างานที่ผู้รับเหมารายงานผ่าน check-out — รวมตามวัสดุ + บันทึกรายวัน" />
+      <PageHeader title="Materials (Option)" subtitle="วัสดุหน้างานที่ผู้รับเหมารายงานผ่าน check-out — รวมตามวัสดุ + บันทึกรายวัน" />
 
       {!projectId ? (
         <Alert severity="info">Select a project to see its materials.</Alert>

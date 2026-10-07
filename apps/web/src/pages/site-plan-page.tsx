@@ -105,7 +105,7 @@ export function SitePlanPage() {
   return (
     <Box>
       <PageHeader
-        title="Site Plan"
+        title="Site Plan (Option)"
         subtitle="แตะอาคารบนแผนที่เพื่อดูกำลังคน กิจกรรม และคำขอ — เลือกวันเดียวหรือช่วงวันที่ (ช่วง = เฉลี่ยคน/วัน)"
         actions={
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>

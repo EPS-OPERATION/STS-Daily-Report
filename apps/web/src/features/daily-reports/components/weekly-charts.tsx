@@ -17,7 +17,7 @@ import {
 import { POSITIONS } from "@sts/shared";
 import dayjs from "dayjs";
 import { CHART_OTHER, CHART_PRIMARY, CHART_SERIES } from "@/app/theme/chart-palette.js";
-import type { ManpowerSummary, ManpowerTrendPoint, PositionMixRow } from "../types/daily-report.types.js";
+import type { ManpowerSummary, PositionMixRow } from "../types/daily-report.types.js";
 
 const DAY_TH = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."];
 
@@ -220,40 +220,68 @@ ${total} คน` : label;
 }
 
 // Deck p.24 right: average daily manpower per week (trend).
-export function ManpowerTrendChart({ points, currentWeek }: { points: ManpowerTrendPoint[]; currentWeek: string }) {
-  if (points.every((p) => p.avgDaily === null)) return <Empty text="ยังไม่มีข้อมูลย้อนหลัง" />;
+/** Up to this many days the trend is per day; longer ranges average per week. */
+export const TREND_DAILY_MAX_DAYS = 31;
+
+// Headcount trend over the selected range (from the same daily rows as the Man-day chart).
+// Days without any report are gaps (null), not zeros, so a missing day is not a false drop.
+export function ManpowerTrendChart({ days, daily }: { days: string[]; daily: Array<{ date: string; headcount: number }> }) {
+  const byDay = new Map<string, number>();
+  for (const d of daily) byDay.set(d.date, (byDay.get(d.date) ?? 0) + d.headcount);
+  if (byDay.size === 0) return <Empty text="ยังไม่มีข้อมูลในช่วงที่เลือก" />;
+
+  const weekly = days.length > TREND_DAILY_MAX_DAYS;
+  const points: Array<{ key: string; label: string; value: number | null }> = [];
+  if (!weekly) {
+    for (const d of days) points.push({ key: d, label: dayjs(d).format("D MMM"), value: byDay.get(d) ?? null });
+  } else {
+    for (let i = 0; i < days.length; i += 7) {
+      const chunk = days.slice(i, i + 7);
+      const reported = chunk.map((d) => byDay.get(d)).filter((n): n is number => n !== undefined);
+      const first = chunk[0]!;
+      const last = chunk[chunk.length - 1]!;
+      points.push({
+        key: first,
+        label: `${dayjs(first).format("D")}–${dayjs(last).format("D MMM")}`,
+        value: reported.length ? Math.round(reported.reduce((a, n) => a + n, 0) / reported.length) : null,
+      });
+    }
+  }
+  const unit = weekly ? "คน/วัน (เฉลี่ย)" : "คน";
   return (
     <LineChart
       height={300}
       xAxis={[
         {
           scaleType: "point",
-          data: points.map((p) => p.weekStart),
-          valueFormatter: (v: string) => `${dayjs(v).format("D")}–${dayjs(v).add(6, "day").format("D MMM")}`,
+          data: points.map((p) => p.key),
+          valueFormatter: (v: string) => points.find((p) => p.key === v)?.label ?? v,
           tickLabelStyle: { fontSize: 12 },
         },
       ]}
-      yAxis={[{ label: "คน/วัน (เฉลี่ย)", width: 52, min: 0 }]}
+      yAxis={[{ label: unit, width: 52, min: 0 }]}
       series={[
         {
-          id: "avg",
-          label: "เฉลี่ยคน/วัน",
+          id: "trend",
+          label: weekly ? "เฉลี่ยคน/วัน" : "คนเข้างาน",
           color: CHART_PRIMARY,
           curve: "linear",
-          data: points.map((p) => p.avgDaily),
-          showMark: ({ index }) => points[index]?.weekStart === currentWeek,
-          valueFormatter: (v: number | null) => (v === null ? "ไม่มีรายงาน" : `${v} คน/วัน`),
+          data: points.map((p) => p.value),
+          showMark: points.length <= 14,
+          connectNulls: false,
+          valueFormatter: (v: number | null) => (v === null ? "ไม่มีรายงาน" : weekly ? `${v} คน/วัน` : `${v} คน`),
         },
       ]}
       grid={{ horizontal: true }}
       hideLegend
+      margin={{ right: 28 }}
     />
   );
 }
 
-// Deck p.25: headcount by position, grouped by contractor (average per reported day).
+// Headcount by position, grouped by contractor (actual count in range).
 export function PositionByContractorChart({ rows, colors }: { rows: PositionMixRow[]; colors: Map<string, string> }) {
-  if (rows.length === 0) return <Empty text="ยังไม่มีข้อมูลตำแหน่งในสัปดาห์นี้" />;
+  if (rows.length === 0) return <Empty text="ยังไม่มีข้อมูลตำแหน่งในช่วงนี้" />;
   // Positions in the form's order, only those anyone used this week.
   const positions = POSITIONS.filter((p) => rows.some((r) => r.position === p.code));
   const codes = [...new Set(rows.map((r) => r.contractorCode))].sort((a, b) => a.localeCompare(b));
@@ -262,19 +290,23 @@ export function PositionByContractorChart({ rows, colors }: { rows: PositionMixR
       height={320}
       borderRadius={4}
       xAxis={[{ scaleType: "band", data: positions.map((p) => p.label), tickLabelStyle: { fontSize: 12 } }]}
-      yAxis={[{ label: "คน/วัน", width: 48 }]}
+      yAxis={[{ label: "คน", width: 48 }]}
       series={codes.map((code) => ({
         id: code,
         label: code,
         color: colors.get(code) ?? CHART_OTHER,
-        data: positions.map((p) => rows.find((r) => r.contractorCode === code && r.position === p.code)?.avgPerDay ?? 0),
-        valueFormatter: (v: number | null) => (v ? `${v} คน/วัน` : null),
+        data: positions.map((p) => {
+          const r = rows.find((row) => row.contractorCode === code && row.position === p.code);
+          return r?.totalHeadcount ?? r?.avgPerDay ?? 0;
+        }),
+        valueFormatter: (v: number | null) => (v ? `${v.toLocaleString()} คน` : null),
       }))}
       slotProps={legendBottom}
       grid={{ horizontal: true }}
     />
   );
 }
+
 
 // Deck p.20 "Manpower": nationality × sex per contractor. These four categories are not
 // contractors, so they take the palette's later slots (5–8 order) to avoid reading as one.

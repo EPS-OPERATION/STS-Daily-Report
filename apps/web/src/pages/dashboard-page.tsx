@@ -21,13 +21,13 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs, { type Dayjs } from "dayjs";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { SitePlanSvg } from "@/components/site/site-plan-svg.js";
 import { KpiCard } from "@/components/ui/kpi-card.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { SiteConditionsStrip } from "@/components/dashboard/site-conditions-strip.js";
-import { HIGHLIGHTS, KPI_BY_RANGE, ZONES } from "@/mock/site-data.js";
+import { HIGHLIGHTS, KPI_BY_RANGE } from "@/mock/site-data.js";
+import { CoordinationMapBoard, useCoordinationState } from "@/features/site-coordination/index.js";
 
 type Range = "today" | "week" | "month";
 
@@ -141,38 +141,20 @@ export function DashboardPage() {
 
       <Grid container spacing={2.5}>
 
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Card>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <Card sx={{ height: "100%" }}>
             <CardContent sx={{ p: 2.5 }}>
               <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
                 <Typography variant="h5">Site Activity Overview</Typography>
-                <Stack direction="row" spacing={2}>
-                  {(
-                    [
-                      ["Active", theme.palette.success.main],
-                      ["Attention", theme.palette.warning.main],
-                      ["No activity", theme.palette.grey[400]],
-                    ] as const
-                  ).map(([label, color]) => (
-                    <Stack key={label} direction="row" spacing={0.75} alignItems="center">
-                      <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: color }} />
-                      <Typography variant="caption" color="text.secondary">
-                        {label}
-                      </Typography>
-                    </Stack>
-                  ))}
-                </Stack>
-              </Stack>
-              <SitePlanSvg zones={ZONES} height={380} />
-              <Box sx={{ mt: 1.5 }}>
-                <Link component={RouterLink} to="/site-plan" underline="hover" fontSize={13}>
-                  Open interactive site plan
+                <Link component={RouterLink} to="/site-coordination" underline="hover" fontSize={13}>
+                  Open Map
                 </Link>
-              </Box>
+              </Stack>
+              <DashboardSiteMap />
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, lg: 4 }}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <Card sx={{ height: "100%" }}>
             <CardContent sx={{ p: 2.5 }}>
               <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
@@ -227,6 +209,51 @@ export function DashboardPage() {
           </Card>
         </Grid>
       </Grid>
+    </Box>
+  );
+}
+
+// Same pins as the Map page (EPS edits them there); view-only here. The board is laid
+// out at the Map page's width and scaled down as a whole, so callouts keep their
+// positions relative to the drawing instead of overflowing a narrow card.
+const MAP_DESIGN_WIDTH = 1200;
+
+function DashboardSiteMap() {
+  const { markers, activeMarkerId, setActiveMarkerId, mapView, setMapView } = useCoordinationState();
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ scale: 0.5, height: 400 });
+
+  useEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    const measure = () => {
+      const scale = Math.min(1, outer.clientWidth / MAP_DESIGN_WIDTH);
+      setFit({ scale, height: inner.offsetHeight * scale });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(outer);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <Box ref={outerRef} sx={{ position: "relative", overflow: "hidden", height: fit.height }}>
+      <Box
+        ref={innerRef}
+        sx={{ width: MAP_DESIGN_WIDTH, transform: `scale(${fit.scale})`, transformOrigin: "top left" }}
+      >
+        <CoordinationMapBoard
+          markers={markers}
+          activeMarkerId={activeMarkerId}
+          onSelectMarker={setActiveMarkerId}
+          mapView={mapView}
+          onChangeMapView={setMapView}
+          readOnly
+        />
+      </Box>
     </Box>
   );
 }

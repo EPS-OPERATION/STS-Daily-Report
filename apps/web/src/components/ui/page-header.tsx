@@ -4,7 +4,13 @@ import type { ReactNode } from "react";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
-    <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2} sx={{ mb: 3 }}>
+    <Stack
+      direction={{ xs: "column", md: "row" }}
+      alignItems="flex-start"
+      justifyContent="space-between"
+      spacing={2}
+      sx={{ mb: 3 }}
+    >
       <Stack spacing={0.5}>
         <Typography variant="h3">{title}</Typography>
         {subtitle ? (

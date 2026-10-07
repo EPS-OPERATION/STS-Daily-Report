@@ -1,34 +1,41 @@
-import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
+import { useMemo, useState } from "react";
+import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
+import InputAdornment from "@mui/material/InputAdornment";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useTheme } from "@mui/material/styles";
-import { BarChart } from "@mui/x-charts/BarChart";
 import { PieChart } from "@mui/x-charts/PieChart";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import type { InspectionResult, RequestStatus } from "@sts/shared";
 import dayjs from "dayjs";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
+import { CHART_SERIES } from "@/app/theme/chart-palette.js";
+import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { useMe } from "@/features/auth/index.js";
 import {
   ContractorBadge,
   RequestStatusChip,
   addDaysIso,
+  contractorColorMap,
+  formatThaiDate,
   inspectionTypeLabel,
-  mondayOf,
   todayIso,
   useInspectionRequests,
   useTransitionRequest,
@@ -40,33 +47,36 @@ import { HttpError } from "@/services/http/client.js";
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DAYS = 62;
 
-// Column titles in EPS wording (requirements deck v2).
-const COLUMN_TITLE: Record<RequestStatus, string> = {
-  draft: "Draft (ยังไม่ส่ง)",
-  requested: "Today RFI",
-  confirmed: "Today inspected",
-  inspected: "Result",
-  closed: "Closed",
-};
+type Share = { code: string; name: string; count: number; color: string };
 
-// QAQC RFI board. Objective: collect first-pass RFI yield to rate contractor
-// performance. Contractors raise RFIs in the evening report; EPS confirms,
-// records pass / not pass (Correct), and closes.
+/**
+ * QAQC — RFI (Request For Inspection).
+ * Today/tomorrow inspection schedule for site coordination (read-only, no approval step),
+ * plus a date-range breakdown by contractor and building and the RFI history, where EPS
+ * confirms requests and records results: pass / not pass (correct) → first-pass yield.
+ */
 export function QaqcBoardPage() {
-  const theme = useTheme();
   const [params, setParams] = useSearchParams();
   const today = todayIso();
-  const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : today;
-  const rawTo = ISO_DATE.test(params.get("to") ?? "") ? params.get("to")! : today;
+  const tomorrow = addDaysIso(today, 1);
+
+  const rawFrom = ISO_DATE.test(params.get("from") ?? "")
+    ? params.get("from")!
+    : dayjs(today).startOf("month").format("YYYY-MM-DD");
+  const rawTo = ISO_DATE.test(params.get("to") ?? "")
+    ? params.get("to")!
+    : dayjs(today).endOf("month").format("YYYY-MM-DD");
   const from = rawFrom <= rawTo ? rawFrom : rawTo;
   const to = rawFrom <= rawTo ? rawTo : rawFrom;
   const tooLong = dayjs(to).diff(dayjs(from), "day") + 1 > MAX_DAYS;
+
   const { projectId } = useCurrentProject();
-  const me = useMe();
-  const isEps = me.data?.data.user.role === "eps";
-  const list = useInspectionRequests(tooLong ? null : projectId, { from, to, by: "inspection" });
+  const scheduleQuery = useInspectionRequests(projectId, { from: today, to: tomorrow, by: "inspection" });
+  const historyQuery = useInspectionRequests(tooLong ? null : projectId, { from, to, by: "inspection" });
+  const [searchQuery, setSearchQuery] = useState("");
+  const isEps = useMe().data?.data.user.role === "eps";
   const move = useTransitionRequest();
-  const [notPassFor, setNotPassFor] = useState<InspectionRequest | null>(null);
+  const [notPass, setNotPass] = useState<InspectionRequest | null>(null);
 
   const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
@@ -75,327 +85,259 @@ export function QaqcBoardPage() {
     setParams(p, { replace: true });
   };
 
-  const rows = list.data?.data ?? [];
-  const columns: RequestStatus[] = isEps
-    ? ["requested", "confirmed", "inspected", "closed"]
-    : ["draft", "requested", "confirmed", "inspected", "closed"];
-  const tomorrow = addDaysIso(today, 1);
-  const actions = rows.filter(
-    (r) =>
-      (r.status === "requested" || r.status === "confirmed") &&
-      (r.inspectionDate === today || r.inspectionDate === tomorrow) &&
-      (r.readiness !== "ready" || !r.drawingRef),
+  const scheduleRows = scheduleQuery.data?.data ?? [];
+  const byTime = (a: InspectionRequest, b: InspectionRequest) => a.inspectionTime.localeCompare(b.inspectionTime);
+  const todayRequests = useMemo(
+    () => scheduleRows.filter((r) => r.inspectionDate === today).sort(byTime),
+    [scheduleRows, today],
+  );
+  const tomorrowRequests = useMemo(
+    () => scheduleRows.filter((r) => r.inspectionDate === tomorrow).sort(byTime),
+    [scheduleRows, tomorrow],
   );
 
-  // First-pass RFI yield: share of inspected RFIs that passed, overall and per contractor.
-  const inspected = rows.filter((r) => r.result);
-  const passed = inspected.filter((r) => r.result === "pass").length;
-  const waiting = rows.filter((r) => r.status === "requested" || r.status === "confirmed").length;
-  const byContractor = [...new Set(inspected.map((r) => r.contractorCode))]
-    .sort((a, b) => a.localeCompare(b))
-    .map((code) => {
-      const mine = inspected.filter((r) => r.contractorCode === code);
-      const ok = mine.filter((r) => r.result === "pass").length;
-      return { code, total: mine.length, pass: ok, rate: Math.round((ok / mine.length) * 100) };
-    });
+  const historyRows = historyQuery.data?.data ?? [];
+
+  const contractorShares = useMemo<Share[]>(() => {
+    const list = tally(historyRows, (r) => r.contractorCode || "—", (r) => r.contractorName || r.contractorCode);
+    const colors = contractorColorMap(list.map((c) => c.code));
+    return list.map((c) => ({ ...c, color: colors.get(c.code) ?? CHART_SERIES[0]! }));
+  }, [historyRows]);
+
+  const buildingShares = useMemo<Share[]>(
+    () =>
+      tally(historyRows, (r) => r.buildingCode || "—", (r) => r.buildingName || "ไม่ระบุอาคาร").map((b, i) => ({
+        ...b,
+        color: CHART_SERIES[i % CHART_SERIES.length]!,
+      })),
+    [historyRows],
+  );
+
+  const filteredHistory = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return historyRows;
+    return historyRows.filter((r) =>
+      [r.contractorCode, r.contractorName, r.buildingCode, r.buildingName, r.workItem, r.drawingRef, inspectionTypeLabel(r.inspectionType)]
+        .some((v) => v?.toLowerCase().includes(q)),
+    );
+  }, [historyRows, searchQuery]);
+
+  const rangeLabel = from === to ? formatThaiDate(from) : `${formatThaiDate(from)} – ${formatThaiDate(to)}`;
 
   return (
-    <Box>
+    <Box sx={{ pb: 6 }}>
       <PageHeader
         title="QAQC — RFI"
-        subtitle={isEps ? "ยืนยันคำขอตรวจ บันทึก pass / not pass แล้วปิดงาน" : "สถานะคำขอตรวจของบริษัทคุณ (EPS QAQC เป็นผู้อัปเดต)"}
-        actions={
-          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
-            <DatePicker
-              label="ตั้งแต่"
-              value={dayjs(from)}
-              onChange={(v) => v?.isValid() && setRange(v.format("YYYY-MM-DD"), to)}
-              format="D MMM YYYY"
-              slotProps={{ textField: { size: "small", sx: { width: 160 } } }}
-            />
-            <DatePicker
-              label="ถึง"
-              value={dayjs(to)}
-              minDate={dayjs(from)}
-              onChange={(v) => v?.isValid() && setRange(from, v.format("YYYY-MM-DD"))}
-              format="D MMM YYYY"
-              slotProps={{ textField: { size: "small", sx: { width: 160 } } }}
-            />
-            <Button size="small" variant="outlined" onClick={() => setRange(today, today)}>
-              วันนี้
-            </Button>
-            <Button size="small" variant="outlined" onClick={() => setRange(mondayOf(today), addDaysIso(mondayOf(today), 6))}>
-              สัปดาห์นี้
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => setRange(dayjs(today).startOf("month").format("YYYY-MM-DD"), dayjs(today).endOf("month").format("YYYY-MM-DD"))}
-            >
-              เดือนนี้
-            </Button>
-          </Stack>
-        }
+        subtitle="คำขอตรวจงาน (Request For Inspection) ที่ผู้รับเหมาส่งมาพร้อมรายงานช่วงบ่าย"
+        actions={<DateRangeFields from={from} to={to} maxDays={MAX_DAYS} onChange={setRange} />}
       />
 
-      {tooLong ? (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          เลือกได้ไม่เกิน {MAX_DAYS} วันต่อครั้ง
-        </Alert>
-      ) : null}
       {move.error instanceof HttpError ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => move.reset()}>
           {move.error.message}
         </Alert>
       ) : null}
 
-      {actions.length > 0 ? (
-        <Card sx={{ mb: 2, borderLeft: 4, borderLeftColor: "warning.main" }}>
-          <CardContent>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-              <WarningAmberOutlinedIcon color="warning" />
-              <Typography variant="h5">Action Required</Typography>
-              <Typography variant="caption" color="text.secondary">
-                ตรวจวันนี้/พรุ่งนี้ที่หน้างานยังไม่พร้อม หรือยังไม่แนบ drawing
-              </Typography>
-            </Stack>
-            <Stack spacing={0.75}>
-              {actions.map((r) => (
-                <Stack key={r.id} direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
-                  <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 120 }}>
-                    {r.inspectionDate === today ? "วันนี้" : "พรุ่งนี้"} {r.inspectionTime}
-                  </Typography>
-                  <ContractorBadge code={r.contractorCode} />
-                  <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                    {inspectionTypeLabel(r.inspectionType)} · {r.workItem} · {r.buildingName}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: "warning.dark", fontWeight: 600 }}>
-                    {[r.readiness !== "ready" ? "หน้างานยังไม่พร้อม" : null, !r.drawingRef ? "ไม่มี drawing" : null]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </Typography>
-                </Stack>
-              ))}
-            </Stack>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {list.isLoading || me.isLoading ? (
-        <Skeleton variant="rounded" height={420} />
-      ) : tooLong ? null : (
-        <Stack spacing={2.5}>
-          {/* RFI quality summary (deck "Quality inspection") — no NCR yet: no data source. */}
-          <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Panel title="ผลตรวจ RFI">
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <Box sx={{ width: 150, height: 150, flexShrink: 0 }}>
-                    {inspected.length ? (
-                      <PieChart
-                        width={150}
-                        height={150}
-                        hideLegend
-                        series={[
-                          {
-                            innerRadius: 44,
-                            outerRadius: 70,
-                            paddingAngle: 2,
-                            cornerRadius: 3,
-                            data: [
-                              { id: "pass", value: passed, label: "pass", color: theme.palette.success.main },
-                              { id: "fail", value: inspected.length - passed, label: "not pass (Correct)", color: theme.palette.warning.main },
-                            ],
-                          },
-                        ]}
-                      />
-                    ) : (
-                      <Box sx={{ height: "100%", display: "grid", placeItems: "center" }}>
-                        <Typography variant="caption" color="text.secondary">
-                          ยังไม่มีผลตรวจ
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                  <Stack spacing={1}>
-                    <Kpi label="ตรวจแล้ว" value={`${inspected.length} รายการ`} />
-                    <Kpi label="ผ่านครั้งแรก (first-pass)" value={inspected.length ? `${Math.round((passed / inspected.length) * 100)}%` : "—"} tone="success" />
-                    <Kpi label="not pass (Correct)" value={`${inspected.length - passed} รายการ`} tone="warning" />
-                    <Kpi label="รอตรวจ" value={`${waiting} รายการ`} />
-                  </Stack>
-                </Stack>
-              </Panel>
-            </Grid>
-            <Grid size={{ xs: 12, md: 7 }}>
-              <Panel title="First-pass RFI yield ต่อผู้รับเหมา">
-                {byContractor.length ? (
-                  <BarChart
-                    height={byContractor.length * 40 + 70}
-                    layout="horizontal"
-                    borderRadius={3}
-                    yAxis={[{ scaleType: "band", data: byContractor.map((c) => c.code), width: 64 }]}
-                    xAxis={[{ min: 0, max: 100, label: "% ผ่านครั้งแรก" }]}
-                    series={[
-                      {
-                        id: "yield",
-                        label: "First-pass %",
-                        color: theme.palette.primary.main,
-                        data: byContractor.map((c) => c.rate),
-                        valueFormatter: (v, { dataIndex }) => `${v}% (${byContractor[dataIndex]!.pass}/${byContractor[dataIndex]!.total})`,
-                      },
-                    ]}
-                    barLabel={(item) => (item.value ? `${item.value}%` : null)}
-                    grid={{ vertical: true }}
-                    hideLegend
-                  />
-                ) : (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
-                    ยังไม่มีผลตรวจในช่วงนี้
-                  </Typography>
-                )}
-              </Panel>
-            </Grid>
-          </Grid>
-
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: `repeat(${columns.length}, minmax(0, 1fr))` }, gap: 1.5 }}>
-            {columns.map((col) => {
-              const items = rows.filter((r) => r.status === col);
-              return (
-                <Box key={col} sx={{ bgcolor: "grey.100", borderRadius: 2, p: 1.25, minHeight: 200 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1, px: 0.5 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                      {COLUMN_TITLE[col]}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {items.length}
-                    </Typography>
-                  </Stack>
-                  <Stack spacing={1}>
-                    {items.map((r) => (
-                      <RfiCard
-                        key={r.id}
-                        request={r}
-                        canAct={isEps}
-                        busy={move.isPending}
-                        onMove={(to, result) => move.mutate({ id: r.id, to, result })}
-                        onNotPass={() => setNotPassFor(r)}
-                      />
-                    ))}
-                  </Stack>
-                </Box>
-              );
-            })}
-          </Box>
-        </Stack>
+      {tooLong && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          เลือกช่วงวันที่ได้ไม่เกิน {MAX_DAYS} วันต่อครั้ง
+        </Alert>
       )}
 
-      {notPassFor ? (
+      {/* Inspection schedule: today + tomorrow, always current regardless of the selected range */}
+      <Card variant="outlined" sx={{ mb: 3 }}>
+        <Grid container>
+          <Grid size={{ xs: 12, md: 6 }} sx={{ borderRight: { md: 1 }, borderColor: { md: "divider" } }}>
+            <ScheduleColumn
+              title="นัดตรวจวันนี้"
+              date={today}
+              rows={todayRequests}
+              loading={scheduleQuery.isLoading}
+              empty="ไม่มีนัดตรวจวันนี้"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }} sx={{ borderTop: { xs: 1, md: 0 }, borderColor: { xs: "divider", md: "divider" } }}>
+            <ScheduleColumn
+              title="นัดตรวจพรุ่งนี้"
+              date={tomorrow}
+              rows={tomorrowRequests}
+              loading={scheduleQuery.isLoading}
+              empty="ยังไม่มีคำขอสำหรับพรุ่งนี้"
+            />
+          </Grid>
+        </Grid>
+      </Card>
+
+      {/* Breakdown for the selected range */}
+      <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 1.5 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          สรุปคำขอตรวจ
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {rangeLabel} · {historyRows.length} รายการ
+        </Typography>
+      </Stack>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <ShareCard
+            title="ตามผู้รับเหมา"
+            centerLabel="คำขอ"
+            shares={contractorShares}
+            total={historyRows.length}
+            loading={historyQuery.isLoading}
+            renderLabel={(s) => <ContractorBadge code={s.code} title={s.name} />}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <ShareCard
+            title="ตามอาคาร"
+            centerLabel="คำขอ"
+            shares={buildingShares}
+            total={historyRows.length}
+            loading={historyQuery.isLoading}
+            renderLabel={(s) => (
+              <Typography variant="body2" noWrap>
+                <Box component="span" sx={{ fontWeight: 700 }}>
+                  {s.code}
+                </Box>{" "}
+                {s.name !== s.code && (
+                  <Box component="span" sx={{ color: "text.secondary" }}>
+                    {s.name}
+                  </Box>
+                )}
+              </Typography>
+            )}
+          />
+        </Grid>
+      </Grid>
+
+      {/* RFI log */}
+      <Card variant="outlined">
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          justifyContent="space-between"
+          alignItems={{ xs: "flex-start", sm: "center" }}
+          spacing={1.5}
+          sx={{ px: 2.5, py: 2 }}
+        >
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              ประวัติคำขอตรวจ
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {rangeLabel} · {filteredHistory.length} รายการ
+            </Typography>
+          </Box>
+          <TextField
+            size="small"
+            placeholder="ค้นหาผู้รับเหมา อาคาร งาน หรือแบบ"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchOutlinedIcon fontSize="small" color="action" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ width: { xs: "100%", sm: 300 } }}
+          />
+        </Stack>
+        <Divider />
+        {historyQuery.isLoading ? (
+          <Box sx={{ p: 2.5 }}>
+            <Skeleton variant="rounded" height={200} />
+          </Box>
+        ) : filteredHistory.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 6, textAlign: "center" }}>
+            {searchQuery ? "ไม่พบรายการที่ตรงกับคำค้นหา" : "ไม่มีคำขอตรวจในช่วงวันที่เลือก"}
+          </Typography>
+        ) : (
+          <TableContainer>
+            <Table size="small" sx={{ minWidth: 860 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 120 }}>วันตรวจ</TableCell>
+                  <TableCell sx={{ width: 80 }}>เวลา</TableCell>
+                  <TableCell sx={{ width: 110 }}>ผู้รับเหมา</TableCell>
+                  <TableCell sx={{ width: 180 }}>อาคาร / ตำแหน่ง</TableCell>
+                  <TableCell>รายการตรวจ</TableCell>
+                  <TableCell sx={{ width: 250 }}>สถานะ</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredHistory.map((r) => (
+                  <TableRow key={r.id} hover>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{formatThaiDate(r.inspectionDate)}</TableCell>
+                    <TableCell sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{r.inspectionTime}</TableCell>
+                    <TableCell>
+                      <ContractorBadge code={r.contractorCode} title={r.contractorName} />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {r.buildingCode}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                        {[r.buildingName !== r.buildingCode ? r.buildingName : null, r.location].filter(Boolean).join(" · ")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {inspectionTypeLabel(r.inspectionType)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                        {r.workItem}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {isEps && r.status === "confirmed" ? (
+                        <Stack direction="row" spacing={0.75} sx={{ "& .MuiButton-root": { whiteSpace: "nowrap" } }}>
+                          <Button size="small" color="warning" disabled={move.isPending} onClick={() => setNotPass(r)}>
+                            not pass (Correct)
+                          </Button>
+                          <Button
+                            size="small"
+                            color="success"
+                            disabled={move.isPending}
+                            onClick={() => move.mutate({ id: r.id, to: "inspected", result: "pass" })}
+                          >
+                            pass
+                          </Button>
+                        </Stack>
+                      ) : isEps && r.status === "requested" ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          disabled={move.isPending}
+                          onClick={() => move.mutate({ id: r.id, to: "confirmed" })}
+                        >
+                          Confirm
+                        </Button>
+                      ) : (
+                        <RequestStatusChip status={r.status} result={r.result} />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Card>
+
+      {notPass ? (
         <NotPassDialog
-          request={notPassFor}
+          request={notPass}
           busy={move.isPending}
-          onCancel={() => setNotPassFor(null)}
+          onCancel={() => setNotPass(null)}
           onSave={(note) =>
-            move.mutate({ id: notPassFor.id, to: "inspected", result: "fail", note }, { onSuccess: () => setNotPassFor(null) })
+            move.mutate({ id: notPass.id, to: "inspected", result: "fail", note }, { onSuccess: () => setNotPass(null) })
           }
         />
       ) : null}
     </Box>
-  );
-}
-
-function RfiCard({
-  request: r,
-  canAct,
-  busy,
-  onMove,
-  onNotPass,
-}: {
-  request: InspectionRequest;
-  canAct: boolean;
-  busy: boolean;
-  onMove: (to: RequestStatus, result?: InspectionResult) => void;
-  onNotPass: () => void;
-}) {
-  return (
-    <Card>
-      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
-          <Typography variant="caption" sx={{ fontWeight: 700 }}>
-            {dayjs(r.inspectionDate).format("ddd D MMM")} · {r.inspectionTime}
-          </Typography>
-          <ContractorBadge code={r.contractorCode} title={r.contractorName} />
-        </Stack>
-        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-          RFI · {inspectionTypeLabel(r.inspectionType)} · {r.workItem}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-          {r.buildingName}
-          {r.location ? ` · ${r.location}` : ""}
-          {r.drawingRef ? ` · ${r.drawingRef}` : ""}
-        </Typography>
-        {r.result ? (
-          <Box sx={{ mt: 0.75 }}>
-            <RequestStatusChip status={r.status} result={r.result} />
-          </Box>
-        ) : null}
-        {r.epsNote ? (
-          <Typography variant="caption" sx={{ display: "block", mt: 0.5, color: "warning.dark" }}>
-            {r.epsNote}
-          </Typography>
-        ) : null}
-        {canAct ? (
-          <Stack direction="row" spacing={0.75} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
-            {r.status === "requested" ? (
-              <Button size="small" disabled={busy} onClick={() => onMove("confirmed")}>
-                Confirm
-              </Button>
-            ) : null}
-            {r.status === "confirmed" ? (
-              <>
-                <Button size="small" color="success" disabled={busy} onClick={() => onMove("inspected", "pass")}>
-                  pass
-                </Button>
-                <Button size="small" color="warning" disabled={busy} onClick={onNotPass}>
-                  not pass (Correct)
-                </Button>
-                <Button size="small" variant="text" disabled={busy} onClick={() => onMove("requested")}>
-                  Undo
-                </Button>
-              </>
-            ) : null}
-            {r.status === "inspected" ? (
-              <Button size="small" variant="outlined" disabled={busy} onClick={() => onMove("closed")}>
-                Close
-              </Button>
-            ) : null}
-          </Stack>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function Panel({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2, height: "100%" }}>
-      <Typography variant="h5" sx={{ mb: 1 }}>
-        {title}
-      </Typography>
-      {children}
-    </Box>
-  );
-}
-
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: "success" | "warning" }) {
-  return (
-    <Stack direction="row" spacing={1} alignItems="baseline">
-      <Typography variant="h5" component="span" sx={{ color: tone ? `${tone}.dark` : "text.primary", fontVariantNumeric: "tabular-nums" }}>
-        {value}
-      </Typography>
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
-    </Stack>
   );
 }
 
@@ -413,7 +355,7 @@ function NotPassDialog({
   const [note, setNote] = useState("");
   return (
     <Dialog open onClose={onCancel} fullWidth maxWidth="xs">
-      <DialogTitle>not pass (Correct)</DialogTitle>
+      <DialogTitle>Not pass (Correct)</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 2 }}>
           {request.contractorCode} · {inspectionTypeLabel(request.inspectionType)} · {request.workItem}
@@ -429,5 +371,177 @@ function NotPassDialog({
         </Button>
       </DialogActions>
     </Dialog>
+  );
+}
+
+function tally(
+  rows: InspectionRequest[],
+  key: (r: InspectionRequest) => string,
+  name: (r: InspectionRequest) => string,
+): Array<{ code: string; name: string; count: number }> {
+  const map = new Map<string, { code: string; name: string; count: number }>();
+  for (const r of rows) {
+    const code = key(r);
+    const entry = map.get(code) ?? { code, name: name(r), count: 0 };
+    entry.count += 1;
+    map.set(code, entry);
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+}
+
+/** One day of the inspection schedule as a time-ordered list. */
+function ScheduleColumn({
+  title,
+  date,
+  rows,
+  loading,
+  empty,
+}: {
+  title: string;
+  date: string;
+  rows: InspectionRequest[];
+  loading: boolean;
+  empty: string;
+}) {
+  return (
+    <Box>
+      <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ px: 2.5, pt: 2, pb: 1.5 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+          {title}{" "}
+          <Box component="span" sx={{ color: "text.secondary", fontWeight: 400 }}>
+            ({rows.length})
+          </Box>
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {formatThaiDate(date)}
+        </Typography>
+      </Stack>
+      <Divider />
+      {loading ? (
+        <Stack spacing={1} sx={{ p: 2.5 }}>
+          <Skeleton variant="rounded" height={48} />
+          <Skeleton variant="rounded" height={48} />
+        </Stack>
+      ) : rows.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, py: 5, textAlign: "center" }}>
+          {empty}
+        </Typography>
+      ) : (
+        <Stack divider={<Divider />}>
+          {rows.map((r) => (
+            <Stack key={r.id} direction="row" spacing={2} alignItems="flex-start" sx={{ px: 2.5, py: 1.5 }}>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", width: 44, flexShrink: 0, pt: 0.25 }}
+              >
+                {r.inspectionTime}
+              </Typography>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.25 }}>
+                  <ContractorBadge code={r.contractorCode} title={r.contractorName} />
+                  <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                    {inspectionTypeLabel(r.inspectionType)}
+                  </Typography>
+                </Stack>
+                <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
+                  {[r.workItem, `${r.buildingCode}${r.location ? ` · ${r.location}` : ""}`, r.drawingRef]
+                    .filter(Boolean)
+                    .join(" — ")}
+                </Typography>
+              </Box>
+            </Stack>
+          ))}
+        </Stack>
+      )}
+    </Box>
+  );
+}
+
+/** Donut of the share with a legend listing count and percent per slice. */
+function ShareCard({
+  title,
+  centerLabel,
+  shares,
+  total,
+  loading,
+  renderLabel,
+}: {
+  title: string;
+  centerLabel: string;
+  shares: Share[];
+  total: number;
+  loading: boolean;
+  renderLabel: (s: Share) => ReactNode;
+}) {
+  return (
+    <Card variant="outlined" sx={{ height: "100%" }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, px: 2.5, pt: 2, pb: 1.5 }}>
+        {title}
+      </Typography>
+      <Divider />
+      {loading ? (
+        <Box sx={{ p: 2.5 }}>
+          <Skeleton variant="rounded" height={200} />
+        </Box>
+      ) : shares.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 8, textAlign: "center" }}>
+          ไม่มีคำขอตรวจในช่วงวันที่เลือก
+        </Typography>
+      ) : (
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={3} alignItems="center" sx={{ px: 2.5, py: 2 }}>
+          <Box sx={{ position: "relative", width: 200, height: 200, flexShrink: 0 }}>
+            <PieChart
+              series={[
+                {
+                  data: shares.map((s, i) => ({ id: i, value: s.count, label: s.code, color: s.color })),
+                  innerRadius: 62,
+                  outerRadius: 92,
+                  paddingAngle: 1.5,
+                  cornerRadius: 3,
+                },
+              ]}
+              width={200}
+              height={200}
+              hideLegend
+              margin={{ top: 0, bottom: 0, left: 0, right: 0 }}
+            />
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: "tabular-nums" }}>
+                {total}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {centerLabel}
+              </Typography>
+            </Box>
+          </Box>
+          <Stack spacing={1} sx={{ flex: 1, minWidth: 0, width: "100%", maxHeight: 200, overflowY: "auto" }}>
+            {shares.map((s) => (
+              <Stack key={s.code} direction="row" alignItems="center" spacing={1.25}>
+                <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: s.color, flexShrink: 0 }} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>{renderLabel(s)}</Box>
+                <Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+                  <Box component="span" sx={{ fontWeight: 700 }}>
+                    {s.count}
+                  </Box>{" "}
+                  <Box component="span" sx={{ color: "text.secondary" }}>
+                    · {total > 0 ? Math.round((s.count / total) * 100) : 0}%
+                  </Box>
+                </Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </Stack>
+      )}
+    </Card>
   );
 }

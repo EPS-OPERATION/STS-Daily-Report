@@ -57,7 +57,7 @@ const GROUPS: NavGroup[] = [
       { to: "/daily-reports", label: "Daily Reports", icon: "dailyReports" },
       { to: "/today-requests", label: "Daily Request", icon: "tomorrow" },
       { to: "/site-coordination", label: "Map", icon: "sitePlan" },
-      { to: "/site-plan", label: "Site Plan", icon: "sitePlan" },
+      { to: "/site-plan", label: "Site Plan (Option)", icon: "sitePlan" },
     ],
   },
   {
@@ -69,7 +69,7 @@ const GROUPS: NavGroup[] = [
       { to: "/work-permits", label: "Work Permits", icon: "workPermits" },
       { to: "/qaqc", label: "QAQC", icon: "qaqc" },
       { to: "/safety", label: "Safety", icon: "safety" },
-      { to: "/materials", label: "Materials", icon: "materials" },
+      { to: "/materials", label: "Materials (Option)", icon: "materials" },
     ],
   },
   {

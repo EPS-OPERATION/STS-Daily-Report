@@ -15,9 +15,9 @@
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
   Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/` dashboard, `/site-coordination` (EPS Map), `/site-plan`, `/daily-reports` (work done summary + review queue + tomorrow plan tracking), `/tomorrow`, `/weekly-summary`,
-  `/field` + `/field/report` + `/field/coordination` (Map), `/qaqc` (Daily Request), `/contractors`, `/work-permits`, `/progress` (Drone Progress),
-  `/materials` (EPS: totals + log จาก evening check-out, real API)
+- Screens: `/` dashboard, `/site-coordination` (EPS Map, ปุ่ม แก้ไขผัง; dashboard แสดง Map เดียวกันแบบ read-only; pins เก็บ localStorage ต่อ browser ยังไม่มี API), `/site-plan` (Option), `/daily-reports` (work done summary + review queue + tomorrow plan tracking), `/tomorrow`, `/weekly-summary`,
+  `/field` + `/field/report` + `/field/coordination` (Map), `/qaqc` (RFI: Today & Tomorrow + Donut + history ที่ EPS confirm/pass/not pass), `/contractors`, `/work-permits`, `/progress` (Drone Progress),
+  `/materials` (Option: totals + log จาก evening check-out, real API)
 - ยังไม่มี: lint config, CI, production auth, domains permits (ดู README §12/13); unit tests เริ่มต้นที่ `bun test`
 
 ## กฎการ update ไฟล์นี้ (บังคับ)
@@ -90,8 +90,7 @@
 - Charts (MUI x-charts, สีตาม contractor code จาก `app/theme/chart-palette.ts`): `/manpower` (สัปดาห์/เดือน; `/manpower-summary`, `/position-mix`, `/manpower-trend`), weekly page กราฟเดียว; `weekly-summary`: machinery/permits/roads ตาม target_date (ปิด rule base จองชนตาม requirement); seed sample ZCE/LCE/UME (CTR-001 ว่างไว้ทดสอบ)
 - Bun `--hot` segfault บน Windows → `--watch`; FormData ใช้ `http.upload`; form ใน Dialog ต้อง `e.stopPropagation()`
 - คำขอพรุ่งนี้ (machinery[เวลา optional=ทั้งวัน]+purpose/equipment_requests[qty ไม่มีเวลา]/permits/road_usage) ผูก report เย็นวัน T + `target_date`=T+1;
-  QAQC = `inspection_requests` ผูก contractor+report_date; draft จนส่งเย็น → requested;
-  EPS (`users.role='eps'`, seed eps@sts.local) ย้าย confirmed→inspected(pass/fail)→closed; contractor แก้ได้แค่ draft/requested
+  QAQC = `inspection_requests` ผูก contractor+report_date; หน้า `/qaqc` แสดง Today/Tomorrow RFI + Donut charts สรุปประวัติแยก contractor/building + ตาราง history (EPS: requested→Confirm, confirmed→pass/not pass(Correct)+note)
 - Site plan = `building_markers` + `building_parts`/`_part_markers` (x/y 0..1 ต่อ view overview|topview|plan[แบบ CAD G A0.02]; EPS ตั้งที่ `/site-plan/config`) + `GET /site-day?date=`; report ยังไม่อ้าง part
 - Safety `/safety` (EPS): `safety_findings` (line walk + รูป MinIO) + `daily_reports.accident_category` (ผู้รับเหมาเลือก 5 หมวด) → stats; PDF = `/safety/report` (print A4, นอก AppLayout)
 - Deploy: Vercel project `sts-daily-report` (Hobby) = `vercel.json` services (web Vite + api container `Dockerfile.vercel`, `/api/*`+`/health`→api); DB Supabase `rwlndwoimtqycwqlmczm` ผ่าน transaction pooler :6543 (`prepare:false`); รูป = Supabase Storage bucket `sts` (`STORAGE_PROVIDER=supabase`); login = demo email + `DEMO_ACCESS_CODE` (`ALLOW_DEMO_LOGIN`), production บังคับ session ทุก API ยกเว้น /auth/*

@@ -1,10 +1,5 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Link from "@mui/material/Link";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
@@ -13,24 +8,19 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
-import { useMe } from "@/features/auth/index.js";
 import {
   ContractorBadge,
-  RequestStatusChip,
   inspectionTypeLabel,
   timeWindowLabel,
   todayIso,
   useInspectionRequests,
-  useTransitionRequest,
   useDailyRequests,
-  type InspectionRequest,
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
@@ -39,7 +29,6 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Daily Request: everything contractors asked for on the selected day or date range
 // (sent the evening before) — machines, equipment, road usage and QAQC inspections (RFI).
-// EPS records RFI results here: pass / not pass (correct) → first-pass yield.
 export function TodayRequestsPage() {
   const [params, setParams] = useSearchParams();
   // Range from the URL; an old ?date= link still works as a one-day range.
@@ -50,11 +39,8 @@ export function TodayRequestsPage() {
   const to = rawFrom <= rawTo ? rawTo : rawFrom;
   const isRange = from !== to;
   const { projectId } = useCurrentProject();
-  const isEps = useMe().data?.data.user.role === "eps";
   const week = useDailyRequests(projectId, from, to);
   const rfi = useInspectionRequests(projectId, { from, to, by: "inspection" });
-  const move = useTransitionRequest();
-  const [notPass, setNotPass] = useState<InspectionRequest | null>(null);
 
   const data = week.data?.data;
   const machines = data?.machinery ?? [];
@@ -87,11 +73,6 @@ export function TodayRequestsPage() {
       {loadError ? (
         <Alert severity="error" sx={{ mb: 2 }}>
           โหลดข้อมูลไม่สำเร็จ: {loadError.message}
-        </Alert>
-      ) : null}
-      {move.error instanceof HttpError ? (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => move.reset()}>
-          {move.error.message}
         </Alert>
       ) : null}
 
@@ -170,7 +151,7 @@ export function TodayRequestsPage() {
           >
             <SimpleTable
               empty="ไม่มีคำขอตรวจ"
-              head={[...dayHead, "Type", "Time", "Contractor", "Work item", "Building", "Status"]}
+              head={[...dayHead, "Type", "Time", "Contractor", "Work item", "Building"]}
               rows={inspections.map((r) => ({
                 key: r.id,
                 cells: [
@@ -180,27 +161,6 @@ export function TodayRequestsPage() {
                   <b key="c">{r.contractorName}</b>,
                   `${inspectionTypeLabel(r.inspectionType)} · ${r.workItem}`,
                   r.buildingCode,
-                  isEps && r.status === "confirmed" ? (
-                    <Stack key="a" direction="row" spacing={0.75}>
-                      <Button size="small" color="warning" disabled={move.isPending} onClick={() => setNotPass(r)}>
-                        not pass (Correct)
-                      </Button>
-                      <Button
-                        size="small"
-                        color="success"
-                        disabled={move.isPending}
-                        onClick={() => move.mutate({ id: r.id, to: "inspected", result: "pass" })}
-                      >
-                        pass
-                      </Button>
-                    </Stack>
-                  ) : isEps && r.status === "requested" ? (
-                    <Button key="a" size="small" variant="outlined" disabled={move.isPending} onClick={() => move.mutate({ id: r.id, to: "confirmed" })}>
-                      Confirm
-                    </Button>
-                  ) : (
-                    <RequestStatusChip key="s" status={r.status} result={r.result} />
-                  ),
                 ],
               }))}
             />
@@ -208,16 +168,6 @@ export function TodayRequestsPage() {
         </Stack>
       )}
 
-      {notPass ? (
-        <NotPassDialog
-          request={notPass}
-          busy={move.isPending}
-          onCancel={() => setNotPass(null)}
-          onSave={(note) =>
-            move.mutate({ id: notPass.id, to: "inspected", result: "fail", note }, { onSuccess: () => setNotPass(null) })
-          }
-        />
-      ) : null}
     </Box>
   );
 }
@@ -273,38 +223,5 @@ function SimpleTable({
         </TableBody>
       </Table>
     </Box>
-  );
-}
-
-function NotPassDialog({
-  request,
-  busy,
-  onCancel,
-  onSave,
-}: {
-  request: InspectionRequest;
-  busy: boolean;
-  onCancel: () => void;
-  onSave: (note: string) => void;
-}) {
-  const [note, setNote] = useState("");
-  return (
-    <Dialog open onClose={onCancel} fullWidth maxWidth="xs">
-      <DialogTitle>Not pass (Correct)</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" sx={{ mb: 2 }}>
-          {request.contractorCode} · {inspectionTypeLabel(request.inspectionType)} · {request.workItem}
-        </Typography>
-        <TextField label="สิ่งที่ต้องแก้ไข" value={note} onChange={(e) => setNote(e.target.value)} multiline minRows={2} fullWidth autoFocus />
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button variant="text" color="inherit" onClick={onCancel}>
-          ยกเลิก
-        </Button>
-        <Button color="warning" disabled={busy || !note.trim()} onClick={() => onSave(note.trim())}>
-          บันทึก not pass
-        </Button>
-      </DialogActions>
-    </Dialog>
   );
 }

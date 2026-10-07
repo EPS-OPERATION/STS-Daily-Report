@@ -26,6 +26,7 @@ export {
   ManDayPerContractorChart,
   ManpowerByBuildingChart,
   ManpowerTrendChart,
+  TREND_DAILY_MAX_DAYS,
   NationalityByContractorChart,
   PositionByContractorChart,
   contractorColorMap,

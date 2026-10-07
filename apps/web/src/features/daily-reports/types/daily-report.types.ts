@@ -362,6 +362,7 @@ export interface PositionMixRow {
   contractorId: string;
   contractorCode: string;
   position: string;
+  totalHeadcount?: number;
   avgPerDay: number;
 }
 

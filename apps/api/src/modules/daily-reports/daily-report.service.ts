@@ -656,7 +656,8 @@ export async function positionMixService(projectId: string, from: string, to: st
     contractorId: s.contractorId,
     contractorCode: s.contractorCode,
     position: s.position,
-    avgPerDay: Math.round((s.total / (days.get(s.contractorId)?.size || 1)) * 10) / 10,
+    totalHeadcount: s.total,
+    avgPerDay: s.total,
   }));
 }
 

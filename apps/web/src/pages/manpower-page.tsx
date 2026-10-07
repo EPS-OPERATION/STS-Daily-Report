@@ -15,6 +15,7 @@ import {
   ManDayByContractorChart,
   ManpowerByBuildingChart,
   ManpowerTrendChart,
+  TREND_DAILY_MAX_DAYS,
   NationalityByContractorChart,
   PositionByContractorChart,
   addDaysIso,
@@ -22,7 +23,6 @@ import {
   mondayOf,
   todayIso,
   useManpowerSummary,
-  useManpowerTrend,
   usePositionMix,
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
@@ -49,7 +49,6 @@ export function ManpowerPage() {
   const queryProject = tooLong ? null : projectId;
   const summary = useManpowerSummary(queryProject, from, to);
   const positions = usePositionMix(queryProject, from, to);
-  const trend = useManpowerTrend(projectId, to, 12);
 
   const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
@@ -133,12 +132,11 @@ export function ManpowerPage() {
               </ChartPanel>
             </Grid>
             <Grid size={{ xs: 12, lg: 5 }}>
-              <ChartPanel title="แนวโน้มกำลังคน 12 สัปดาห์" note="เฉลี่ยคน/วัน ต่อสัปดาห์">
-                {trend.data ? (
-                  <ManpowerTrendChart points={trend.data.data} currentWeek={mondayOf(to)} />
-                ) : (
-                  <Skeleton variant="rounded" height={300} />
-                )}
+              <ChartPanel
+                title="แนวโน้มกำลังคน"
+                note={span > TREND_DAILY_MAX_DAYS ? "เฉลี่ยคน/วัน รายสัปดาห์ ในช่วงที่เลือก" : "คนเข้างานรายวัน ในช่วงที่เลือก"}
+              >
+                <ManpowerTrendChart days={days} daily={data.daily} />
               </ChartPanel>
             </Grid>
 
@@ -149,7 +147,7 @@ export function ManpowerPage() {
             </Grid>
 
             <Grid size={{ xs: 12, lg: 7 }}>
-              <ChartPanel title="จำนวนคนตามตำแหน่ง แยกตามผู้รับเหมา" note="เฉลี่ยคน/วัน ในวันที่ผู้รับเหมารายงาน">
+              <ChartPanel title="จำนวนคนตามตำแหน่ง แยกตามผู้รับเหมา" note="จำนวนคนรวมตามตำแหน่ง ในช่วงที่เลือก">
                 {positions.data ? (
                   <PositionByContractorChart rows={positions.data.data} colors={colors} />
                 ) : (

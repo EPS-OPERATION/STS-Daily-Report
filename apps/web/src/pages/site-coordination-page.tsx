@@ -1,3 +1,5 @@
+import CheckOutlinedIcon from "@mui/icons-material/CheckOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -12,6 +14,7 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { useState } from "react";
 import {
   CONTRACTOR_PALETTES,
   CoordinationMapBoard,
@@ -28,8 +31,15 @@ export function SiteCoordinationPage() {
     setSelectedContractor,
     mapView,
     setMapView,
+    addCallout,
+    updateTargetPosition,
+    updateBoxPosition,
+    updateCallout,
+    deleteCallout,
     resetToDefault,
   } = useCoordinationState();
+  // EPS views the map in meetings by default and switches to edit to fix pins.
+  const [editing, setEditing] = useState(false);
 
   return (
     <Box sx={{ maxWidth: 1600, mx: "auto" }}>
@@ -81,6 +91,16 @@ export function SiteCoordinationPage() {
             </Select>
           </FormControl>
 
+          <Button
+            size="small"
+            variant={editing ? "contained" : "outlined"}
+            onClick={() => setEditing((v) => !v)}
+            startIcon={editing ? <CheckOutlinedIcon fontSize="small" /> : <EditOutlinedIcon fontSize="small" />}
+            sx={{ whiteSpace: "nowrap" }}
+          >
+            {editing ? "เสร็จสิ้น" : "แก้ไขผัง"}
+          </Button>
+
           <Tooltip title="รีเซ็ตข้อมูลตัวอย่างกลับเป็นค่าเริ่มต้น">
             <Button
               size="small"
@@ -96,7 +116,7 @@ export function SiteCoordinationPage() {
         </Stack>
       </Stack>
 
-      {/* Main Interactive Map Canvas (Read-Only for EPS Meeting Display) */}
+      {/* Map canvas: view-only for meetings, editable after "แก้ไขผัง" */}
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
           <CoordinationMapBoard
@@ -105,7 +125,12 @@ export function SiteCoordinationPage() {
             onSelectMarker={setActiveMarkerId}
             mapView={mapView}
             onChangeMapView={setMapView}
-            readOnly={true}
+            onUpdateTarget={updateTargetPosition}
+            onUpdateBox={updateBoxPosition}
+            onUpdateCallout={updateCallout}
+            onDeleteCallout={deleteCallout}
+            onAddCallout={addCallout}
+            readOnly={!editing}
           />
         </CardContent>
       </Card>
