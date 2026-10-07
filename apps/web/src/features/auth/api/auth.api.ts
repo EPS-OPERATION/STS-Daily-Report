@@ -5,7 +5,7 @@ export const authApi = {
   login(email: string, accessCode?: string): Promise<LoginResponse> {
     return http.post<LoginResponse>("/auth/login", accessCode ? { email, accessCode } : { email });
   },
-  config(): Promise<{ data: { accessCodeRequired: boolean } }> {
+  config(): Promise<{ data: { accessCodeRequired: boolean; allowResubmit: boolean } }> {
     return http.get("/auth/config");
   },
   me(): Promise<MeResponse> {

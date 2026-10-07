@@ -16,6 +16,7 @@ import { MaterialsPage } from "@/pages/materials-page.js";
 import { PlaceholderPage } from "@/pages/placeholder-page.js";
 import { WorkPermitsPage } from "@/pages/work-permits-page.js";
 import { QaqcBoardPage } from "@/pages/qaqc-board-page.js";
+import { DailyReportPrintPage } from "@/pages/daily-report-print-page.js";
 import { SafetyPage } from "@/pages/safety-page.js";
 import { SafetyReportPrintPage } from "@/pages/safety-report-page.js";
 import { SitePlanPage } from "@/pages/site-plan-page.js";
@@ -44,6 +45,8 @@ export const router = createBrowserRouter([
         element: <RoleGuard allowedRoles={["eps"]} redirectTo="/field" />,
         children: [{ path: "safety/report", element: <SafetyReportPrintPage /> }],
       },
+      // Printable daily report: EPS (any report) or the owning contractor (checked by the API).
+      { path: "daily-reports/:reportId/print", element: <DailyReportPrintPage /> },
       {
         element: <AppLayout />,
         children: [

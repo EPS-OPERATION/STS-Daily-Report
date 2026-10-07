@@ -1,5 +1,6 @@
 export const dailyReportKeys = {
   all: ["daily-reports"] as const,
+  print: (reportId: string) => [...dailyReportKeys.all, "print", reportId] as const,
   buildings: (projectId: string) => [...dailyReportKeys.all, "buildings", projectId] as const,
   currents: () => [...dailyReportKeys.all, "current"] as const,
   current: (projectId: string, date: string, contractorId?: string) =>

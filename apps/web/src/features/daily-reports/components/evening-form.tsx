@@ -4,6 +4,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
+import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import CardContent from "@mui/material/CardContent";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -13,15 +14,25 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ACCIDENT_CATEGORIES, type MachineType, type PermitType, type SiteEquipmentType } from "@sts/shared";
+import {
+  ACCIDENT_CATEGORIES,
+  DISCIPLINES,
+  DISCIPLINE_CODES,
+  type Discipline,
+  type MachineType,
+  type PermitType,
+  type PositionCode,
+  type SiteEquipmentType,
+} from "@sts/shared";
 import MenuItem from "@mui/material/MenuItem";
-import { Controller, useFieldArray, useForm, useWatch, type Control } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormReturn } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { useEnsureDraft, useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
 import { useWeeklySummary } from "../hooks/use-daily-report-queries.js";
 import { eveningSchema, type EveningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { addDaysIso, formatThaiDate, mondayOf } from "../utils/dates.js";
+import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
 import { PhotoSection } from "./photo-section.js";
 import { RequestSection } from "./request-section.js";
@@ -29,6 +40,27 @@ import { SectionCard } from "./section-card.js";
 import { SignaturePad } from "./signature-pad.js";
 import { EquipmentRequests, MachineryRequests, PermitRequests, RoadUsageRequests } from "./tomorrow-requests.js";
 import { MaterialInputs } from "./material-inputs.js";
+
+const disciplineLabel = (d: Discipline) => DISCIPLINES.find((x) => x.code === d)?.label ?? d;
+
+type EveningCrew = EveningFormValues["crews"][Discipline];
+
+// Afternoon crew of one discipline: the saved evening values, else the morning crew to edit.
+function crewDefaults(report: DailyReport | null, d: Discipline): EveningCrew {
+  const crew =
+    report?.crews.find((c) => c.shift === "evening" && c.discipline === d) ??
+    report?.crews.find((c) => c.shift === "morning" && c.discipline === d);
+  return {
+    positions: {
+      ...emptyPositions(),
+      ...Object.fromEntries((crew?.positions ?? []).map((p) => [p.position, p.headcount])),
+    },
+    thaiMale: crew?.thaiMale ?? 0,
+    thaiFemale: crew?.thaiFemale ?? 0,
+    foreignMale: crew?.foreignMale ?? 0,
+    foreignFemale: crew?.foreignFemale ?? 0,
+  };
+}
 
 // Evening check-out. Independent of the morning shift: without a morning report there
 // is simply no plan to report actuals against. Also where tomorrow's requests are made.
@@ -94,13 +126,20 @@ export function EveningForm({
         qty: m.qty,
         unit: m.unit,
       })),
+      // Disciplines that worked this afternoon: saved evening crews, else the morning's.
+      disciplines: DISCIPLINE_CODES.filter((d) =>
+        (report?.crews.some((c) => c.shift === "evening") ? report.crews.filter((c) => c.shift === "evening") : (report?.crews ?? [])).some(
+          (c) => c.discipline === d,
+        ),
+      ),
+      crews: { CE: crewDefaults(report, "CE"), ME: crewDefaults(report, "ME"), EE: crewDefaults(report, "EE") },
       progress: allocations.map((a) => ({
         allocationId: a.id,
         planPercent: a.planPercent,
         actualPercent: a.actualPercent ?? a.planPercent,
         countermeasure: a.countermeasure ?? "",
       })),
-      signatureName: "",
+      signatureName: report?.signatureName ?? "",
       signatureData: "",
     },
     mode: "onTouched",
@@ -108,6 +147,10 @@ export function EveningForm({
   const { control, handleSubmit, setValue, formState } = form;
   const progress = useFieldArray({ control, name: "progress" });
   const accident = useWatch({ control, name: "accidentOccurred" });
+  const disciplineValues = useWatch({ control, name: "disciplines" });
+  const crewValues = useWatch({ control, name: "crews" });
+  const picked = DISCIPLINE_CODES.filter((d) => disciplineValues.includes(d));
+  const crewsOk = picked.length > 0 && picked.every((d) => crewTotals(crewValues[d]).ok);
 
   const onSubmit = handleSubmit((v) => {
     submit.mutate(
@@ -118,6 +161,19 @@ export function EveningForm({
         accidentOccurred: v.accidentOccurred ?? false,
         accidentNote: v.accidentOccurred ? v.accidentNote?.trim() : undefined,
         accidentCategory: v.accidentOccurred ? (v.accidentCategory ?? undefined) : undefined,
+        crews: DISCIPLINE_CODES.filter((d) => v.disciplines.includes(d)).map((d) => {
+          const c = v.crews[d];
+          return {
+            discipline: d,
+            positions: Object.entries(c.positions)
+              .filter(([, n]) => n > 0)
+              .map(([position, headcount]) => ({ position: position as PositionCode, headcount })),
+            thaiMale: c.thaiMale,
+            thaiFemale: c.thaiFemale,
+            foreignMale: c.foreignMale,
+            foreignFemale: c.foreignFemale,
+          };
+        }),
         progress: v.progress.map((p) => ({
           allocationId: p.allocationId,
           actualPercent: p.actualPercent,
@@ -264,7 +320,54 @@ export function EveningForm({
         />
       </SectionCard>
 
-      <SectionCard index={3} tone="navy" title="ผลงานจริงรายอาคาร (Status % vs Plan %)" subtitle="ดึงแผนจากรายงานเช้า">
+      <SectionCard
+        index={3}
+        tone="navy"
+        title="ผู้ปฏิบัติงานช่วงบ่าย (ตามตำแหน่ง)"
+        subtitle={
+          report?.morningStatus === "submitted"
+            ? `จำนวนคนทำงานช่วงบ่ายแยกตามประเภทงาน — เช้า ${report.totalHeadcount} คน (ปรับให้ตรงกับจริง)`
+            : "จำนวนคนทำงานช่วงบ่ายแยกตามประเภทงาน — เช้าบ่ายอาจไม่เท่ากัน"
+        }
+      >
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>
+          ประเภทงานช่วงบ่าย — กดเลือกแล้วฟอร์มของประเภทนั้นจะขึ้นมา (รายงานจะรวมทุกประเภทให้เอง)
+        </Typography>
+        <Controller
+          name="disciplines"
+          control={control}
+          render={({ field }) => (
+            <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
+              {DISCIPLINES.map((d) => {
+                const on = field.value.includes(d.code);
+                return (
+                  <Chip
+                    key={d.code}
+                    label={d.label}
+                    color={on ? "primary" : "default"}
+                    variant={on ? "filled" : "outlined"}
+                    onClick={() => field.onChange(on ? field.value.filter((x) => x !== d.code) : [...field.value, d.code])}
+                    sx={{ minHeight: 36 }}
+                  />
+                );
+              })}
+            </Stack>
+          )}
+        />
+        {formState.errors.disciplines?.message ? (
+          <Typography variant="caption" color="error" sx={{ display: "block", mb: 1 }}>
+            {formState.errors.disciplines.message}
+          </Typography>
+        ) : null}
+        {picked.length === 0 ? <Alert severity="info">เลือกประเภทงานก่อน แล้วฟอร์มกำลังคนจะขึ้นมา</Alert> : null}
+        <Stack spacing={2.5}>
+          {picked.map((d) => (
+            <EveningCrewBlock key={d} discipline={d} form={form} showTitle={picked.length > 1} />
+          ))}
+        </Stack>
+      </SectionCard>
+
+      <SectionCard index={4} tone="navy" title="ผลงานจริงรายอาคาร (Status % vs Plan %)" subtitle="ดึงแผนจากรายงานเช้า">
         {allocations.length === 0 ? (
           <Alert severity="info">
             ไม่มีแผนจากรายงานเช้า — ส่งรายงานบ่ายได้ตามปกติ (ถ้าต้องการบันทึกผลงานรายอาคาร ให้กรอกรายงานเช้าก่อน)
@@ -278,7 +381,7 @@ export function EveningForm({
         )}
       </SectionCard>
 
-      <SectionCard index={4} tone="navy" title="รูปถ่ายหน้างาน" subtitle="แยกหมวด Progress / Safety — อัปโหลดทันทีที่เลือก">
+      <SectionCard index={5} tone="navy" title="รูปถ่ายหน้างาน" subtitle="แยกหมวด Progress / Safety — อัปโหลดทันทีที่เลือก">
         <PhotoSection
           reportId={report?.id ?? null}
           photos={report?.photos ?? []}
@@ -288,7 +391,7 @@ export function EveningForm({
       </SectionCard>
 
       <SectionCard
-        index={5}
+        index={6}
         tone="navy"
         title="คำขอและแผนงานสำหรับวันพรุ่งนี้ (Tomorrow's Requests)"
         subtitle={`สำหรับ ${formatThaiDate(tomorrow)} — ใช้ในประชุมประสานงาน 17:00 ส่งพร้อมรายงานบ่าย`}
@@ -316,7 +419,7 @@ export function EveningForm({
       </SectionCard>
 
       <SectionCard
-        index={6}
+        index={7}
         tone="navy"
         title="วัสดุหน้างาน (Materials on site)"
         subtitle="วัสดุที่รับเข้าหรือใช้ไปวันนี้ — กรอกเฉพาะที่มี"
@@ -324,7 +427,7 @@ export function EveningForm({
         <MaterialInputs control={control} />
       </SectionCard>
 
-      <SectionCard index={7} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
+      <SectionCard index={8} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
         <Stack spacing={1.5}>
           <Controller
             name="signatureName"
@@ -366,8 +469,8 @@ export function EveningForm({
           py: 1.5,
         }}
       >
-        <Button type="submit" size="large" fullWidth disabled={submit.isPending} sx={{ bgcolor: "navy.main" }}>
-          {submit.isPending ? "กำลังส่ง…" : "ส่งรายงานบ่าย (Check-out)"}
+        <Button type="submit" size="large" fullWidth disabled={submit.isPending || !crewsOk} sx={{ bgcolor: "navy.main" }}>
+          {submit.isPending ? "กำลังส่ง…" : report?.eveningStatus === "submitted" ? "บันทึกการแก้ไขรายงานบ่าย" : "ส่งรายงานบ่าย (Check-out)"}
         </Button>
       </Box>
     </Box>
@@ -390,6 +493,7 @@ function ProgressRow({
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Typography variant="body1" sx={{ fontWeight: 700 }}>
           {allocation.buildingName}
+          <Chip size="small" label={allocation.discipline} sx={{ ml: 1, height: 20 }} />
         </Typography>
         <Typography variant="caption" color="text.secondary">
           {allocation.workDescription} · {allocation.headcount} คน
@@ -473,5 +577,36 @@ function SubHeading({ children }: { children: React.ReactNode }) {
     <Typography variant="body1" sx={{ fontWeight: 700, mb: 1 }}>
       {children}
     </Typography>
+  );
+}
+
+// One discipline's afternoon crew: people by position + nationality/sex split.
+function EveningCrewBlock({
+  discipline,
+  form,
+  showTitle,
+}: {
+  discipline: Discipline;
+  form: UseFormReturn<EveningFormValues>;
+  showTitle: boolean;
+}) {
+  const { control, setValue, formState } = form;
+  const crew = useWatch({ control, name: `crews.${discipline}` });
+  const errors = formState.errors.crews?.[discipline];
+  return (
+    <Box>
+      {showTitle ? (
+        <Typography variant="body1" sx={{ fontWeight: 700, mb: 1 }}>
+          {disciplineLabel(discipline)}
+        </Typography>
+      ) : null}
+      <CrewManpower
+        value={crew}
+        totalLabel={`${discipline} afternoon`}
+        error={errors?.positions?.message ?? errors?.thaiMale?.message}
+        onPositions={(next) => setValue(`crews.${discipline}.positions`, next, { shouldDirty: true, shouldValidate: formState.isSubmitted })}
+        onSplit={(key, n) => setValue(`crews.${discipline}.${key}`, n, { shouldDirty: true, shouldValidate: formState.isSubmitted })}
+      />
+    </Box>
   );
 }

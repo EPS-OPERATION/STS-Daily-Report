@@ -35,6 +35,11 @@ export const dailyReports = pgTable(
     morningStatus: text("morning_status").notNull().default("draft"),
     morningSubmittedAt: timestamp("morning_submitted_at", { withTimezone: true }),
     morningSubmittedBy: uuid("morning_submitted_by").references(() => users.id, { onDelete: "set null" }),
+    // Afternoon crew nationality/sex split (null until the evening is sent / on older rows).
+    eveningThaiMale: integer("evening_thai_male"),
+    eveningThaiFemale: integer("evening_thai_female"),
+    eveningForeignMale: integer("evening_foreign_male"),
+    eveningForeignFemale: integer("evening_foreign_female"),
     otHours: numeric("ot_hours", { precision: 4, scale: 1, mode: "number" }),
     accidentOccurred: boolean("accident_occurred"),
     accidentNote: text("accident_note"),
@@ -62,6 +67,10 @@ export const dailyReports = pgTable(
       "daily_reports_headcount_check",
       sql`${t.thaiMale} >= 0 AND ${t.thaiFemale} >= 0 AND ${t.foreignMale} >= 0 AND ${t.foreignFemale} >= 0`,
     ),
+    check(
+      "daily_reports_evening_headcount_check",
+      sql`(${t.eveningThaiMale} IS NULL OR ${t.eveningThaiMale} >= 0) AND (${t.eveningThaiFemale} IS NULL OR ${t.eveningThaiFemale} >= 0) AND (${t.eveningForeignMale} IS NULL OR ${t.eveningForeignMale} >= 0) AND (${t.eveningForeignFemale} IS NULL OR ${t.eveningForeignFemale} >= 0)`,
+    ),
     check("daily_reports_ot_check", sql`${t.otHours} IS NULL OR (${t.otHours} >= 0 AND ${t.otHours} <= 24)`),
     check("daily_reports_work_hours_check", sql`${t.workHours} IS NULL OR (${t.workHours} >= 0 AND ${t.workHours} <= 24)`),
     check("daily_reports_humidity_check", sql`${t.humidityPct} IS NULL OR (${t.humidityPct} BETWEEN 0 AND 100)`),
@@ -80,7 +89,9 @@ export const dailyReports = pgTable(
   ],
 );
 
-// Manpower by position — the primary headcount. Sum must equal the nationality split.
+// Manpower by position — the primary headcount. Reported per shift because morning and
+// afternoon crews differ. Morning sum must equal the nationality split (which describes
+// the morning crew); the afternoon rows are position-only.
 export const dailyReportPositions = pgTable(
   "daily_report_positions",
   {
@@ -88,12 +99,44 @@ export const dailyReportPositions = pgTable(
     reportId: uuid("report_id")
       .notNull()
       .references(() => dailyReports.id, { onDelete: "cascade" }),
+    shift: text("shift").notNull().default("morning"),
+    // Which discipline crew (CE / ME / EE) these people belong to; the report total is the sum.
+    discipline: text("discipline").notNull().default("CE"),
     position: text("position").notNull(),
     headcount: integer("headcount").notNull(),
   },
   (t) => [
-    unique("daily_report_positions_report_position_unique").on(t.reportId, t.position),
+    unique("daily_report_positions_report_shift_disc_position_unique").on(t.reportId, t.shift, t.discipline, t.position),
+    check("daily_report_positions_discipline_check", sql`${t.discipline} IN ('CE', 'ME', 'EE')`),
     check("daily_report_positions_headcount_check", sql`${t.headcount} > 0`),
+    check("daily_report_positions_shift_check", sql`${t.shift} IN ('morning', 'evening')`),
+  ],
+);
+
+// Nationality/sex split per shift and discipline crew. daily_reports keeps the combined
+// totals (sum over crews) so dashboards read one number; this table holds the breakdown.
+export const dailyReportCrews = pgTable(
+  "daily_report_crews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reportId: uuid("report_id")
+      .notNull()
+      .references(() => dailyReports.id, { onDelete: "cascade" }),
+    shift: text("shift").notNull(),
+    discipline: text("discipline").notNull(),
+    thaiMale: integer("thai_male").notNull().default(0),
+    thaiFemale: integer("thai_female").notNull().default(0),
+    foreignMale: integer("foreign_male").notNull().default(0),
+    foreignFemale: integer("foreign_female").notNull().default(0),
+  },
+  (t) => [
+    unique("daily_report_crews_report_shift_discipline_unique").on(t.reportId, t.shift, t.discipline),
+    check("daily_report_crews_shift_check", sql`${t.shift} IN ('morning', 'evening')`),
+    check("daily_report_crews_discipline_check", sql`${t.discipline} IN ('CE', 'ME', 'EE')`),
+    check(
+      "daily_report_crews_headcount_check",
+      sql`${t.thaiMale} >= 0 AND ${t.thaiFemale} >= 0 AND ${t.foreignMale} >= 0 AND ${t.foreignFemale} >= 0`,
+    ),
   ],
 );
 
@@ -145,6 +188,7 @@ export const dailyReportAllocations = pgTable(
     buildingId: uuid("building_id")
       .notNull()
       .references(() => buildings.id, { onDelete: "restrict" }),
+    discipline: text("discipline").notNull().default("CE"),
     headcount: integer("headcount").notNull(),
     workDescription: text("work_description").notNull(),
     planPercent: integer("plan_percent").notNull().default(0),
@@ -156,6 +200,7 @@ export const dailyReportAllocations = pgTable(
   },
   (t) => [
     check("daily_report_allocations_headcount_check", sql`${t.headcount} > 0`),
+    check("daily_report_allocations_discipline_check", sql`${t.discipline} IN ('CE', 'ME', 'EE')`),
     check("daily_report_allocations_plan_check", sql`${t.planPercent} BETWEEN 0 AND 100`),
     check(
       "daily_report_allocations_actual_check",

@@ -9,6 +9,7 @@ import type {
   InspectionRequestFields,
   MaterialsSummary,
   MorningPayload,
+  PrintReport,
   ReviewPayload,
   ReviewQueueRow,
   WeeklySummary,
@@ -19,6 +20,9 @@ import type {
 } from "../types/daily-report.types.js";
 
 export const dailyReportApi = {
+  printReport(reportId: string): Promise<{ data: PrintReport }> {
+    return http.get(`/daily-reports/${reportId}/print`);
+  },
   buildings(projectId: string): Promise<{ data: Building[] }> {
     return http.get(`/projects/${projectId}/buildings`);
   },

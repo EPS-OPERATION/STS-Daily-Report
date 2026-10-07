@@ -30,7 +30,7 @@ function accessCodeOk(given: string | undefined): boolean {
 
 export const authRoutes = new Elysia({ prefix: "/auth" })
   // Public: tells the login page whether to show the access-code box.
-  .get("/config", () => ok({ accessCodeRequired: Boolean(getEnv().DEMO_ACCESS_CODE) }))
+  .get("/config", () => ok({ accessCodeRequired: Boolean(getEnv().DEMO_ACCESS_CODE), allowResubmit: getEnv().ALLOW_RESUBMIT }))
   .post("/login", async ({ body, cookie, set }) => {
     if (!accessCodeOk(body.accessCode)) throw new InvalidLoginError("Email or access code is not valid.");
     const { context, token, expiresAt } = await loginWithEmail(body.email);

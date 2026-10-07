@@ -16,6 +16,7 @@ import {
   buildings,
   contractorMemberships,
   dailyReportAllocations,
+  dailyReportCrews,
   dailyReportEquipment,
   dailyReportMachinery,
   dailyReportMaterials,
@@ -358,6 +359,24 @@ await db
   .values(SAMPLE_USERS.map((u) => ({ userId: u.id, contractorId: u.contractorId, status: "active" as const })))
   .onConflictDoNothing();
 
+// Shared trial login: one account that can report for every contractor on the project
+// (the field report page has a contractor picker). Email only, like the others.
+const TRIAL_USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-0000000000f1";
+await db
+  .insert(users)
+  .values({ id: TRIAL_USER_ID, email: "trial@sts.local", displayName: "Trial (all contractors)", status: "active" })
+  .onConflictDoNothing({ target: users.id });
+await db
+  .insert(contractorMemberships)
+  .values(
+    [CONTRACTOR_A, CONTRACTOR_B, CONTRACTOR_C, ...SAMPLE_CONTRACTORS.map((c) => c.id)].map((contractorId) => ({
+      userId: TRIAL_USER_ID,
+      contractorId,
+      status: "active" as const,
+    })),
+  )
+  .onConflictDoNothing();
+
 type SamplePlan = {
   contractorId: string;
   split: [number, number, number, number];
@@ -473,6 +492,15 @@ for (const date of weekDays) {
     const reportId = inserted[0]?.id;
     if (!reportId) continue; // already seeded — keep idempotent
     sampleReports++;
+    await db.insert(dailyReportCrews).values({
+      reportId,
+      shift: "morning",
+      discipline: "CE",
+      thaiMale,
+      thaiFemale,
+      foreignMale,
+      foreignFemale,
+    });
     await db
       .insert(dailyReportPositions)
       .values(

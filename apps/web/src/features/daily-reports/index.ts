@@ -1,7 +1,7 @@
 export * from "./types/daily-report.types.js";
 export { dailyReportKeys } from "./api/daily-report.keys.js";
 export { dailyReportApi } from "./api/daily-report.api.js";
-export { useBuildings, useCurrentReport, useInspectionRequests, useReviewQueue, useWeeklySummary } from "./hooks/use-daily-report-queries.js";
+export { useBuildings, useCurrentReport, usePrintReport, useInspectionRequests, useReviewQueue, useWeeklySummary } from "./hooks/use-daily-report-queries.js";
 export { useDailyRequests, useManpowerSummary, useManpowerTrend, useMaterials, usePositionMix, type MaterialsFilters } from "./hooks/use-daily-report-queries.js";
 export {
   useSubmitMorning,

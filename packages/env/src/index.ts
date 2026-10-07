@@ -25,6 +25,9 @@ export const apiEnvSchema = z.object({
   ALLOW_DEMO_LOGIN: boolFromString.default(false),
   // Shared code the hosted demo login asks for (empty = not required). Set in Vercel only.
   DEMO_ACCESS_CODE: z.string().optional(),
+  // Trial mode: contractors may re-send the morning/evening report (and edit photos) any
+  // number of times instead of locking after submit. Off = normal locking.
+  ALLOW_RESUBMIT: boolFromString.default(false),
   // TEMPORARY development-only provider. See local-email-auth.ts.
   AUTH_PROVIDER: z.enum(["local-email"]).default("local-email"),
   WEB_ORIGIN: z.string().default("http://localhost:5173"),

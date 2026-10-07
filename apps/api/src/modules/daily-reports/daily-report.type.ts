@@ -40,23 +40,33 @@ export interface PermitInput {
   workers: number;
 }
 
+// One discipline's crew: people by position plus the nationality/sex split of the same people.
+export interface CrewInput {
+  discipline: Discipline;
+  positions: { position: PositionCode; headcount: number }[];
+  thaiMale: number;
+  thaiFemale: number;
+  foreignMale: number;
+  foreignFemale: number;
+}
+
+// Morning adds where that crew works (building allocation with plan %).
+export interface MorningCrewInput extends CrewInput {
+  allocations: AllocationInput[];
+}
+
 export interface MorningInput {
   date: string;
   contractorId: string;
   startTime: string;
   endTime: string;
   workHours: number;
-  disciplines: Discipline[];
   weather: WeatherCondition;
   temperatureC?: number;
   humidityPct?: number;
-  positions: { position: PositionCode; headcount: number }[];
   equipment: { equipmentType: SiteEquipmentType; qty: number }[];
-  thaiMale: number;
-  thaiFemale: number;
-  foreignMale: number;
-  foreignFemale: number;
-  allocations: AllocationInput[];
+  // One crew per discipline that worked today (CE / ME / EE); the report is their sum.
+  crews: MorningCrewInput[];
 }
 
 export interface RoadUsageInput {
@@ -88,6 +98,8 @@ export interface EveningInput {
   accidentOccurred: boolean;
   accidentNote?: string;
   accidentCategory?: AccidentCategory;
+  // Afternoon crews per discipline (differ from the morning crews).
+  crews: CrewInput[];
   progress: EveningProgressInput[];
   signatureName: string;
   signatureData: string;

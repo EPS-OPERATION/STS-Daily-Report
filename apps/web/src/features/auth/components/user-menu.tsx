@@ -58,7 +58,7 @@ export function UserMenu() {
           </Stack>
           <Typography variant="caption" color="text.secondary">
             {isContractor
-              ? (contractors[0]?.name ?? "ผู้รับเหมา")
+              ? (contractors.length > 1 ? "ผู้รับเหมาทั้งหมด (ทดลอง)" : (contractors[0]?.name ?? "ผู้รับเหมา"))
               : "Owner / EPS QAQC"}
           </Typography>
         </Box>

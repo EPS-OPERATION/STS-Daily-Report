@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { REQUEST_STATUSES, manHours, normalizePagination, workloadLevel, type PermitType, type RequestStatus } from "@sts/shared";
+import { DISCIPLINE_CODES, REQUEST_STATUSES, manHours, normalizePagination, workloadLevel, type Discipline, type PermitType, type RequestStatus } from "@sts/shared";
+import { getEnv } from "@/config/env.js";
 import { getDb } from "@/db/client.js";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import type { AuthContext } from "@/auth/auth.types.js";
@@ -8,6 +9,7 @@ import { getProjectById } from "@/modules/projects/project.repository.js";
 import { isContractorInProject } from "@/modules/site-activities/site-activity.repository.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { getStorage } from "@/shared/storage/index.js";
+import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { listRequests } from "@/modules/inspection-requests/inspection-request.repository.js";
 import { findMachineryConflicts, findRoadConflicts } from "./daily-report.conflicts.js";
 import {
@@ -17,8 +19,10 @@ import {
   getPhoto,
   getReportById,
   getReportByKey,
+  getSafetyRecord,
   insertPhoto,
   listAllocations,
+  listCrews,
   listAllocationsInRange,
   listAllocationDetailsInRange,
   listReportsForReview,
@@ -49,6 +53,7 @@ import {
   setReportReview,
 } from "./daily-report.repository.js";
 import type {
+  CrewInput,
   EquipmentRequestInput,
   EveningInput,
   MachineryInput,
@@ -102,9 +107,11 @@ async function reportDetail(reportId: string) {
   if (!report) throw new NotFoundError("Daily report not found", { reportId });
   // machinery / permits / roadUsage on a report are the requests it raised for the next day.
   const tomorrow = addDays(report.reportDate, 1);
-  const [positions, equipment, allocations, machinery, equipmentRequests, permits, roadUsage, photos, bookings, others, otherRoads, materials] =
+  const [positions, eveningPositions, crews, equipment, allocations, machinery, equipmentRequests, permits, roadUsage, photos, bookings, others, otherRoads, materials] =
     await Promise.all([
       listPositions(db, reportId),
+      listPositions(db, reportId, "evening"),
+      listCrews(db, reportId),
       listEquipment(db, reportId),
       listAllocations(db, reportId),
       listMachinery(db, reportId),
@@ -142,6 +149,12 @@ async function reportDetail(reportId: string) {
     manHours: manHours(totalHeadcount, report.workHours, report.otHours),
     hasSignature: Boolean(signatureData),
     positions,
+    eveningPositions,
+    // Per-discipline breakdown (CE / ME / EE) of both shifts; positions/totals above are their sum.
+    crews: crews.sort(
+      (a, b) => DISCIPLINE_CODES.indexOf(a.discipline as Discipline) - DISCIPLINE_CODES.indexOf(b.discipline as Discipline),
+    ),
+    eveningHeadcount: eveningPositions.reduce((s, p) => s + p.headcount, 0),
     equipment,
     allocations,
     machinery,
@@ -212,6 +225,31 @@ export async function ensureDraftService(auth: AuthContext, projectId: string, d
   return reportDetail(row.id);
 }
 
+// ---- crews -----------------------------------------------------------------
+
+// A crew is valid when it has people, positions are unique and the nationality/sex split
+// adds up to the same headcount. Returns that headcount.
+function validateCrew(crew: CrewInput): number {
+  const seen = new Set<string>();
+  for (const p of crew.positions) {
+    if (seen.has(p.position)) {
+      throw new ValidationError("Each position may appear only once", { discipline: crew.discipline, position: p.position });
+    }
+    seen.add(p.position);
+  }
+  const total = crew.positions.reduce((sum, p) => sum + p.headcount, 0);
+  if (total <= 0) throw new ValidationError("Total headcount must be greater than 0", { discipline: crew.discipline });
+  const byNationality = crew.thaiMale + crew.thaiFemale + crew.foreignMale + crew.foreignFemale;
+  if (byNationality !== total) {
+    throw new ValidationError("Nationality/sex split must equal the headcount by position", {
+      discipline: crew.discipline,
+      byPosition: total,
+      byNationality,
+    });
+  }
+  return total;
+}
+
 // ---- morning ---------------------------------------------------------------
 
 export async function submitMorningService(auth: AuthContext, projectId: string, input: MorningInput) {
@@ -225,7 +263,7 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
   const existing = await getReportByKey(db, projectId, input.contractorId, input.date);
   // Shifts are independent. The morning only locks once BOTH shifts are in: re-sending it
   // then would wipe allocations the evening already reported actuals against.
-  if (existing?.morningStatus === "submitted" && existing.eveningStatus === "submitted") {
+  if (!getEnv().ALLOW_RESUBMIT && existing?.morningStatus === "submitted" && existing.eveningStatus === "submitted") {
     throw new ConflictError("Both shifts are submitted — the morning check-in is locked", { reportId: existing.id });
   }
 
@@ -233,20 +271,10 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
     throw new ValidationError("End time must be after start time", { startTime: input.startTime, endTime: input.endTime });
   }
 
-  // Position headcount is the primary total; the nationality/sex split must describe the same people.
-  const seenPositions = new Set<string>();
-  for (const p of input.positions) {
-    if (seenPositions.has(p.position)) throw new ValidationError("Each position may appear only once", { position: p.position });
-    seenPositions.add(p.position);
-  }
-  const total = input.positions.reduce((s, p) => s + p.headcount, 0);
-  if (total <= 0) throw new ValidationError("Total headcount must be greater than 0");
-  const byNationality = input.thaiMale + input.thaiFemale + input.foreignMale + input.foreignFemale;
-  if (byNationality !== total) {
-    throw new ValidationError("Nationality/sex split must equal the headcount by position", {
-      byPosition: total,
-      byNationality,
-    });
+  const seenCrews = new Set<string>();
+  for (const crew of input.crews) {
+    if (seenCrews.has(crew.discipline)) throw new ValidationError("Each discipline may appear only once", { discipline: crew.discipline });
+    seenCrews.add(crew.discipline);
   }
   const seenEquipment = new Set<string>();
   for (const e of input.equipment) {
@@ -256,24 +284,31 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
     seenEquipment.add(e.equipmentType);
   }
 
-  // Hard rule: every person is placed in exactly one building.
-  const allocated = input.allocations.reduce((s, a) => s + a.headcount, 0);
-  if (allocated !== total) {
-    throw new ValidationError("Allocated headcount must equal total headcount", {
-      total,
-      allocated,
-      remaining: total - allocated,
-    });
-  }
-
   const buildingIds = new Set((await listBuildings(db, projectId)).map((b) => b.id));
-  const seenBuildings = new Set<string>();
-  for (const a of input.allocations) {
-    if (!buildingIds.has(a.buildingId)) throw new ValidationError("Unknown building", { buildingId: a.buildingId });
-    if (seenBuildings.has(a.buildingId)) {
-      throw new ValidationError("Each building may appear only once in the allocation", { buildingId: a.buildingId });
+  for (const crew of input.crews) {
+    // Position headcount is the primary total; the nationality/sex split must describe the same people.
+    const total = validateCrew(crew);
+    // Hard rule: every person of the crew is placed in exactly one building.
+    const allocated = crew.allocations.reduce((s, a) => s + a.headcount, 0);
+    if (allocated !== total) {
+      throw new ValidationError("Allocated headcount must equal total headcount", {
+        discipline: crew.discipline,
+        total,
+        allocated,
+        remaining: total - allocated,
+      });
     }
-    seenBuildings.add(a.buildingId);
+    const seenBuildings = new Set<string>();
+    for (const a of crew.allocations) {
+      if (!buildingIds.has(a.buildingId)) throw new ValidationError("Unknown building", { buildingId: a.buildingId });
+      if (seenBuildings.has(a.buildingId)) {
+        throw new ValidationError("Each building may appear only once in a discipline's allocation", {
+          discipline: crew.discipline,
+          buildingId: a.buildingId,
+        });
+      }
+      seenBuildings.add(a.buildingId);
+    }
   }
 
   const reportId = await saveMorning(db, projectId, input, auth.user.id);
@@ -320,7 +355,7 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
     throw new ValidationError("Contractor is not assigned to this project", { contractorId: input.contractorId });
   }
   const report = await getReportByKey(db, projectId, input.contractorId, input.date);
-  if (report?.eveningStatus === "submitted") {
+  if (!getEnv().ALLOW_RESUBMIT && report?.eveningStatus === "submitted") {
     throw new ConflictError("Evening report already submitted", { reportId: report.id });
   }
 
@@ -329,6 +364,12 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
   }
   if (input.accidentOccurred && !input.accidentCategory) {
     throw new ValidationError("Choose the accident category");
+  }
+  const seenCrews = new Set<string>();
+  for (const crew of input.crews) {
+    if (seenCrews.has(crew.discipline)) throw new ValidationError("Each discipline may appear only once", { discipline: crew.discipline });
+    seenCrews.add(crew.discipline);
+    validateCrew(crew);
   }
   validateTomorrow(
     new Set((await listBuildings(db, projectId)).map((b) => b.id)),
@@ -478,7 +519,7 @@ export async function materialsService(
 
 export async function uploadPhotoService(auth: AuthContext, reportId: string, input: PhotoUploadInput) {
   const report = await loadOwnedReport(auth, reportId);
-  if (report.eveningStatus === "submitted") throw new ConflictError("Report already submitted — photos are locked");
+  if (!getEnv().ALLOW_RESUBMIT && report.eveningStatus === "submitted") throw new ConflictError("Report already submitted — photos are locked");
   if ((await countPhotos(getDb(), reportId)) >= MAX_PHOTOS) {
     throw new ValidationError(`A report can hold at most ${MAX_PHOTOS} photos`);
   }
@@ -503,7 +544,7 @@ export async function uploadPhotoService(auth: AuthContext, reportId: string, in
 
 export async function deletePhotoService(auth: AuthContext, reportId: string, photoId: string) {
   const report = await loadOwnedReport(auth, reportId);
-  if (report.eveningStatus === "submitted") throw new ConflictError("Report already submitted — photos are locked");
+  if (!getEnv().ALLOW_RESUBMIT && report.eveningStatus === "submitted") throw new ConflictError("Report already submitted — photos are locked");
   const photo = await getPhoto(getDb(), reportId, photoId);
   if (!photo) throw new NotFoundError("Photo not found", { photoId });
   await deletePhoto(getDb(), photoId);
@@ -826,3 +867,50 @@ export async function dailyRequestsService(projectId: string, from: string, to: 
     roads: roads.map((r) => ({ ...r, conflict: roadClash.has(r.id) })),
   };
 }
+
+// ---- printable report ------------------------------------------------------
+
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+// Everything the printed "Daily Request & Report" sheet needs for one contractor-day:
+// the report, the signature image, today's permits (asked for the evening before), tomorrow's
+// QAQC requests and the accident record. EPS reads any report; a contractor only its own.
+export async function printReportService(auth: AuthContext, reportId: string) {
+  const db = getDb();
+  const report = await getReportById(db, reportId);
+  if (!report) throw new NotFoundError("Daily report not found", { reportId });
+  if (auth.user.role !== "eps") await assertContractorAccess(auth, report.contractorId);
+
+  const [detail, project, contractor, planned, qaqc, record] = await Promise.all([
+    reportDetail(reportId),
+    getProjectById(db, report.projectId),
+    getContractorById(db, report.contractorId),
+    listPlannedForDate(db, report.projectId, report.contractorId, report.reportDate),
+    listRequests(db, report.projectId, {
+      from: report.reportDate,
+      to: report.reportDate,
+      by: "report",
+      contractorIds: [report.contractorId],
+    }),
+    getSafetyRecord(db, report.projectId, report.contractorId, report.reportDate),
+  ]);
+  const since = record.lastAccident ?? record.firstReport ?? report.reportDate;
+  return {
+    ...detail,
+    signatureData: report.signatureData,
+    projectName: project?.name ?? "",
+    contractorCode: contractor?.code ?? "",
+    contractorName: contractor?.name ?? "",
+    permitsToday: planned.permits,
+    inspections: qaqc.filter((r) => r.status !== "draft"),
+    safetyRecord: {
+      accidents: record.accidents,
+      daysSinceLastAccident: Math.max(0, daysBetween(since, report.reportDate) + (record.lastAccident ? 0 : 1)),
+      lastAccidentDate: record.lastAccident,
+    },
+  };
+}
+
+export type PrintReport = Awaited<ReturnType<typeof printReportService>>;

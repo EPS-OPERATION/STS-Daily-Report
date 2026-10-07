@@ -11,6 +11,15 @@ export function useBuildings(projectId: string | null) {
   });
 }
 
+export function usePrintReport(reportId: string | null) {
+  return useQuery({
+    queryKey: dailyReportKeys.print(reportId ?? ""),
+    queryFn: () => dailyReportApi.printReport(reportId!),
+    enabled: Boolean(reportId),
+    staleTime: 0,
+  });
+}
+
 export function useCurrentReport(projectId: string | null, date: string, contractorId?: string) {
   return useQuery({
     queryKey: dailyReportKeys.current(projectId ?? "", date, contractorId),

@@ -3,11 +3,14 @@ import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
 import WbTwilightOutlinedIcon from "@mui/icons-material/WbTwilightOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import MenuItem from "@mui/material/MenuItem";
 import Skeleton from "@mui/material/Skeleton";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
@@ -24,6 +27,7 @@ import {
   useCurrentReport,
   type Shift,
 } from "@/features/daily-reports/index.js";
+import { useAuthConfig, useMe } from "@/features/auth/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 
@@ -37,7 +41,14 @@ export function FieldReportPage() {
   const date = ISO_DATE.test(params.get("date") ?? "") ? params.get("date")! : todayIso();
   const { projectId, projects } = useCurrentProject();
   const project = projects.find((p) => p.id === projectId);
-  const current = useCurrentReport(projectId, date);
+  const me = useMe();
+  const allowResubmit = Boolean(useAuthConfig().data?.data.allowResubmit);
+  // One login can hold several contractors (shared trial account): pick which one is reporting.
+  const myContractors = me.data?.data.contractors ?? [];
+  const requestedContractor = params.get("contractor");
+  const contractorId =
+    myContractors.find((c) => c.id === requestedContractor)?.id ?? myContractors[0]?.id;
+  const current = useCurrentReport(projectId, date, contractorId);
   const buildings = useBuildings(projectId);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -54,6 +65,12 @@ export function FieldReportPage() {
         : !morningDone && new Date().getHours() >= 15
           ? "evening"
           : "morning";
+
+  const setContractor = (id: string) => {
+    const p = new URLSearchParams(params);
+    p.set("contractor", id);
+    setParams(p, { replace: true });
+  };
 
   const setShift = (next: Shift) => {
     const p = new URLSearchParams(params);
@@ -76,6 +93,27 @@ export function FieldReportPage() {
               {contractor ? `${contractor.code} · ${contractor.name}` : ""}
             </Typography>
           </Stack>
+          {myContractors.length > 1 ? (
+            <TextField
+              select
+              size="small"
+              label="รายงานในนามผู้รับเหมา"
+              value={contractorId ?? ""}
+              onChange={(e) => setContractor(e.target.value)}
+              sx={{
+                mt: 1.5,
+                bgcolor: "common.white",
+                borderRadius: 1,
+                width: "100%",
+              }}
+            >
+              {myContractors.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.code} · {c.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : null}
           <Typography variant="h4" sx={{ color: "common.white", mt: 0.5, mb: 1.5 }}>
             รายงานประจำวัน · {formatThaiDate(date)}
           </Typography>
@@ -129,11 +167,11 @@ export function FieldReportPage() {
             : `โหลดรายงานไม่สำเร็จ: ${loadError.message}`}
         </Alert>
       ) : !contractor || !current.data ? null : shift === "morning" ? (
-        morningDone && eveningDone && report ? (
+        !allowResubmit && morningDone && eveningDone && report ? (
           <ReportSummary report={report} buildings={buildings.data?.data ?? []} />
         ) : (
         <MorningForm
-          key={`${report?.id ?? "new"}-${report?.morningSubmittedAt ?? ""}`}
+          key={`${contractor.id}-${report?.id ?? "new"}-${report?.morningSubmittedAt ?? ""}`}
           projectId={projectId}
           date={date}
           contractor={contractor}
@@ -146,12 +184,26 @@ export function FieldReportPage() {
           }}
         />
         )
-      ) : eveningDone && report ? (
+      ) : !allowResubmit && eveningDone && report ? (
         <ReportSummary report={report} buildings={buildings.data?.data ?? []} />
       ) : (
         // Evening never waits for the morning shift.
+        <>
+        {eveningDone && report ? (
+          <Alert
+            severity="info"
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => window.open(`/daily-reports/${report.id}/print`, "_blank", "noopener")}>
+                Export PDF
+              </Button>
+            }
+          >
+            ส่งรายงานบ่ายแล้ว — แก้ไขและส่งซ้ำได้ (โหมดทดลอง)
+          </Alert>
+        ) : null}
         <EveningForm
-          key={`${report?.id ?? "new"}-${report?.morningSubmittedAt ?? ""}`}
+          key={`${contractor.id}-${report?.id ?? "new"}-${report?.eveningSubmittedAt ?? ""}`}
           projectId={projectId}
           date={date}
           contractor={contractor}
@@ -162,6 +214,7 @@ export function FieldReportPage() {
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />
+        </>
       )}
 
       <Snackbar

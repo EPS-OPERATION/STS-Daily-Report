@@ -13,6 +13,7 @@ import {
   manpowerTrendService,
   positionMixService,
   listReviewQueueService,
+  printReportService,
   reviewReportService,
   submitEveningService,
   submitMorningService,
@@ -107,6 +108,11 @@ export const dailyReportRoutes = new Elysia()
     "/projects/:projectId/daily-reports/draft",
     async ({ params, body, auth }) => ok(await ensureDraftService(auth, params.projectId, body.date, body.contractorId)),
     { params: projectIdParams, body: reportKeyBody },
+  )
+  .get(
+    "/daily-reports/:reportId/print",
+    async ({ params, auth }) => ok(await printReportService(auth, params.reportId)),
+    { params: reportIdParams },
   )
   .post(
     "/daily-reports/:reportId/review",

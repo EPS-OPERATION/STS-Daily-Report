@@ -3,6 +3,7 @@ import {
   buildings,
   contractors,
   dailyReportAllocations,
+  dailyReportCrews,
   dailyReportEquipment,
   dailyReportEquipmentRequests,
   dailyReportMachinery,
@@ -14,8 +15,9 @@ import {
   dailyReports,
   inspectionRequests,
 } from "@/db/schema/index.js";
+import { DISCIPLINE_CODES } from "@sts/shared";
 import type { Db } from "@/db/client.js";
-import type { BookingRow, EveningInput, MorningInput, RoadRow } from "./daily-report.type.js";
+import type { BookingRow, CrewInput, EveningInput, MorningInput, RoadRow } from "./daily-report.type.js";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -56,6 +58,7 @@ export async function listAllocations(db: Db, reportId: string) {
       buildingId: dailyReportAllocations.buildingId,
       buildingCode: buildings.code,
       buildingName: buildings.name,
+      discipline: dailyReportAllocations.discipline,
       headcount: dailyReportAllocations.headcount,
       workDescription: dailyReportAllocations.workDescription,
       planPercent: dailyReportAllocations.planPercent,
@@ -364,11 +367,43 @@ export async function summarizeMaterials(
   return rows.map((r) => ({ materialName: r.materialName, unit: r.unit, entries: r.entries, totalQty: Number(r.totalQty) }));
 }
 
-export async function listPositions(db: Db, reportId: string) {
+// Headcount per position, summed over disciplines (what dashboards and the print form read).
+export async function listPositions(db: Db, reportId: string, shift: "morning" | "evening" = "morning") {
   return db
-    .select({ position: dailyReportPositions.position, headcount: dailyReportPositions.headcount })
+    .select({
+      position: dailyReportPositions.position,
+      headcount: sql<number>`sum(${dailyReportPositions.headcount})`.mapWith(Number),
+    })
     .from(dailyReportPositions)
-    .where(eq(dailyReportPositions.reportId, reportId));
+    .where(and(eq(dailyReportPositions.reportId, reportId), eq(dailyReportPositions.shift, shift)))
+    .groupBy(dailyReportPositions.position);
+}
+
+// Every discipline crew of the report (both shifts): positions + nationality/sex split.
+export async function listCrews(db: Db, reportId: string) {
+  const [positions, splits] = await Promise.all([
+    db
+      .select({
+        shift: dailyReportPositions.shift,
+        discipline: dailyReportPositions.discipline,
+        position: dailyReportPositions.position,
+        headcount: dailyReportPositions.headcount,
+      })
+      .from(dailyReportPositions)
+      .where(eq(dailyReportPositions.reportId, reportId)),
+    db.select().from(dailyReportCrews).where(eq(dailyReportCrews.reportId, reportId)),
+  ]);
+  return splits.map((c) => ({
+    shift: c.shift as "morning" | "evening",
+    discipline: c.discipline,
+    positions: positions
+      .filter((p) => p.shift === c.shift && p.discipline === c.discipline)
+      .map((p) => ({ position: p.position, headcount: p.headcount })),
+    thaiMale: c.thaiMale,
+    thaiFemale: c.thaiFemale,
+    foreignMale: c.foreignMale,
+    foreignFemale: c.foreignFemale,
+  }));
 }
 
 export async function listEquipment(db: Db, reportId: string) {
@@ -426,24 +461,49 @@ export async function deletePhoto(db: Db, photoId: string) {
 }
 
 // Upsert header + replace morning children atomically. Evening fields are untouched.
+const sumSplit = (crews: CrewInput[]) => ({
+  thaiMale: crews.reduce((s, c) => s + c.thaiMale, 0),
+  thaiFemale: crews.reduce((s, c) => s + c.thaiFemale, 0),
+  foreignMale: crews.reduce((s, c) => s + c.foreignMale, 0),
+  foreignFemale: crews.reduce((s, c) => s + c.foreignFemale, 0),
+});
+
+const crewRows = (reportId: string, shift: "morning" | "evening", crews: CrewInput[]) => ({
+  crews: crews.map((c) => ({
+    reportId,
+    shift,
+    discipline: c.discipline,
+    thaiMale: c.thaiMale,
+    thaiFemale: c.thaiFemale,
+    foreignMale: c.foreignMale,
+    foreignFemale: c.foreignFemale,
+  })),
+  positions: crews.flatMap((c) =>
+    c.positions.map((p) => ({ reportId, shift, discipline: c.discipline, position: p.position, headcount: p.headcount })),
+  ),
+});
+
 export async function saveMorning(db: Db, projectId: string, input: MorningInput, userId: string) {
   return db.transaction(async (tx: Tx) => {
     const now = new Date();
+    const split = sumSplit(input.crews);
     const header = {
       startTime: input.startTime,
       endTime: input.endTime,
       workHours: input.workHours,
-      disciplines: input.disciplines,
+      disciplines: DISCIPLINE_CODES.filter((d) => input.crews.some((c) => c.discipline === d)),
       weather: input.weather,
       temperatureC: input.temperatureC ?? null,
       humidityPct: input.humidityPct ?? null,
-      thaiMale: input.thaiMale,
-      thaiFemale: input.thaiFemale,
-      foreignMale: input.foreignMale,
-      foreignFemale: input.foreignFemale,
+      ...split,
       morningStatus: "submitted",
       morningSubmittedAt: now,
       morningSubmittedBy: userId,
+      // A re-sent shift changes what EPS reviewed — it goes back to the queue.
+      reviewStatus: "pending",
+      reviewNote: null,
+      reviewedBy: null,
+      reviewedAt: null,
       updatedAt: now,
     };
     const [row] = await tx
@@ -456,28 +516,52 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
       .returning({ id: dailyReports.id });
     const reportId = row!.id;
 
+    // Re-sending the morning must not wipe actuals the evening already reported:
+    // carry them over for buildings that are still allocated.
+    const previous = new Map(
+      (
+        await tx
+          .select({
+            buildingId: dailyReportAllocations.buildingId,
+            discipline: dailyReportAllocations.discipline,
+            actualPercent: dailyReportAllocations.actualPercent,
+            countermeasure: dailyReportAllocations.countermeasure,
+          })
+          .from(dailyReportAllocations)
+          .where(eq(dailyReportAllocations.reportId, reportId))
+      ).map((a) => [`${a.discipline}|${a.buildingId}`, a]),
+    );
     await tx.delete(dailyReportAllocations).where(eq(dailyReportAllocations.reportId, reportId));
-    await tx.delete(dailyReportPositions).where(eq(dailyReportPositions.reportId, reportId));
+    await tx
+      .delete(dailyReportPositions)
+      .where(and(eq(dailyReportPositions.reportId, reportId), eq(dailyReportPositions.shift, "morning")));
+    await tx
+      .delete(dailyReportCrews)
+      .where(and(eq(dailyReportCrews.reportId, reportId), eq(dailyReportCrews.shift, "morning")));
     await tx.delete(dailyReportEquipment).where(eq(dailyReportEquipment.reportId, reportId));
 
-    await tx
-      .insert(dailyReportPositions)
-      .values(input.positions.map((p) => ({ reportId, position: p.position, headcount: p.headcount })));
+    const morning = crewRows(reportId, "morning", input.crews);
+    await tx.insert(dailyReportCrews).values(morning.crews);
+    await tx.insert(dailyReportPositions).values(morning.positions);
     if (input.equipment.length > 0) {
       await tx
         .insert(dailyReportEquipment)
         .values(input.equipment.map((e) => ({ reportId, equipmentType: e.equipmentType, qty: e.qty })));
     }
-    await tx.insert(dailyReportAllocations).values(
-      input.allocations.map((a, i) => ({
+    // Allocations of all crews, in crew order; sort_order keeps one running sequence.
+    const allocationRows = input.crews.flatMap((c) =>
+      c.allocations.map((a) => ({
         reportId,
+        discipline: c.discipline,
         buildingId: a.buildingId,
         headcount: a.headcount,
         workDescription: a.workDescription.trim(),
         planPercent: a.planPercent,
-        sortOrder: i,
+        actualPercent: previous.get(`${c.discipline}|${a.buildingId}`)?.actualPercent ?? null,
+        countermeasure: previous.get(`${c.discipline}|${a.buildingId}`)?.countermeasure ?? null,
       })),
     );
+    await tx.insert(dailyReportAllocations).values(allocationRows.map((a, i) => ({ ...a, sortOrder: i })));
     return reportId;
   });
 }
@@ -488,7 +572,12 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
   return db.transaction(async (tx: Tx) => {
     const now = new Date();
     const tomorrow = addDays(input.date, 1);
+    const split = sumSplit(input.crews);
     const header = {
+      eveningThaiMale: split.thaiMale,
+      eveningThaiFemale: split.thaiFemale,
+      eveningForeignMale: split.foreignMale,
+      eveningForeignFemale: split.foreignFemale,
       otHours: input.otHours,
       accidentOccurred: input.accidentOccurred,
       accidentNote: input.accidentOccurred ? input.accidentNote?.trim() || null : null,
@@ -499,6 +588,11 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
       eveningStatus: "submitted",
       eveningSubmittedAt: now,
       eveningSubmittedBy: userId,
+      // A re-sent shift changes what EPS reviewed — it goes back to the queue.
+      reviewStatus: "pending",
+      reviewNote: null,
+      reviewedBy: null,
+      reviewedAt: null,
       updatedAt: now,
     };
     const [row] = await tx
@@ -521,6 +615,21 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
         })
         .where(and(eq(dailyReportAllocations.id, p.allocationId), eq(dailyReportAllocations.reportId, reportId)));
     }
+
+    await tx
+      .delete(dailyReportPositions)
+      .where(and(eq(dailyReportPositions.reportId, reportId), eq(dailyReportPositions.shift, "evening")));
+    await tx
+      .delete(dailyReportCrews)
+      .where(and(eq(dailyReportCrews.reportId, reportId), eq(dailyReportCrews.shift, "evening")));
+    const evening = crewRows(reportId, "evening", input.crews);
+    await tx.insert(dailyReportCrews).values(evening.crews);
+    await tx.insert(dailyReportPositions).values(evening.positions);
+    // An evening-only report has no morning to name its disciplines: take them from the crews.
+    await tx
+      .update(dailyReports)
+      .set({ disciplines: DISCIPLINE_CODES.filter((d) => input.crews.some((c) => c.discipline === d)) })
+      .where(and(eq(dailyReports.id, reportId), sql`cardinality(${dailyReports.disciplines}) = 0`));
 
     await tx.delete(dailyReportMachinery).where(eq(dailyReportMachinery.reportId, reportId));
     await tx.delete(dailyReportEquipmentRequests).where(eq(dailyReportEquipmentRequests.reportId, reportId));
@@ -749,6 +858,7 @@ export async function listPositionsInRange(db: Db, projectId: string, from: stri
       and(
         eq(dailyReports.projectId, projectId),
         eq(dailyReports.morningStatus, "submitted"),
+        eq(dailyReportPositions.shift, "morning"),
         between(dailyReports.reportDate, from, to),
       ),
     );
@@ -778,4 +888,24 @@ export async function listAllocationDetailsInRange(db: Db, projectId: string, fr
       ),
     )
     .orderBy(asc(dailyReports.reportDate), asc(contractors.code));
+}
+
+// Accident record for the printed report: how many accident days this contractor reported up
+// to `date`, the last one, and the first report (start of the "we have operated" count).
+export async function getSafetyRecord(db: Db, projectId: string, contractorId: string, date: string) {
+  const rows = await db
+    .select({
+      accidents: sql<number>`count(*) filter (where ${dailyReports.accidentOccurred} is true)`.mapWith(Number),
+      lastAccident: sql<string | null>`max(${dailyReports.reportDate}) filter (where ${dailyReports.accidentOccurred} is true)`,
+      firstReport: sql<string | null>`min(${dailyReports.reportDate})`,
+    })
+    .from(dailyReports)
+    .where(
+      and(
+        eq(dailyReports.projectId, projectId),
+        eq(dailyReports.contractorId, contractorId),
+        sql`${dailyReports.reportDate} <= ${date}`,
+      ),
+    );
+  return rows[0] ?? { accidents: 0, lastAccident: null, firstReport: null };
 }

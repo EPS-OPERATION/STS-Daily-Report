@@ -43,16 +43,8 @@ export const reviewBody = t.Object({
   note: t.Optional(t.String({ maxLength: 1000 })),
 });
 
-export const morningBody = t.Object({
-  date: isoDate,
-  contractorId: t.String({ format: "uuid" }),
-  startTime: hhmm,
-  endTime: hhmm,
-  workHours: t.Number({ minimum: 0, maximum: 24, multipleOf: 0.5 }),
-  disciplines: t.Array(t.Union(DISCIPLINE_CODES.map((d) => t.Literal(d))), { maxItems: 3, uniqueItems: true }),
-  weather: t.Union(WEATHER_CODES.map((w) => t.Literal(w))),
-  temperatureC: t.Optional(t.Number({ minimum: -10, maximum: 60 })),
-  humidityPct: t.Optional(t.Integer({ minimum: 0, maximum: 100 })),
+const crewFields = {
+  discipline: t.Union(DISCIPLINE_CODES.map((d) => t.Literal(d))),
   positions: t.Array(
     t.Object({
       position: t.Union(POSITION_CODES.map((p) => t.Literal(p))),
@@ -60,6 +52,21 @@ export const morningBody = t.Object({
     }),
     { minItems: 1, maxItems: POSITION_CODES.length },
   ),
+  thaiMale: count,
+  thaiFemale: count,
+  foreignMale: count,
+  foreignFemale: count,
+};
+
+export const morningBody = t.Object({
+  date: isoDate,
+  contractorId: t.String({ format: "uuid" }),
+  startTime: hhmm,
+  endTime: hhmm,
+  workHours: t.Number({ minimum: 0, maximum: 24, multipleOf: 0.5 }),
+  weather: t.Union(WEATHER_CODES.map((w) => t.Literal(w))),
+  temperatureC: t.Optional(t.Number({ minimum: -10, maximum: 60 })),
+  humidityPct: t.Optional(t.Integer({ minimum: 0, maximum: 100 })),
   equipment: t.Array(
     t.Object({
       equipmentType: t.Union(SITE_EQUIPMENT_TYPES.map((e) => t.Literal(e))),
@@ -67,18 +74,20 @@ export const morningBody = t.Object({
     }),
     { maxItems: SITE_EQUIPMENT_TYPES.length },
   ),
-  thaiMale: count,
-  thaiFemale: count,
-  foreignMale: count,
-  foreignFemale: count,
-  allocations: t.Array(
+  crews: t.Array(
     t.Object({
-      buildingId: t.String({ format: "uuid" }),
-      headcount: t.Integer({ minimum: 1, maximum: 5000 }),
-      workDescription: t.String({ minLength: 1, maxLength: 500 }),
-      planPercent: percent,
+      ...crewFields,
+      allocations: t.Array(
+        t.Object({
+          buildingId: t.String({ format: "uuid" }),
+          headcount: t.Integer({ minimum: 1, maximum: 5000 }),
+          workDescription: t.String({ minLength: 1, maxLength: 500 }),
+          planPercent: percent,
+        }),
+        { minItems: 1, maxItems: 16 },
+      ),
     }),
-    { minItems: 1, maxItems: 16 },
+    { minItems: 1, maxItems: DISCIPLINE_CODES.length },
   ),
 });
 
@@ -94,6 +103,7 @@ export const eveningBody = t.Object({
   accidentOccurred: t.Boolean(),
   accidentNote: t.Optional(t.String({ maxLength: 1000 })),
   accidentCategory: t.Optional(t.Union(ACCIDENT_CATEGORY_CODES.map((c) => t.Literal(c)))),
+  crews: t.Array(t.Object(crewFields), { minItems: 1, maxItems: DISCIPLINE_CODES.length }),
   progress: t.Array(
     t.Object({
       allocationId: t.String({ format: "uuid" }),

@@ -8,6 +8,7 @@ import {
   READINESS_CODES,
   SITE_EQUIPMENT_TYPES,
   WEATHER_CODES,
+  type Discipline,
 } from "@sts/shared";
 import { z } from "zod";
 
@@ -16,8 +17,44 @@ const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "รูปแบบ�
 const asTuple = <T extends string>(list: readonly T[]) => list as unknown as [T, ...T[]];
 
 // Sum of a code→count record (positions / equipment).
-export const sumCounts = (rec: Record<string, number> | undefined) =>
-  Object.values(rec ?? {}).reduce((s, n) => s + (Number.isFinite(n) ? n : 0), 0);
+export const sumCounts = (rec: Partial<Record<string, number>> | undefined) =>
+  Object.values(rec ?? {}).reduce<number>((s, n) => s + (typeof n === "number" && Number.isFinite(n) ? n : 0), 0);
+
+const positionCounts = z.record(z.enum(asTuple(POSITION_CODES)), count);
+const disciplinePick = z.array(z.enum(asTuple(DISCIPLINE_CODES))).min(1, "เลือกประเภทงานอย่างน้อย 1 อย่าง");
+
+// Manpower of one discipline crew: people by position + nationality/sex split of the same people.
+const crewManpower = {
+  positions: positionCounts,
+  thaiMale: count,
+  thaiFemale: count,
+  foreignMale: count,
+  foreignFemale: count,
+};
+export const crewSchema = z.object(crewManpower);
+
+// Each selected discipline must total > 0 and its nationality/sex split must match the positions.
+function checkCrews(
+  crews: Record<Discipline, { positions: Record<string, number>; thaiMale: number; thaiFemale: number; foreignMale: number; foreignFemale: number }>,
+  picked: Discipline[],
+  ctx: z.RefinementCtx,
+) {
+  for (const d of picked) {
+    const c = crews[d];
+    const total = sumCounts(c.positions);
+    if (total <= 0) {
+      ctx.addIssue({ code: "custom", path: ["crews", d, "positions"], message: "กรอกจำนวนคนตามตำแหน่งอย่างน้อย 1 คน" });
+    }
+    const byNationality = c.thaiMale + c.thaiFemale + c.foreignMale + c.foreignFemale;
+    if (byNationality !== total) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["crews", d, "thaiMale"],
+        message: `สัญชาติ/เพศรวม ${byNationality} คน ต้องเท่ากับจำนวนตามตำแหน่ง ${total} คน`,
+      });
+    }
+  }
+}
 
 export const allocationSchema = z.object({
   buildingId: z.string().min(1, "เลือกอาคาร"),
@@ -58,51 +95,43 @@ export const permitSchema = z
     path: ["otherLabel"],
   });
 
+const morningCrewSchema = z.object({ ...crewManpower, allocations: z.array(allocationSchema) });
+
 export const morningSchema = z
   .object({
     startTime: hhmm,
     endTime: hhmm,
     workHours: z.number().min(0).max(24),
-    disciplines: z.array(z.enum(asTuple(DISCIPLINE_CODES))),
+    // Which discipline forms are open; only these crews are sent.
+    disciplines: disciplinePick,
     weather: z.enum(asTuple(WEATHER_CODES), { errorMap: () => ({ message: "เลือกสภาพอากาศ" }) }),
     temperatureC: z.number().min(-10).max(60).nullable(),
     humidityPct: z.number().int().min(0).max(100).nullable(),
-    // Position headcount is the primary total.
-    positions: z.record(z.enum(asTuple(POSITION_CODES)), count),
     equipment: z.record(z.enum(asTuple(SITE_EQUIPMENT_TYPES)), z.number().int().min(0).max(500)),
-    thaiMale: count,
-    thaiFemale: count,
-    foreignMale: count,
-    foreignFemale: count,
-    allocations: z.array(allocationSchema).min(1, "เพิ่มอาคารอย่างน้อย 1 รายการ"),
+    crews: z.object({ CE: morningCrewSchema, ME: morningCrewSchema, EE: morningCrewSchema }),
   })
   .superRefine((v, ctx) => {
     if (v.startTime >= v.endTime) {
       ctx.addIssue({ code: "custom", path: ["endTime"], message: "เวลาออกงานต้องหลังเวลาเข้างาน" });
     }
-    const total = sumCounts(v.positions);
-    if (total <= 0) {
-      ctx.addIssue({ code: "custom", path: ["positions"], message: "กรอกจำนวนคนตามตำแหน่งอย่างน้อย 1 คน" });
-    }
-    const byNationality = v.thaiMale + v.thaiFemale + v.foreignMale + v.foreignFemale;
-    if (byNationality !== total) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["thaiMale"],
-        message: `สัญชาติ/เพศรวม ${byNationality} คน ต้องเท่ากับจำนวนตามตำแหน่ง ${total} คน`,
+    checkCrews(v.crews, v.disciplines, ctx);
+    for (const d of v.disciplines) {
+      const crew = v.crews[d];
+      if (crew.allocations.length === 0) {
+        ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: "เพิ่มอาคารอย่างน้อย 1 รายการ" });
+      }
+      const allocated = crew.allocations.reduce((sum, a) => sum + a.headcount, 0);
+      if (allocated !== sumCounts(crew.positions)) {
+        ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: "จัดสรรคนงานลงอาคารให้ครบพอดีกับจำนวนคนทั้งหมด" });
+      }
+      const placed = new Set<string>();
+      crew.allocations.forEach((a, i) => {
+        if (a.buildingId && placed.has(a.buildingId)) {
+          ctx.addIssue({ code: "custom", path: ["crews", d, "allocations", i, "buildingId"], message: "เลือกอาคารซ้ำ" });
+        }
+        placed.add(a.buildingId);
       });
     }
-    const allocated = v.allocations.reduce((s, a) => s + a.headcount, 0);
-    if (allocated !== total) {
-      ctx.addIssue({ code: "custom", path: ["allocations"], message: "จัดสรรคนงานลงอาคารให้ครบพอดีกับจำนวนคนทั้งหมด" });
-    }
-    const placed = new Set<string>();
-    v.allocations.forEach((a, i) => {
-      if (a.buildingId && placed.has(a.buildingId)) {
-        ctx.addIssue({ code: "custom", path: ["allocations", i, "buildingId"], message: "เลือกอาคารซ้ำ" });
-      }
-      placed.add(a.buildingId);
-    });
   });
 
 export type MorningFormValues = z.infer<typeof morningSchema>;
@@ -130,6 +159,9 @@ export const eveningSchema = z
     accidentOccurred: z.boolean({ required_error: "เลือกว่าเกิดอุบัติเหตุหรือไม่" }).nullable(),
     accidentNote: z.string().trim().max(1000).optional(),
     accidentCategory: z.enum(asTuple(ACCIDENT_CATEGORY_CODES)).nullable(),
+    // Afternoon crews per discipline — differ from the morning crews.
+    disciplines: disciplinePick,
+    crews: z.object({ CE: crewSchema, ME: crewSchema, EE: crewSchema }),
     progress: z.array(
       z.object({
         allocationId: z.string(),
@@ -158,6 +190,7 @@ export const eveningSchema = z
     if (v.accidentOccurred && !v.accidentNote) {
       ctx.addIssue({ code: "custom", path: ["accidentNote"], message: "อธิบายเหตุการณ์และการดำเนินการ" });
     }
+    checkCrews(v.crews, v.disciplines, ctx);
     v.progress.forEach((p, i) => {
       if (p.actualPercent < p.planPercent && !p.countermeasure) {
         ctx.addIssue({

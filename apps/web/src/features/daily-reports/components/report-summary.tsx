@@ -1,6 +1,8 @@
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Divider from "@mui/material/Divider";
@@ -25,6 +27,13 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
         {report.morningStatus === "submitted" ? "ส่งรายงานครบทั้งเช้าและบ่ายแล้ว" : "ส่งรายงานบ่ายแล้ว (ไม่มีรายงานเช้า)"}
         {report.eveningSubmittedAt ? ` · ${dayjs(report.eveningSubmittedAt).format("HH:mm")}` : ""} — รอ EPS ตรวจสอบ
       </Alert>
+      <Button
+        variant="outlined"
+        startIcon={<PictureAsPdfOutlinedIcon />}
+        onClick={() => window.open(`/daily-reports/${report.id}/print`, "_blank", "noopener")}
+      >
+        Export PDF
+      </Button>
       <Card>
         <CardContent>
           <Stack direction="row" justifyContent="space-between">
@@ -32,8 +41,18 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
             <Typography variant="h5">{report.totalHeadcount} คน</Typography>
           </Stack>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-            {report.positions.map((p) => `${positionLabel(p.position)} ${p.headcount}`).join(" · ")}
+            เช้า: {report.positions.map((p) => `${positionLabel(p.position)} ${p.headcount}`).join(" · ") || "-"}
           </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+            บ่าย ({report.eveningHeadcount} คน):{" "}
+            {report.eveningPositions.map((p) => `${positionLabel(p.position)} ${p.headcount}`).join(" · ") || "-"}
+          </Typography>
+          {report.eveningThaiMale !== null ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              บ่าย: ไทย ช {report.eveningThaiMale} / ญ {report.eveningThaiFemale} · ต่างชาติ ช {report.eveningForeignMale} / ญ{" "}
+              {report.eveningForeignFemale}
+            </Typography>
+          ) : null}
           <Typography variant="caption" color="text.secondary">
             ไทย ช {report.thaiMale} / ญ {report.thaiFemale} · ต่างชาติ ช {report.foreignMale} / ญ {report.foreignFemale} · OT{" "}
             {report.otHours ?? 0} ชม.

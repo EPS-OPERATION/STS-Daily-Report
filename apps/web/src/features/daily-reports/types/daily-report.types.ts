@@ -49,6 +49,7 @@ export interface Building {
 
 export interface ReportAllocation {
   id: string;
+  discipline: Discipline;
   buildingId: string;
   buildingCode: string;
   buildingName: string;
@@ -57,6 +58,17 @@ export interface ReportAllocation {
   planPercent: number;
   actualPercent: number | null;
   countermeasure: string | null;
+}
+
+// One discipline's crew for one shift: people by position + nationality/sex split.
+export interface ReportCrew {
+  shift: "morning" | "evening";
+  discipline: Discipline;
+  positions: { position: PositionCode; headcount: number }[];
+  thaiMale: number;
+  thaiFemale: number;
+  foreignMale: number;
+  foreignFemale: number;
 }
 
 export interface ReportMachinery {
@@ -173,6 +185,15 @@ export interface DailyReport {
   accidentNote: string | null;
   accidentCategory: AccidentCategory | null;
   positions: { position: PositionCode; headcount: number }[];
+  /** Afternoon crew by position (differs from the morning crew); empty until the evening is sent. */
+  eveningPositions: { position: PositionCode; headcount: number }[];
+  eveningHeadcount: number;
+  /** Per-discipline breakdown of both shifts; positions / totals are their sum. */
+  crews: ReportCrew[];
+  eveningThaiMale: number | null;
+  eveningThaiFemale: number | null;
+  eveningForeignMale: number | null;
+  eveningForeignFemale: number | null;
   equipment: { equipmentType: SiteEquipmentType; qty: number }[];
   morningStatus: ShiftStatus;
   morningSubmittedAt: string | null;
@@ -232,17 +253,22 @@ export interface MorningPayload {
   startTime: string;
   endTime: string;
   workHours: number;
-  disciplines: Discipline[];
   weather: WeatherCondition;
   temperatureC?: number;
   humidityPct?: number;
-  positions: { position: PositionCode; headcount: number }[];
   equipment: { equipmentType: SiteEquipmentType; qty: number }[];
+  crews: (CrewPayload & {
+    allocations: { buildingId: string; headcount: number; workDescription: string; planPercent: number }[];
+  })[];
+}
+
+export interface CrewPayload {
+  discipline: Discipline;
+  positions: { position: PositionCode; headcount: number }[];
   thaiMale: number;
   thaiFemale: number;
   foreignMale: number;
   foreignFemale: number;
-  allocations: { buildingId: string; headcount: number; workDescription: string; planPercent: number }[];
 }
 
 export interface EveningPayload {
@@ -252,6 +278,7 @@ export interface EveningPayload {
   accidentOccurred: boolean;
   accidentNote?: string;
   accidentCategory?: AccidentCategory;
+  crews: CrewPayload[];
   progress: { allocationId: string; actualPercent: number; countermeasure?: string }[];
   signatureName: string;
   signatureData: string;
@@ -401,4 +428,16 @@ export interface DailyRequests {
   machinery: WeeklyBooking[];
   equipmentRequests: ReportEquipmentRequest[];
   roads: (ReportRoadUsage & { conflict: boolean })[];
+}
+
+// Everything the printed "Daily Request & Report" sheet needs (GET /daily-reports/:id/print).
+export interface PrintReport extends DailyReport {
+  signatureData: string | null;
+  projectName: string;
+  contractorCode: string;
+  contractorName: string;
+  /** Permits this contractor asked for (yesterday evening) to be used on reportDate. */
+  permitsToday: PlannedToday["permits"];
+  inspections: InspectionRequest[];
+  safetyRecord: { accidents: number; daysSinceLastAccident: number; lastAccidentDate: string | null };
 }

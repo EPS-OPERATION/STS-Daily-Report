@@ -19,6 +19,8 @@ export async function listActiveContractorsForUser(db: Db, userId: string): Prom
     .innerJoin(contractors, eq(contractorMemberships.contractorId, contractors.id))
     .where(
       and(eq(contractorMemberships.userId, userId), eq(contractorMemberships.status, "active")),
-    );
+    )
+    .orderBy(contractors.code);
   return rows;
 }
+

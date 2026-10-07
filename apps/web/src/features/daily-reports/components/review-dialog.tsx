@@ -1,5 +1,6 @@
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import ConstructionOutlinedIcon from "@mui/icons-material/ConstructionOutlined";
+import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import HealthAndSafetyOutlinedIcon from "@mui/icons-material/HealthAndSafetyOutlined";
@@ -97,6 +98,13 @@ function createMockDailyReport(row: ReviewQueueRow): DailyReport {
     signedAt: `${row.reportDate}T17:15:00Z`,
     hasSignature: true,
     positions: positions.filter((p) => p.headcount > 0),
+    eveningPositions: [],
+    eveningHeadcount: 0,
+    crews: [],
+    eveningThaiMale: null,
+    eveningThaiFemale: null,
+    eveningForeignMale: null,
+    eveningForeignFemale: null,
     equipment: [
       { equipmentType: "Mobile Crane", qty: 1 },
       { equipmentType: "Boom Lift", qty: 1 },
@@ -106,6 +114,7 @@ function createMockDailyReport(row: ReviewQueueRow): DailyReport {
     allocations: [
       {
         id: "alloc-1",
+        discipline: "CE",
         buildingId: "bld-4",
         buildingCode: "4",
         buildingName: "4 Turbine Generator Building",
@@ -117,6 +126,7 @@ function createMockDailyReport(row: ReviewQueueRow): DailyReport {
       },
       {
         id: "alloc-2",
+        discipline: "CE",
         buildingId: "bld-2.1",
         buildingCode: "2.1",
         buildingName: "2.1 Furnace & Boiler",
@@ -676,6 +686,14 @@ export function ReviewDialog({
       <DialogActions sx={{ p: 2.5, pt: 1.5, borderTop: 1, borderColor: "divider" }}>
         <Button onClick={onClose} disabled={busy}>
           ปิด
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<PictureAsPdfOutlinedIcon />}
+          disabled={!report}
+          onClick={() => report && window.open(`/daily-reports/${report.id}/print`, "_blank", "noopener")}
+        >
+          Export PDF
         </Button>
         <Button
           variant="outlined"

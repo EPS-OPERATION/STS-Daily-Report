@@ -208,7 +208,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
       <Box sx={{ p: collapsed ? 1.5 : 2 }}>
         <Box sx={{ borderRadius: 2, bgcolor: "rgba(255,255,255,0.06)", p: 1.5, textAlign: "center" }}>
           <Typography variant="body2" sx={{ fontWeight: 600, display: collapsed ? "none" : "block" }}>
-            {isContractor ? (me.data?.data.contractors[0]?.name ?? "Contractor Field") : "Biomass Power Plant"}
+            {isContractor ? ((me.data?.data.contractors.length ?? 0) > 1 ? "ผู้รับเหมาทั้งหมด (ทดลอง)" : (me.data?.data.contractors[0]?.name ?? "Contractor Field")) : "Biomass Power Plant"}
           </Typography>
           <Typography variant="caption" sx={{ color: "#9DB4CC", display: collapsed ? "none" : "block" }}>
             {isContractor ? "STS Daily Field" : "STS Project"}
