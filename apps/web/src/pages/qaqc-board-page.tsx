@@ -2,12 +2,7 @@ import { useMemo, useState } from "react";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -28,21 +23,17 @@ import { useSearchParams } from "react-router-dom";
 import { CHART_SERIES } from "@/app/theme/chart-palette.js";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
-import { useMe } from "@/features/auth/index.js";
 import {
   ContractorBadge,
-  RequestStatusChip,
   addDaysIso,
   contractorColorMap,
   formatThaiDate,
   inspectionTypeLabel,
   todayIso,
   useInspectionRequests,
-  useTransitionRequest,
   type InspectionRequest,
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
-import { HttpError } from "@/services/http/client.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DAYS = 62;
@@ -74,9 +65,6 @@ export function QaqcBoardPage() {
   const scheduleQuery = useInspectionRequests(projectId, { from: today, to: tomorrow, by: "inspection" });
   const historyQuery = useInspectionRequests(tooLong ? null : projectId, { from, to, by: "inspection" });
   const [searchQuery, setSearchQuery] = useState("");
-  const isEps = useMe().data?.data.user.role === "eps";
-  const move = useTransitionRequest();
-  const [notPass, setNotPass] = useState<InspectionRequest | null>(null);
 
   const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
@@ -131,12 +119,6 @@ export function QaqcBoardPage() {
         subtitle="คำขอตรวจงาน (Request For Inspection) ที่ผู้รับเหมาส่งมาพร้อมรายงานช่วงบ่าย"
         actions={<DateRangeFields from={from} to={to} maxDays={MAX_DAYS} onChange={setRange} />}
       />
-
-      {move.error instanceof HttpError ? (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => move.reset()}>
-          {move.error.message}
-        </Alert>
-      ) : null}
 
       {tooLong && (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -248,23 +230,22 @@ export function QaqcBoardPage() {
         <Divider />
         {historyQuery.isLoading ? (
           <Box sx={{ p: 2.5 }}>
-            <Skeleton variant="rounded" height={200} />
+            <Skeleton variant="rounded" height={160} />
           </Box>
         ) : filteredHistory.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 6, textAlign: "center" }}>
+          <Typography variant="body2" color="text.secondary" sx={{ p: 4, textAlign: "center" }}>
             {searchQuery ? "ไม่พบรายการที่ตรงกับคำค้นหา" : "ไม่มีคำขอตรวจในช่วงวันที่เลือก"}
           </Typography>
         ) : (
           <TableContainer>
-            <Table size="small" sx={{ minWidth: 860 }}>
+            <Table size="small" sx={{ minWidth: 720 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ width: 120 }}>วันตรวจ</TableCell>
-                  <TableCell sx={{ width: 80 }}>เวลา</TableCell>
-                  <TableCell sx={{ width: 110 }}>ผู้รับเหมา</TableCell>
-                  <TableCell sx={{ width: 180 }}>อาคาร / ตำแหน่ง</TableCell>
+                  <TableCell sx={{ width: 130 }}>วันตรวจ</TableCell>
+                  <TableCell sx={{ width: 90 }}>เวลา</TableCell>
+                  <TableCell sx={{ width: 120 }}>ผู้รับเหมา</TableCell>
+                  <TableCell sx={{ width: 220 }}>อาคาร / ตำแหน่ง</TableCell>
                   <TableCell>รายการตรวจ</TableCell>
-                  <TableCell sx={{ width: 250 }}>สถานะ</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -291,34 +272,6 @@ export function QaqcBoardPage() {
                         {r.workItem}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      {isEps && r.status === "confirmed" ? (
-                        <Stack direction="row" spacing={0.75} sx={{ "& .MuiButton-root": { whiteSpace: "nowrap" } }}>
-                          <Button size="small" color="warning" disabled={move.isPending} onClick={() => setNotPass(r)}>
-                            not pass (Correct)
-                          </Button>
-                          <Button
-                            size="small"
-                            color="success"
-                            disabled={move.isPending}
-                            onClick={() => move.mutate({ id: r.id, to: "inspected", result: "pass" })}
-                          >
-                            pass
-                          </Button>
-                        </Stack>
-                      ) : isEps && r.status === "requested" ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          disabled={move.isPending}
-                          onClick={() => move.mutate({ id: r.id, to: "confirmed" })}
-                        >
-                          Confirm
-                        </Button>
-                      ) : (
-                        <RequestStatusChip status={r.status} result={r.result} />
-                      )}
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -326,51 +279,7 @@ export function QaqcBoardPage() {
           </TableContainer>
         )}
       </Card>
-
-      {notPass ? (
-        <NotPassDialog
-          request={notPass}
-          busy={move.isPending}
-          onCancel={() => setNotPass(null)}
-          onSave={(note) =>
-            move.mutate({ id: notPass.id, to: "inspected", result: "fail", note }, { onSuccess: () => setNotPass(null) })
-          }
-        />
-      ) : null}
     </Box>
-  );
-}
-
-function NotPassDialog({
-  request,
-  busy,
-  onCancel,
-  onSave,
-}: {
-  request: InspectionRequest;
-  busy: boolean;
-  onCancel: () => void;
-  onSave: (note: string) => void;
-}) {
-  const [note, setNote] = useState("");
-  return (
-    <Dialog open onClose={onCancel} fullWidth maxWidth="xs">
-      <DialogTitle>Not pass (Correct)</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" sx={{ mb: 2 }}>
-          {request.contractorCode} · {inspectionTypeLabel(request.inspectionType)} · {request.workItem}
-        </Typography>
-        <TextField label="สิ่งที่ต้องแก้ไข" value={note} onChange={(e) => setNote(e.target.value)} multiline minRows={2} fullWidth autoFocus />
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button variant="text" color="inherit" onClick={onCancel}>
-          ยกเลิก
-        </Button>
-        <Button color="warning" disabled={busy || !note.trim()} onClick={() => onSave(note.trim())}>
-          บันทึก not pass
-        </Button>
-      </DialogActions>
-    </Dialog>
   );
 }
 

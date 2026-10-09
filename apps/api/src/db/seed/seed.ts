@@ -126,10 +126,6 @@ await db
   })
   .onConflictDoNothing({ target: users.id });
 
-await db
-  .insert(contractorMemberships)
-  .values([{ userId: USER_CONTRACTOR, contractorId: CONTRACTOR_A, status: "active" }])
-  .onConflictDoNothing();
 
 // --- Site-plan vertical slice ---
 await db
@@ -328,19 +324,48 @@ await db
   )
   .onConflictDoNothing();
 
-// --- Sample contractor daily reports for the current week (dev only) ---
-// Codes follow the site badges (ZCE/LCE/UME). Contractor A (the dev login) gets
-// no report for today so the morning/evening flow can be exercised from scratch.
-const SAMPLE_CONTRACTORS = [
-  { id: "66666666-6666-4666-8666-666666666666", code: "ZCE", name: "Zhongtian Overseas Engineering (sample)" },
-  { id: "77777777-7777-4777-8777-777777777777", code: "LCE", name: "L-TAP Engineering (sample)" },
-  { id: "88888888-8888-4888-8888-888888888888", code: "UME", name: "UME Contractor (sample)" },
+// --- All 23 contractors for STS project (per official Discipline list) ---
+const SITE_CONTRACTORS = [
+  { id: "c0010000-0000-4000-8000-000000000001", code: "BEE", name: "Blue White - Electrical" },
+  { id: "c0010000-0000-4000-8000-000000000002", code: "EPS", name: "Eco Plant Services" },
+  { id: "c0010000-0000-4000-8000-000000000003", code: "FCE", name: "Fast steel - Civil" },
+  { id: "c0010000-0000-4000-8000-000000000004", code: "FEE", name: "Fast steel - Electrical" },
+  { id: "c0010000-0000-4000-8000-000000000005", code: "KME", name: "Khwan Rungrueang - Mechanical" },
+  { id: "77777777-7777-4777-8777-777777777777", code: "LCE", name: "L-tab - Civil" },
+  { id: "c0010000-0000-4000-8000-000000000007", code: "PEE", name: "Pattara - Electrical" },
+  { id: "c0010000-0000-4000-8000-000000000008", code: "QCI", name: "Unique Conveyor - Control&Instrument" },
+  { id: "c0010000-0000-4000-8000-000000000009", code: "QEE", name: "Unique Conveyor - Electrical" },
+  { id: "c0010000-0000-4000-8000-000000000010", code: "QME", name: "Unique Conveyor - Mechanical" },
+  { id: "c0010000-0000-4000-8000-000000000011", code: "RME", name: "Ruangsan Engineer - Mechanical" },
+  { id: "c0010000-0000-4000-8000-000000000012", code: "SCE", name: "Szone - Civil" },
+  { id: "c0010000-0000-4000-8000-000000000013", code: "SCI", name: "Sinoma - Control&Instrument" },
+  { id: "c0010000-0000-4000-8000-000000000014", code: "SCM", name: "Sinoma - Commissioning" },
+  { id: "c0010000-0000-4000-8000-000000000015", code: "SEE", name: "Sinoma - Electrical" },
+  { id: "c0010000-0000-4000-8000-000000000016", code: "SFP", name: "Sinoma - Fire Fighting & Protection" },
+  { id: "c0010000-0000-4000-8000-000000000017", code: "SGE", name: "Sinoma - General" },
+  { id: "c0010000-0000-4000-8000-000000000018", code: "SIN", name: "Sinoma - Thermal Insulation" },
+  { id: "c0010000-0000-4000-8000-000000000019", code: "SME", name: "Sinoma - Mechanical" },
+  { id: "c0010000-0000-4000-8000-000000000020", code: "SPI", name: "Sinoma - Piping" },
+  { id: "88888888-8888-4888-8888-888888888888", code: "UME", name: "Utai Seya - Mechanical" },
+  { id: "c0010000-0000-4000-8000-000000000022", code: "UPP", name: "Utai Seya - Piping" },
+  { id: "66666666-6666-4666-8666-666666666666", code: "ZCE", name: "Zhongtian - Civil" },
 ];
-await db.insert(contractors).values(SAMPLE_CONTRACTORS).onConflictDoNothing({ target: contractors.id });
+
+for (const c of SITE_CONTRACTORS) {
+  await db
+    .insert(contractors)
+    .values(c)
+    .onConflictDoUpdate({
+      target: contractors.id,
+      set: { code: c.code, name: c.name },
+    });
+}
 await db
   .insert(projectContractors)
-  .values(SAMPLE_CONTRACTORS.map((c) => ({ projectId: PROJECT_ID, contractorId: c.id })))
+  .values(SITE_CONTRACTORS.map((c) => ({ projectId: PROJECT_ID, contractorId: c.id })))
   .onConflictDoNothing();
+
+const SAMPLE_CONTRACTORS = SITE_CONTRACTORS.filter((c) => ["ZCE", "LCE", "UME"].includes(c.code));
 
 // One login per sample contractor: contractor01→ZCE, 02→LCE, 03→UME (email only, no password).
 const SAMPLE_USERS = SAMPLE_CONTRACTORS.map((c, i) => ({
@@ -354,10 +379,12 @@ await db
   .insert(users)
   .values(SAMPLE_USERS.map(({ contractorId: _, ...u }) => u))
   .onConflictDoNothing({ target: users.id });
-await db
-  .insert(contractorMemberships)
-  .values(SAMPLE_USERS.map((u) => ({ userId: u.id, contractorId: u.contractorId, status: "active" as const })))
-  .onConflictDoNothing();
+for (const u of SAMPLE_USERS) {
+  await db.delete(contractorMemberships).where(eq(contractorMemberships.userId, u.id));
+  await db
+    .insert(contractorMemberships)
+    .values({ userId: u.id, contractorId: u.contractorId, status: "active" as const });
+}
 
 // Shared trial login: one account that can report for every contractor on the project
 // (the field report page has a contractor picker). Email only, like the others.
@@ -366,16 +393,19 @@ await db
   .insert(users)
   .values({ id: TRIAL_USER_ID, email: "trial@sts.local", displayName: "Trial (all contractors)", status: "active" })
   .onConflictDoNothing({ target: users.id });
-await db
-  .insert(contractorMemberships)
-  .values(
-    [CONTRACTOR_A, CONTRACTOR_B, CONTRACTOR_C, ...SAMPLE_CONTRACTORS.map((c) => c.id)].map((contractorId) => ({
-      userId: TRIAL_USER_ID,
-      contractorId,
-      status: "active" as const,
-    })),
-  )
-  .onConflictDoNothing();
+
+for (const userId of [TRIAL_USER_ID, USER_CONTRACTOR]) {
+  await db.delete(contractorMemberships).where(eq(contractorMemberships.userId, userId));
+  await db
+    .insert(contractorMemberships)
+    .values(
+      SITE_CONTRACTORS.map((c) => ({
+        userId,
+        contractorId: c.id,
+        status: "active" as const,
+      })),
+    );
+}
 
 type SamplePlan = {
   contractorId: string;

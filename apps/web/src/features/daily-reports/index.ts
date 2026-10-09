@@ -40,3 +40,4 @@ export { WorkDoneSummaryTable, type WorkDoneItem } from "./components/work-done-
 export { TomorrowPlanTable, type TomorrowActivityItem } from "./components/tomorrow-plan-table.js";
 export { formatThaiDate, mondayOf, todayIso, addDaysIso, timeWindowLabel } from "./utils/dates.js";
 export { compressImage, type CompressOptions } from "./utils/image-compression.js";
+export { ContractorFilterPopover, type ContractorFilterItem } from "./components/contractor-filter-popover.js";

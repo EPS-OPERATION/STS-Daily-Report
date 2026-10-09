@@ -28,6 +28,8 @@ import { PageHeader } from "@/components/ui/page-header.js";
 import { SiteConditionsStrip } from "@/components/dashboard/site-conditions-strip.js";
 import { HIGHLIGHTS, KPI_BY_RANGE } from "@/mock/site-data.js";
 import { CoordinationMapBoard, useCoordinationState } from "@/features/site-coordination/index.js";
+import { addDaysIso, todayIso, useInspectionRequests } from "@/features/daily-reports/index.js";
+import { useCurrentProject } from "@/features/projects/index.js";
 
 type Range = "today" | "week" | "month";
 
@@ -48,6 +50,15 @@ export function DashboardPage() {
   const days = valid ? to!.diff(from!, "day") : 0;
   const bucket: Range = days === 0 ? "today" : days < 8 ? "week" : "month";
   const kpi = KPI_BY_RANGE[bucket];
+
+  // QAQC card: real RFIs scheduled for today (and tomorrow) — not tied to the picked range.
+  const { projectId } = useCurrentProject();
+  const today = todayIso();
+  const tomorrow = addDaysIso(today, 1);
+  const rfi = useInspectionRequests(projectId, { from: today, to: tomorrow, by: "inspection" });
+  const rfiRows = (rfi.data?.data ?? []).filter((r) => r.status !== "draft");
+  const rfiToday = rfiRows.filter((r) => r.inspectionDate === today).length;
+  const rfiTomorrow = rfiRows.filter((r) => r.inspectionDate === tomorrow).length;
   const rangeLabel = !valid
     ? "End date is before start date — showing today's figures"
     : days === 0
@@ -121,11 +132,10 @@ export function DashboardPage() {
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard
-            label="QAQC"
-            value={String(kpi.qaqc.value)}
-            unit="pending"
-            sub={kpi.qaqc.sub}
-            subTone="error"
+            label="QAQC · Today RFI"
+            value={rfi.isLoading ? "–" : String(rfiToday)}
+            unit="รายการ"
+            sub={rfi.isLoading ? "" : `พรุ่งนี้ ${rfiTomorrow} รายการ`}
             icon={<FactCheckOutlinedIcon />}
             iconBg={theme.palette.warning.light}
             iconFg={theme.palette.warning.dark}

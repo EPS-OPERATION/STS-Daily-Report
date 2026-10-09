@@ -347,7 +347,7 @@ function RequestDialog({
                 render={({ field }) => (
                   <TextField
                     {...field}
-                    label="Drawing / Rev."
+                    label="หมายเลขเอกสาร"
                     placeholder="เช่น STSBPP-EB-C-023 Rev.03"
                     fullWidth
                     size="small"
