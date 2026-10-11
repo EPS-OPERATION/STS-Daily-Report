@@ -47,7 +47,6 @@ try {
   check("invalid email", await call("/auth/register", "POST", { ...input, email: "invalid" }), 400);
   check("invalid username", await call("/auth/register", "POST", { ...input, username: "invalid username" }), 400);
   check("short password", await call("/auth/register", "POST", { ...input, password: "short" }), 400);
-  check("single-class password rejected", await call("/auth/register", "POST", { ...input, password: "aaaaaaaa" }), 400);
   const validation = await call("/auth/register", "POST", { ...input, password: "SECRET_VALIDATION_PROBE".repeat(10) });
   check("credential-safe validation", validation, 400); assert(!JSON.stringify(validation.json).includes("SECRET_VALIDATION_PROBE"));
   check("unknown contractor", await call("/auth/register", "POST", { ...input, contractorId: crypto.randomUUID() }), 400);

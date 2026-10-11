@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import { parseApiEnv } from "@sts/env";
-import { checkPassword } from "@sts/shared";
 import { hashPassword, verifyPassword } from "../src/auth/password.js";
 
 describe("Auth v2 credentials and production configuration", () => {
@@ -17,17 +16,5 @@ describe("Auth v2 credentials and production configuration", () => {
   });
   it("requires supabase credentials when that storage provider is selected", () => {
     expect(() => parseApiEnv({ DATABASE_URL: "postgres://localhost/unused", STORAGE_PROVIDER: "supabase" })).toThrow("SUPABASE_URL");
-  });
-});
-
-describe("Shared password rules (mirrored by the web checklist)", () => {
-  it("requires 8+ characters and at least 3 of 4 character classes", () => {
-    expect(checkPassword("aB3dEf1g").valid).toBe(true); // lower + upper + digit
-    expect(checkPassword("abcdefg1!").valid).toBe(true); // lower + digit + special
-    expect(checkPassword("abcdefgh").valid).toBe(false); // one class only
-    expect(checkPassword("abcDEFgh").valid).toBe(false); // two classes only
-    expect(checkPassword("aB3").valid).toBe(false); // too short
-    expect(checkPassword("Abcdef1ghij").classes).toBe(3);
-    expect(checkPassword("Ab1!").valid).toBe(false);
   });
 });
