@@ -1,11 +1,9 @@
-import { timingSafeEqual } from "node:crypto";
 import { Elysia } from "elysia";
 import { normalizePagination } from "@sts/shared";
-import { InvalidLoginError } from "@/shared/errors/app-error.js";
 import { getEnv } from "@/config/env.js";
-import { ok, paginated } from "@/shared/http/response.js";
 import { requireAuth } from "@/middleware/require-auth.js";
-import { demoLoginEnabled, limitAuthAttempts, loadMe, loginWithEmail, loginWithPassword, logoutSession, registerUser, registrationOptions } from "./auth.service.js";
+import { ok, paginated } from "@/shared/http/response.js";
+import { limitAuthAttempts, loadMe, loginWithPassword, logoutSession, registerUser, registrationOptions } from "./auth.service.js";
 import { loginBody, registerBody, resetPasswordBody } from "./auth.schema.js";
 import { resetPassword } from "./password-reset.service.js";
 import { listContractorsQuery } from "@/modules/contractors/contractor.schema.js";
@@ -22,19 +20,10 @@ function cookieJar(cookie: Record<string, { value?: unknown } | undefined>) {
   return jar;
 }
 
-// Hosted demo: the email login also needs the shared access code (DEMO_ACCESS_CODE).
-function accessCodeOk(given: string | undefined): boolean {
-  const expected = getEnv().DEMO_ACCESS_CODE;
-  if (!expected) return true;
-  const a = Buffer.from(given ?? "");
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 export const authRoutes = new Elysia({ prefix: "/auth" })
   .onAfterHandle(({ set }) => { set.headers["cache-control"] = "no-store"; })
-  // Public: tells the login page whether to show the access-code box.
-  .get("/config", () => ok({ accessCodeRequired: Boolean(getEnv().DEMO_ACCESS_CODE), demoLoginEnabled: demoLoginEnabled(), allowResubmit: getEnv().ALLOW_RESUBMIT }))
+  // Public feature flags for the login/field pages (trial resubmit mode).
+  .get("/config", () => ok({ allowResubmit: getEnv().ALLOW_RESUBMIT }))
   .get("/registration-options", async ({ query }) => {
     const p = normalizePagination(query);
     const { rows, total } = await registrationOptions({ ...p, projectId: query.projectId });
@@ -53,10 +42,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
   .post("/login", async ({ body, cookie, set }) => {
     const identifier = "identifier" in body ? body.identifier : body.email;
     await limitAuthAttempts("login", identifier.trim().toLowerCase(), 30);
-    if (!("password" in body) && !accessCodeOk(body.accessCode)) throw new InvalidLoginError("Email or access code is not valid.");
-    const { context, token, expiresAt } = "password" in body
-      ? await loginWithPassword(identifier, body.password)
-      : await loginWithEmail(body.email);
+    const { context, token, expiresAt } = await loginWithPassword(identifier, body.password);
     const env = getEnv();
     const jar = cookieJar(cookie as Record<string, { value?: unknown } | undefined>);
     jar?.set({

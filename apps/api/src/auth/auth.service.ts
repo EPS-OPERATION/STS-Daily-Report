@@ -1,11 +1,9 @@
-import { getDb } from "@/db/client.js";
-import { getEnv } from "@/config/env.js";
+import { toUserRole } from "@sts/shared";
+import { ConflictError, ForbiddenError, InvalidLoginError, RateLimitedError, ValidationError } from "@/shared/errors/app-error.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { listContractorsService } from "@/modules/contractors/contractor.service.js";
-import { ConflictError, ForbiddenError, InvalidLoginError, RateLimitedError, ValidationError } from "@/shared/errors/app-error.js";
-import { toUserRole } from "@sts/shared";
-import { countAuthAttempt, findUserByEmail, findUserById, findUserByIdentifier, insertRegisteredUser, listActiveContractorsForUser, normalizeEmail } from "./auth.repository.js";
-import { DEMO_ACCOUNTS } from "./demo-accounts.js";
+import { getDb } from "@/db/client.js";
+import { countAuthAttempt, findUserById, findUserByIdentifier, insertRegisteredUser, listActiveContractorsForUser, normalizeEmail } from "./auth.repository.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import { hashSessionToken } from "./session.service.js";
 import { createSession, revokeSessionToken, validateSessionToken } from "./session.service.js";
@@ -20,19 +18,6 @@ async function buildContext(userId: string): Promise<AuthContext> {
   };
 }
 
-export async function loginWithEmail(
-  email: string,
-): Promise<{ context: AuthContext; token: string; expiresAt: Date }> {
-  const user = await findUserByEmail(getDb(), email);
-  if (!demoLoginEnabled() || !user || user.status !== "active" || !DEMO_ACCOUNTS.some((d) => d.id === user.id && d.email === user.email)) throw new InvalidLoginError();
-  const { token, expiresAt } = await createSession(user.id);
-  const context: AuthContext = {
-    user: { id: user.id, email: user.email, displayName: user.displayName, role: toUserRole(user.role) },
-    identity: { method: "session" },
-  };
-  return { context, token, expiresAt };
-}
-
 export async function resolveAuthIdentity(rawToken: string | undefined): Promise<AuthIdentity | null> {
   if (!rawToken) return null;
   const valid = await validateSessionToken(rawToken);
@@ -45,10 +30,6 @@ export async function resolveAuthIdentity(rawToken: string | undefined): Promise
   }
 }
 
-export function demoLoginEnabled() {
-  const env = getEnv();
-  return env.ALLOW_DEMO_LOGIN || (env.NODE_ENV !== "production" && env.AUTH_PROVIDER === "local-email");
-}
 export async function limitAuthAttempts(kind: string, key: string, limit: number) {
   if (await countAuthAttempt(getDb(), `${kind}:${hashSessionToken(key)}`) > limit) throw new RateLimitedError();
 }

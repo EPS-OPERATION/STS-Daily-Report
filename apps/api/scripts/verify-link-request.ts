@@ -2,14 +2,18 @@ import { strict as assert } from "node:assert";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "../src/db/client.js";
 import { contractorMemberships, projects, users } from "../src/db/schema/index.js";
+import { hashPassword } from "../src/auth/password.js";
 
 // Explicit local integration check for project-scoped memberships and admin linking.
+// Self-provisioning: creates its own admin + eps_site fixtures (seed inserts no users).
 const database = new URL(process.env.DATABASE_URL!);
 assert(["localhost", "127.0.0.1"].includes(database.hostname) && database.port === "5432", "Local test database on :5432 required");
 const base = "http://localhost:3000/api/v1";
 const db = getDb();
 const prefix = `lk${Date.now()}`;
 const email = `${prefix}@example.test`;
+const adminEmail = `${prefix}-admin@example.test`;
+const siteEmail = `${prefix}-site@example.test`;
 const today = new Date().toISOString().slice(0, 10);
 let passed = 0;
 let tempProjectId: string | null = null;
@@ -24,6 +28,14 @@ function check(name: string, result: { status: number }, expected: number) {
   console.log(`PASS ${name}: ${result.status}`); passed++;
 }
 try {
+  const passwordHash = await hashPassword("VerifyPass123!");
+  await db.insert(users).values([
+    { email: adminEmail, username: `${prefix}admin`, displayName: "QA Admin", role: "eps_admin", status: "active", passwordHash },
+    { email: siteEmail, username: `${prefix}site`, displayName: "QA EPS Site", role: "eps_site", status: "active", passwordHash },
+  ]);
+  const fixtures = await db.select({ id: users.id }).from(users).where(inArray(users.email, [adminEmail, siteEmail]));
+  assert.equal(fixtures.length, 2); ids.push(...fixtures.map((f) => f.id));
+
   const [project] = await db.select({ id: projects.id }).from(projects).orderBy(projects.createdAt);
   assert(project);
   const empty = await call(`/auth/registration-options?pageSize=100&projectId=${crypto.randomUUID()}`);
@@ -38,8 +50,8 @@ try {
   check("register Other company", await call("/auth/register", "POST", { email, username: prefix, password: "VerifyPass123!", companyName: "Link QA Co" }), 201);
   const [row] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
   assert(row); ids.push(row.id);
-  const eps = await call("/auth/login", "POST", { identifier: "eps", password: "sts123456" });
-  check("eps admin login", eps, 201);
+  const eps = await call("/auth/login", "POST", { identifier: adminEmail, password: "VerifyPass123!" });
+  check("admin fixture login", eps, 201);
   check("approve Other (no membership)", await call(`/users/${row.id}/approve`, "POST", {}, eps.cookie), 200);
   assert.equal((await db.select().from(contractorMemberships).where(eq(contractorMemberships.userId, row.id))).length, 0);
   const login = await call("/auth/login", "POST", { identifier: prefix, password: "VerifyPass123!" });
@@ -61,12 +73,12 @@ try {
   check("no membership in another project → 403", await call(`/projects/${tempProjectId}/daily-reports/current?date=${today}`, "GET", undefined, login.cookie), 403);
 
   check("eps_site cannot link users", await (async () => {
-    const site = await call("/auth/login", "POST", { identifier: "eps-site", password: "sts123456" });
+    const site = await call("/auth/login", "POST", { identifier: siteEmail, password: "VerifyPass123!" });
     assert.equal(site.status, 201, "eps-site login");
     return call(`/users/${row.id}/link`, "POST", { contractorId }, site.cookie);
   })(), 403);
   check("eps_site cannot access user management", await (async () => {
-    const site = await call("/auth/login", "POST", { identifier: "eps-site", password: "sts123456" });
+    const site = await call("/auth/login", "POST", { identifier: siteEmail, password: "VerifyPass123!" });
     assert.equal(site.status, 201, "eps-site login");
     return call("/users?status=pending", "GET", undefined, site.cookie);
   })(), 403);

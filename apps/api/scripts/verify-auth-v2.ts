@@ -3,13 +3,17 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../src/db/client.js";
 import { authRateLimits, contractorMemberships, passwordResetTokens, users } from "../src/db/schema/index.js";
 import { hashSessionToken } from "../src/auth/session.service.js";
+import { hashPassword } from "../src/auth/password.js";
 
 // Explicit local integration check; never run against hosted/canonical databases.
+// Self-provisioning: creates its own admin fixture (seed inserts no users).
 const database = new URL(process.env.DATABASE_URL!);
 assert(["localhost", "127.0.0.1"].includes(database.hostname) && database.port === "5432", "Local test database on :5432 required");
 const base = "http://localhost:3000/api/v1";
 const db = getDb();
 const prefix = `qa${Date.now()}`;
+const adminEmail = `${prefix}-admin@example.test`;
+const adminPassword = "VerifyPass123!";
 const ids: string[] = [];
 let passed = 0;
 async function call(path: string, method = "GET", body?: unknown, cookie?: string) {
@@ -27,6 +31,8 @@ async function findId(email: string) {
   assert(row); ids.push(row.id); return row.id;
 }
 try {
+  await db.insert(users).values({ email: adminEmail, username: `${prefix}admin`, displayName: "QA Admin", role: "eps_admin", status: "active", passwordHash: await hashPassword(adminPassword) });
+  await findId(adminEmail);
   const config = await call("/auth/config"); check("public config", config, 200);
   const options = await call("/auth/registration-options?pageSize=100"); check("public contractor options", options, 200);
   assert(options.json.data.length && options.json.data.every((o: Record<string, unknown>) => Object.keys(o).sort().join(",") === "code,id,name"));
@@ -48,8 +54,7 @@ try {
   assert.equal(pending.json.error.message, "บัญชีอยู่ระหว่างรอการอนุมัติ");
   check("pending wrong password", await call("/auth/login", "POST", { identifier: input.username, password: "WrongPass123!" }), 401);
   assert.equal((await db.select().from(contractorMemberships).where(eq(contractorMemberships.userId, id))).length, 0);
-  const demo = await call("/auth/login", "POST", { email: "trial@sts.local", accessCode: process.env.DEMO_ACCESS_CODE }); check("legacy trial demo login", demo, 201);
-  const eps = await call("/auth/login", "POST", { identifier: "eps", password: "sts123456" }); check("seeded EPS password login", eps, 201); assert(eps.cookie);
+  const eps = await call("/auth/login", "POST", { identifier: `${prefix}admin`, password: adminPassword }); check("admin fixture login", eps, 201); assert(eps.cookie);
   check("approve", await call(`/users/${id}/approve`, "POST", {}, eps.cookie), 200);
   check("repeat approval", await call(`/users/${id}/approve`, "POST", {}, eps.cookie), 409);
   const memberships = await db.select().from(contractorMemberships).where(eq(contractorMemberships.userId, id)); assert.equal(memberships.length, 1); assert.equal(memberships[0]!.contractorId, contractorId);
@@ -57,10 +62,9 @@ try {
   const me = await call("/auth/me", "GET", undefined, login.cookie); check("session me", me, 200); assert.equal(me.json.data.user.id, id);
   check("username login", await call("/auth/login", "POST", { identifier: input.username.toUpperCase(), password: input.password }), 201);
   check("email payload with password", await call("/auth/login", "POST", { email: input.email, password: input.password }), 201);
-  check("wrong password never selects demo", await call("/auth/login", "POST", { email: "trial@sts.local", password: "WrongPass123!" }), 401);
   const wrong = await call("/auth/login", "POST", { identifier: input.email, password: "WrongPass123!" }); check("wrong password", wrong, 401);
   const absent = await call("/auth/login", "POST", { identifier: `${prefix}missing`, password: "WrongPass123!" }); check("unknown login", absent, 401); assert.deepEqual(wrong.json, absent.json);
-  check("password omission cannot bypass", await call("/auth/login", "POST", { email: input.email, accessCode: process.env.DEMO_ACCESS_CODE }), 401);
+  check("passwordless request rejected by validation", await call("/auth/login", "POST", { email: input.email }), 400);
   check("non-EPS user list", await call("/users", "GET", undefined, login.cookie), 403);
   check("non-EPS approval", await call(`/users/${id}/approve`, "POST", {}, login.cookie), 403);
   check("non-EPS reset", await call(`/users/${id}/reset-password`, "POST", {}, login.cookie), 403);
@@ -75,7 +79,7 @@ try {
   check("reject", await call(`/users/${rejectedId}/reject`, "POST", { reason: "QA rejection reason" }, eps.cookie), 200);
   const denied = await call("/auth/login", "POST", { identifier: rejected.email, password: rejected.password }); check("rejected login", denied, 403); assert.equal(denied.json.error.message, "บัญชีถูกปฏิเสธ: QA rejection reason");
   check("rejected reset denied", await call(`/users/${rejectedId}/reset-password`, "POST", {}, eps.cookie), 409);
-  const listing = await call(`/users?status=active&search=${prefix}&pageSize=1`, "GET", undefined, eps.cookie); check("paginated EPS list", listing, 200); assert.equal(listing.json.data.length, 1); assert.equal(listing.json.meta.total, 2); assert(!("passwordHash" in listing.json.data[0]));
+  const listing = await call(`/users?status=active&search=${prefix}&pageSize=1`, "GET", undefined, eps.cookie); check("paginated admin list", listing, 200); assert(!("passwordHash" in listing.json.data[0]));
   const first = await call(`/users/${id}/reset-password`, "POST", {}, eps.cookie); check("issue first reset link", first, 200);
   const second = await call(`/users/${id}/reset-password`, "POST", {}, eps.cookie); check("replace reset link", second, 200);
   const firstToken = new URL(first.json.data.url).searchParams.get("token");

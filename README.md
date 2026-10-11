@@ -80,9 +80,8 @@ UUID PKs, `created_at/updated_at` timestamptz. Drizzle config: `apps/api/drizzle
 ## 9. Seed data
 
 `bun db:seed` — master data only: 1 project (STS-001), 23 site contractors + project links, 21 zones +
-1 site plan + 16 map areas, 15 buildings + markers, dev logins (`eps` / `contractor` / `trial` /
-`contractor01–03`). No sample reports — the seeded DB is deploy-ready (demo rows live in git history
-before 2026-10-11). Idempotent.
+1 site plan + 16 map areas, 15 buildings + markers. No users and no sample reports — the seeded DB is
+deploy-ready; create the first admin with `apps/api/scripts/bootstrap-admin.ts` (see §15). Idempotent.
 
 ## 10. Frontend conventions
 
@@ -129,7 +128,8 @@ pg localhost:5432 · minio http://localhost:9000, console http://localhost:9001.
 `/login` has Sign in and Create account tabs. Contractor registration stores normalized email and username,
 an Argon2id password hash, and exactly one requested contractor or free-text company name. Usernames are
 3–20 characters (`a-z`, `0-9`, `.`, `_`, `-`); passwords are 8–128 characters and are never trimmed.
-Registration creates a `pending` contractor user without a membership or session. EPS accounts remain seeded.
+Registration creates a `pending` contractor user without a membership or session. EPS accounts are never
+seeded — create the first administrator with the bootstrap script (below).
 
 User administration on `/admin/users` — approvals, contractor linking, password reset links, role changes,
 account disable/re-enable — is `eps_admin`-only. Roles: `contractor` (field app), `eps_site` (EPS operations
@@ -154,14 +154,14 @@ all sessions in one transaction. Password login and reset synchronize on the use
 
 Public API (exact methods; all paths below use `/api/v1`):
 
-- `GET /auth/config`, `GET /auth/registration-options?page&pageSize&search` (contractor IDs/codes/names only)
+- `GET /auth/config` (`allowResubmit` flag), `GET /auth/registration-options?page&pageSize&search&projectId` (contractor IDs/codes/names only)
 - `POST /auth/register {email, username, password, contractorId? , companyName?}`
-- `POST /auth/login {identifier, password}` (email or username); legacy demo body `{email, accessCode?}` remains supported
+- `POST /auth/login {identifier, password}` (email or username; `{email, password}` is also accepted)
 - `POST /auth/reset-password {token, password}`
 
-Session API: `GET /auth/me`, `POST /auth/logout`. Staff API (`eps_site`/`eps_admin`):
-`GET /users?status&page&pageSize&search` (eps_site may only query `status=pending`),
-`POST /users/:id/approve {contractorId?}`, `POST /users/:id/reject {reason}`. Admin-only API:
+Session API: `GET /auth/me`, `POST /auth/logout`. Admin-only API (`eps_admin`):
+`GET /users?status&page&pageSize&search&projectId`, `POST /users/:id/approve {contractorId?, projectId?}`,
+`POST /users/:id/reject {reason}`, `POST /users/:id/link {contractorId, projectId?}`,
 `POST /users/:id/reset-password` (returns the raw link once), `PATCH /users/:id/role {role}`, and
 `PATCH /users/:id/status {active|disabled}` (disabling revokes the user's sessions; role/status changes on
 your own account are rejected). Responses never expose password hashes.
@@ -169,28 +169,22 @@ your own account are rejected). Responses never expose password hashes.
 registration 100 and reset 60 attempts per network peer per 15 minutes. Behind a proxy the peer can be shared;
 configure deployment-level throttling for the real client IP. Expired counter rows can be pruned operationally.
 
-Normal production: `AUTH_PROVIDER=password`, `ALLOW_DEMO_LOGIN=false`. `WEB_ORIGIN` is the comma-separated
+Production uses password auth only — there is no email-only/demo login. `WEB_ORIGIN` is the comma-separated
 CORS allowlist; `WEB_URL` is the canonical frontend URL for reset links (defaults to the first allowed origin).
-Legacy email-only demos require `ALLOW_DEMO_LOGIN=true`, or `AUTH_PROVIDER=local-email` outside production,
-and are restricted to the six seeded identities. `DEMO_ACCESS_CODE` applies only to that demo path.
-Keep hosted demos behind deployment protection. Newly registered users can never use email-only login.
 
-Local development seed users: `eps@sts.local` (eps_admin), `eps-site@sts.local` (eps_site),
-`contractor@sts.local`, `trial@sts.local`, and `contractor01@sts.local`–`contractor03@sts.local`;
-usernames are their email prefixes, default password `sts123456`. Demo identities are seeded only in
-development or when `ALLOW_DEMO_LOGIN=true` — a production seed inserts just the EPS administrator.
-Credentials are initialized only in development when missing; seed never overwrites a changed
-password. Do not use these shared credentials for a live deployment. The API dev/migration/seed scripts load
-the root `.env` explicitly, including when invoked through workspace filters.
+No user accounts are seeded in any environment. Create the first EPS administrator explicitly: set
+`EPS_BOOTSTRAP_EMAIL` and `EPS_BOOTSTRAP_PASSWORD` (8–128 chars) in the process environment and run
+`bun apps/api/scripts/bootstrap-admin.ts` from the root. It creates the `eps_admin` account when missing, or
+initializes the password of an existing passwordless active EPS administrator (revoking its sessions); it
+never overwrites an existing password. Never commit the bootstrap secret. Contractors then self-register and
+are approved/linked from `/admin/users`. The API dev/migration/seed scripts load the root `.env` explicitly,
+including when invoked through workspace filters.
 
-For an existing production EPS administrator account with no password, an operator sets `EPS_BOOTSTRAP_EMAIL` and
-`EPS_BOOTSTRAP_PASSWORD` through the process environment and runs
-`bun apps/api/scripts/bootstrap-eps-password.ts` from the root. This initializes only a passwordless active
-EPS account and revokes its sessions; it cannot overwrite an existing password. Never commit the bootstrap
-secret or place a default production password in seed data. Password login does not verify email ownership;
-EPS approval and private delivery of reset links are the identity-verification step for this internal workflow.
+Password login does not verify email ownership; admin approval and private delivery of reset links are the
+identity-verification step for this internal workflow.
 
 Verification: `bun typecheck`, `bun test`, `bun run build`. With the local API on port 3000 and local
-Postgres on 5432, run `bun --env-file=.env apps/api/scripts/verify-auth-v2.ts`. This checks actual API responses,
-membership data, reset/session behavior and concurrency, then removes only its uniquely named QA users.
-Migration `0016_elite_turbo` is generated by Drizzle (SQL, snapshot, and journal).
+Postgres on 5432, run `bun --env-file=.env apps/api/scripts/verify-auth-v2.ts` and
+`bun --env-file=.env apps/api/scripts/verify-link-request.ts`. Both self-provision their admin fixtures,
+check real API responses, membership data, reset/session behavior and concurrency, then remove only the
+fixtures they created. Migrations `0016`–`0018` are generated by Drizzle (SQL, snapshot, and journal).

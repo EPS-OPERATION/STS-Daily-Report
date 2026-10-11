@@ -10,11 +10,11 @@ describe("Auth v2 credentials and production configuration", () => {
     expect(await verifyPassword("Password with spaces", hash)).toBe(false);
     expect(await verifyPassword(" Password with spaces ", null)).toBe(false);
   });
-  it("allows password production without opting into demo login", () => {
-    const env = parseApiEnv({ DATABASE_URL: "postgres://localhost/unused", NODE_ENV: "production", AUTH_PROVIDER: "password" });
-    expect(env.ALLOW_DEMO_LOGIN).toBe(false);
+  it("parses production config without any demo opt-ins", () => {
+    const env = parseApiEnv({ DATABASE_URL: "postgres://localhost/unused", NODE_ENV: "production" });
+    expect(env.NODE_ENV).toBe("production");
   });
-  it("still refuses unapproved local-email production", () => {
-    expect(() => parseApiEnv({ DATABASE_URL: "postgres://localhost/unused", NODE_ENV: "production", AUTH_PROVIDER: "local-email" })).toThrow("Refusing to start");
+  it("requires supabase credentials when that storage provider is selected", () => {
+    expect(() => parseApiEnv({ DATABASE_URL: "postgres://localhost/unused", STORAGE_PROVIDER: "supabase" })).toThrow("SUPABASE_URL");
   });
 });

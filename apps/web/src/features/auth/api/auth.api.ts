@@ -6,7 +6,7 @@ export const authApi = {
   login(payload: LoginPayload): Promise<LoginResponse> {
     return http.post<LoginResponse>("/auth/login", payload);
   },
-  config(): Promise<{ data: { accessCodeRequired: boolean; demoLoginEnabled: boolean; allowResubmit: boolean } }> {
+  config(): Promise<{ data: { allowResubmit: boolean } }> {
     return http.get("/auth/config");
   },
   me(): Promise<MeResponse> {
