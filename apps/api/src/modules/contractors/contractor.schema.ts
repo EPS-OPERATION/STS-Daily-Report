@@ -8,6 +8,7 @@ export const listContractorsQuery = t.Object({
   sort: t.Optional(t.String()),
   order: t.Optional(t.Union([t.Literal("asc"), t.Literal("desc")])),
   search: t.Optional(t.String()),
+  projectId: t.Optional(t.String({ format: "uuid" })),
 });
 
 export const createContractorBody = t.Object({

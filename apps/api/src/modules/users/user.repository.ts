@@ -4,19 +4,8 @@ import type { QueryDb } from "@/db/client.js";
 import { contractorMemberships, contractors, sessions, users } from "@/db/schema/index.js";
 import type { ListUsersQuery, UserStatus } from "./user.type.js";
 
-// Approved contractors without a membership that asked for a company link (self-service).
-const linkRequest = and(
-  eq(users.status, "active"),
-  sql`${users.requestedContractorId} IS NOT NULL`,
-  sql`NOT EXISTS (SELECT 1 FROM ${contractorMemberships} m WHERE m.user_id = ${users.id} AND m.status = 'active')`,
-);
-
 export async function listUsers(db: QueryDb, q: ListUsersQuery) {
-  const statusWhere = q.status === "pending"
-    ? or(eq(users.status, "pending"), linkRequest)
-    : q.status
-      ? eq(users.status, q.status)
-      : undefined;
+  const statusWhere = q.status ? eq(users.status, q.status) : undefined;
   const where = and(statusWhere, q.search ? or(
     ilike(users.email, `%${q.search}%`), ilike(users.username, `%${q.search}%`), ilike(users.requestedCompanyName, `%${q.search}%`),
   ) : undefined);

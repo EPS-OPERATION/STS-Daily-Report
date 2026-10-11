@@ -26,3 +26,7 @@ export function useChangeUserStatus() {
   const client = useQueryClient();
   return useMutation({ mutationFn: (input: { id: string; status: "active" | "disabled" }) => usersApi.changeStatus(input.id, input.status), onSuccess: () => client.invalidateQueries({ queryKey: usersKeys.lists() }) });
 }
+export function useLinkUser() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (input: { id: string; contractorId: string }) => usersApi.link(input.id, input.contractorId), onSuccess: () => client.invalidateQueries({ queryKey: usersKeys.lists() }) });
+}

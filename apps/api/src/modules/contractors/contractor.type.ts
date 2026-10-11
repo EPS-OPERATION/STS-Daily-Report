@@ -22,4 +22,5 @@ export interface ListContractorsQuery {
   sort?: string;
   order?: "asc" | "desc";
   search?: string;
+  projectId?: string;
 }

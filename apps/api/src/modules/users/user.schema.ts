@@ -14,3 +14,4 @@ export const changeStatusBody = t.Object(
   { status: t.Union([t.Literal("active"), t.Literal("disabled")]) },
   { additionalProperties: false },
 );
+export const linkUserBody = t.Object({ contractorId: t.String({ format: "uuid" }) }, { additionalProperties: false });

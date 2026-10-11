@@ -4,7 +4,7 @@ import { getContractorById } from "@/modules/contractors/contractor.repository.j
 import { listContractorsService } from "@/modules/contractors/contractor.service.js";
 import { ConflictError, ForbiddenError, InvalidLoginError, RateLimitedError, ValidationError } from "@/shared/errors/app-error.js";
 import { toUserRole } from "@sts/shared";
-import { countAuthAttempt, findUserByEmail, findUserById, findUserByIdentifier, insertRegisteredUser, listActiveContractorsForUser, normalizeEmail, updateRequestedContractor } from "./auth.repository.js";
+import { countAuthAttempt, findUserByEmail, findUserById, findUserByIdentifier, insertRegisteredUser, listActiveContractorsForUser, normalizeEmail } from "./auth.repository.js";
 import { DEMO_ACCOUNTS } from "./demo-accounts.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import { hashSessionToken } from "./session.service.js";
@@ -95,21 +95,9 @@ export async function registerUser(input: RegisterInput) {
   }
   return { status: "pending" as const };
 }
-export async function registrationOptions(query: { page: number; pageSize: number; search?: string }) {
+export async function registrationOptions(query: { page: number; pageSize: number; search?: string; projectId?: string }) {
   const result = await listContractorsService({ ...query, sort: "name", order: "asc" });
   return { rows: result.rows.map(({ id, code, name }) => ({ id, code, name })), total: result.total };
-}
-
-// Approved-but-unlinked contractors may propose their company; EPS approves the link afterward.
-export async function requestContractorLink(auth: AuthContext, contractorId: string) {
-  if (auth.user.role !== "contractor") throw new ForbiddenError("Only contractor accounts can request a company link.");
-  const db = getDb();
-  if ((await listActiveContractorsForUser(db, auth.user.id)).length > 0) {
-    throw new ConflictError("Your account is already linked to a contractor.");
-  }
-  if (!(await getContractorById(db, contractorId))) throw new ValidationError("Unknown contractor");
-  await updateRequestedContractor(db, auth.user.id, contractorId);
-  return { requestedContractorId: contractorId };
 }
 
 export async function loadAuthContext(identity: AuthIdentity): Promise<AuthContext> {

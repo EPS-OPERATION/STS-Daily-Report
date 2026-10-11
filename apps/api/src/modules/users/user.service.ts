@@ -22,12 +22,7 @@ export async function decideUserService(auth: AuthContext, id: string, decision:
   return getDb().transaction(async (tx) => {
     const user = await findUserById(tx, id, true);
     if (!user) throw new NotFoundError("User not found");
-    const isPending = user.status === "pending" && user.role === "contractor";
-    // Approved contractors without a membership and a pending link request follow the same queue.
-    const isLinkRequest = !isPending && user.status === "active" && user.role === "contractor"
-      && Boolean(user.requestedContractorId) && (await countActiveMemberships(tx, id)) === 0;
-    if (!isPending && !isLinkRequest) throw new ConflictError("Only pending registrations or contractor link requests can be decided.");
-    if (isLinkRequest && decision === "rejected") throw new ConflictError("Link requests cannot be rejected; approve the chosen contractor instead.");
+    if (user.status !== "pending" || user.role !== "contractor") throw new ConflictError("Only pending contractor registrations can be decided.");
     const contractorId = input.contractorId ?? user.requestedContractorId;
     if (decision === "active" && contractorId) {
       // A referenced contractor must exist before approval can grant its membership.
@@ -37,6 +32,21 @@ export async function decideUserService(auth: AuthContext, id: string, decision:
     }
     await decideUser(tx, id, decision, auth.user.id, reason);
     return { id, status: decision };
+  });
+}
+// eps_admin: link an approved contractor account to its company (one-step admin action).
+export async function linkUserService(auth: AuthContext, id: string, contractorId: string) {
+  assertEpsAdmin(auth);
+  return getDb().transaction(async (tx) => {
+    const user = await findUserById(tx, id, true);
+    if (!user) throw new NotFoundError("User not found");
+    if (user.role !== "contractor") throw new ConflictError("Only contractor accounts can be linked to a contractor.");
+    if (user.status !== "active") throw new ConflictError("Only active accounts can be linked to a contractor.");
+    if ((await countActiveMemberships(tx, id)) > 0) throw new ConflictError("This account is already linked to a contractor.");
+    const contractor = await getContractorById(tx, contractorId);
+    if (!contractor) throw new ValidationError("Unknown contractor");
+    await activateMembership(tx, id, contractorId);
+    return { id, contractorId };
   });
 }
 export async function issueResetLinkService(auth: AuthContext, id: string) {

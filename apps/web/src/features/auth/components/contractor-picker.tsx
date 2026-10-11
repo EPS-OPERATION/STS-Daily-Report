@@ -7,13 +7,13 @@ import { useEffect, useState } from "react";
 import { authApi } from "../api/auth.api.js";
 import { authKeys } from "../api/auth.keys.js";
 
-export function ContractorPicker({ value, onChange, allowOther = true, selectedName, error, disabled }: {
-  value: string; onChange: (id: string) => void; allowOther?: boolean; selectedName?: string; error?: string; disabled?: boolean;
+export function ContractorPicker({ value, onChange, allowOther = true, selectedName, error, disabled, projectId }: {
+  value: string; onChange: (id: string) => void; allowOther?: boolean; selectedName?: string; error?: string; disabled?: boolean; projectId?: string;
 }) {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   useEffect(() => { const timer = window.setTimeout(() => setDebounced(search), 250); return () => window.clearTimeout(timer); }, [search]);
-  const query = useQuery({ queryKey: authKeys.contractors(debounced), queryFn: () => authApi.contractors(debounced), staleTime: 60_000 });
+  const query = useQuery({ queryKey: authKeys.contractors(debounced, projectId), queryFn: () => authApi.contractors(debounced, projectId), staleTime: 60_000 });
   const other = { id: "other", code: "", name: "อื่นๆ (Other)" };
   const options = [...(query.data?.data ?? []), ...(allowOther ? [other] : [])];
   const chosen = options.find((o) => o.id === value) ?? (value ? { id: value, code: "", name: selectedName ?? "Selected contractor" } : null);

@@ -131,13 +131,13 @@ an Argon2id password hash, and exactly one requested contractor or free-text com
 3–20 characters (`a-z`, `0-9`, `.`, `_`, `-`); passwords are 8–128 characters and are never trimmed.
 Registration creates a `pending` contractor user without a membership or session. EPS accounts remain seeded.
 
-User administration on `/admin/users` — approvals, link requests, password reset links, role changes,
+User administration on `/admin/users` — approvals, contractor linking, password reset links, role changes,
 account disable/re-enable — is `eps_admin`-only. Roles: `contractor` (field app), `eps_site` (EPS operations
 — review, QAQC, safety, daily work; no user or contractor administration), and `eps_admin` (everything,
-including the contractor master data page `/contractors`). An approved
-contractor without a company sees a self-service picker on the field page: `POST /auth/link-request`
-stores the chosen contractor and the row reappears in the pending queue as a link request for the admin to
-approve. Approval can select an existing contractor;
+including the contractor master data page `/contractors`). An approved contractor without a company sees a
+"contact the administrator" screen; the admin links it in one step from the Active tab of `/admin/users`
+(**Link contractor** → `POST /users/:id/link`). The registration and link pickers list only contractors of
+the current project (`GET /auth/registration-options?projectId=...`). Approval can select an existing contractor;
 membership and approval are committed together. Approving an Other company without a mapping preserves
 its name and creates no contractor or membership. The signed-in field app shows an unlinked-company state
 and does not permit report submission. Rejection requires a reason; only a correct password reveals a

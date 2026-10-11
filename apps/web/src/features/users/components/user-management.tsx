@@ -17,7 +17,9 @@ import { USER_ROLES, isEpsStaff, type UserRole } from "@sts/shared";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { useMe } from "@/features/auth/index.js";
-import { useChangeUserRole, useChangeUserStatus, useIssueResetLink, useUsers } from "../hooks/use-users.js";
+import { ContractorPicker } from "@/features/auth/components/contractor-picker.js";
+import { useCurrentProject } from "@/features/projects/index.js";
+import { useChangeUserRole, useChangeUserStatus, useIssueResetLink, useLinkUser, useUsers } from "../hooks/use-users.js";
 import type { ManagedUser, UserStatus } from "../types/user.types.js";
 import { UserDecisionDialog } from "./user-decision-dialog.js";
 
@@ -31,32 +33,38 @@ export function UserManagement() {
   const me = useMe();
   const isAdmin = me.data?.data.user.role === "eps_admin";
   const myId = me.data?.data.user.id;
+  const { projectId } = useCurrentProject();
   const [status, setStatus] = useState<UserStatus>("pending");
   const [pagination, setPagination] = useState({ page: 0, pageSize: 20 });
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [decision, setDecision] = useState<{ user: ManagedUser; action: "approve" | "reject" } | null>(null);
   const [resetUser, setResetUser] = useState<ManagedUser | null>(null);
+  const [linkTarget, setLinkTarget] = useState<ManagedUser | null>(null);
+  const [linkContractorId, setLinkContractorId] = useState("");
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const reset = useIssueResetLink();
+  const link = useLinkUser();
   const changeRole = useChangeUserRole();
   const changeStatus = useChangeUserStatus();
-  const mutating = changeRole.isPending || changeStatus.isPending;
+  const mutating = changeRole.isPending || changeStatus.isPending || link.isPending;
   useEffect(() => { const timer = window.setTimeout(() => { setDebounced(search); setPagination((p) => ({ ...p, page: 0 })); }, 250); return () => window.clearTimeout(timer); }, [search]);
   // eps_site only ever sees the pending approval queue; admin tabs stay hidden.
   useEffect(() => { if (me.isSuccess && !isAdmin && status !== "pending") setStatus("pending"); }, [isAdmin, me.isSuccess, status]);
   const users = useUsers({ status, ...pagination, page: pagination.page + 1, search: debounced });
-  const actionsWidth = status === "pending" ? 180 : status === "active" && isAdmin ? 430 : 170;
+  const actionsWidth = status === "pending" ? 180 : status === "active" && isAdmin ? 560 : 170;
+  const openLink = (row: ManagedUser) => { link.reset(); setLinkContractorId(""); setLinkTarget(row); };
   const columns: GridColDef<ManagedUser>[] = [
     { field: "email", headerName: "Email", flex: 1, minWidth: 210 },
     { field: "username", headerName: "Username", width: 150 },
     { field: "role", headerName: "Role", width: 150, valueGetter: (_, row) => ROLE_LABEL[row.role] },
-    { field: "company", headerName: "Requested contractor / company", flex: 1, minWidth: 220, valueGetter: (_, row) => row.requestedContractorName ?? row.requestedCompanyName ?? (isEpsStaff(row.role) ? "EPS staff" : "Legacy account") },
+    { field: "company", headerName: "Requested contractor / company", flex: 1, minWidth: 220, valueGetter: (_, row) => row.requestedContractorName ?? row.requestedCompanyName ?? (isEpsStaff(row.role) ? "EPS staff" : row.membershipCount === 0 && row.role === "contractor" && row.status === "active" ? "ยังไม่ผูกผู้รับเหมา" : "Legacy account") },
     { field: "createdAt", headerName: "Requested date", width: 170, valueFormatter: (value: string) => new Date(value).toLocaleString("th-TH") },
     ...(status === "rejected" ? [{ field: "rejectionReason", headerName: "Reason", flex: 1, minWidth: 160 }] : []),
     { field: "actions", headerName: "Actions", sortable: false, filterable: false, width: actionsWidth, renderCell: ({ row }) => <Stack direction="row" spacing={1} sx={{ alignItems: "center", height: "100%" }}>
-      {status === "pending" ? (row.status === "active" ? <Button size="small" aria-label={`Link ${row.username ?? row.email}`} onClick={() => setDecision({ user: row, action: "approve" })}>Link</Button> : <><Button size="small" aria-label={`Approve ${row.username ?? row.email}`} onClick={() => setDecision({ user: row, action: "approve" })}>Approve</Button><Button size="small" color="error" aria-label={`Reject ${row.username ?? row.email}`} onClick={() => setDecision({ user: row, action: "reject" })}>Reject</Button></>) : status === "active" ? <>
+      {status === "pending" ? <><Button size="small" aria-label={`Approve ${row.username ?? row.email}`} onClick={() => setDecision({ user: row, action: "approve" })}>Approve</Button><Button size="small" color="error" aria-label={`Reject ${row.username ?? row.email}`} onClick={() => setDecision({ user: row, action: "reject" })}>Reject</Button></> : status === "active" ? <>
+        {row.role === "contractor" && row.membershipCount === 0 ? <Button size="small" variant="outlined" aria-label={`Link ${row.username ?? row.email}`} disabled={mutating} onClick={() => openLink(row)}>Link contractor</Button> : null}
         {isAdmin ? <Button size="small" variant="text" aria-label={`Reset password for ${row.username ?? row.email}`} onClick={() => { reset.reset(); setCopied(false); setCopyError(false); setResetUser(row); }}>Reset password</Button> : null}
         {isAdmin && row.id !== myId ? <>
           <Select
@@ -76,7 +84,7 @@ export function UserManagement() {
   ];
   const mutateError = changeRole.error ?? changeStatus.error;
   return <Box>
-    <PageHeader title="User management" subtitle="Review registrations and help active users recover account access" />
+    <PageHeader title="User management" subtitle="Review registrations, link companies, and manage accounts" />
     <Stack spacing={2}>
       <Tabs value={status} onChange={(_, value: UserStatus) => { setStatus(value); setPagination((p) => ({ ...p, page: 0 })); }} aria-label="User status" variant="scrollable">
         <Tab label="Pending registrations" value="pending" />
@@ -92,6 +100,19 @@ export function UserManagement() {
         localeText={{ noRowsLabel: status === "pending" ? "No registrations awaiting approval" : "No users found" }} /></Box>
     </Stack>
     {decision && <UserDecisionDialog key={`${decision.user.id}-${decision.action}`} {...decision} onClose={() => setDecision(null)} />}
+    <Dialog open={Boolean(linkTarget)} onClose={link.isPending ? undefined : () => { setLinkTarget(null); link.reset(); }} fullWidth maxWidth="sm">
+      <DialogTitle>Link contractor</DialogTitle>
+      <DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
+        <Typography>{linkTarget?.email} · {linkTarget?.username}</Typography>
+        {link.isError && <Alert severity="error">{link.error.message}</Alert>}
+        <ContractorPicker value={linkContractorId} onChange={setLinkContractorId} allowOther={false} projectId={projectId ?? undefined} disabled={link.isPending} />
+        <Typography color="text.secondary">Links this account to the selected contractor in the current project. The user can then submit daily reports.</Typography>
+      </Stack></DialogContent>
+      <DialogActions>
+        <Button color="inherit" disabled={link.isPending} onClick={() => { setLinkTarget(null); link.reset(); }}>Cancel</Button>
+        <Button variant="contained" disabled={!linkContractorId || link.isPending} onClick={() => linkTarget && link.mutate({ id: linkTarget.id, contractorId: linkContractorId }, { onSuccess: () => setLinkTarget(null) })}>{link.isPending ? "Linking…" : "Link contractor"}</Button>
+      </DialogActions>
+    </Dialog>
     <Dialog open={Boolean(resetUser)} onClose={reset.isPending ? undefined : () => { setResetUser(null); reset.reset(); }} fullWidth maxWidth="sm">
       <DialogTitle>Reset password</DialogTitle><DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
         <Typography>{resetUser?.email}</Typography>

@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
-import { contractors } from "@/db/schema/index.js";
+import { contractors, projectContractors } from "@/db/schema/index.js";
 import type { QueryDb as Db } from "@/db/client.js";
 import type { CreateContractorInput, ListContractorsQuery, UpdateContractorInput } from "./contractor.type.js";
 
@@ -16,6 +16,9 @@ export async function listContractors(db: Db, q: ListContractorsQuery) {
   if (q.search) {
     const pattern = `%${q.search}%`;
     conditions.push(or(ilike(contractors.code, pattern), ilike(contractors.name, pattern)));
+  }
+  if (q.projectId) {
+    conditions.push(sql`${contractors.id} IN (SELECT ${projectContractors.contractorId} FROM ${projectContractors} WHERE ${projectContractors.projectId} = ${q.projectId})`);
   }
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 

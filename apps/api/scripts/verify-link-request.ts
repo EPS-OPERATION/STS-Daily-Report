@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "../src/db/client.js";
-import { contractorMemberships, users } from "../src/db/schema/index.js";
+import { contractorMemberships, projects, users } from "../src/db/schema/index.js";
 
 // Explicit local integration check; never run against hosted/canonical databases.
 const database = new URL(process.env.DATABASE_URL!);
@@ -22,9 +22,17 @@ function check(name: string, result: { status: number }, expected: number) {
   console.log(`PASS ${name}: ${result.status}`); passed++;
 }
 try {
-  const options = await call("/auth/registration-options?pageSize=100");
-  check("contractor options", options, 200);
-  const contractorId = options.json.data[0].id as string;
+  // Project-filtered picker: unknown project → empty, real project → the seeded site list.
+  const empty = await call(`/auth/registration-options?pageSize=100&projectId=${crypto.randomUUID()}`);
+  check("project filter (unknown project → empty)", empty, 200);
+  assert.equal(empty.json.meta.total, 0);
+  const [project] = await db.select({ id: projects.id }).from(projects);
+  assert(project);
+  const filtered = await call(`/auth/registration-options?pageSize=100&projectId=${project.id}`);
+  check("project filter (real project)", filtered, 200);
+  assert.equal(filtered.json.meta.total, 23);
+  const contractorId = filtered.json.data[0].id as string;
+
   check("register Other company", await call("/auth/register", "POST", { email, username: prefix, password: "VerifyPass123!", companyName: "Link QA Co" }), 201);
   const [row] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
   assert(row); ids.push(row.id);
@@ -34,28 +42,31 @@ try {
   assert.equal((await db.select().from(contractorMemberships).where(eq(contractorMemberships.userId, row.id))).length, 0);
   const login = await call("/auth/login", "POST", { identifier: prefix, password: "VerifyPass123!" });
   check("approved unlinked login", login, 201);
-  check("link request", await call("/auth/link-request", "POST", { contractorId }, login.cookie), 200);
+
+  // Unlinked users stay out of the pending queue; linking is a one-step admin action.
   const pending = await call(`/users?status=pending&search=${prefix}`, "GET", undefined, eps.cookie);
-  check("link request in pending queue", pending, 200);
-  assert.equal(pending.json.data.length, 1);
-  assert.equal(pending.json.data[0].status, "active");
-  assert.equal(pending.json.data[0].membershipCount, 0);
-  check("reject link request is blocked", await call(`/users/${row.id}/reject`, "POST", { reason: "nope" }, eps.cookie), 409);
-  check("approve link", await call(`/users/${row.id}/approve`, "POST", {}, eps.cookie), 200);
-  const memberships = await db.select().from(contractorMemberships).where(eq(contractorMemberships.userId, row.id));
-  assert.equal(memberships.length, 1); assert.equal(memberships[0]!.contractorId, contractorId);
-  check("second link request conflicts", await call("/auth/link-request", "POST", { contractorId }, login.cookie), 409);
+  check("unlinked user is not a pending row", pending, 200);
+  assert.equal(pending.json.meta.total, 0);
+
+  // Route no longer exists; errorPlugin normalizes Elysia's 4xx (incl. 404) to 400.
+  check("self-service link API removed", await call("/auth/link-request", "POST", { contractorId }, login.cookie), 400);
+  check("eps_site cannot link users", await (async () => {
+    const site = await call("/auth/login", "POST", { identifier: "eps-site", password: "sts123456" });
+    assert.equal(site.status, 201, "eps-site login");
+    return call(`/users/${row.id}/link`, "POST", { contractorId }, site.cookie);
+  })(), 403);
   check("eps_site cannot access user management", await (async () => {
     const site = await call("/auth/login", "POST", { identifier: "eps-site", password: "sts123456" });
     assert.equal(site.status, 201, "eps-site login");
     return call("/users?status=pending", "GET", undefined, site.cookie);
   })(), 403);
-  check("eps_site cannot approve users", await (async () => {
-    const site = await call("/auth/login", "POST", { identifier: "eps-site", password: "sts123456" });
-    assert.equal(site.status, 201, "eps-site login");
-    return call(`/users/${row.id}/approve`, "POST", {}, site.cookie);
-  })(), 403);
-  console.log(`LINK REQUEST: ${passed} checks passed`);
+
+  check("admin links contractor", await call(`/users/${row.id}/link`, "POST", { contractorId }, eps.cookie), 200);
+  const memberships = await db.select().from(contractorMemberships).where(eq(contractorMemberships.userId, row.id));
+  assert.equal(memberships.length, 1); assert.equal(memberships[0]!.contractorId, contractorId);
+  check("second link conflicts", await call(`/users/${row.id}/link`, "POST", { contractorId }, eps.cookie), 409);
+  check("linking an already-linked account conflicts for repeat only", await call(`/users/${row.id}/link`, "POST", { contractorId: crypto.randomUUID() }, eps.cookie), 409);
+  console.log(`USER LINK: ${passed} checks passed`);
 } finally {
   if (ids.length) await db.delete(users).where(inArray(users.id, ids));
 }
