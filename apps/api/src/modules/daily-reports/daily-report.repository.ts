@@ -15,7 +15,7 @@ import {
   dailyReports,
   inspectionRequests,
 } from "@/db/schema/index.js";
-import { DISCIPLINE_CODES } from "@sts/shared";
+import { DISCIPLINE_CODES, allocationDayShares } from "@sts/shared";
 import type { Db } from "@/db/client.js";
 import type { BookingRow, CrewInput, EveningInput, MorningInput, RoadRow } from "./daily-report.type.js";
 
@@ -61,6 +61,9 @@ export async function listAllocations(db: Db, reportId: string) {
       discipline: dailyReportAllocations.discipline,
       headcount: dailyReportAllocations.headcount,
       workDescription: dailyReportAllocations.workDescription,
+      startTime: dailyReportAllocations.startTime,
+      endTime: dailyReportAllocations.endTime,
+      dayShare: dailyReportAllocations.dayShare,
       planPercent: dailyReportAllocations.planPercent,
       actualPercent: dailyReportAllocations.actualPercent,
       countermeasure: dailyReportAllocations.countermeasure,
@@ -524,12 +527,14 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
           .select({
             buildingId: dailyReportAllocations.buildingId,
             discipline: dailyReportAllocations.discipline,
+            startTime: dailyReportAllocations.startTime,
+            endTime: dailyReportAllocations.endTime,
             actualPercent: dailyReportAllocations.actualPercent,
             countermeasure: dailyReportAllocations.countermeasure,
           })
           .from(dailyReportAllocations)
           .where(eq(dailyReportAllocations.reportId, reportId))
-      ).map((a) => [`${a.discipline}|${a.buildingId}`, a]),
+      ).map((a) => [`${a.discipline}|${a.buildingId}|${a.startTime ?? ""}|${a.endTime ?? ""}`, a]),
     );
     await tx.delete(dailyReportAllocations).where(eq(dailyReportAllocations.reportId, reportId));
     await tx
@@ -549,18 +554,25 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
         .values(input.equipment.map((e) => ({ reportId, equipmentType: e.equipmentType, qty: e.qty })));
     }
     // Allocations of all crews, in crew order; sort_order keeps one running sequence.
-    const allocationRows = input.crews.flatMap((c) =>
-      c.allocations.map((a) => ({
-        reportId,
-        discipline: c.discipline,
-        buildingId: a.buildingId,
-        headcount: a.headcount,
-        workDescription: a.workDescription.trim(),
-        planPercent: a.planPercent,
-        actualPercent: previous.get(`${c.discipline}|${a.buildingId}`)?.actualPercent ?? null,
-        countermeasure: previous.get(`${c.discipline}|${a.buildingId}`)?.countermeasure ?? null,
-      })),
-    );
+    const allocationRows = input.crews.flatMap((c) => {
+      const shares = allocationDayShares(c.allocations, input.startTime, input.endTime);
+      return c.allocations.map((a, i) => {
+        const key = `${c.discipline}|${a.buildingId}|${a.startTime ?? ""}|${a.endTime ?? ""}`;
+        return {
+          reportId,
+          discipline: c.discipline,
+          buildingId: a.buildingId,
+          headcount: a.headcount,
+          workDescription: a.workDescription.trim(),
+          startTime: a.startTime ?? null,
+          endTime: a.endTime ?? null,
+          dayShare: shares[i] ?? 1,
+          planPercent: a.planPercent ?? null,
+          actualPercent: previous.get(key)?.actualPercent ?? null,
+          countermeasure: previous.get(key)?.countermeasure ?? null,
+        };
+      });
+    });
     await tx.insert(dailyReportAllocations).values(allocationRows.map((a, i) => ({ ...a, sortOrder: i })));
     return reportId;
   });
@@ -782,6 +794,7 @@ export async function listAllocationsInRange(db: Db, projectId: string, from: st
       contractorCode: contractors.code,
       contractorName: contractors.name,
       headcount: dailyReportAllocations.headcount,
+      dayShare: dailyReportAllocations.dayShare,
     })
     .from(dailyReportAllocations)
     .innerJoin(dailyReports, eq(dailyReportAllocations.reportId, dailyReports.id))
@@ -806,18 +819,19 @@ export async function listReportHoursInRange(db: Db, projectId: string, from: st
       thaiFemale: dailyReports.thaiFemale,
       foreignMale: dailyReports.foreignMale,
       foreignFemale: dailyReports.foreignFemale,
+      eveningThaiMale: dailyReports.eveningThaiMale,
+      eveningThaiFemale: dailyReports.eveningThaiFemale,
+      eveningForeignMale: dailyReports.eveningForeignMale,
+      eveningForeignFemale: dailyReports.eveningForeignFemale,
+      morningStatus: dailyReports.morningStatus,
+      eveningStatus: dailyReports.eveningStatus,
       workHours: dailyReports.workHours,
       otHours: dailyReports.otHours,
     })
     .from(dailyReports)
     .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
-    .where(
-      and(
-        eq(dailyReports.projectId, projectId),
-        eq(dailyReports.morningStatus, "submitted"),
-        between(dailyReports.reportDate, from, to),
-      ),
-    );
+    // Either half counts: an afternoon-only report still is a day worked.
+    .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReports.reportDate, from, to)));
 }
 
 export async function countRequestsByStatusInRange(db: Db, projectId: string, from: string, to: string) {
@@ -873,6 +887,9 @@ export async function listAllocationDetailsInRange(db: Db, projectId: string, fr
       contractorCode: contractors.code,
       contractorName: contractors.name,
       headcount: dailyReportAllocations.headcount,
+      dayShare: dailyReportAllocations.dayShare,
+      startTime: dailyReportAllocations.startTime,
+      endTime: dailyReportAllocations.endTime,
       workDescription: dailyReportAllocations.workDescription,
       planPercent: dailyReportAllocations.planPercent,
       actualPercent: dailyReportAllocations.actualPercent,

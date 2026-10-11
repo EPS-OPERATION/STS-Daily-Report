@@ -51,7 +51,7 @@ export function SafetyReportPrintPage() {
   }
 
   return (
-    <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Noto Sans Thai', 'Inter', sans-serif" }}>
+    <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
       <style>{`
         @page { size: A4 landscape; margin: 10mm; }
         @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }

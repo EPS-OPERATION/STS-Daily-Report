@@ -61,7 +61,7 @@ export function DailyReportPrintPage() {
   }
 
   return (
-    <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Noto Sans Thai', 'Inter', sans-serif" }}>
+    <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
       <style>{`
         @page { size: A4 portrait; margin: 8mm; }
         @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
@@ -258,19 +258,19 @@ function FormSheet({ r }: { r: PrintReport }) {
           {Array.from({ length: MAX_ACTIVITY_ROWS }, (_, i) => {
             const a = activities[i];
             const f = forecast[i];
-            const low = a && (a.actualPercent ?? 0) < a.planPercent;
+            const low = a && a.planPercent !== null && (a.actualPercent ?? 0) < a.planPercent;
             return (
               <tr key={i} style={{ height: 18 }}>
                 <td className="c">{i + 1}</td>
                 <td>{a?.workDescription ?? ""}</td>
                 <td className="c">{a?.headcount ?? ""}</td>
-                <td className="c">{a ? `${a.planPercent}%` : "%"}</td>
+                <td className="c">{a ? (a.planPercent === null ? "-" : `${a.planPercent}%`) : "%"}</td>
                 <td className="c" style={{ color: low ? "#b45309" : undefined, fontWeight: low ? 700 : undefined }}>
                   {a ? (a.actualPercent === null ? "-" : `${a.actualPercent}%`) : "%"}
                 </td>
                 <td className="c">{a?.buildingCode ?? ""}</td>
                 <td className="c">{i + 1}</td>
-                <td>{f ? `${inspectionTypeLabel(f.inspectionType)} · ${f.workItem}` : ""}</td>
+                <td>{f ? (f.inspectionType && f.inspectionType !== "other" ? `${inspectionTypeLabel(f.inspectionType)} · ${f.workItem}` : f.workItem) : ""}</td>
                 <td className="c">{f?.buildingCode ?? ""}</td>
               </tr>
             );
@@ -435,7 +435,7 @@ function SummarySheet({ r }: { r: PrintReport }) {
         </table>
       ) : null}
       <div style={{ marginTop: 3 }}>
-        ชม.ทำงาน {hrs} ชม./คน · OT {r.otHours ?? 0} ชม./คน · <b>NMH {r.manHours.toLocaleString()} ชม.</b> (คำนวณจากกำลังคนเช้า × (ชม.ทำงาน + OT))
+        ชม.ทำงาน {hrs} ชม./คน · OT {r.otHours ?? 0} ชม./คน · <b>NMH {r.manHours.toLocaleString()} ชม.</b> (man-day = (คนเช้า + คนบ่าย) ÷ 2 · NMH = man-day × ชม.ทำงาน + คนบ่าย × OT)
         {r.eveningHeadcount > 0 && sumOf(r.positions) > 0 && r.eveningHeadcount !== sumOf(r.positions)
           ? ` · กำลังคนเช้าและบ่ายต่างกัน ${Math.abs(r.eveningHeadcount - sumOf(r.positions))} คน`
           : ""}
@@ -455,7 +455,7 @@ function SummarySheet({ r }: { r: PrintReport }) {
         </thead>
         <tbody>
           {r.allocations.map((a) => {
-            const diff = a.actualPercent === null ? null : a.actualPercent - a.planPercent;
+            const diff = a.actualPercent === null || a.planPercent === null ? null : a.actualPercent - a.planPercent;
             return (
               <tr key={a.id}>
                 <td>{a.buildingName}</td>
@@ -464,7 +464,7 @@ function SummarySheet({ r }: { r: PrintReport }) {
                   {a.countermeasure ? <div style={{ color: "#b45309" }}>Countermeasure: {a.countermeasure}</div> : null}
                 </td>
                 <td className="c">{a.headcount}</td>
-                <td className="c">{a.planPercent}%</td>
+                <td className="c">{a.planPercent === null ? "-" : `${a.planPercent}%`}</td>
                 <td className="c">{a.actualPercent === null ? "-" : `${a.actualPercent}%`}</td>
                 <td className="c b" style={{ color: diff !== null && diff < 0 ? "#b45309" : "#127a2b" }}>
                   {diff === null ? "-" : diff > 0 ? `+${diff}%` : `${diff}%`}
@@ -498,7 +498,8 @@ function SummarySheet({ r }: { r: PrintReport }) {
               <tr key={i.id}>
                 <td className="c">ขอตรวจ QAQC</td>
                 <td>
-                  {inspectionTypeLabel(i.inspectionType)} · {i.workItem}
+                  {i.inspectionType && i.inspectionType !== "other" ? `${inspectionTypeLabel(i.inspectionType)} · ` : ""}
+                  {i.workItem}
                   {i.location ? ` · ${i.location}` : ""}
                 </td>
                 <td className="c">{i.buildingCode}</td>

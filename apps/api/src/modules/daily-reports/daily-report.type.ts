@@ -9,11 +9,15 @@ import type {
   WeatherCondition,
 } from "@sts/shared";
 
+// One Today Activity row: all day, or for an optional HH:mm window when the crew moves building.
 export interface AllocationInput {
   buildingId: string;
   headcount: number;
   workDescription: string;
-  planPercent: number;
+  startTime?: string;
+  endTime?: string;
+  /** Optional — without a plan the evening reports actual % only. */
+  planPercent?: number;
 }
 
 export interface MachineryInput {

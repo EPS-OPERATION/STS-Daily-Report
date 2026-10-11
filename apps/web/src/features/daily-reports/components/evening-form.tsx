@@ -27,14 +27,13 @@ import {
 import MenuItem from "@mui/material/MenuItem";
 import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormReturn } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
-import { useEnsureDraft, useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
+import { useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
 import { useWeeklySummary } from "../hooks/use-daily-report-queries.js";
 import { eveningSchema, type EveningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { addDaysIso, formatThaiDate, mondayOf } from "../utils/dates.js";
 import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
-import { PhotoSection } from "./photo-section.js";
 import { RequestSection } from "./request-section.js";
 import { SectionCard } from "./section-card.js";
 import { SignaturePad } from "./signature-pad.js";
@@ -80,7 +79,6 @@ export function EveningForm({
   onSubmitted: () => void;
 }) {
   const submit = useSubmitEvening(projectId);
-  const ensureDraft = useEnsureDraft(projectId);
   const tomorrow = addDaysIso(date, 1);
   // Other contractors' bookings for tomorrow → live clash hints on each request row.
   const tomorrowWeek = useWeeklySummary(projectId, mondayOf(tomorrow));
@@ -136,7 +134,7 @@ export function EveningForm({
       progress: allocations.map((a) => ({
         allocationId: a.id,
         planPercent: a.planPercent,
-        actualPercent: a.actualPercent ?? a.planPercent,
+        actualPercent: a.actualPercent ?? a.planPercent ?? 0,
         countermeasure: a.countermeasure ?? "",
       })),
       signatureName: report?.signatureName ?? "",
@@ -381,17 +379,8 @@ export function EveningForm({
         )}
       </SectionCard>
 
-      <SectionCard index={5} tone="navy" title="รูปถ่ายหน้างาน" subtitle="แยกหมวด Progress / Safety — อัปโหลดทันทีที่เลือก">
-        <PhotoSection
-          reportId={report?.id ?? null}
-          photos={report?.photos ?? []}
-          locked={false}
-          ensureReportId={async () => (await ensureDraft.mutateAsync({ date, contractorId: contractor.id })).data.id}
-        />
-      </SectionCard>
-
       <SectionCard
-        index={6}
+        index={5}
         tone="navy"
         title="คำขอและแผนงานสำหรับวันพรุ่งนี้ (Tomorrow's Requests)"
         subtitle={`สำหรับ ${formatThaiDate(tomorrow)} — ใช้ในประชุมประสานงาน 17:00 ส่งพร้อมรายงานบ่าย`}
@@ -419,7 +408,7 @@ export function EveningForm({
       </SectionCard>
 
       <SectionCard
-        index={7}
+        index={6}
         tone="navy"
         title="วัสดุหน้างาน (Materials on site)"
         subtitle="วัสดุที่รับเข้าหรือใช้ไปวันนี้ — กรอกเฉพาะที่มี"
@@ -427,7 +416,7 @@ export function EveningForm({
         <MaterialInputs control={control} />
       </SectionCard>
 
-      <SectionCard index={8} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
+      <SectionCard index={7} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
         <Stack spacing={1.5}>
           <Controller
             name="signatureName"
@@ -487,7 +476,10 @@ function ProgressRow({
   allocation: DailyReport["allocations"][number];
 }) {
   const actual = useWatch({ control, name: `progress.${index}.actualPercent` });
-  const behind = actual < allocation.planPercent;
+  const plan = allocation.planPercent;
+  // Without a stated plan there is nothing to be behind — actual % only.
+  const behind = plan !== null && actual < plan;
+  const when = allocation.startTime && allocation.endTime ? ` · ${allocation.startTime}–${allocation.endTime}` : "";
   return (
     <Card variant="outlined" sx={{ borderColor: behind ? "warning.main" : "divider" }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
@@ -496,7 +488,7 @@ function ProgressRow({
           <Chip size="small" label={allocation.discipline} sx={{ ml: 1, height: 20 }} />
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          {allocation.workDescription} · {allocation.headcount} คน
+          {allocation.workDescription} · {allocation.headcount} คน{when}
         </Typography>
         <Box sx={{ position: "relative", my: 1.5 }}>
           <LinearProgress
@@ -505,22 +497,24 @@ function ProgressRow({
             color={behind ? "warning" : "success"}
             sx={{ height: 10, borderRadius: 5 }}
           />
-          {/* Plan marker */}
-          <Box
-            aria-hidden
-            sx={{
-              position: "absolute",
-              top: -3,
-              bottom: -3,
-              width: 2,
-              bgcolor: "text.primary",
-              left: `calc(${allocation.planPercent}% - 1px)`,
-            }}
-          />
+          {plan !== null ? (
+            // Plan marker
+            <Box
+              aria-hidden
+              sx={{
+                position: "absolute",
+                top: -3,
+                bottom: -3,
+                width: 2,
+                bgcolor: "text.primary",
+                left: `calc(${plan}% - 1px)`,
+              }}
+            />
+          ) : null}
         </Box>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-end" spacing={2}>
           <Typography variant="body2" color="text.secondary">
-            แผน {allocation.planPercent}%
+            {plan !== null ? `แผน ${plan}%` : "ไม่ได้ระบุแผน"}
           </Typography>
           <Controller
             name={`progress.${index}.actualPercent`}
@@ -545,7 +539,7 @@ function ProgressRow({
             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 1 }}>
               <WarningAmberOutlinedIcon sx={{ fontSize: 18, color: "warning.dark" }} />
               <Typography variant="body2" sx={{ fontWeight: 600, color: "warning.dark" }}>
-                ต่ำกว่าแผน {allocation.planPercent - actual}% — ระบุ Countermeasure
+                ต่ำกว่าแผน {(plan ?? 0) - actual}% — ระบุ Countermeasure
               </Typography>
             </Stack>
             <Controller

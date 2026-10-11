@@ -37,7 +37,7 @@ export { inspectionTypeLabel } from "./components/request-section.js";
 export { ContractorBadge } from "./components/contractor-badge.js";
 export { ReviewDialog } from "./components/review-dialog.js";
 export { WorkDoneSummaryTable, type WorkDoneItem } from "./components/work-done-summary-table.js";
-export { TomorrowPlanTable, type TomorrowActivityItem } from "./components/tomorrow-plan-table.js";
+export { TomorrowAgenda, sortAgenda, type AgendaKind, type AgendaRow } from "./components/tomorrow-agenda.js";
 export { formatThaiDate, mondayOf, todayIso, addDaysIso, timeWindowLabel } from "./utils/dates.js";
 export { compressImage, type CompressOptions } from "./utils/image-compression.js";
 export { ContractorFilterPopover, type ContractorFilterItem } from "./components/contractor-filter-popover.js";

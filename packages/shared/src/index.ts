@@ -3,3 +3,4 @@ export * from "./pagination.js";
 export * from "./result.js";
 export * from "./utils.js";
 export * from "./daily-report.js";
+export * from "./allocation-time.js";

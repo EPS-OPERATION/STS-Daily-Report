@@ -24,8 +24,12 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
   return (
     <Stack spacing={2}>
       <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
-        {report.morningStatus === "submitted" ? "ส่งรายงานครบทั้งเช้าและบ่ายแล้ว" : "ส่งรายงานบ่ายแล้ว (ไม่มีรายงานเช้า)"}
-        {report.eveningSubmittedAt ? ` · ${dayjs(report.eveningSubmittedAt).format("HH:mm")}` : ""} — รอ EPS ตรวจสอบ
+        {report.morningStatus === "submitted" && report.eveningStatus === "submitted"
+          ? "ส่งรายงานครบทั้งเช้าและบ่ายแล้ว"
+          : report.eveningStatus === "submitted"
+            ? "ส่งรายงานบ่ายแล้ว (ไม่มีรายงานเช้า)"
+            : "ส่งรายงานเช้าแล้ว"}
+        {report.eveningSubmittedAt ? ` · ${dayjs(report.eveningSubmittedAt).format("HH:mm")}` : ""} — ปิดแก้ไขแล้ว (แก้ได้ถึง 12:00 น. วันถัดไป)
       </Alert>
       <Button
         variant="outlined"
@@ -71,7 +75,7 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
           <Divider sx={{ my: 1.5 }} />
           <Stack spacing={1.25}>
             {report.allocations.map((a) => {
-              const behind = (a.actualPercent ?? 0) < a.planPercent;
+              const behind = a.planPercent !== null && (a.actualPercent ?? 0) < a.planPercent;
               return (
                 <Box key={a.id}>
                   <Stack direction="row" justifyContent="space-between">
@@ -79,7 +83,7 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
                       {a.buildingName} · {a.headcount} คน
                     </Typography>
                     <Typography variant="body2" color={behind ? "warning.dark" : "success.dark"} sx={{ fontWeight: 700 }}>
-                      {a.actualPercent ?? "-"}% / แผน {a.planPercent}%
+                      {a.actualPercent ?? "-"}% / แผน {a.planPercent === null ? "—" : `${a.planPercent}%`}
                     </Typography>
                   </Stack>
                   <Typography variant="caption" color="text.secondary">

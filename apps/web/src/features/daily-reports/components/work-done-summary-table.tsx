@@ -36,7 +36,7 @@ export interface WorkDoneItem {
   buildingNameTh?: string | null;
   workDescription: string;
   headcount: number;
-  planPercent: number;
+  planPercent: number | null;
   actualPercent: number | null;
   countermeasure?: string | null;
 }
@@ -89,8 +89,10 @@ export function WorkDoneSummaryTable({
   );
 
   const avgPlan = useMemo(() => {
-    if (filteredItems.length === 0) return 0;
-    return filteredItems.reduce((sum, item) => sum + item.planPercent, 0) / filteredItems.length;
+    // Plan % is optional: average over the activities that stated one.
+    const planned = filteredItems.filter((item) => item.planPercent !== null);
+    if (planned.length === 0) return 0;
+    return planned.reduce((sum, item) => sum + (item.planPercent ?? 0), 0) / planned.length;
   }, [filteredItems]);
 
   const avgActual = useMemo(() => {
@@ -102,7 +104,7 @@ export function WorkDoneSummaryTable({
   const handleExportCsv = () => {
     const headers = ["Item", "Date", "Contractor", "Building", "Description of work done", "Headcount", "Plan %", "Actual %", "Status"];
     const rows = filteredItems.map((item, index) => {
-      const isBehind = item.actualPercent !== null && item.actualPercent < item.planPercent;
+      const isBehind = item.actualPercent !== null && item.planPercent !== null && item.actualPercent < item.planPercent;
       const status = item.actualPercent === null ? "Pending" : isBehind ? "ช้ากว่าแผน" : "ตามแผน";
       return [
         index + 1,
@@ -111,7 +113,7 @@ export function WorkDoneSummaryTable({
         `"${item.buildingName}"`,
         `"${item.workDescription.replace(/"/g, '""')}"`,
         item.headcount,
-        `${item.planPercent.toFixed(2)}%`,
+        item.planPercent === null ? "-" : `${item.planPercent === null ? "—" : `${item.planPercent.toFixed(2)}%`}`,
         item.actualPercent !== null ? `${item.actualPercent.toFixed(2)}%` : "-",
         status,
       ].join(",");
@@ -335,8 +337,8 @@ export function WorkDoneSummaryTable({
               </TableHead>
               <TableBody>
                 {filteredItems.map((item, index) => {
-                  const isBehind = item.actualPercent !== null && item.actualPercent < item.planPercent;
-                  const isAhead = item.actualPercent !== null && item.actualPercent > item.planPercent;
+                  const isBehind = item.actualPercent !== null && item.planPercent !== null && item.actualPercent < item.planPercent;
+                  const isAhead = item.actualPercent !== null && item.planPercent !== null && item.actualPercent > item.planPercent;
 
                   return (
                     <TableRow key={item.id} hover>
@@ -378,7 +380,7 @@ export function WorkDoneSummaryTable({
                         {item.headcount}
                       </TableCell>
                       <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 700, bgcolor: "action.hover" }}>
-                        {item.planPercent.toFixed(2)}%
+                        {item.planPercent === null ? "—" : `${item.planPercent.toFixed(2)}%`}
                       </TableCell>
                       <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 700, bgcolor: "action.hover" }}>
                         {item.actualPercent !== null ? (
@@ -405,7 +407,7 @@ export function WorkDoneSummaryTable({
                             size="small"
                             color="warning"
                             icon={<WarningAmberIcon fontSize="small" />}
-                            label={`ช้ากว่าแผน (${(item.actualPercent - item.planPercent).toFixed(0)}%)`}
+                            label={`ช้ากว่าแผน (${(item.actualPercent - (item.planPercent ?? 0)).toFixed(0)}%)`}
                             sx={{ height: 22, fontSize: 13, fontWeight: 600 }}
                           />
                         ) : (
@@ -413,7 +415,7 @@ export function WorkDoneSummaryTable({
                             size="small"
                             color="success"
                             icon={<CheckCircleOutlineIcon fontSize="small" />}
-                            label={isAhead ? `เกินแผน (+${(item.actualPercent - item.planPercent).toFixed(0)}%)` : "ตามแผน"}
+                            label={isAhead ? `เกินแผน (+${(item.actualPercent - (item.planPercent ?? 0)).toFixed(0)}%)` : item.planPercent === null ? "บันทึกผลแล้ว" : "ตามแผน"}
                             sx={{ height: 22, fontSize: 13, fontWeight: 600 }}
                           />
                         )}

@@ -8,6 +8,8 @@ import {
   READINESS_CODES,
   SITE_EQUIPMENT_TYPES,
   WEATHER_CODES,
+  allocationPeak,
+  timeWindowsOverlap,
   type Discipline,
 } from "@sts/shared";
 import { z } from "zod";
@@ -56,12 +58,45 @@ function checkCrews(
   }
 }
 
-export const allocationSchema = z.object({
-  buildingId: z.string().min(1, "เลือกอาคาร"),
-  headcount: z.number().int().min(1, "อย่างน้อย 1 คน").max(5000),
-  workDescription: z.string().trim().min(1, "ระบุลักษณะงาน").max(500),
-  planPercent: z.number().int().min(0).max(100),
+// One Today Activity row. Time window and plan % are opt-in (timed / hasPlan) so contractors
+// who do not need them only fill building, work and people.
+export const allocationSchema = z
+  .object({
+    buildingId: z.string().min(1, "เลือกอาคาร"),
+    headcount: z.number().int().min(1, "อย่างน้อย 1 คน").max(5000),
+    workDescription: z.string().trim().min(1, "ระบุรายละเอียดงาน").max(500),
+    timed: z.boolean(),
+    startTime: hhmm,
+    endTime: hhmm,
+    hasPlan: z.boolean(),
+    planPercent: z.number().int().min(0).max(100),
+  })
+  .refine((a) => !a.timed || a.startTime < a.endTime, { message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม", path: ["endTime"] });
+
+export type ActivityValues = z.infer<typeof allocationSchema>;
+
+// Form row → shared coverage input (untimed = all day).
+export const activityWindow = (a: Pick<ActivityValues, "headcount" | "timed" | "startTime" | "endTime">) => ({
+  headcount: Number.isFinite(a.headcount) ? a.headcount : 0,
+  startTime: a.timed ? a.startTime : null,
+  endTime: a.timed ? a.endTime : null,
 });
+
+// Most people placed at once vs the crew. Only "more than came" blocks sending; fewer is
+// shown as information (not everyone has to be assigned).
+export function placementStatus(
+  rows: Pick<ActivityValues, "headcount" | "timed" | "startTime" | "endTime">[],
+  dayStart: string,
+  dayEnd: string,
+  total: number,
+): { placed: number; over: string | null } {
+  const peak = allocationPeak(rows.map(activityWindow), dayStart, dayEnd);
+  const when = rows.some((r) => r.timed) ? `ช่วง ${peak.from}–${peak.to} ` : "";
+  return {
+    placed: peak.placed,
+    over: peak.placed > total ? `${when}ลงงานพร้อมกัน ${peak.placed} คน เกินจำนวนคนที่มา ${total} คน` : null,
+  };
+}
 
 // Time is optional: "allDay" = needed the whole day (no window sent).
 export const machinerySchema = z
@@ -120,16 +155,18 @@ export const morningSchema = z
       if (crew.allocations.length === 0) {
         ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: "เพิ่มอาคารอย่างน้อย 1 รายการ" });
       }
-      const allocated = crew.allocations.reduce((sum, a) => sum + a.headcount, 0);
-      if (allocated !== sumCounts(crew.positions)) {
-        ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: "จัดสรรคนงานลงอาคารให้ครบพอดีกับจำนวนคนทั้งหมด" });
-      }
-      const placed = new Set<string>();
+      const { over } = placementStatus(crew.allocations, v.startTime, v.endTime, sumCounts(crew.positions));
+      if (over) ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: over });
+      // The same building may repeat only for windows that do not overlap.
       crew.allocations.forEach((a, i) => {
-        if (a.buildingId && placed.has(a.buildingId)) {
-          ctx.addIssue({ code: "custom", path: ["crews", d, "allocations", i, "buildingId"], message: "เลือกอาคารซ้ำ" });
-        }
-        placed.add(a.buildingId);
+        crew.allocations.slice(0, i).forEach((b) => {
+          if (!a.buildingId || a.buildingId !== b.buildingId) return;
+          const [as, ae] = a.timed ? [a.startTime, a.endTime] : [v.startTime, v.endTime];
+          const [bs, be] = b.timed ? [b.startTime, b.endTime] : [v.startTime, v.endTime];
+          if (timeWindowsOverlap(as, ae, bs, be)) {
+            ctx.addIssue({ code: "custom", path: ["crews", d, "allocations", i, "buildingId"], message: "อาคารนี้ซ้ำในช่วงเวลาเดียวกัน" });
+          }
+        });
       });
     }
   });
@@ -165,7 +202,7 @@ export const eveningSchema = z
     progress: z.array(
       z.object({
         allocationId: z.string(),
-        planPercent: z.number(),
+        planPercent: z.number().nullable(),
         actualPercent: z.number().int().min(0).max(100),
         countermeasure: z.string().trim().max(1000).optional(),
       }),
@@ -192,7 +229,7 @@ export const eveningSchema = z
     }
     checkCrews(v.crews, v.disciplines, ctx);
     v.progress.forEach((p, i) => {
-      if (p.actualPercent < p.planPercent && !p.countermeasure) {
+      if (p.planPercent !== null && p.actualPercent < p.planPercent && !p.countermeasure) {
         ctx.addIssue({
           code: "custom",
           path: ["progress", i, "countermeasure"],
@@ -219,7 +256,7 @@ export const requestSchema = z.object({
   buildingId: z.string().min(1, "เลือกอาคาร"),
   inspectionDate: z.string().min(1, "เลือกวันที่"),
   inspectionTime: hhmm,
-  inspectionType: z.enum(asTuple(INSPECTION_TYPE_CODES), { errorMap: () => ({ message: "เลือกประเภทการตรวจ" }) }),
+  inspectionType: z.enum(asTuple(INSPECTION_TYPE_CODES)).default("other"),
   workItem: z.string().trim().min(1, "ระบุงานที่ขอตรวจ").max(200),
   location: z.string().trim().max(120).optional(),
   drawingRef: z.string().trim().max(120).optional(),

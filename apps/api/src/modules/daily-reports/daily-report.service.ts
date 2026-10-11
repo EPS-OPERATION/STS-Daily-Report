@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DISCIPLINE_CODES, REQUEST_STATUSES, manHours, normalizePagination, workloadLevel, type Discipline, type PermitType, type RequestStatus } from "@sts/shared";
+import { DISCIPLINE_CODES, REQUEST_STATUSES, allocationPeak, canEditReport, dayManpower, timeWindowsOverlap, editDeadline, normalizePagination, workloadLevel, type Discipline, type PermitType, type RequestStatus } from "@sts/shared";
 import { getEnv } from "@/config/env.js";
 import { getDb } from "@/db/client.js";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
@@ -67,6 +67,31 @@ import type {
 const MAX_PHOTOS = 12;
 
 // ---- helpers ---------------------------------------------------------------
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+// Man-day / NMH of one contractor-day from whichever halves were sent (rule in dayManpower).
+function attendanceOf(r: {
+  morningStatus: string;
+  eveningStatus: string;
+  thaiMale: number;
+  thaiFemale: number;
+  foreignMale: number;
+  foreignFemale: number;
+  eveningThaiMale: number | null;
+  eveningThaiFemale: number | null;
+  eveningForeignMale: number | null;
+  eveningForeignFemale: number | null;
+  workHours: number | null;
+  otHours: number | null;
+}) {
+  const morning = r.morningStatus === "submitted" ? r.thaiMale + r.thaiFemale + r.foreignMale + r.foreignFemale : null;
+  const evening =
+    r.eveningStatus === "submitted" && r.eveningThaiMale !== null
+      ? r.eveningThaiMale + (r.eveningThaiFemale ?? 0) + (r.eveningForeignMale ?? 0) + (r.eveningForeignFemale ?? 0)
+      : null;
+  return dayManpower({ morning, evening, workHours: r.workHours, otHours: r.otHours });
+}
 
 function addDays(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
@@ -146,7 +171,7 @@ async function reportDetail(reportId: string) {
   return {
     ...header,
     totalHeadcount,
-    manHours: manHours(totalHeadcount, report.workHours, report.otHours),
+    ...attendanceOf(report),
     hasSignature: Boolean(signatureData),
     positions,
     eveningPositions,
@@ -225,6 +250,18 @@ export async function ensureDraftService(auth: AuthContext, projectId: string, d
   return reportDetail(row.id);
 }
 
+// ---- edit window -----------------------------------------------------------
+
+// A sent shift can be edited until 12:00 site time the next day; trial mode lifts the limit.
+// First-time (late) submissions are not affected — only changes to what was already sent.
+function assertEditable(reportDate: string, what: string, reportId: string) {
+  if (getEnv().ALLOW_RESUBMIT || canEditReport(reportDate)) return;
+  throw new ConflictError(`${what} can no longer be edited — edits close at 12:00 the day after the report date`, {
+    reportId,
+    editableUntil: editDeadline(reportDate).toISOString(),
+  });
+}
+
 // ---- crews -----------------------------------------------------------------
 
 // A crew is valid when it has people, positions are unique and the nationality/sex split
@@ -261,11 +298,9 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
   }
 
   const existing = await getReportByKey(db, projectId, input.contractorId, input.date);
-  // Shifts are independent. The morning only locks once BOTH shifts are in: re-sending it
-  // then would wipe allocations the evening already reported actuals against.
-  if (!getEnv().ALLOW_RESUBMIT && existing?.morningStatus === "submitted" && existing.eveningStatus === "submitted") {
-    throw new ConflictError("Both shifts are submitted — the morning check-in is locked", { reportId: existing.id });
-  }
+  // Shifts are independent. Re-sending the morning keeps the evening actuals of buildings
+  // that stay allocated (see saveMorning).
+  if (existing?.morningStatus === "submitted") assertEditable(input.date, "The morning report", existing.id);
 
   if (input.startTime >= input.endTime) {
     throw new ValidationError("End time must be after start time", { startTime: input.startTime, endTime: input.endTime });
@@ -288,26 +323,44 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
   for (const crew of input.crews) {
     // Position headcount is the primary total; the nationality/sex split must describe the same people.
     const total = validateCrew(crew);
-    // Hard rule: every person of the crew is placed in exactly one building.
-    const allocated = crew.allocations.reduce((s, a) => s + a.headcount, 0);
-    if (allocated !== total) {
-      throw new ValidationError("Allocated headcount must equal total headcount", {
-        discipline: crew.discipline,
-        total,
-        allocated,
-        remaining: total - allocated,
-      });
-    }
-    const seenBuildings = new Set<string>();
     for (const a of crew.allocations) {
       if (!buildingIds.has(a.buildingId)) throw new ValidationError("Unknown building", { buildingId: a.buildingId });
-      if (seenBuildings.has(a.buildingId)) {
-        throw new ValidationError("Each building may appear only once in a discipline's allocation", {
-          discipline: crew.discipline,
-          buildingId: a.buildingId,
-        });
+      if (Boolean(a.startTime) !== Boolean(a.endTime)) {
+        throw new ValidationError("Give both start and end time for an activity, or neither (= all day)", { buildingId: a.buildingId });
       }
-      seenBuildings.add(a.buildingId);
+      if (a.startTime && a.endTime && a.startTime >= a.endTime) {
+        throw new ValidationError("Activity end time must be after its start time", { startTime: a.startTime, endTime: a.endTime });
+      }
+    }
+    // The same building may repeat in a discipline only for windows that do not overlap.
+    crew.allocations.forEach((a, i) => {
+      for (const b of crew.allocations.slice(i + 1)) {
+        if (a.buildingId !== b.buildingId) continue;
+        const overlap = timeWindowsOverlap(
+          a.startTime ?? input.startTime,
+          a.endTime ?? input.endTime,
+          b.startTime ?? input.startTime,
+          b.endTime ?? input.endTime,
+        );
+        if (overlap) {
+          throw new ValidationError("The same building is listed twice for overlapping times", {
+            discipline: crew.discipline,
+            buildingId: a.buildingId,
+          });
+        }
+      }
+    });
+    // Only impossible data is refused: more people working at the same moment than came today.
+    // Leaving people unassigned or not covering the whole day is allowed.
+    const peak = allocationPeak(crew.allocations, input.startTime, input.endTime);
+    if (peak.placed > total) {
+      throw new ValidationError("More people are placed at the same time than came to work", {
+        discipline: crew.discipline,
+        total,
+        placed: peak.placed,
+        from: peak.from,
+        to: peak.to,
+      });
     }
   }
 
@@ -355,9 +408,7 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
     throw new ValidationError("Contractor is not assigned to this project", { contractorId: input.contractorId });
   }
   const report = await getReportByKey(db, projectId, input.contractorId, input.date);
-  if (!getEnv().ALLOW_RESUBMIT && report?.eveningStatus === "submitted") {
-    throw new ConflictError("Evening report already submitted", { reportId: report.id });
-  }
+  if (report?.eveningStatus === "submitted") assertEditable(input.date, "The evening report", report.id);
 
   if (input.accidentOccurred && !input.accidentNote?.trim()) {
     throw new ValidationError("Describe the accident when one occurred");
@@ -404,7 +455,8 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
   }
   for (const a of allocations) {
     const p = byId.get(a.id)!;
-    if (p.actualPercent < a.planPercent && !p.countermeasure?.trim()) {
+    // No stated plan → actual % only, nothing to be "behind" against.
+    if (a.planPercent !== null && p.actualPercent < a.planPercent && !p.countermeasure?.trim()) {
       throw new ValidationError("Countermeasure is required when actual progress is below plan", {
         buildingCode: a.buildingCode,
         planPercent: a.planPercent,
@@ -519,7 +571,7 @@ export async function materialsService(
 
 export async function uploadPhotoService(auth: AuthContext, reportId: string, input: PhotoUploadInput) {
   const report = await loadOwnedReport(auth, reportId);
-  if (!getEnv().ALLOW_RESUBMIT && report.eveningStatus === "submitted") throw new ConflictError("Report already submitted — photos are locked");
+  if (report.eveningStatus === "submitted") assertEditable(report.reportDate, "Photos", report.id);
   if ((await countPhotos(getDb(), reportId)) >= MAX_PHOTOS) {
     throw new ValidationError(`A report can hold at most ${MAX_PHOTOS} photos`);
   }
@@ -544,7 +596,7 @@ export async function uploadPhotoService(auth: AuthContext, reportId: string, in
 
 export async function deletePhotoService(auth: AuthContext, reportId: string, photoId: string) {
   const report = await loadOwnedReport(auth, reportId);
-  if (!getEnv().ALLOW_RESUBMIT && report.eveningStatus === "submitted") throw new ConflictError("Report already submitted — photos are locked");
+  if (report.eveningStatus === "submitted") assertEditable(report.reportDate, "Photos", report.id);
   const photo = await getPhoto(getDb(), reportId, photoId);
   if (!photo) throw new NotFoundError("Photo not found", { photoId });
   await deletePhoto(getDb(), photoId);
@@ -592,15 +644,17 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
     return c;
   };
 
+  // Man-days: people × share of the day they spent in that building (crews that move count once).
   for (const a of allocations) {
     const c = cellOf(a.buildingId, a.reportDate);
-    c.headcount += a.headcount;
+    const manDays = a.headcount * a.dayShare;
+    c.headcount = round1(c.headcount + manDays);
     const prev = c.contractors.get(a.contractorId);
     c.contractors.set(a.contractorId, {
       id: a.contractorId,
       code: a.contractorCode,
       name: a.contractorName,
-      headcount: (prev?.headcount ?? 0) + a.headcount,
+      headcount: round1((prev?.headcount ?? 0) + manDays),
     });
   }
   for (const p of permits) {
@@ -626,7 +680,7 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
       code: b.code,
       name: b.name,
       nameTh: b.nameTh,
-      weekManDays: dayCells.reduce((s, c) => s + c.headcount, 0),
+      weekManDays: round1(dayCells.reduce((s, c) => s + c.headcount, 0)),
       peakHeadcount: Math.max(0, ...dayCells.map((c) => c.headcount)),
       cells: dayCells,
     };
@@ -656,7 +710,7 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
       manDays: rows.reduce((s, r) => s + r.weekManDays, 0),
       // Reports without hours (older rows) contribute 0 rather than a guess.
       manHours: hours.reduce(
-        (s, h) => s + manHours(h.thaiMale + h.thaiFemale + h.foreignMale + h.foreignFemale, h.workHours, h.otHours),
+        (s, h) => round1(s + attendanceOf(h).manHours),
         0,
       ),
       permitWorkers: permits.reduce((s, p) => s + p.workers, 0),
@@ -712,7 +766,7 @@ export async function manpowerTrendService(projectId: string, until: string, wee
   const rows = await listReportHoursInRange(db, projectId, firstWeek, addDays(lastWeek, 6));
   const byDay = new Map<string, number>();
   for (const r of rows) {
-    byDay.set(r.reportDate, (byDay.get(r.reportDate) ?? 0) + r.thaiMale + r.thaiFemale + r.foreignMale + r.foreignFemale);
+    byDay.set(r.reportDate, round1((byDay.get(r.reportDate) ?? 0) + attendanceOf(r).manDays));
   }
   return Array.from({ length: weeks }, (_, i) => {
     const weekStart = addDays(firstWeek, i * 7);
@@ -746,7 +800,7 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   >();
   const daily: { date: string; contractorCode: string; headcount: number }[] = [];
   for (const r of rows) {
-    const headcount = r.thaiMale + r.thaiFemale + r.foreignMale + r.foreignFemale;
+    const { manDays: headcount, manHours: hours } = attendanceOf(r);
     const c = byContractor.get(r.contractorId) ?? {
       contractorId: r.contractorId,
       contractorCode: r.contractorCode,
@@ -758,8 +812,8 @@ export async function manpowerSummaryService(projectId: string, from: string, to
       foreignMale: 0,
       foreignFemale: 0,
     };
-    c.manDays += headcount;
-    c.manHours += manHours(headcount, r.workHours, r.otHours);
+    c.manDays = round1(c.manDays + headcount);
+    c.manHours = round1(c.manHours + hours);
     c.reportedDays += 1;
     c.thaiMale += r.thaiMale;
     c.thaiFemale += r.thaiFemale;
@@ -774,7 +828,7 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   const perBuilding = new Map<string, Map<string, number>>();
   for (const a of allocations) {
     const m = perBuilding.get(a.buildingId) ?? new Map<string, number>();
-    m.set(a.contractorCode, (m.get(a.contractorCode) ?? 0) + a.headcount);
+    m.set(a.contractorCode, round1((m.get(a.contractorCode) ?? 0) + a.headcount * a.dayShare));
     perBuilding.set(a.buildingId, m);
   }
   const byBuilding = buildingList.map((b) => ({
@@ -825,14 +879,16 @@ export async function siteDayService(projectId: string, from: string, to: string
     buildings: buildingList.map((b) => {
       const work = allocations.filter((a) => a.buildingId === b.id);
       const contractors = [...new Set(work.map((a) => a.contractorCode))];
-      const headcount = work.reduce((s, a) => s + a.headcount, 0);
+      // One day: people who worked there. Range: man-days, weighted by time spent in the building.
+      const manDays = round1(work.reduce((s, a) => s + a.headcount * a.dayShare, 0));
+      const headcount = from === to ? work.reduce((s, a) => s + a.headcount, 0) : manDays;
       return {
         id: b.id,
         code: b.code,
         name: b.name,
         nameTh: b.nameTh,
         headcount,
-        avgDaily: Math.round(headcount / reportedDays),
+        avgDaily: Math.round(manDays / reportedDays),
         contractors,
         activities: work,
         machinery: machinery.filter((m) => m.buildingId === b.id).map((m) => ({ ...m, conflict: machineClash.has(m.id) })),

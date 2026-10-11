@@ -1,3 +1,5 @@
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Link from "@mui/material/Link";
@@ -8,29 +10,42 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
+import { PERMIT_TYPES } from "@sts/shared";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import {
   ContractorBadge,
+  TomorrowAgenda,
+  addDaysIso,
   inspectionTypeLabel,
+  sortAgenda,
   timeWindowLabel,
   todayIso,
   useInspectionRequests,
   useDailyRequests,
+  type AgendaRow,
 } from "@/features/daily-reports/index.js";
+import { useSiteDay } from "@/features/site-plan/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+type View = "requests" | "plan";
+
 // Daily Request: everything contractors asked for on the selected day or date range
 // (sent the evening before) — machines, equipment, road usage and QAQC inspections (RFI).
+// The second view is tomorrow's plan: the same requests plus planned work, as one agenda
+// for the 17:00 coordination meeting.
 export function TodayRequestsPage() {
   const [params, setParams] = useSearchParams();
+  const view: View = params.get("view") === "plan" ? "plan" : "requests";
   // Range from the URL; an old ?date= link still works as a one-day range.
   const single = ISO_DATE.test(params.get("date") ?? "") ? params.get("date")! : todayIso();
   const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : single;
@@ -42,6 +57,114 @@ export function TodayRequestsPage() {
   const week = useDailyRequests(projectId, from, to);
   const rfi = useInspectionRequests(projectId, { from, to, by: "inspection" });
 
+  // Tomorrow's plan is always "today + 1", independent of the date range above.
+  const tomorrow = addDaysIso(todayIso(), 1);
+  const planRequests = useDailyRequests(projectId, tomorrow, tomorrow);
+  const planInspections = useInspectionRequests(projectId, { from: tomorrow, to: tomorrow, by: "inspection" });
+  const planDay = useSiteDay(projectId, tomorrow, tomorrow);
+  const agenda: AgendaRow[] = useMemo(() => {
+    const rows: AgendaRow[] = [];
+    const req = planRequests.data?.data;
+    for (const m of req?.machinery ?? []) {
+      rows.push({
+        id: `machine-${m.id}`,
+        kind: "machine",
+        startTime: m.startTime ?? "",
+        timeLabel: timeWindowLabel(m.startTime, m.endTime),
+        contractorCode: m.contractorCode,
+        contractorName: null,
+        buildingCode: m.buildingCode,
+        buildingName: m.buildingName,
+        title: `${m.machineType}${m.unitTag ? ` (${m.unitTag})` : ""}`,
+        detail: m.purpose,
+        clash: m.conflict === "conflict",
+      });
+    }
+    for (const e of req?.equipmentRequests ?? []) {
+      rows.push({
+        id: `equipment-${e.id}`,
+        kind: "equipment",
+        startTime: "",
+        timeLabel: timeWindowLabel(null, null),
+        contractorCode: e.contractorCode,
+        contractorName: null,
+        buildingCode: e.buildingCode,
+        buildingName: e.buildingName,
+        title: `${e.equipmentType} ×${e.qty}`,
+        detail: e.purpose,
+        clash: false,
+      });
+    }
+    for (const r of req?.roads ?? []) {
+      rows.push({
+        id: `road-${r.id}`,
+        kind: "road",
+        startTime: r.startTime,
+        timeLabel: `${r.startTime}–${r.endTime}`,
+        contractorCode: r.contractorCode,
+        contractorName: null,
+        buildingCode: r.buildingCode,
+        buildingName: r.buildingName,
+        title: r.roadLocation,
+        detail: r.purpose,
+        clash: r.conflict,
+      });
+    }
+    for (const i of (planInspections.data?.data ?? []).filter((x) => x.status !== "draft")) {
+      rows.push({
+        id: `rfi-${i.id}`,
+        kind: "rfi",
+        startTime: i.inspectionTime,
+        timeLabel: i.inspectionTime,
+        contractorCode: i.contractorCode,
+        contractorName: i.contractorName,
+        buildingCode: i.buildingCode,
+        buildingName: i.buildingName,
+        title: i.inspectionType && i.inspectionType !== "other" ? `${inspectionTypeLabel(i.inspectionType)} · ${i.workItem}` : i.workItem,
+        detail: i.location,
+        clash: false,
+      });
+    }
+    for (const b of planDay.data?.data?.buildings ?? []) {
+      b.permits.forEach((p, idx) => {
+        const label = PERMIT_TYPES.find((t) => t.code === p.permitType)?.label ?? p.permitType;
+        rows.push({
+          id: `permit-${b.id}-${p.permitType}-${idx}`,
+          kind: "permit",
+          startTime: "",
+          timeLabel: timeWindowLabel(null, null),
+          contractorCode: null,
+          contractorName: null,
+          buildingCode: b.code,
+          buildingName: b.name,
+          title: label,
+          detail: `${p.workers} คน`,
+          clash: false,
+        });
+      });
+      b.activities.forEach((a, idx) => {
+        rows.push({
+          id: `work-${b.id}-${a.contractorCode}-${idx}`,
+          kind: "work",
+          startTime: "",
+          timeLabel: timeWindowLabel(null, null),
+          contractorCode: a.contractorCode,
+          contractorName: a.contractorName,
+          buildingCode: b.code,
+          buildingName: b.name,
+          title: a.workDescription,
+          detail: `${a.headcount} คน${a.startTime && a.endTime ? ` · ${a.startTime}–${a.endTime}` : ""}${a.planPercent === null ? "" : ` · แผน ${a.planPercent}%`}`,
+          clash: false,
+        });
+      });
+    }
+    return sortAgenda(rows);
+  }, [planRequests.data, planInspections.data, planDay.data]);
+  const planLoading = !planRequests.data || !planInspections.data || !planDay.data;
+  const planError = [planRequests.error, planInspections.error, planDay.error].find((e) => e instanceof HttpError) as
+    | HttpError
+    | undefined;
+
   const data = week.data?.data;
   const machines = data?.machinery ?? [];
   const equipment = data?.equipmentRequests ?? [];
@@ -51,6 +174,13 @@ export function TodayRequestsPage() {
   const dayHead = isRange ? ["Date"] : [];
   const inspections = (rfi.data?.data ?? []).filter((r) => r.status !== "draft");
   const loadError = [week.error, rfi.error].find((e) => e instanceof HttpError) as HttpError | undefined;
+
+  const setView = (next: View) => {
+    const p = new URLSearchParams(params);
+    if (next === "plan") p.set("view", "plan");
+    else p.delete("view");
+    setParams(p, { replace: true });
+  };
 
   const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
@@ -64,19 +194,54 @@ export function TodayRequestsPage() {
     <Box>
       <PageHeader
         title="Daily Request"
-        subtitle="คำขอประจำวันจากผู้รับเหมา (ส่งในรายงานบ่ายของวันก่อน) — เครื่องจักร อุปกรณ์ ถนน และ QAQC"
-        actions={
-          <DateRangeFields from={from} to={to} maxDays={62} onChange={setRange} />
+        subtitle={
+          view === "plan"
+            ? "แผนงานและคำขอทั้งหมดของพรุ่งนี้ในที่เดียว — ใช้ในประชุมประสานงานประจำวัน"
+            : "คำขอประจำวันจากผู้รับเหมา (ส่งในรายงานบ่ายของวันก่อน) — เครื่องจักร อุปกรณ์ ถนน และ QAQC"
         }
+        actions={view === "requests" ? <DateRangeFields from={from} to={to} maxDays={62} onChange={setRange} /> : undefined}
       />
 
-      {loadError ? (
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={view}
+        onChange={(_, v: View | null) => v && setView(v)}
+        aria-label="มุมมอง Daily Request"
+        sx={{ mb: 2.5, bgcolor: "background.paper" }}
+      >
+        <ToggleButton value="requests" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
+          <AssignmentOutlinedIcon fontSize="small" />
+          คำขอประจำวัน
+        </ToggleButton>
+        <ToggleButton value="plan" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
+          <EventNoteOutlinedIcon fontSize="small" />
+          แผนงานพรุ่งนี้{planLoading ? "" : ` (${agenda.length})`}
+        </ToggleButton>
+      </ToggleButtonGroup>
+
+      {view === "plan" ? (
+        planError ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            โหลดข้อมูลไม่สำเร็จ: {planError.message}
+          </Alert>
+        ) : planLoading ? (
+          <Stack spacing={2}>
+            <Skeleton variant="rounded" height={120} />
+            <Skeleton variant="rounded" height={240} />
+          </Stack>
+        ) : (
+          <TomorrowAgenda tomorrow={tomorrow} rows={agenda} />
+        )
+      ) : null}
+
+      {view === "requests" && loadError ? (
         <Alert severity="error" sx={{ mb: 2 }}>
           โหลดข้อมูลไม่สำเร็จ: {loadError.message}
         </Alert>
       ) : null}
 
-      {!data || !rfi.data ? (
+      {view !== "requests" ? null : !data || !rfi.data ? (
         <Stack spacing={2}>
           <Skeleton variant="rounded" height={140} />
           <Skeleton variant="rounded" height={140} />
@@ -159,7 +324,9 @@ export function TodayRequestsPage() {
                   "RFI",
                   r.inspectionTime,
                   <b key="c">{r.contractorName}</b>,
-                  `${inspectionTypeLabel(r.inspectionType)} · ${r.workItem}`,
+                  r.inspectionType && r.inspectionType !== "other"
+                    ? `${inspectionTypeLabel(r.inspectionType)} · ${r.workItem}`
+                    : r.workItem,
                   r.buildingCode,
                 ],
               }))}

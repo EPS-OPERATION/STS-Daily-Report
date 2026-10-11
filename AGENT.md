@@ -9,14 +9,14 @@
   (`sts-*`, `impeccable`, `web-design-guidelines`, `vercel-react-best-practices`) — design system อยู่ที่ `DESIGN.md` และ `.impeccable/`
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
-- Schema (migrations `0000`–`0014`): projects, contractors, project_contractors, users(role)/memberships/sessions, zones,
+- Schema (migrations `0000`–`0015`): projects, contractors, project_contractors, users(role)/memberships/sessions, zones,
   site_plans/zone_map_areas, site_activities, buildings, daily_reports(+_positions/_equipment/_allocations/_machinery/
   _permits/_road_usage/_photos/_materials), inspection_requests
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
-  Inter+Noto Sans Thai, radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/` dashboard, `/site-coordination` (EPS Map, ปุ่ม แก้ไขผัง; dashboard แสดง Map เดียวกันแบบ read-only; pins เก็บ localStorage ต่อ browser ยังไม่มี API), `/site-plan` (Option), `/daily-reports` (work done summary + review queue + tomorrow plan tracking), `/tomorrow`, `/weekly-summary`,
-  `/field` + `/field/report` + `/field/coordination` (Map), `/qaqc` (RFI: Today & Tomorrow + Donut + history ที่ EPS confirm/pass/not pass), `/contractors`, `/work-permits`, `/progress` (Drone Progress),
+  Inter (Latin)+Sarabun (Thai), radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
+- Screens: `/` dashboard, `/site-coordination` (EPS Map, ปุ่ม แก้ไขผัง; dashboard แสดง Map เดียวกันแบบ read-only; pins เก็บ localStorage ต่อ browser ยังไม่มี API), `/site-plan` (Option), `/daily-reports` (work done summary + review queue), `/today-requests` = Daily Request (คำขอประจำวัน + แผนงานพรุ่งนี้ที่ `?view=plan`: agenda เดียวรวมเครื่องจักร/อุปกรณ์/ถนน/PTW/QAQC/งานวางแผน กรองตามประเภท+ผู้รับเหมา, export CSV), `/tomorrow`, `/weekly-summary`,
+  `/field` (Today's Tasks: Daily Report=เช้า, Daily Request=บ่าย + History 14 วัน ปุ่มแก้ไข/ดู/PDF) + `/field/report` + `/field/coordination` (Map), `/qaqc` (RFI: Today & Tomorrow + Donut + history ที่ EPS confirm/pass/not pass), `/contractors`, `/work-permits`, `/progress` (Drone Progress),
   `/materials` (Option: totals + log จาก evening check-out, real API)
 - ยังไม่มี: lint config, CI, production auth, domains permits (ดู README §12/13); unit tests เริ่มต้นที่ `bun test`
 
@@ -84,10 +84,10 @@
 - Overview hotspots (`mock/site-overview.ts`, x/y % ล้วน): 10 ป้าย → zone จริง, 4 ป้าย (ACC/5.1, 2.2–2.4, 6.4) fallback parent โดย tooltip บอก, TR ไม่มี zone (disabled)
 - `packages/env` ต้องมี `@types/bun` ไม่งั้น `process` typecheck ไม่ผ่าน
 - Daily report แยกตาม discipline (CE/ME/EE): กดเลือกประเภทงานแล้วฟอร์มของประเภทนั้นขึ้น; positions/allocations มีคอลัมน์ `discipline`, สัญชาติ/เพศต่อกะต่อ discipline อยู่ `daily_report_crews`, `daily_reports.thai_*`/`evening_*` = ผลรวมทุก discipline (dashboard อ่านยอดรวมเหมือนเดิม); API morning/evening รับ `crews[]`; building ซ้ำได้ข้าม discipline แต่ไม่ซ้ำใน discipline เดียว
-- Daily report: 1 row/contractor/project/date, เช้า/เย็น ส่งอิสระ (เช้า lock เมื่อส่งครบทั้งคู่, เย็น lock ตัวเอง);
-  เช้า = เวลา/ชม., อากาศ, คนตามตำแหน่ง (ยอดหลัก) = สัญชาติ/เพศ, เครื่องจักรในไซต์, allocation ลง `buildings` 15 อาคาร (ลำดับตามไซต์, BMS inactive)
-  (≠ WBS zones) รวม = total พอดี (zod + service); เย็น upsert แถวเอง (ไม่ต้องมีเช้า) = คนช่วงบ่ายตามตำแหน่ง (`daily_report_positions.shift`=evening + `evening_thai/foreign_male/female` รวม=total, บังคับ ≥1, เช้า≠บ่ายได้; metrics man-day/NMH ยังใช้ยอดเช้า), อุบัติเหตุ, OT, actual% (ต่ำกว่า plan
-  ต้องมี countermeasure), รูป (draft แถวก่อนถ้ายังไม่มี), ลายเซ็น PNG, วัสดุหน้างาน (ชื่ออิสระ+qty+unit, ไม่ซ้ำ), คำขอพรุ่งนี้; NMH = คน × (ชม.+OT); vocab ที่ `@sts/shared`
+- Daily report: 1 row/contractor/project/date, เช้า/เย็น ส่งอิสระ (ส่งแล้วแก้ได้ถึง 12:00 วันถัดไป เวลาไทย `canEditReport` ใน `@sts/shared` ใช้ทั้ง API+web, หลังจากนั้นล็อก; ส่งครั้งแรกย้อนหลังยังได้);
+  เช้า = เวลา/ชม., อากาศ, คนตามตำแหน่ง (ยอดหลัก) = สัญชาติ/เพศ, เครื่องจักรในไซต์, Today Activity = allocation ลง `buildings` (≠ WBS zones): อาคาร+งาน+คน, เวลา `start/end_time` และ plan% เป็น optional (ปุ่ม +),
+  ห้ามลงงานพร้อมกันเกินจำนวนคนที่มา (`allocationPeak` @sts/shared, zod+service; ลงไม่ครบได้), อาคารซ้ำได้ถ้าเวลาไม่ทับ, `day_share` = สัดส่วนเวลา (man-day อาคาร = คน × day_share); เย็น upsert แถวเอง (ไม่ต้องมีเช้า) = คนช่วงบ่ายตามตำแหน่ง (`daily_report_positions.shift`=evening + `evening_thai/foreign_male/female` รวม=total, บังคับ ≥1, เช้า≠บ่ายได้; man-day = (คนเช้า+คนบ่าย)/2 หรือครึ่งที่ส่ง, NMH = man-day × ชม. + คนบ่าย × OT ผ่าน `dayManpower`), อุบัติเหตุ, OT, actual% (ต่ำกว่า plan ที่ระบุไว้
+  ต้องมี countermeasure; ไม่มี plan = actual% อย่างเดียว), (ฟอร์มไม่มีอัปโหลดรูปแล้ว — ลด storage; API รูป + การแสดงรูปเก่ายังอยู่), ลายเซ็น PNG, วัสดุหน้างาน (ชื่ออิสระ+qty+unit, ไม่ซ้ำ), คำขอพรุ่งนี้; vocab ที่ `@sts/shared`
 - Charts (MUI x-charts, สีตาม contractor code จาก `app/theme/chart-palette.ts`): `/manpower` (สัปดาห์/เดือน; `/manpower-summary`, `/position-mix`, `/manpower-trend`), weekly page กราฟเดียว; `weekly-summary`: machinery/permits/roads ตาม target_date (ปิด rule base จองชนตาม requirement); seed sample ZCE/LCE/UME (CTR-001 ว่างไว้ทดสอบ)
 - Bun `--hot` segfault บน Windows → `--watch`; FormData ใช้ `http.upload`; form ใน Dialog ต้อง `e.stopPropagation()`
 - คำขอพรุ่งนี้ (machinery[เวลา optional=ทั้งวัน]+purpose/equipment_requests[qty ไม่มีเวลา]/permits/road_usage) ผูก report เย็นวัน T + `target_date`=T+1;

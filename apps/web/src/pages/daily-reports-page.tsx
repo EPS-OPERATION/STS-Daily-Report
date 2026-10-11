@@ -1,6 +1,5 @@
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
-import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -33,19 +32,14 @@ import { StatusChip } from "@/components/ui/status-chip.js";
 import {
   ContractorBadge,
   ReviewDialog,
-  TomorrowPlanTable,
   WorkDoneSummaryTable,
-  addDaysIso,
   formatThaiDate,
-  mondayOf,
   todayIso,
   useInspectionRequests,
   useReviewQueue,
-  useWeeklySummary,
   type InspectionRequest,
   type ReviewQueueRow,
   type ReviewStatus,
-  type TomorrowActivityItem,
   type WorkDoneItem,
 } from "@/features/daily-reports/index.js";
 import { useSiteDay } from "@/features/site-plan/index.js";
@@ -55,7 +49,7 @@ import { HttpError } from "@/services/http/client.js";
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 type ReviewTab = "pending" | "rejected" | "approved" | "all";
-type PageViewMode = "work-summary" | "review-queue" | "tomorrow-plan";
+type PageViewMode = "work-summary" | "review-queue";
 
 // Realistic fallback sample work done items if backend doesn't have allocations for today yet
 function getSampleWorkDoneItems(date: string): WorkDoneItem[] {
@@ -439,165 +433,6 @@ function getSampleWorkDoneItems(date: string): WorkDoneItem[] {
   ];
 }
 
-// Domain-accurate fallback sample planned activities for tomorrow
-function getSampleTomorrowActivities(tomorrow: string): TomorrowActivityItem[] {
-  return [
-    {
-      id: "tomorrow-sample-1",
-      reportDate: tomorrow,
-      contractorCode: "CTR-002",
-      contractorName: "ZCE Construction",
-      buildingCode: "1.1",
-      buildingName: "Fuel Yard",
-      workDescription: "งานผูกเหล็กและเทคอนกรีตลานกองเชื้อเพลิง",
-      headcount: 12,
-      planPercent: 100,
-      linkedResource: "ขอรถโม่คอนกรีต 4 คัน",
-    },
-    {
-      id: "tomorrow-sample-2",
-      reportDate: tomorrow,
-      contractorCode: "CTR-002",
-      contractorName: "ZCE Construction",
-      buildingCode: "1.2",
-      buildingName: "Waste bunker",
-      workDescription: "งานติดตั้งเหล็กเสริมผนัง bunker EL.+10.30 - EL.+15.00",
-      headcount: 10,
-      planPercent: 100,
-      linkedResource: "ใบอนุญาต: ทำงานบนที่สูง",
-    },
-    {
-      id: "tomorrow-sample-3",
-      reportDate: tomorrow,
-      contractorCode: "CTR-002",
-      contractorName: "ZCE Construction",
-      buildingCode: "0.1",
-      buildingName: "Road & Drainage",
-      workDescription: "งานปรับระดับบดอัดหินคลุกถนน Main Road ทางเข้าโครงการ",
-      headcount: 8,
-      planPercent: 100,
-      linkedResource: "ขอรถบดสั่นสะเทือน 10T",
-    },
-    {
-      id: "tomorrow-sample-4",
-      reportDate: tomorrow,
-      contractorCode: "CTR-002",
-      contractorName: "ZCE Construction",
-      buildingCode: "1.1",
-      buildingName: "Tipping Hall",
-      workDescription: "งานประกอบโครงสร้างเหล็กหลังคา Tipping Hall",
-      headcount: 8,
-      planPercent: 80,
-      linkedResource: "ขอจองเครน 50 ตัน",
-    },
-    {
-      id: "tomorrow-sample-5",
-      reportDate: tomorrow,
-      contractorCode: "CTR-003",
-      contractorName: "LCE Electrical",
-      buildingCode: "2.1",
-      buildingName: "Boiler Building",
-      workDescription: "งานเชื่อม Piping boiler H3F005 และ Fin wall ด้านซ้ายช่วงที่ 2",
-      headcount: 14,
-      planPercent: 100,
-      linkedResource: "ขอตรวจ QAQC: NDT รอยเชื่อม (10:30)",
-    },
-    {
-      id: "tomorrow-sample-6",
-      reportDate: tomorrow,
-      contractorCode: "CTR-003",
-      contractorName: "LCE Electrical",
-      buildingCode: "2.1",
-      buildingName: "Dearerator Boiler",
-      workDescription: "งานติดตั้ง L-Bolt Deaerator & Reaction tower EL+10.00",
-      headcount: 10,
-      planPercent: 100,
-      linkedResource: "ขอตรวจ QAQC: ระดับ Bolt (14:00)",
-    },
-    {
-      id: "tomorrow-sample-7",
-      reportDate: tomorrow,
-      contractorCode: "CTR-003",
-      contractorName: "LCE Electrical",
-      buildingCode: "4.1",
-      buildingName: "TG Hall",
-      workDescription: "งานเดินท่อไอน้ำ Main Steam Pipe เชื่อมต่อไปยัง Turbine",
-      headcount: 12,
-      planPercent: 100,
-      linkedResource: "ขอจองเครน 25 ตัน, ใบอนุญาต Hot Work",
-    },
-    {
-      id: "tomorrow-sample-8",
-      reportDate: tomorrow,
-      contractorCode: "CTR-003",
-      contractorName: "LCE Electrical",
-      buildingCode: "5.1",
-      buildingName: "Transformer Yard",
-      workDescription: "งานดึงสายเคเบิลแรงสูง MV 22kV เข้าหม้อแปลงหลัก",
-      headcount: 8,
-      planPercent: 100,
-    },
-    {
-      id: "tomorrow-sample-9",
-      reportDate: tomorrow,
-      contractorCode: "CTR-004",
-      contractorName: "UME Engineering",
-      buildingCode: "4.1",
-      buildingName: "TG Hall",
-      workDescription: "งานยก ประกอบ และติดตั้งชุด Generator 1 (Stator & Rotor)",
-      headcount: 16,
-      planPercent: 100,
-      linkedResource: "ขอจองเครน 150 ตัน, ใบอนุญาตยกของหนัก",
-    },
-    {
-      id: "tomorrow-sample-10",
-      reportDate: tomorrow,
-      contractorCode: "CTR-004",
-      contractorName: "UME Engineering",
-      buildingCode: "1.1",
-      buildingName: "Fuel Silo",
-      workDescription: "งานติดตั้ง Polary Support Silo และโครงสายพานลำเลียง",
-      headcount: 10,
-      planPercent: 100,
-      linkedResource: "ขอรถกระเช้า Boom Lift 24M",
-    },
-    {
-      id: "tomorrow-sample-11",
-      reportDate: tomorrow,
-      contractorCode: "CTR-004",
-      contractorName: "UME Engineering",
-      buildingCode: "3.1",
-      buildingName: "Bagfilter",
-      workDescription: "งานประกอบโครงสร้าง Bagfilter Hoppers และราวกั้นตกทางเดิน",
-      headcount: 8,
-      planPercent: 100,
-      linkedResource: "ใบอนุญาต: ทำงานบนที่สูง",
-    },
-    {
-      id: "tomorrow-sample-12",
-      reportDate: tomorrow,
-      contractorCode: "CTR-004",
-      contractorName: "UME Engineering",
-      buildingCode: "6.1",
-      buildingName: "Cooling Tower",
-      workDescription: "งานติดตั้งชุดใบพัด Cooling Tower Fan Unit 1-2",
-      headcount: 6,
-      planPercent: 100,
-    },
-    {
-      id: "tomorrow-sample-13",
-      reportDate: tomorrow,
-      contractorCode: "CTR-001",
-      contractorName: "PPW Construction",
-      buildingCode: "0.2",
-      buildingName: "Fence & Security Gate",
-      workDescription: "งานก่อกำแพงกันดินแนวรั้วโครงการฝั่งทิศตะวันออก",
-      headcount: 8,
-      planPercent: 100,
-    },
-  ];
-}
-
 // Admin check & Daily Report summary for contractors.
 // Supports single day or date range filtering with contractor filter.
 export function DailyReportsPage() {
@@ -616,11 +451,9 @@ export function DailyReportsPage() {
   const [reviewTarget, setReviewTarget] = useState<ReviewQueueRow | null>(null);
 
   const { projectId } = useCurrentProject();
-  const tomorrow = addDaysIso(todayIso(), 1);
   const reviewQueue = useReviewQueue(projectId, isRange ? { from, to } : from);
   const inspections = useInspectionRequests(projectId, { from, to, by: "report" });
   const siteDay = useSiteDay(projectId, from, to);
-  const siteDayTomorrow = useSiteDay(projectId, tomorrow, tomorrow);
 
   const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
@@ -697,63 +530,6 @@ export function DailyReportsPage() {
     for (const item of workDoneItems) set.add(item.contractorName);
     return [...set].sort();
   }, [contractorNames, workDoneItems]);
-
-  // Tomorrow plan: requests raised in evening reports with target_date = tomorrow.
-  const tomorrowWeek = useWeeklySummary(projectId, mondayOf(tomorrow));
-  const codeOfContractor = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const q of queue) m.set(q.contractorName, q.contractorCode);
-    return m;
-  }, [queue]);
-  const matchContractorCode = (code: string) => {
-    if (contractor === "All Contractors") return true;
-    return code === contractor || code === codeOfContractor.get(contractor);
-  };
-  const tomorrowPlans = useMemo(() => {
-    const week = tomorrowWeek.data?.data;
-    if (!week) return null;
-    const machinery = week.machinery.filter((b) => b.targetDate === tomorrow && matchContractorCode(b.contractorCode));
-    const roads = week.roads.filter((r) => r.targetDate === tomorrow && matchContractorCode(r.contractorCode));
-    const equipment = (week.equipmentRequests ?? []).filter(
-      (e) => e.targetDate === tomorrow && matchContractorCode(e.contractorCode),
-    );
-    return { machinery, roads, equipment };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tomorrowWeek.data, tomorrow, contractor, codeOfContractor]);
-
-  // Aggregate tomorrow planned activities across all contractors (from real DB or domain sample)
-  const tomorrowActivities: TomorrowActivityItem[] = useMemo(() => {
-    const buildings = siteDayTomorrow.data?.data?.buildings ?? [];
-    const items: TomorrowActivityItem[] = [];
-
-    for (const b of buildings) {
-      for (let i = 0; i < (b.activities ?? []).length; i++) {
-        const a = b.activities[i];
-        items.push({
-          id: `real-${a.reportDate}-${a.contractorCode}-${b.id}-${i}`,
-          reportDate: a.reportDate,
-          contractorCode: a.contractorCode,
-          contractorName: a.contractorName,
-          buildingCode: b.code,
-          buildingName: b.name,
-          workDescription: a.workDescription,
-          headcount: a.headcount,
-          planPercent: a.planPercent,
-        });
-      }
-    }
-
-    if (items.length > 0) return items;
-    return getSampleTomorrowActivities(tomorrow);
-  }, [siteDayTomorrow.data, tomorrow]);
-
-  // Combined list of contractors for tomorrow's activities
-  const tomorrowContractorNames = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of contractorNames) set.add(c);
-    for (const item of tomorrowActivities) set.add(item.contractorName);
-    return [...set].sort();
-  }, [contractorNames, tomorrowActivities]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -896,21 +672,6 @@ export function DailyReportsPage() {
                 <FactCheckOutlinedIcon fontSize="small" />
                 ตรวจสอบรายงานของผู้รับเหมา (Review Queue)
               </ToggleButton>
-              <ToggleButton
-                value="tomorrow-plan"
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 700,
-                  px: 2.5,
-                  py: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                }}
-              >
-                <EventNoteOutlinedIcon fontSize="small" />
-                แผนงานพรุ่งนี้ (Tomorrow Plan)
-              </ToggleButton>
             </ToggleButtonGroup>
           </Box>
 
@@ -923,19 +684,6 @@ export function DailyReportsPage() {
               onSelectContractor={setContractor}
               dateLabel={dateRangeLabel}
               isRange={isRange}
-            />
-          ) : viewMode === "tomorrow-plan" ? (
-            /* View 3: Tomorrow Plan — activities & requests raised for tomorrow */
-            <TomorrowPlanTable
-              tomorrow={tomorrow}
-              items={tomorrowActivities}
-              contractors={tomorrowContractorNames}
-              selectedContractor={contractor}
-              onSelectContractor={setContractor}
-              plans={tomorrowPlans}
-              inspections={requestList.filter(
-                (r) => r.inspectionDate === tomorrow && (contractor === "All Contractors" || r.contractorName === contractor),
-              )}
             />
           ) : (
             /* View 2: Review Queue Table (Original View) */

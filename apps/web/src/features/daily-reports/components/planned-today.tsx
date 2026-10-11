@@ -29,7 +29,7 @@ export function PlannedTodayChecklist({ planned }: { planned: PlannedToday }) {
     <Stack spacing={1.25}>
       {planned.inspections.map((r) => (
         <Line key={r.id} icon={FactCheckOutlinedIcon} time={r.inspectionTime} trailing={<RequestStatusChip status={r.status} result={r.result} />}>
-          QAQC · {inspectionTypeLabel(r.inspectionType)} · {r.workItem} · {r.buildingName}
+          QAQC · {r.inspectionType && r.inspectionType !== "other" ? `${inspectionTypeLabel(r.inspectionType)} · ` : ""}{r.workItem} · {r.buildingName}
         </Line>
       ))}
       {planned.machinery.map((m) => (

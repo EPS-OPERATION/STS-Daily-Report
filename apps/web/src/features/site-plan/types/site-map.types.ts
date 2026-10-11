@@ -48,7 +48,10 @@ export interface SiteDayBuilding {
     contractorName: string;
     headcount: number;
     workDescription: string;
-    planPercent: number;
+    planPercent: number | null;
+    startTime: string | null;
+    endTime: string | null;
+    dayShare: number;
     actualPercent: number | null;
   }[];
   machinery: {

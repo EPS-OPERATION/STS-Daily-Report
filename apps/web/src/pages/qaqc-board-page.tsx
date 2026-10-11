@@ -266,11 +266,13 @@ export function QaqcBoardPage() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {inspectionTypeLabel(r.inspectionType)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                         {r.workItem}
                       </Typography>
+                      {r.inspectionType && r.inspectionType !== "other" ? (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                          {inspectionTypeLabel(r.inspectionType)}
+                        </Typography>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -349,11 +351,13 @@ function ScheduleColumn({
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.25 }}>
                   <ContractorBadge code={r.contractorCode} title={r.contractorName} />
                   <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
-                    {inspectionTypeLabel(r.inspectionType)}
+                    {r.inspectionType && r.inspectionType !== "other"
+                      ? `${inspectionTypeLabel(r.inspectionType)} · ${r.workItem}`
+                      : r.workItem}
                   </Typography>
                 </Stack>
                 <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
-                  {[r.workItem, `${r.buildingCode}${r.location ? ` · ${r.location}` : ""}`, r.drawingRef]
+                  {[`${r.buildingCode}${r.location ? ` · ${r.location}` : ""}`, r.drawingRef]
                     .filter(Boolean)
                     .join(" — ")}
                 </Typography>

@@ -74,7 +74,7 @@ export function BuildingDayPanel({
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
                 {from !== to ? `${Number(a.reportDate.slice(8))}/${Number(a.reportDate.slice(5, 7))} · ` : ""}
-                {a.headcount} คน · แผน {a.planPercent}%{a.actualPercent !== null ? ` / จริง ${a.actualPercent}%` : ""}
+                {a.headcount} คน · แผน {a.planPercent === null ? "—" : `${a.planPercent}%`}{a.actualPercent !== null ? ` / จริง ${a.actualPercent}%` : ""}
               </Typography>
             </Stack>
           ))

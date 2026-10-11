@@ -6,14 +6,14 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import MenuItem from "@mui/material/MenuItem";
+import Chip from "@mui/material/Chip";
 import Skeleton from "@mui/material/Skeleton";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
+import { canEditReport } from "@sts/shared";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FieldBottomNav } from "@/components/field/field-bottom-nav.js";
@@ -21,6 +21,7 @@ import {
   EveningForm,
   MorningForm,
   ReportSummary,
+  addDaysIso,
   formatThaiDate,
   todayIso,
   useBuildings,
@@ -45,9 +46,7 @@ export function FieldReportPage() {
   const allowResubmit = Boolean(useAuthConfig().data?.data.allowResubmit);
   // One login can hold several contractors (shared trial account): pick which one is reporting.
   const myContractors = me.data?.data.contractors ?? [];
-  const requestedContractor = params.get("contractor");
-  const contractorId =
-    myContractors.find((c) => c.id === requestedContractor)?.id ?? myContractors[0]?.id;
+  const contractorId = myContractors[0]?.id;
   const current = useCurrentReport(projectId, date, contractorId);
   const buildings = useBuildings(projectId);
   const [toast, setToast] = useState<string | null>(null);
@@ -56,6 +55,9 @@ export function FieldReportPage() {
   const contractor = current.data?.data.contractor;
   const morningDone = report?.morningStatus === "submitted";
   const eveningDone = report?.eveningStatus === "submitted";
+  // Sent shifts stay editable until 12:00 the next day (trial mode: no limit); same rule as the API.
+  const editable = allowResubmit || canEditReport(date);
+  const editUntil = `${formatThaiDate(addDaysIso(date, 1))} 12:00 น.`;
   const requested = params.get("shift");
   const shift: Shift =
     requested === "morning" || requested === "evening"
@@ -65,12 +67,6 @@ export function FieldReportPage() {
         : !morningDone && new Date().getHours() >= 15
           ? "evening"
           : "morning";
-
-  const setContractor = (id: string) => {
-    const p = new URLSearchParams(params);
-    p.set("contractor", id);
-    setParams(p, { replace: true });
-  };
 
   const setShift = (next: Shift) => {
     const p = new URLSearchParams(params);
@@ -85,35 +81,40 @@ export function FieldReportPage() {
     <Box sx={{ maxWidth: { xs: 520, md: 760 }, mx: "auto", pb: 10 }}>
       <Card sx={{ bgcolor: "navy.dark", border: "none", mb: 2 }}>
         <CardContent sx={{ p: 2.5, color: "common.white" }}>
-          <Stack direction="row" justifyContent="space-between" spacing={1} sx={{ opacity: 0.8 }}>
-            <Typography variant="caption" sx={{ color: "inherit" }}>
-              {project?.name ?? "STS 9.9 MW Biomass Power Plant"}
-            </Typography>
-            <Typography variant="caption" sx={{ color: "inherit", textAlign: "right" }}>
-              {contractor ? `${contractor.code} · ${contractor.name}` : ""}
-            </Typography>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box
+                component="img"
+                src="/brand/logo-eps.png"
+                alt="EPS"
+                sx={{
+                  height: 24,
+                  bgcolor: "#FFFFFF",
+                  borderRadius: 1,
+                  px: 0.75,
+                  py: 0.25,
+                  objectFit: "contain",
+                }}
+              />
+              <Typography variant="caption" sx={{ color: "inherit", opacity: 0.9, fontWeight: 600 }}>
+                {project?.name ?? "STS 9.9 MW Biomass Power Plant"}
+              </Typography>
+            </Box>
+            {contractor ? (
+              <Chip
+                label={`${contractor.code} · ${contractor.name}`}
+                size="small"
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.18)",
+                  color: "#FFFFFF",
+                  fontWeight: 600,
+                  fontSize: 12,
+                  maxWidth: { xs: 200, sm: 340 },
+                  "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" },
+                }}
+              />
+            ) : null}
           </Stack>
-          {myContractors.length > 1 ? (
-            <TextField
-              select
-              size="small"
-              label="รายงานในนามผู้รับเหมา"
-              value={contractorId ?? ""}
-              onChange={(e) => setContractor(e.target.value)}
-              sx={{
-                mt: 1.5,
-                bgcolor: "common.white",
-                borderRadius: 1,
-                width: "100%",
-              }}
-            >
-              {myContractors.map((c) => (
-                <MenuItem key={c.id} value={c.id}>
-                  {c.code} · {c.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          ) : null}
           <Typography variant="h4" sx={{ color: "common.white", mt: 0.5, mb: 1.5 }}>
             รายงานประจำวัน · {formatThaiDate(date)}
           </Typography>
@@ -143,12 +144,12 @@ export function FieldReportPage() {
           >
             <ToggleButton value="morning">
               <WbSunnyOutlinedIcon fontSize="small" />
-              เช้า<Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}> — Check-in</Box>
+              เช้า<Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}> · Daily Report</Box>
               {morningDone ? <CheckCircleOutlineIcon fontSize="small" color="success" /> : null}
             </ToggleButton>
             <ToggleButton value="evening">
               <WbTwilightOutlinedIcon fontSize="small" />
-              บ่าย<Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}> — Check-out</Box>
+              บ่าย<Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}> · Daily Request</Box>
               {eveningDone ? <CheckCircleOutlineIcon fontSize="small" color="success" /> : null}
             </ToggleButton>
           </ToggleButtonGroup>
@@ -167,7 +168,7 @@ export function FieldReportPage() {
             : `โหลดรายงานไม่สำเร็จ: ${loadError.message}`}
         </Alert>
       ) : !contractor || !current.data ? null : shift === "morning" ? (
-        !allowResubmit && morningDone && eveningDone && report ? (
+        !editable && morningDone && report ? (
           <ReportSummary report={report} buildings={buildings.data?.data ?? []} />
         ) : (
         <MorningForm
@@ -184,7 +185,7 @@ export function FieldReportPage() {
           }}
         />
         )
-      ) : !allowResubmit && eveningDone && report ? (
+      ) : !editable && eveningDone && report ? (
         <ReportSummary report={report} buildings={buildings.data?.data ?? []} />
       ) : (
         // Evening never waits for the morning shift.
@@ -199,7 +200,9 @@ export function FieldReportPage() {
               </Button>
             }
           >
-            ส่งรายงานบ่ายแล้ว — แก้ไขและส่งซ้ำได้ (โหมดทดลอง)
+            {allowResubmit
+              ? "ส่งรายงานบ่ายแล้ว — แก้ไขและส่งซ้ำได้"
+              : `ส่งรายงานบ่ายแล้ว — แก้ไขและส่งใหม่ได้ถึง ${editUntil}`}
           </Alert>
         ) : null}
         <EveningForm

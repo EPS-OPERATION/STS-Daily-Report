@@ -14,6 +14,7 @@ import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
+import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -33,9 +34,8 @@ import { useEffect, useState, type ComponentType } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { useSubmitMorning } from "../hooks/use-daily-report-mutations.js";
-import { morningSchema, type MorningFormValues } from "../schemas/daily-report.schema.js";
+import { morningSchema, placementStatus, type ActivityValues, type MorningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, DailyReport, PlannedToday, ReportContractor } from "../types/daily-report.types.js";
-import { AllocationTracker } from "./allocation-tracker.js";
 import { BuildingSelect } from "./building-select.js";
 import { CountList } from "./count-list.js";
 import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
@@ -96,7 +96,11 @@ function crewDefaults(report: DailyReport | null, d: Discipline): CrewValues {
         buildingId: a.buildingId,
         headcount: a.headcount,
         workDescription: a.workDescription,
-        planPercent: a.planPercent,
+        timed: Boolean(a.startTime && a.endTime),
+        startTime: a.startTime ?? "08:00",
+        endTime: a.endTime ?? "12:00",
+        hasPlan: a.planPercent !== null,
+        planPercent: a.planPercent ?? 0,
       })),
   };
 }
@@ -204,17 +208,16 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
   };
 
   const disciplineValues = useWatch({ control, name: "disciplines" });
+  const [dayStart, dayEnd] = useWatch({ control, name: ["startTime", "endTime"] });
   const crewValues = useWatch({ control, name: "crews" });
   // Forms follow the chip order CE → ME → EE, not the order they were clicked.
   const picked = DISCIPLINE_CODES.filter((d) => disciplineValues.includes(d));
 
-  // A crew is ready when people are counted, the nationality split matches and all are placed in buildings.
-  const crewReady = (d: Discipline) => {
-    const c = crewValues[d];
-    const placed = (c.allocations ?? []).reduce((s, a) => s + (Number.isFinite(a.headcount) ? a.headcount : 0), 0);
-    const t = crewTotals(c);
-    return t.ok && placed === t.total;
-  };
+  // A crew is ready when people are counted, the nationality split matches and, at every time of
+  // the day, everyone is placed in an activity (or nobody, e.g. lunch).
+  const placementProblem = (d: Discipline) =>
+    placementStatus(crewValues[d].allocations ?? [], dayStart, dayEnd, crewTotals(crewValues[d]).total).over;
+  const crewReady = (d: Discipline) => crewTotals(crewValues[d]).ok && placementProblem(d) === null;
   const allReady = picked.length > 0 && picked.every(crewReady);
 
   const onSubmit = handleSubmit((v) => {
@@ -242,7 +245,13 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
             thaiFemale: c.thaiFemale,
             foreignMale: c.foreignMale,
             foreignFemale: c.foreignFemale,
-            allocations: c.allocations.map((a) => ({ ...a, workDescription: a.workDescription.trim() })),
+            allocations: c.allocations.map((a) => ({
+              buildingId: a.buildingId,
+              headcount: a.headcount,
+              workDescription: a.workDescription.trim(),
+              ...(a.timed ? { startTime: a.startTime, endTime: a.endTime } : {}),
+              ...(a.hasPlan ? { planPercent: a.planPercent } : {}),
+            })),
           };
         }),
       },
@@ -258,7 +267,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
     <Box component="form" onSubmit={onSubmit} noValidate>
       {report?.morningStatus === "submitted" ? (
         <Alert severity="info" sx={{ mb: 2 }}>
-          ส่งรายงานเช้าแล้ว — แก้ไขและส่งใหม่ได้ (ล็อกเมื่อส่งครบทั้งเช้าและบ่าย ยกเว้นโหมดทดลอง)
+          ส่งรายงานเช้าแล้ว — แก้ไขและส่งใหม่ได้ถึง 12:00 น. ของวันถัดไป
         </Alert>
       ) : null}
 
@@ -460,7 +469,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         </Alert>
       ) : null}
       {picked.map((d, i) => (
-        <MorningCrewSection key={d} index={3 + i} discipline={d} form={form} buildings={buildings} />
+        <MorningCrewSection key={d} index={3 + i} discipline={d} form={form} buildings={buildings} dayStart={dayStart} dayEnd={dayEnd} />
       ))}
 
       <SectionCard index={3 + picked.length} title="เครื่องจักร / เครื่องมือในไซต์" subtitle="จำนวนที่นำเข้าไซต์วันนี้ (ไม่ต้องจอง)">
@@ -510,9 +519,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         {picked
           .filter((d) => !crewReady(d))
           .map((d) => {
-            const c = crewValues[d];
-            const t = crewTotals(c);
-            const remaining = t.total - (c.allocations ?? []).reduce((s, a) => s + (Number.isFinite(a.headcount) ? a.headcount : 0), 0);
+            const t = crewTotals(crewValues[d]);
             return (
               <Alert key={d} severity="warning" sx={{ mb: 1, py: 0 }}>
                 {disciplineLabel(d)}:{" "}
@@ -520,9 +527,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
                   ? "ยังไม่ได้กรอกจำนวนคน"
                   : !t.ok
                     ? `สัญชาติ/เพศ ${t.byNationality} คน ไม่ตรงกับตามตำแหน่ง ${t.total} คน`
-                    : remaining > 0
-                      ? `ยังไม่ได้ลงอาคาร ${remaining} คน`
-                      : `จัดสรรเกิน ${-remaining} คน`}{" "}
+                    : placementProblem(d)}{" "}
                 — ปุ่มส่งถูกล็อก
               </Alert>
             );
@@ -539,40 +544,61 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
   );
 }
 
-// One discipline's morning form: who works (by position + nationality/sex) and where (buildings).
+// Activity times are picked in 30-minute steps (05:00–22:00, covers early starts and OT).
+const HALF_HOURS = Array.from({ length: (22 - 5) * 2 + 1 }, (_, i) => {
+  const minutes = 5 * 60 + i * 30;
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${minutes % 60 === 0 ? "00" : "30"}`;
+});
+
+const newActivity = (headcount: number): ActivityValues => ({
+  buildingId: "",
+  headcount,
+  workDescription: "",
+  timed: false,
+  startTime: "08:00",
+  endTime: "12:00",
+  hasPlan: false,
+  planPercent: 0,
+});
+
+// One discipline's morning form: who works (by position + nationality/sex) and Today Activity —
+// which building, what work, how many people, optionally when and with a plan %.
 function MorningCrewSection({
   index,
   discipline,
   form,
   buildings,
+  dayStart,
+  dayEnd,
 }: {
   index: number;
   discipline: Discipline;
   form: UseFormReturn<MorningFormValues>;
   buildings: Building[];
+  dayStart: string;
+  dayEnd: string;
 }) {
   const { control, setValue, getValues, formState } = form;
-  const allocations = useFieldArray({ control, name: `crews.${discipline}.allocations` });
+  const activities = useFieldArray({ control, name: `crews.${discipline}.allocations` });
   const crew = useWatch({ control, name: `crews.${discipline}` });
   const t = crewTotals(crew);
-  const allocated = (crew.allocations ?? []).reduce((s, a) => s + (Number.isFinite(a.headcount) ? a.headcount : 0), 0);
-  const remaining = t.total - allocated;
-  const chosenBuildings = (crew.allocations ?? []).map((a) => a.buildingId).filter(Boolean);
+  const rows = crew.allocations ?? [];
+  const placement = placementStatus(rows, dayStart, dayEnd, t.total);
+  const problem = t.total > 0 ? placement.over : null;
   const errors = formState.errors.crews?.[discipline];
+  const listError = errors?.allocations?.root?.message ?? errors?.allocations?.message;
 
-  // A freshly opened discipline starts with one empty building row.
+  // A freshly opened discipline starts with one empty activity.
   useEffect(() => {
-    if (getValues(`crews.${discipline}.allocations`).length === 0) {
-      allocations.append({ buildingId: "", headcount: 1, workDescription: "", planPercent: 0 });
-    }
+    if (getValues(`crews.${discipline}.allocations`).length === 0) activities.append(newActivity(1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <SectionCard
       index={index}
-      title={`${disciplineLabel(discipline)} — ผู้ปฏิบัติงานและอาคาร`}
-      subtitle="จำนวนคนเข้างานวันนี้แยกตามตำแหน่ง (ยอดหลัก) และจัดสรรลงอาคารให้ครบพอดี"
+      title={`${disciplineLabel(discipline)} — ผู้ปฏิบัติงานและ Today Activity`}
+      subtitle="จำนวนคนเข้างานวันนี้แยกตามตำแหน่ง แล้วลงรายละเอียดงานว่าทำที่ไหน กี่คน"
     >
       <CrewManpower
         value={crew}
@@ -582,97 +608,178 @@ function MorningCrewSection({
         onSplit={(key, n) => setValue(`crews.${discipline}.${key}`, n, { shouldDirty: true, shouldValidate: formState.isSubmitted })}
       />
 
-      <Typography variant="body2" sx={{ fontWeight: 700, mt: 2.5, mb: 1 }}>
-        จัดสรรคนงานลงอาคาร (Building Allocation) — ทุกคนต้องลงอาคารครบพอดี
+      <Typography variant="h6" sx={{ mt: 3 }}>
+        Today Activity
       </Typography>
-      <AllocationTracker total={t.total} allocated={allocated} />
-      {errors?.allocations?.root?.message || errors?.allocations?.message ? (
-        <Typography variant="caption" color="error" sx={{ display: "block", mb: 1 }}>
-          {errors?.allocations?.root?.message ?? errors?.allocations?.message}
-        </Typography>
-      ) : null}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        ลงรายละเอียดงานพร้อมจำนวนคนที่ทำ — ถ้าย้ายอาคารระหว่างวัน กด “ระบุเวลา” ได้ (ไม่บังคับ)
+      </Typography>
+
       <Stack spacing={1.5}>
-        {allocations.fields.map((row, i) => (
-          <Card key={row.id} variant="outlined">
-            <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-              <Stack spacing={1.5}>
-                <Stack direction="row" spacing={1} alignItems="flex-start">
-                  <Controller
-                    name={`crews.${discipline}.allocations.${i}.buildingId`}
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <BuildingSelect
-                        label="อาคาร"
-                        buildings={buildings}
-                        value={field.value}
-                        onChange={field.onChange}
-                        disabledIds={chosenBuildings.filter((id) => id !== field.value)}
-                        error={fieldState.error?.message}
-                      />
-                    )}
-                  />
-                  <IconButton
-                    aria-label="ลบอาคาร"
-                    onClick={() => allocations.remove(i)}
-                    disabled={allocations.fields.length === 1}
-                    sx={{ mt: 0.5 }}
-                  >
-                    <DeleteOutlineOutlinedIcon />
-                  </IconButton>
-                </Stack>
-                <Controller
-                  name={`crews.${discipline}.allocations.${i}.workDescription`}
-                  control={control}
-                  render={({ field, fieldState }) => (
-                    <TextField
-                      {...field}
-                      label="ลักษณะงาน"
-                      placeholder="เช่น ยกติดตั้ง Structure line A–D"
-                      size="small"
-                      fullWidth
-                      error={Boolean(fieldState.error)}
-                      helperText={fieldState.error?.message}
-                    />
-                  )}
-                />
-                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-                  <Controller
-                    name={`crews.${discipline}.allocations.${i}.headcount`}
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <NumberStepper
-                        label="จำนวนคนในอาคาร"
-                        value={field.value}
-                        onChange={field.onChange}
-                        min={1}
-                        unit="คน"
-                        error={fieldState.error?.message}
-                      />
-                    )}
-                  />
-                  <Controller
-                    name={`crews.${discipline}.allocations.${i}.planPercent`}
-                    control={control}
-                    render={({ field }) => (
-                      <NumberStepper label="แผนงาน (Plan %)" value={field.value} onChange={field.onChange} max={100} step={5} unit="%" />
-                    )}
-                  />
-                </Stack>
-              </Stack>
-            </CardContent>
-          </Card>
+        {activities.fields.map((row, i) => (
+          <ActivityRow
+            key={row.id}
+            index={i}
+            discipline={discipline}
+            form={form}
+            buildings={buildings}
+            canRemove={activities.fields.length > 1}
+            onRemove={() => activities.remove(i)}
+          />
         ))}
       </Stack>
-      <Button
-        startIcon={<AddIcon />}
-        variant="outlined"
-        fullWidth
-        sx={{ mt: 1.5, borderStyle: "dashed" }}
-        disabled={allocations.fields.length >= buildings.length}
-        onClick={() => allocations.append({ buildingId: "", headcount: Math.max(1, remaining), workDescription: "", planPercent: 0 })}
-      >
-        เพิ่มอาคาร
-      </Button>
+
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
+        <Typography
+          variant="body2"
+          role="status"
+          aria-live="polite"
+          sx={{
+            fontWeight: 600,
+            color: problem ? "error.main" : placement.placed === t.total && t.total > 0 ? "success.dark" : "text.secondary",
+          }}
+        >
+          {t.total === 0
+            ? "กรอกจำนวนคนด้านบนก่อน"
+            : (problem ?? (placement.placed === t.total ? `ลงงานครบ ${t.total} คนแล้ว` : `ลงงาน ${placement.placed}/${t.total} คน`))}
+        </Typography>
+        <Button
+          startIcon={<AddIcon />}
+          variant="outlined"
+          size="small"
+          disabled={activities.fields.length >= 32}
+          onClick={() => activities.append(newActivity(1))}
+        >
+          เพิ่มกิจกรรม
+        </Button>
+      </Stack>
+      {listError && listError !== problem ? (
+        <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.5 }}>
+          {listError}
+        </Typography>
+      ) : null}
     </SectionCard>
+  );
+}
+
+function ActivityRow({
+  index,
+  discipline,
+  form,
+  buildings,
+  canRemove,
+  onRemove,
+}: {
+  index: number;
+  discipline: Discipline;
+  form: UseFormReturn<MorningFormValues>;
+  buildings: Building[];
+  canRemove: boolean;
+  onRemove: () => void;
+}) {
+  const { control, setValue } = form;
+  const path = `crews.${discipline}.allocations.${index}` as const;
+  const [timed, hasPlan] = useWatch({ control, name: [`${path}.timed`, `${path}.hasPlan`] });
+
+  return (
+    <Card variant="outlined">
+      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Stack spacing={1.5}>
+          <Stack direction="row" spacing={1} alignItems="flex-start">
+            <Controller
+              name={`${path}.buildingId`}
+              control={control}
+              render={({ field, fieldState }) => (
+                <BuildingSelect label="อาคาร" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+              )}
+            />
+            <IconButton aria-label="ลบกิจกรรม" onClick={onRemove} disabled={!canRemove} sx={{ mt: 0.5 }}>
+              <DeleteOutlineOutlinedIcon />
+            </IconButton>
+          </Stack>
+          <Controller
+            name={`${path}.workDescription`}
+            control={control}
+            render={({ field, fieldState }) => (
+              <TextField
+                {...field}
+                label="รายละเอียดงาน"
+                placeholder="เช่น ยกติดตั้ง Structure line A–D"
+                size="small"
+                fullWidth
+                error={Boolean(fieldState.error)}
+                helperText={fieldState.error?.message}
+              />
+            )}
+          />
+          <Stack direction="row" spacing={2} alignItems="flex-end" flexWrap="wrap" useFlexGap>
+            <Controller
+              name={`${path}.headcount`}
+              control={control}
+              render={({ field, fieldState }) => (
+                <NumberStepper label="จำนวนคนที่ทำ" value={field.value} onChange={field.onChange} min={1} unit="คน" error={fieldState.error?.message} />
+              )}
+            />
+            {timed ? (
+              <Stack direction="row" spacing={1} alignItems="center">
+                {(["startTime", "endTime"] as const).map((k) => (
+                  <Controller
+                    key={k}
+                    name={`${path}.${k}`}
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <TextField
+                        {...field}
+                        select
+                        size="small"
+                        label={k === "startTime" ? "เริ่ม" : "ถึง"}
+                        sx={{ width: 112 }}
+                        error={Boolean(fieldState.error)}
+                        helperText={fieldState.error?.message}
+                      >
+                        {/* Half-hour steps only; keep an off-grid value from older data selectable. */}
+                        {(HALF_HOURS.includes(field.value) ? HALF_HOURS : [field.value, ...HALF_HOURS]).map((t) => (
+                          <MenuItem key={t} value={t}>
+                            {t}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    )}
+                  />
+                ))}
+              </Stack>
+            ) : null}
+            {hasPlan ? (
+              <Controller
+                name={`${path}.planPercent`}
+                control={control}
+                render={({ field }) => (
+                  <NumberStepper label="แผนงาน (Plan %)" value={field.value} onChange={field.onChange} max={100} step={5} unit="%" />
+                )}
+              />
+            ) : null}
+          </Stack>
+          {/* Optional extras stay out of the way for contractors who do not need them. */}
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button
+              size="small"
+              variant="text"
+              startIcon={timed ? undefined : <AddIcon />}
+              onClick={() => setValue(`${path}.timed`, !timed, { shouldDirty: true, shouldValidate: true })}
+            >
+              {timed ? "ไม่ระบุเวลา (ทั้งวัน)" : "ระบุเวลา"}
+            </Button>
+            <Button
+              size="small"
+              variant="text"
+              startIcon={hasPlan ? undefined : <AddIcon />}
+              onClick={() => setValue(`${path}.hasPlan`, !hasPlan, { shouldDirty: true })}
+            >
+              {hasPlan ? "ไม่ระบุแผน %" : "แผนงาน %"}
+            </Button>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
   );
 }

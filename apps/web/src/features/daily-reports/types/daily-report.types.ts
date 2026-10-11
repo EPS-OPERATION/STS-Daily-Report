@@ -55,7 +55,13 @@ export interface ReportAllocation {
   buildingName: string;
   headcount: number;
   workDescription: string;
-  planPercent: number;
+  /** Optional HH:mm window; null = all day. */
+  startTime: string | null;
+  endTime: string | null;
+  /** Share of the crew's working time spent here (man-days = headcount × dayShare). */
+  dayShare: number;
+  /** Optional plan; null = no plan stated (actual % only). */
+  planPercent: number | null;
   actualPercent: number | null;
   countermeasure: string | null;
 }
@@ -180,6 +186,8 @@ export interface DailyReport {
   foreignMale: number;
   foreignFemale: number;
   totalHeadcount: number;
+  /** (morning + afternoon) / 2, or the one half sent — see dayManpower in @sts/shared. */
+  manDays: number;
   manHours: number;
   accidentOccurred: boolean | null;
   accidentNote: string | null;
@@ -258,7 +266,14 @@ export interface MorningPayload {
   humidityPct?: number;
   equipment: { equipmentType: SiteEquipmentType; qty: number }[];
   crews: (CrewPayload & {
-    allocations: { buildingId: string; headcount: number; workDescription: string; planPercent: number }[];
+    allocations: {
+      buildingId: string;
+      headcount: number;
+      workDescription: string;
+      startTime?: string;
+      endTime?: string;
+      planPercent?: number;
+    }[];
   })[];
 }
 

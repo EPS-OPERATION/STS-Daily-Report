@@ -84,6 +84,7 @@ function createMockDailyReport(row: ReviewQueueRow): DailyReport {
     foreignMale,
     foreignFemale,
     totalHeadcount: headcount,
+    manDays: headcount,
     manHours: headcount * (workHours + otHours),
     accidentOccurred: false,
     accidentNote: null,
@@ -114,6 +115,9 @@ function createMockDailyReport(row: ReviewQueueRow): DailyReport {
     allocations: [
       {
         id: "alloc-1",
+        startTime: null,
+        endTime: null,
+        dayShare: 1,
         discipline: "CE",
         buildingId: "bld-4",
         buildingCode: "4",
@@ -126,6 +130,9 @@ function createMockDailyReport(row: ReviewQueueRow): DailyReport {
       },
       {
         id: "alloc-2",
+        startTime: null,
+        endTime: null,
+        dayShare: 1,
         discipline: "CE",
         buildingId: "bld-2.1",
         buildingCode: "2.1",
@@ -460,7 +467,7 @@ export function ReviewDialog({
                   </Typography>
                 ) : (
                   data.allocations.map((a) => {
-                    const isBehind = (a.actualPercent ?? 0) < a.planPercent;
+                    const isBehind = a.planPercent !== null && (a.actualPercent ?? 0) < a.planPercent;
                     return (
                       <Card key={a.id} variant="outlined" sx={{ borderColor: isBehind ? "warning.main" : "divider" }}>
                         <CardContent sx={{ p: 2 }}>
@@ -490,12 +497,12 @@ export function ReviewDialog({
                                 ผลงานจริง: {a.actualPercent ?? 0}%
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                แผนงาน: {a.planPercent}%
+                                แผนงาน: {a.planPercent === null ? "—" : `${a.planPercent}%`}
                               </Typography>
                             </Stack>
                             <LinearProgress
                               variant="determinate"
-                              value={Math.min(100, a.actualPercent ?? a.planPercent)}
+                              value={Math.min(100, a.actualPercent ?? a.planPercent ?? 0)}
                               color={isBehind ? "warning" : "success"}
                               sx={{ height: 8, borderRadius: 4 }}
                             />

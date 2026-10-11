@@ -177,7 +177,10 @@ export const dailyReportMaterials = pgTable(
   ],
 );
 
-// Morning: people placed in a building + planned %. Evening: actual % (+ countermeasure when behind).
+// Morning "Today Activity": people placed in a building, all day or for an optional HH:mm window
+// (crews that move building split over rows), with an optional plan %. day_share = share of the
+// crew's working time this row covers, so building man-days = headcount × day_share.
+// Evening: actual % (+ countermeasure when behind a stated plan).
 export const dailyReportAllocations = pgTable(
   "daily_report_allocations",
   {
@@ -191,7 +194,10 @@ export const dailyReportAllocations = pgTable(
     discipline: text("discipline").notNull().default("CE"),
     headcount: integer("headcount").notNull(),
     workDescription: text("work_description").notNull(),
-    planPercent: integer("plan_percent").notNull().default(0),
+    startTime: text("start_time"),
+    endTime: text("end_time"),
+    dayShare: numeric("day_share", { precision: 4, scale: 3, mode: "number" }).notNull().default(1),
+    planPercent: integer("plan_percent"),
     actualPercent: integer("actual_percent"),
     countermeasure: text("countermeasure"),
     sortOrder: integer("sort_order").notNull().default(0),
@@ -201,7 +207,12 @@ export const dailyReportAllocations = pgTable(
   (t) => [
     check("daily_report_allocations_headcount_check", sql`${t.headcount} > 0`),
     check("daily_report_allocations_discipline_check", sql`${t.discipline} IN ('CE', 'ME', 'EE')`),
-    check("daily_report_allocations_plan_check", sql`${t.planPercent} BETWEEN 0 AND 100`),
+    check("daily_report_allocations_plan_check", sql`${t.planPercent} IS NULL OR ${t.planPercent} BETWEEN 0 AND 100`),
+    check(
+      "daily_report_allocations_window_check",
+      sql`(${t.startTime} IS NULL AND ${t.endTime} IS NULL) OR (${t.startTime} IS NOT NULL AND ${t.endTime} IS NOT NULL AND ${t.startTime} < ${t.endTime})`,
+    ),
+    check("daily_report_allocations_share_check", sql`${t.dayShare} > 0 AND ${t.dayShare} <= 1`),
     check(
       "daily_report_allocations_actual_check",
       sql`${t.actualPercent} IS NULL OR ${t.actualPercent} BETWEEN 0 AND 100`,

@@ -229,3 +229,19 @@ export const FINDING_TYPE_CODES = FINDING_TYPES.map((t) => t.code) as FindingTyp
 
 export const FINDING_STATUSES = ["open", "done"] as const;
 export type FindingStatus = (typeof FINDING_STATUSES)[number];
+
+// Contractors may edit a sent report until 12:00 site time (Thailand, UTC+7, no DST) on
+// the day after the report date. After that the day is closed for edits.
+export const EDIT_CUTOFF_HOUR = 12;
+const SITE_UTC_OFFSET = "+07:00";
+
+export function editDeadline(reportDate: string): Date {
+  const next = new Date(`${reportDate}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  const day = next.toISOString().slice(0, 10);
+  return new Date(`${day}T${String(EDIT_CUTOFF_HOUR).padStart(2, "0")}:00:00${SITE_UTC_OFFSET}`);
+}
+
+export function canEditReport(reportDate: string, now: Date = new Date()): boolean {
+  return now.getTime() < editDeadline(reportDate).getTime();
+}

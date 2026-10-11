@@ -29,20 +29,25 @@ export function LoginPage() {
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 3 }}>
           <Box
             sx={{
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               borderRadius: 2,
-              bgcolor: "navy.dark",
-              color: "#FFFFFF",
+              bgcolor: "#FFFFFF",
+              border: "1px solid",
+              borderColor: "divider",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontWeight: 800,
-              fontSize: 15,
+              p: 0.5,
               flexShrink: 0,
             }}
           >
-            STS
+            <Box
+              component="img"
+              src="/brand/logo-eps.png"
+              alt="EPS"
+              sx={{ width: "100%", height: "100%", objectFit: "contain" }}
+            />
           </Box>
           <Box>
             <Typography variant="h5">STS Platform</Typography>

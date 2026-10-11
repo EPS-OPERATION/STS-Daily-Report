@@ -3,7 +3,6 @@ import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import Alert from "@mui/material/Alert";
-import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
@@ -90,7 +89,9 @@ export function RequestSection({
                   </Box>
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                      {inspectionTypeLabel(r.inspectionType)} · {r.workItem}
+                      {r.inspectionType && r.inspectionType !== "other"
+                        ? `${inspectionTypeLabel(r.inspectionType)} · ${r.workItem}`
+                        : r.workItem}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                       {r.buildingName}
@@ -197,7 +198,7 @@ function RequestDialog({
           buildingId: "",
           inspectionDate: reportDate,
           inspectionTime: "09:00",
-          inspectionType: "" as InspectionType,
+          inspectionType: "other" as InspectionType,
           workItem: "",
           location: "",
           drawingRef: "",
@@ -209,6 +210,7 @@ function RequestDialog({
   const onSubmit = handleSubmit((v) => {
     const fields = {
       ...v,
+      inspectionType: (request?.inspectionType || v.inspectionType || "other") as InspectionType,
       readiness: "ready" as Readiness,
       location: v.location || undefined,
       drawingRef: v.drawingRef || undefined,
@@ -237,36 +239,6 @@ function RequestDialog({
           <Grid container spacing={2}>
             <Grid size={12}>
               <Controller
-                name="inspectionType"
-                control={control}
-                render={({ field, fieldState }) => {
-                  const selected = INSPECTION_TYPES.find((t) => t.code === field.value) ?? null;
-                  return (
-                    <Autocomplete
-                      options={INSPECTION_TYPES as readonly { code: InspectionType; label: string }[]}
-                      value={selected}
-                      onChange={(_, item) => field.onChange(item ? item.code : "")}
-                      getOptionLabel={(t) => t.label}
-                      isOptionEqualToValue={(opt, val) => opt.code === val.code}
-                      autoHighlight
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="ประเภทการตรวจ (Inspection Type)"
-                          placeholder="พิมพ์ค้นหา เช่น Rebar, Concrete..."
-                          size="small"
-                          fullWidth
-                          error={Boolean(fieldState.error)}
-                          helperText={fieldState.error?.message}
-                        />
-                      )}
-                    />
-                  );
-                }}
-              />
-            </Grid>
-            <Grid size={12}>
-              <Controller
                 name="workItem"
                 control={control}
                 render={({ field, fieldState }) => (
@@ -282,7 +254,7 @@ function RequestDialog({
                 )}
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 7 }}>
+            <Grid size={12}>
               <Controller
                 name="buildingId"
                 control={control}
@@ -295,13 +267,6 @@ function RequestDialog({
                     error={fieldState.error?.message}
                   />
                 )}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 5 }}>
-              <Controller
-                name="location"
-                control={control}
-                render={({ field }) => <TextField {...field} label="ตำแหน่ง (grid/ชั้น)" placeholder="B1 L3" fullWidth size="small" />}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>

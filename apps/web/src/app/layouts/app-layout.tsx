@@ -107,19 +107,28 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Box
             sx={{
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               borderRadius: 2,
               bgcolor: "#FFFFFF",
-              color: "navy.dark",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontWeight: 800,
-              fontSize: 15,
+              p: 0.5,
+              flexShrink: 0,
+              boxShadow: "0 2px 4px rgba(0,0,0,0.12)",
             }}
           >
-            STS
+            <Box
+              component="img"
+              src="/brand/logo-eps.png"
+              alt="EPS"
+              sx={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+              }}
+            />
           </Box>
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, display: collapsed ? "none" : "block" }}>
@@ -208,7 +217,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
       <Box sx={{ p: collapsed ? 1.5 : 2 }}>
         <Box sx={{ borderRadius: 2, bgcolor: "rgba(255,255,255,0.06)", p: 1.5, textAlign: "center" }}>
           <Typography variant="body2" sx={{ fontWeight: 600, display: collapsed ? "none" : "block" }}>
-            {isContractor ? ((me.data?.data.contractors.length ?? 0) > 1 ? "ผู้รับเหมาทั้งหมด (ทดลอง)" : (me.data?.data.contractors[0]?.name ?? "Contractor Field")) : "Biomass Power Plant"}
+            {isContractor ? (me.data?.data.contractors[0]?.name ?? "Contractor Field") : "Biomass Power Plant"}
           </Typography>
           <Typography variant="caption" sx={{ color: "#9DB4CC", display: collapsed ? "none" : "block" }}>
             {isContractor ? "STS Daily Field" : "STS Project"}
