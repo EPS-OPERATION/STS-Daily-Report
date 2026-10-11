@@ -42,7 +42,7 @@ Bun >= 1.3, Docker + Compose. Free ports: 5173 web, 3000 api, 5432 pg, 9000/9001
 ## 5. Local development
 
 ```sh
-git clone https://github.com/MojiQAQC/STS-Daily-Report
+git clone https://github.com/EPS-OPERATION/STS-Daily-Report
 cd STS-Daily-Report && git checkout dev
 cp .env.example .env
 bun install

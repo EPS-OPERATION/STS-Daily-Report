@@ -1,4 +1,4 @@
-# PROJECT_WORKFLOW.md — STS Daily Report (Improvement Workflow)
+# PROJECT_WORKFLOW.md — STS Daily Report (Development Workflow)
 
 > Mandatory development rules. Read this file before performing any future Git-related operation.
 > Do not change these rules unless explicitly asked to change them.
@@ -10,9 +10,14 @@ This project is an improvement of the existing Daily Report system.
 We are NOT creating a completely new feature from scratch.
 The current work should be treated as an improvement to the existing system.
 
-Intended branch (once the correct remote repository is confirmed):
+Repository: `https://github.com/EPS-OPERATION/STS-Daily-Report`
 
-`improvement/daily-report`
+Active development branch:
+
+`dev`
+
+(History note: `feature/daily-report` and `improvement/daily-report` were merged into `dev` and deleted
+on 2026-10-11. All their commits are preserved in `dev`.)
 
 ## Branch Structure
 
@@ -20,60 +25,47 @@ Intended branch (once the correct remote repository is confirmed):
 main
   ↑
 dev
-  ↑
-improvement/daily-report
 ```
 
-### Protected branches
+### Protected branch
 
-`main` and `dev` are protected branches.
+`main` is a protected branch.
 
 Under NO circumstances should you directly:
 
 - modify code on `main`
-- modify code on `dev`
 - commit directly to `main`
-- commit directly to `dev`
 - rebase `main`
-- rebase `dev`
 - reset `main`
-- reset `dev`
 - merge into `main`
-- merge into `dev`
 - force-push to `main`
-- force-push to `dev`
+
+A merge of `dev` into `main` happens only when the user explicitly asks for it.
 
 The development work must happen only on:
 
-`improvement/daily-report`
+`dev`
 
 ## Development Workflow
 
 1. Before doing anything, inspect the current project structure and Git status.
-2. Confirm which branch is currently checked out.
-3. Never assume that `main` or `dev` is safe to modify.
-4. The improvement branch must be based on the latest `origin/dev`.
-5. All code changes must be made only on:
-   `improvement/daily-report`
+2. Confirm which branch is currently checked out — it must be `dev`.
+3. Never assume that `main` is safe to modify.
+4. The `dev` branch must be based on the latest `origin/dev` (pull before starting work).
+5. All code changes must be made only on `dev`.
 6. Existing functionality must be preserved unless the requested improvement explicitly requires changing it.
 
-## Rebase Workflow
+## Syncing
 
-If `dev` receives new commits while development is in progress:
+If `origin/dev` receives new commits while development is in progress:
 
 ```bash
 git fetch origin
-git checkout improvement/daily-report
-git rebase origin/dev
+git checkout dev
+git pull origin dev
 ```
 
-The rebase direction must always be:
-
-`improvement/daily-report` → `origin/dev`
-
-Never rebase `main` or `dev`.
-
-If a conflict occurs during rebase:
+If a conflict occurs while pulling:
 
 **STOP immediately and ask me what to do.**
 
@@ -85,20 +77,23 @@ Do NOT automatically:
 - overwrite files
 - resolve the conflict based on assumptions
 
+`dev` is a shared branch — do NOT rebase it or force-push it.
+
 ## Push Rules
 
 Only push:
 
-`improvement/daily-report`
+`dev`
+
+(and only when the user asks — pushing `dev` deploys the dev environment).
 
 Never push directly to:
 
 `main`
-`dev`
 
 Do not use `git push --force`.
 
-If a force push is ever genuinely required after a rebase, STOP and ask for my explicit approval first. If approved, use:
+If a force push is ever genuinely required, STOP and ask for my explicit approval first. If approved, use:
 
 `git push --force-with-lease`
 
@@ -106,29 +101,28 @@ If a force push is ever genuinely required after a rebase, STOP and ask for my e
 
 Do NOT automatically:
 
-- merge `improvement/daily-report` into `dev`
-- merge `improvement/daily-report` into `main`
+- merge `dev` into `main`
 - create a PR
 - approve a PR
 - merge a PR
 
-When the improvement is complete, stop after testing and pushing the improvement branch and ask me before any merge or PR action.
+When the work is complete, stop after testing and (if asked) pushing `dev`, and ask me before any merge or PR action.
 
 ## Safety Rule
 
-If you are ever unsure whether a Git command could modify `main` or `dev`, STOP and ask me before running it.
+If you are ever unsure whether a Git command could modify `main`, STOP and ask me before running it.
 
 Do not make assumptions.
 
 Before every Git-related operation, verify the current branch.
 
-Development must be done only on an improvement/* branch.
+Development must be done only on `dev`.
 
-Never automatically merge into dev or main.
+Never automatically merge into `main`.
 
 Never automatically create or merge a Pull Request.
 
-If any Git operation could affect main or dev, STOP and ask me first.
+If any Git operation could affect `main`, STOP and ask me first.
 
 ## Important
 

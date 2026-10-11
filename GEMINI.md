@@ -9,8 +9,9 @@ dashboards, replacing LINE messages and paper "Daily Request & Report" forms.
 
 ## Hard rules
 
-1. **Git**: work only on `improvement/daily-report`. Never commit/merge/rebase/reset/push `main` or `dev`, never
-   `--force`, never open or merge a PR unless asked. Rebase conflict → STOP and ask (`PROJECT_WORKFLOW.md`).
+1. **Git**: work only on `dev`. Never commit/merge/rebase/reset/push `main`, never `--force`, never open or merge
+   a PR unless asked. Push `dev` only when asked (it deploys the dev environment). Conflict → STOP and ask
+   (`PROJECT_WORKFLOW.md`).
 2. **Improve, don't rebuild**: keep existing behaviour unless the task says to change it.
 3. **Keep `AGENT.md` true** and under 100 lines: any change to files/commands/env/schema/architecture updates it in the
    same commit.

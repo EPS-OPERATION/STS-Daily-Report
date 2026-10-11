@@ -3,7 +3,7 @@
 > Living document: ถ้ามีการ update อะไรก็ตามใน repo นี้ (code, config, schema, script, docs, โครงสร้าง,
 > คำสั่ง build/test/deploy) ต้อง update ไฟล์นี้ให้ตรงของจริงใน commit เดียวกัน ห้ามปล่อยล้าสมัย
 
-## สถานะปัจจุบัน (2026-10-02, branch `improvement/daily-report` — กฎ git ดู `PROJECT_WORKFLOW.md`)
+## สถานะปัจจุบัน (2026-10-11, branch `dev` — กฎ git ดู `PROJECT_WORKFLOW.md`)
 
 - Agent docs: `CLAUDE.md` (entry, import ไฟล์นี้), `SKILLS.md` (index), skills ที่ `.claude/skills/`
   (`sts-*`, `impeccable`, `web-design-guidelines`, `vercel-react-best-practices`) — design system อยู่ที่ `DESIGN.md` และ `.impeccable/`

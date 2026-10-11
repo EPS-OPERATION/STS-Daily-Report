@@ -9,8 +9,9 @@ data source that feeds dashboards — replacing free-text LINE messages and pape
 
 ## Hard rules
 
-1. **Git**: work only on `improvement/daily-report`. Never commit/merge/rebase/reset/push `main` or `dev`, never
-   `--force`, never open or merge a PR unless asked. Rebase conflict → STOP and ask. Details: `PROJECT_WORKFLOW.md`.
+1. **Git**: work only on `dev`. Never commit/merge/rebase/reset/push `main`, never `--force`, never open or merge
+   a PR unless asked. Push `dev` only when asked (it deploys the dev environment). Conflict → STOP and ask.
+   Details: `PROJECT_WORKFLOW.md`.
 2. **Improve, don't rebuild**: preserve existing behaviour unless the task says to change it.
 3. **Keep AGENT.md true**: any change to files/commands/env/schema/architecture updates `AGENT.md` in the same commit
    (it must stay < 100 lines; long material goes to README or a skill).
