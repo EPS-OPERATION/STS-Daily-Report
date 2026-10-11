@@ -22,9 +22,9 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { POSITIONS, WEATHER_CONDITIONS, type PositionCode } from "@sts/shared";
+import { POSITIONS, WEATHER_CONDITIONS } from "@sts/shared";
 import dayjs from "dayjs";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import { useMe } from "@/features/auth/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
@@ -33,186 +33,6 @@ import { useCurrentReport } from "../hooks/use-daily-report-queries.js";
 import type { DailyReport, ReviewQueueRow } from "../types/daily-report.types.js";
 import { formatThaiDate, timeWindowLabel } from "../utils/dates.js";
 import { permitLabel } from "./permit-meta.js";
-
-// Helper to provide rich, realistic contractor-submitted mock data
-// if the DB does not yet have a full evening submission for this row.
-function createMockDailyReport(row: ReviewQueueRow): DailyReport {
-  const headcount = row.totalHeadcount > 0 ? row.totalHeadcount : 24;
-  const thaiMale = Math.max(1, Math.round(headcount * 0.6));
-  const thaiFemale = Math.max(0, Math.round(headcount * 0.1));
-  const foreignMale = Math.max(0, headcount - thaiMale - thaiFemale);
-  const foreignFemale = 0;
-  const workHours = 8;
-  const otHours = 2;
-
-  const positions: { position: PositionCode; headcount: number }[] = [
-    { position: "site_manager", headcount: 1 },
-    { position: "engineer", headcount: 2 },
-    { position: "foreman", headcount: 2 },
-    { position: "safety_officer", headcount: 1 },
-    { position: "welder", headcount: Math.max(2, Math.round(headcount * 0.3)) },
-    { position: "supervisor", headcount: Math.max(1, Math.round(headcount * 0.2)) },
-    { position: "crane_operator", headcount: 1 },
-    { position: "fire_watch", headcount: 2 },
-    {
-      position: "worker",
-      headcount: Math.max(
-        1,
-        headcount - 9 - Math.max(2, Math.round(headcount * 0.3)) - Math.max(1, Math.round(headcount * 0.2)),
-      ),
-    },
-  ];
-
-  const primaryAlloc = Math.max(1, Math.round(headcount * 0.6));
-  const secondaryAlloc = Math.max(1, headcount - primaryAlloc);
-
-  return {
-    id: row.id,
-    projectId: "sts-bpp-99",
-    contractorId: row.contractorId,
-    reportDate: row.reportDate,
-    startTime: "08:00",
-    endTime: "17:00",
-    workHours,
-    otHours,
-    disciplines: ["ME", "CE"],
-    weather: "hot",
-    temperatureC: 33,
-    humidityPct: 70,
-    thaiMale,
-    thaiFemale,
-    foreignMale,
-    foreignFemale,
-    totalHeadcount: headcount,
-    manDays: headcount,
-    manHours: headcount * (workHours + otHours),
-    accidentOccurred: false,
-    accidentNote: null,
-    accidentCategory: null,
-    morningStatus: row.morningStatus,
-    morningSubmittedAt: `${row.reportDate}T08:30:00Z`,
-    eveningStatus: row.eveningStatus,
-    eveningSubmittedAt: `${row.reportDate}T17:15:00Z`,
-    reviewStatus: row.reviewStatus,
-    reviewNote: row.reviewNote,
-    signatureName: "นายสมศักดิ์ มั่นคง (ผู้จัดการหน้างาน / จป.วิชาชีพ)",
-    signedAt: `${row.reportDate}T17:15:00Z`,
-    hasSignature: true,
-    positions: positions.filter((p) => p.headcount > 0),
-    eveningPositions: [],
-    eveningHeadcount: 0,
-    crews: [],
-    eveningThaiMale: null,
-    eveningThaiFemale: null,
-    eveningForeignMale: null,
-    eveningForeignFemale: null,
-    equipment: [
-      { equipmentType: "Mobile Crane", qty: 1 },
-      { equipmentType: "Boom Lift", qty: 1 },
-      { equipmentType: "Welding Machine", qty: 6 },
-      { equipmentType: "Forklift", qty: 1 },
-    ],
-    allocations: [
-      {
-        id: "alloc-1",
-        startTime: null,
-        endTime: null,
-        dayShare: 1,
-        discipline: "CE",
-        buildingId: "bld-4",
-        buildingCode: "4",
-        buildingName: "4 Turbine Generator Building",
-        headcount: primaryAlloc,
-        workDescription: "ติดตั้งโครงสร้างรับท่อไอน้ำหลัก (Main Steam Pipe Support) และงานประกอบแนวท่อ Turbine",
-        planPercent: 65,
-        actualPercent: 68,
-        countermeasure: null,
-      },
-      {
-        id: "alloc-2",
-        startTime: null,
-        endTime: null,
-        dayShare: 1,
-        discipline: "CE",
-        buildingId: "bld-2.1",
-        buildingCode: "2.1",
-        buildingName: "2.1 Furnace & Boiler",
-        headcount: secondaryAlloc,
-        workDescription: "งานประกอบและติดตั้งบันไดหนีไฟ ชานพัก Boiler ด้านทิศเหนือ",
-        planPercent: 55,
-        actualPercent: 48,
-        countermeasure: "ชิ้นงานเหล็กเข้าไซต์ล่าช้ากว่ากำหนด 2 ชม. — วางแผนเพิ่มช่างเชื่อม 2 คน และทำ OT เพิ่ม 2 ชม. ในวันพรุ่งนี้",
-      },
-    ],
-    machinery: [
-      {
-        id: "m-1",
-        targetDate: row.reportDate,
-        buildingId: "bld-4",
-        buildingCode: "4",
-        machineType: "Mobile Crane 50T",
-        unitTag: "CR-50T-01",
-        startTime: "08:00",
-        endTime: "17:00",
-        purpose: "ยกชิ้นส่วนโครงสร้างเหล็กขนาดใหญ่และวาล์วท่อไอน้ำหลัก",
-      },
-    ],
-    equipmentRequests: [
-      {
-        id: "eq-1",
-        targetDate: row.reportDate,
-        buildingId: "bld-4",
-        buildingCode: "4",
-        buildingName: "4 Turbine Generator Building",
-        equipmentType: "Boom Lift 16m",
-        qty: 1,
-        purpose: "สำหรับช่างเชื่อมทำงานประกอบโครงสร้างที่สูงชานพัก",
-        contractorId: row.contractorId,
-        contractorCode: row.contractorCode,
-      },
-    ],
-    permits: [
-      {
-        id: "p-1",
-        targetDate: row.reportDate,
-        buildingId: "bld-4",
-        buildingCode: "4",
-        permitType: "hot_work",
-        otherLabel: null,
-        workers: 6,
-      },
-      {
-        id: "p-2",
-        targetDate: row.reportDate,
-        buildingId: "bld-2.1",
-        buildingCode: "2.1",
-        permitType: "height",
-        otherLabel: null,
-        workers: 8,
-      },
-    ],
-    roadUsage: [
-      {
-        id: "r-1",
-        targetDate: row.reportDate,
-        buildingId: "bld-2.1",
-        buildingCode: "2.1",
-        buildingName: "2.1 Furnace & Boiler",
-        roadLocation: "ถนนหลักด้านทิศเหนือข้างอาคาร Boiler (จุดจอดเครน)",
-        startTime: "13:00",
-        endTime: "16:00",
-        purpose: "จอดรถเทรลเลอร์ส่งเหล็กโครงสร้างและตั้งขารองรับบูมเครน 50 ตัน",
-        contractorId: row.contractorId,
-        contractorCode: row.contractorCode,
-      },
-    ],
-    requestsForDate: row.reportDate,
-    photos: [],
-    materials: [],
-    machineryConflicts: [],
-    roadConflicts: [],
-  };
-}
 
 export function ReviewDialog({
   report,
@@ -239,15 +59,8 @@ export function ReviewDialog({
     report?.contractorId,
   );
 
-  // Use real report data if present, otherwise enrich with realistic mock data
-  const data: DailyReport | null = useMemo(() => {
-    if (!report) return null;
-    const realReport = reportQuery.data?.data.report;
-    if (realReport && realReport.totalHeadcount > 0) {
-      return realReport;
-    }
-    return createMockDailyReport(report);
-  }, [report, reportQuery.data]);
+  const data: DailyReport | null = reportQuery.data?.data.report ?? null;
+  const dataLoading = reportQuery.isPending && report !== null;
 
   useEffect(() => {
     if (report) {
@@ -336,7 +149,15 @@ export function ReviewDialog({
       </Box>
 
       <DialogContent sx={{ p: 2.5 }}>
-        {!data ? null : (
+        {dataLoading ? (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+            กำลังโหลดข้อมูลรายงาน…
+          </Typography>
+        ) : !data ? (
+          <Alert severity="info" sx={{ my: 2 }}>
+            ยังไม่มีข้อมูลรายงานเช้า/เย็นของรายการนี้ในระบบ — ไม่สามารถตรวจสอบได้จนกว่าผู้รับเหมาจะส่งข้อมูล
+          </Alert>
+        ) : (
           <Stack spacing={2.5}>
             {/* TAB 0: Manpower & Site Overview */}
             {tab === 0 && (
@@ -706,7 +527,7 @@ export function ReviewDialog({
           variant="outlined"
           color="error"
           onClick={() => decide("rejected")}
-          disabled={!report || !isEps || busy}
+          disabled={!report || !data || !isEps || busy}
         >
           ตีกลับแก้ไข (Reject)
         </Button>
@@ -714,7 +535,7 @@ export function ReviewDialog({
           variant="contained"
           color="primary"
           onClick={() => decide("approved")}
-          disabled={!report || !isEps || busy}
+          disabled={!report || !data || !isEps || busy}
         >
           อนุมัติรายงาน (Approve)
         </Button>

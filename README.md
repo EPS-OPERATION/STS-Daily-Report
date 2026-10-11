@@ -79,7 +79,10 @@ UUID PKs, `created_at/updated_at` timestamptz. Drizzle config: `apps/api/drizzle
 
 ## 9. Seed data
 
-`bun db:seed` — 1 project (STS-001), 2 contractors (CTR-001/002) + links. Idempotent.
+`bun db:seed` — master data only: 1 project (STS-001), 23 site contractors + project links, 21 zones +
+1 site plan + 16 map areas, 15 buildings + markers, dev logins (`eps` / `contractor` / `trial` /
+`contractor01–03`). No sample reports — the seeded DB is deploy-ready (demo rows live in git history
+before 2026-10-11). Idempotent.
 
 ## 10. Frontend conventions
 
