@@ -9,7 +9,7 @@ import { AuthShell } from "@/features/auth/components/auth-shell.js";
 export function LoginPage() {
   const [tab, setTab] = useState(0);
   return (
-    <AuthShell wide={tab === 1}>
+    <AuthShell>
       <Tabs value={tab} onChange={(_, value: number) => setTab(value)} variant="fullWidth" aria-label="Account access" sx={{ mb: 1.5 }}>
         <Tab label="Sign in" id="sign-in-tab" aria-controls="sign-in-panel" /><Tab label="Create account" id="create-account-tab" aria-controls="create-account-panel" />
       </Tabs>

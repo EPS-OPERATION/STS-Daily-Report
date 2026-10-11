@@ -3,21 +3,18 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
 
-// wide: two-column-friendly width on md+ screens (register form); default is the
-// single-column auth width so short forms stay centered and compact.
-export function AuthShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <Box sx={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "background.default", p: 2 }}>
       <Box
         sx={{
           width: "100%",
-          maxWidth: wide ? { xs: 440, md: 760 } : 440,
+          maxWidth: 440,
           bgcolor: "background.paper",
           border: "1px solid",
           borderColor: "divider",
           borderRadius: 3,
           p: { xs: 2.5, sm: 3 },
-          transition: (t) => t.transitions.create("max-width", { duration: t.transitions.duration.shorter }),
         }}
       >
         <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1.5 }}>
