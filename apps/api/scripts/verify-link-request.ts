@@ -45,10 +45,15 @@ try {
   const memberships = await db.select().from(contractorMemberships).where(eq(contractorMemberships.userId, row.id));
   assert.equal(memberships.length, 1); assert.equal(memberships[0]!.contractorId, contractorId);
   check("second link request conflicts", await call("/auth/link-request", "POST", { contractorId }, login.cookie), 409);
-  check("eps_site cannot browse active users", await (async () => {
+  check("eps_site cannot access user management", await (async () => {
     const site = await call("/auth/login", "POST", { identifier: "eps-site", password: "sts123456" });
     assert.equal(site.status, 201, "eps-site login");
-    return call("/users?status=active", "GET", undefined, site.cookie);
+    return call("/users?status=pending", "GET", undefined, site.cookie);
+  })(), 403);
+  check("eps_site cannot approve users", await (async () => {
+    const site = await call("/auth/login", "POST", { identifier: "eps-site", password: "sts123456" });
+    assert.equal(site.status, 201, "eps-site login");
+    return call(`/users/${row.id}/approve`, "POST", {}, site.cookie);
   })(), 403);
   console.log(`LINK REQUEST: ${passed} checks passed`);
 } finally {

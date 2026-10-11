@@ -77,11 +77,13 @@ export const router = createBrowserRouter([
               { path: "today-request", element: <Navigate to="/today-requests" replace /> },
               { path: "tomorrow", element: <Navigate to="/today-requests" replace /> },
               { path: "weekly-summary", element: <Navigate to="/today-requests" replace /> },
-              { path: "admin/users", element: <AdminUsersPage /> },
               {
-                // Contractor master data is eps_admin-only; eps_site has no contractor visibility.
+                // Contractor master data and user management are eps_admin-only.
                 element: <RoleGuard allowedRoles={["eps_admin"]} redirectTo="/" />,
-                children: [{ path: "contractors", element: <ContractorsPage /> }],
+                children: [
+                  { path: "contractors", element: <ContractorsPage /> },
+                  { path: "admin/users", element: <AdminUsersPage /> },
+                ],
               },
               // Dev-only geometry mapper: reachable by URL, never linked in navigation.
               { path: "dev/map-zones", element: <DevGeometryMapper /> },

@@ -1,26 +1,22 @@
-import { isEpsAdmin } from "@sts/shared";
 import type { AuthContext } from "@/auth/auth.types.js";
 import { findUserById } from "@/auth/auth.repository.js";
 import { generateSessionToken, hashSessionToken } from "@/auth/session.service.js";
 import { insertResetToken, invalidateResetTokens } from "@/auth/password-reset.repository.js";
 import { getEnv } from "@/config/env.js";
 import { getDb } from "@/db/client.js";
-import { assertEpsAdmin, assertEpsStaff } from "@/middleware/require-eps.js";
+import { assertEpsAdmin } from "@/middleware/require-eps.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
+import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { activateMembership, countActiveMemberships, decideUser, listUsers, setUserRole, setUserStatus } from "./user.repository.js";
 import type { ListUsersQuery } from "./user.type.js";
 
-// eps_site sees ONLY the pending approval queue; eps_admin sees every list.
+// User management (approvals included) is eps_admin-only; eps_site stays operational.
 export async function listUsersService(auth: AuthContext, query: ListUsersQuery) {
-  assertEpsStaff(auth);
-  if (!isEpsAdmin(auth.user.role) && query.status !== "pending") {
-    throw new ForbiddenError("Only an EPS administrator can browse user accounts");
-  }
+  assertEpsAdmin(auth);
   return listUsers(getDb(), query);
 }
 export async function decideUserService(auth: AuthContext, id: string, decision: "active" | "rejected", input: { contractorId?: string; reason?: string }) {
-  assertEpsStaff(auth);
+  assertEpsAdmin(auth);
   const reason = input.reason?.trim();
   if (decision === "rejected" && !reason) throw new ValidationError("A rejection reason is required.");
   return getDb().transaction(async (tx) => {
@@ -43,7 +39,6 @@ export async function decideUserService(auth: AuthContext, id: string, decision:
     return { id, status: decision };
   });
 }
-// Reset links stay with eps_admin: eps_site never browses active accounts.
 export async function issueResetLinkService(auth: AuthContext, id: string) {
   assertEpsAdmin(auth);
   const env = getEnv();

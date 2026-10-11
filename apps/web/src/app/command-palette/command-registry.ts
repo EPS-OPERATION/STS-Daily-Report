@@ -41,8 +41,9 @@ const ACTIONS: Omit<NavDef, "iconKey">[] = [
 // later this is where an async source (debounced TanStack Query against
 export function buildCommands(navigate: NavigateFunction, role: UserRole = "contractor"): Command[] {
   const go = (to: string) => () => navigate(to);
-  // eps_site has no contractor visibility: drop contractor destinations from the palette.
-  const canSeeContractors = role === "eps_admin";
+  // eps_site has no user/contractor administration: drop those destinations from the palette.
+  const isAdmin = role === "eps_admin";
+  const adminOnly = new Set(["nav-contractors", "nav-users"]);
 
   if (role === "contractor") {
     return [
@@ -94,7 +95,7 @@ export function buildCommands(navigate: NavigateFunction, role: UserRole = "cont
     ];
   }
 
-  const navigateCmds: Command[] = (canSeeContractors ? NAV : NAV.filter((n) => n.id !== "nav-contractors")).map((n) => ({
+  const navigateCmds: Command[] = (isAdmin ? NAV : NAV.filter((n) => !adminOnly.has(n.id))).map((n) => ({
     id: n.id,
     label: `Open ${n.label}`,
     description: n.description,
@@ -104,7 +105,7 @@ export function buildCommands(navigate: NavigateFunction, role: UserRole = "cont
     action: go(n.to),
   }));
 
-  const actionCmds: Command[] = (canSeeContractors ? ACTIONS : ACTIONS.filter((a) => a.id !== "act-add-contractor")).map((a) => ({
+  const actionCmds: Command[] = (isAdmin ? ACTIONS : ACTIONS.filter((a) => a.id !== "act-add-contractor")).map((a) => ({
     id: a.id,
     label: a.label,
     description: a.description,
@@ -114,7 +115,7 @@ export function buildCommands(navigate: NavigateFunction, role: UserRole = "cont
     action: go(a.to),
   }));
 
-  const contractorCmds: Command[] = canSeeContractors ? CONTRACTOR_OPTIONS.map((name) => ({
+  const contractorCmds: Command[] = isAdmin ? CONTRACTOR_OPTIONS.map((name) => ({
     id: `contractor-${name}`,
     label: name,
     description: "Contractor · STS Project",
