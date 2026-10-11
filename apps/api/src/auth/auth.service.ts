@@ -1,4 +1,4 @@
-import { toUserRole } from "@sts/shared";
+import { PASSWORD_RULE_MESSAGE, checkPassword, toUserRole } from "@sts/shared";
 import { ConflictError, ForbiddenError, InvalidLoginError, RateLimitedError, ValidationError } from "@/shared/errors/app-error.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { listContractorsService } from "@/modules/contractors/contractor.service.js";
@@ -62,6 +62,7 @@ export async function registerUser(input: RegisterInput) {
   if (!/^[a-z0-9._-]{3,20}$/.test(username)) throw new ValidationError("Username must be 3–20 characters: a–z, 0–9, dot, underscore or hyphen.");
   if (Boolean(input.contractorId) === Boolean(companyName)) throw new ValidationError("Choose exactly one contractor or enter a company name.");
   if (input.contractorId && !(await getContractorById(db, input.contractorId))) throw new ValidationError("Unknown contractor");
+  if (!checkPassword(input.password).valid) throw new ValidationError(PASSWORD_RULE_MESSAGE);
   const passwordHash = await hashPassword(input.password);
   try {
     await insertRegisteredUser(db, {

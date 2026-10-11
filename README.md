@@ -127,7 +127,10 @@ pg localhost:5432 · minio http://localhost:9000, console http://localhost:9001.
 
 `/login` has Sign in and Create account tabs. Contractor registration stores normalized email and username,
 an Argon2id password hash, and exactly one requested contractor or free-text company name. Usernames are
-3–20 characters (`a-z`, `0-9`, `.`, `_`, `-`); passwords are 8–128 characters and are never trimmed.
+3–20 characters (`a-z`, `0-9`, `.`, `_`, `-`); passwords are 8–128 characters, never trimmed, and must
+contain at least 3 of 4 character classes (lowercase, uppercase, numbers, special characters) — the same
+rule is shown as a live checklist on the register/reset forms and enforced by the API
+(`checkPassword` in `@sts/shared`).
 Registration creates a `pending` contractor user without a membership or session. EPS accounts are never
 seeded — create the first administrator with the bootstrap script (below).
 
