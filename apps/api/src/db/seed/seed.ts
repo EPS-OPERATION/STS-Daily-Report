@@ -295,7 +295,7 @@ if (seedDemoUsers) {
     await db.delete(contractorMemberships).where(eq(contractorMemberships.userId, u.id));
     await db
       .insert(contractorMemberships)
-      .values({ userId: u.id, contractorId: u.contractorId, status: "active" as const });
+      .values({ userId: u.id, contractorId: u.contractorId, projectId: PROJECT_ID, status: "active" as const });
   }
 
   // Shared trial login: one account that can report for every contractor on the project
@@ -314,6 +314,7 @@ if (seedDemoUsers) {
         SITE_CONTRACTORS.map((c) => ({
           userId,
           contractorId: c.id,
+          projectId: PROJECT_ID,
           status: "active" as const,
         })),
       );

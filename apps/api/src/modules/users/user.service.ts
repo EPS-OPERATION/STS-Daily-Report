@@ -3,11 +3,12 @@ import { findUserById } from "@/auth/auth.repository.js";
 import { generateSessionToken, hashSessionToken } from "@/auth/session.service.js";
 import { insertResetToken, invalidateResetTokens } from "@/auth/password-reset.repository.js";
 import { getEnv } from "@/config/env.js";
+import type { QueryDb } from "@/db/client.js";
 import { getDb } from "@/db/client.js";
 import { assertEpsAdmin } from "@/middleware/require-eps.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
-import { activateMembership, countActiveMemberships, decideUser, listUsers, setUserRole, setUserStatus } from "./user.repository.js";
+import { activateMembership, countActiveMemberships, decideUser, listProjectIdsForContractor, listUsers, setUserRole, setUserStatus } from "./user.repository.js";
 import type { ListUsersQuery } from "./user.type.js";
 
 // User management (approvals included) is eps_admin-only; eps_site stays operational.
@@ -15,7 +16,18 @@ export async function listUsersService(auth: AuthContext, query: ListUsersQuery)
   assertEpsAdmin(auth);
   return listUsers(getDb(), query);
 }
-export async function decideUserService(auth: AuthContext, id: string, decision: "active" | "rejected", input: { contractorId?: string; reason?: string }) {
+// Membership needs a project: use the explicit one, or the contractor's only project.
+async function resolveContractorProject(db: QueryDb, contractorId: string, projectId?: string) {
+  const projectIds = await listProjectIdsForContractor(db, contractorId);
+  if (projectId) {
+    if (!projectIds.includes(projectId)) throw new ValidationError("Contractor is not assigned to this project", { contractorId, projectId });
+    return projectId;
+  }
+  if (projectIds.length === 1) return projectIds[0]!;
+  if (projectIds.length === 0) throw new ValidationError("Contractor is not assigned to any project", { contractorId });
+  throw new ValidationError("Contractor belongs to several projects — select one", { contractorId });
+}
+export async function decideUserService(auth: AuthContext, id: string, decision: "active" | "rejected", input: { contractorId?: string; projectId?: string; reason?: string }) {
   assertEpsAdmin(auth);
   const reason = input.reason?.trim();
   if (decision === "rejected" && !reason) throw new ValidationError("A rejection reason is required.");
@@ -25,28 +37,30 @@ export async function decideUserService(auth: AuthContext, id: string, decision:
     if (user.status !== "pending" || user.role !== "contractor") throw new ConflictError("Only pending contractor registrations can be decided.");
     const contractorId = input.contractorId ?? user.requestedContractorId;
     if (decision === "active" && contractorId) {
-      // A referenced contractor must exist before approval can grant its membership.
+      // A referenced contractor must exist and belong to the chosen project before approval.
       const contractor = await getContractorById(tx, contractorId);
       if (!contractor) throw new ValidationError("Unknown contractor");
-      await activateMembership(tx, id, contractorId);
+      const projectId = await resolveContractorProject(tx, contractorId, input.projectId);
+      await activateMembership(tx, id, contractorId, projectId);
     }
     await decideUser(tx, id, decision, auth.user.id, reason);
     return { id, status: decision };
   });
 }
-// eps_admin: link an approved contractor account to its company (one-step admin action).
-export async function linkUserService(auth: AuthContext, id: string, contractorId: string) {
+// eps_admin: link an approved contractor account to its company for one project.
+export async function linkUserService(auth: AuthContext, id: string, input: { contractorId: string; projectId?: string }) {
   assertEpsAdmin(auth);
   return getDb().transaction(async (tx) => {
     const user = await findUserById(tx, id, true);
     if (!user) throw new NotFoundError("User not found");
     if (user.role !== "contractor") throw new ConflictError("Only contractor accounts can be linked to a contractor.");
     if (user.status !== "active") throw new ConflictError("Only active accounts can be linked to a contractor.");
-    if ((await countActiveMemberships(tx, id)) > 0) throw new ConflictError("This account is already linked to a contractor.");
-    const contractor = await getContractorById(tx, contractorId);
+    const contractor = await getContractorById(tx, input.contractorId);
     if (!contractor) throw new ValidationError("Unknown contractor");
-    await activateMembership(tx, id, contractorId);
-    return { id, contractorId };
+    const projectId = await resolveContractorProject(tx, input.contractorId, input.projectId);
+    if ((await countActiveMemberships(tx, id, projectId)) > 0) throw new ConflictError("This account is already linked to a contractor in this project.");
+    await activateMembership(tx, id, input.contractorId, projectId);
+    return { id, contractorId: input.contractorId, projectId };
   });
 }
 export async function issueResetLinkService(auth: AuthContext, id: string) {

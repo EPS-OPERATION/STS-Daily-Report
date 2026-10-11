@@ -40,13 +40,17 @@ export async function findUserByEmail(db: Db, email: string) {
   return rows[0] ?? null;
 }
 
-export async function listActiveContractorsForUser(db: Db, userId: string): Promise<MembershipContractor[]> {
+export async function listActiveContractorsForUser(db: Db, userId: string, projectId?: string): Promise<MembershipContractor[]> {
   const rows = await db
-    .select({ id: contractors.id, code: contractors.code, name: contractors.name })
+    .select({ id: contractors.id, code: contractors.code, name: contractors.name, projectId: contractorMemberships.projectId })
     .from(contractorMemberships)
     .innerJoin(contractors, eq(contractorMemberships.contractorId, contractors.id))
     .where(
-      and(eq(contractorMemberships.userId, userId), eq(contractorMemberships.status, "active")),
+      and(
+        eq(contractorMemberships.userId, userId),
+        eq(contractorMemberships.status, "active"),
+        projectId ? eq(contractorMemberships.projectId, projectId) : undefined,
+      ),
     )
     .orderBy(contractors.code);
   return rows;

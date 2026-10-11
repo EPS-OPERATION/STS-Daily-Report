@@ -14,12 +14,12 @@ import { useDecideUser } from "../hooks/use-users.js";
 import { approveUserSchema, rejectUserSchema } from "../schemas/user.schema.js";
 import type { ManagedUser } from "../types/user.types.js";
 
-export function UserDecisionDialog({ user, action, onClose }: { user: ManagedUser; action: "approve" | "reject"; onClose: () => void }) {
+export function UserDecisionDialog({ user, action, onClose, projectId }: { user: ManagedUser; action: "approve" | "reject"; onClose: () => void; projectId?: string }) {
   const mutation = useDecideUser();
   const approval = useForm<{ contractorChoice: string }>({ resolver: zodResolver(approveUserSchema), defaultValues: { contractorChoice: user.requestedContractorId ?? "other" } });
   const rejection = useForm<{ reason: string }>({ resolver: zodResolver(rejectUserSchema), defaultValues: { reason: "" } });
   const submit = action === "approve" ? approval.handleSubmit(async (v) => {
-    try { await mutation.mutateAsync({ id: user.id, action, contractorId: v.contractorChoice === "other" ? undefined : v.contractorChoice }); onClose(); } catch { /* Displayed in the dialog. */ }
+    try { await mutation.mutateAsync({ id: user.id, action, contractorId: v.contractorChoice === "other" ? undefined : v.contractorChoice, projectId }); onClose(); } catch { /* Displayed in the dialog. */ }
   }) : rejection.handleSubmit(async (v) => {
     try { await mutation.mutateAsync({ id: user.id, action, reason: v.reason }); onClose(); } catch { /* Displayed in the dialog. */ }
   });
@@ -30,7 +30,7 @@ export function UserDecisionDialog({ user, action, onClose }: { user: ManagedUse
         <Typography>{user.email} · {user.username}</Typography>
         {mutation.isError && <Alert severity="error">{mutation.error.message}</Alert>}
         {action === "approve" ? <>
-          <Controller name="contractorChoice" control={approval.control} render={({ field }) => <ContractorPicker value={field.value} onChange={field.onChange} selectedName={user.requestedContractorName ?? undefined} allowOther={!user.requestedContractorId} error={approval.formState.errors.contractorChoice?.message} disabled={mutation.isPending} />} />
+          <Controller name="contractorChoice" control={approval.control} render={({ field }) => <ContractorPicker value={field.value} onChange={field.onChange} selectedName={user.requestedContractorName ?? undefined} allowOther={!user.requestedContractorId} projectId={projectId} error={approval.formState.errors.contractorChoice?.message} disabled={mutation.isPending} />} />
           {approval.watch("contractorChoice") === "other" && <Alert severity="info">{user.requestedCompanyName} — approve the account without a contractor membership. Reporting stays unavailable until it is linked to a contractor.</Alert>}
         </> : <TextField label="Rejection reason" multiline minRows={3} {...rejection.register("reason")} error={Boolean(rejection.formState.errors.reason)} helperText={rejection.formState.errors.reason?.message} />}
       </Stack></DialogContent>

@@ -9,8 +9,8 @@ export function useUsers(filters: UserFilters) {
 export function useDecideUser() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { id: string; action: "approve"; contractorId?: string } | { id: string; action: "reject"; reason: string }) =>
-      input.action === "approve" ? usersApi.approve(input.id, input.contractorId) : usersApi.reject(input.id, input.reason),
+    mutationFn: (input: { id: string; action: "approve"; contractorId?: string; projectId?: string } | { id: string; action: "reject"; reason: string }) =>
+      input.action === "approve" ? usersApi.approve(input.id, input.contractorId, input.projectId) : usersApi.reject(input.id, input.reason),
     onSuccess: () => client.invalidateQueries({ queryKey: usersKeys.lists() }),
   });
 }
@@ -28,5 +28,5 @@ export function useChangeUserStatus() {
 }
 export function useLinkUser() {
   const client = useQueryClient();
-  return useMutation({ mutationFn: (input: { id: string; contractorId: string }) => usersApi.link(input.id, input.contractorId), onSuccess: () => client.invalidateQueries({ queryKey: usersKeys.lists() }) });
+  return useMutation({ mutationFn: (input: { id: string; contractorId: string; projectId?: string }) => usersApi.link(input.id, input.contractorId, input.projectId), onSuccess: () => client.invalidateQueries({ queryKey: usersKeys.lists() }) });
 }

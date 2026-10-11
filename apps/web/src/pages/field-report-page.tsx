@@ -46,7 +46,9 @@ export function FieldReportPage() {
   const me = useMe();
   const allowResubmit = Boolean(useAuthConfig().data?.data.allowResubmit);
   // One login can hold several contractors (shared trial account): pick which one is reporting.
-  const myContractors = me.data?.data.contractors ?? [];
+  const allContractors = me.data?.data.contractors ?? [];
+  // Memberships are project-scoped; the field app works inside the selected project.
+  const myContractors = projectId ? allContractors.filter((c) => c.projectId === projectId) : allContractors;
   const contractorId = myContractors[0]?.id;
   const current = useCurrentReport(projectId, date, contractorId, Boolean(contractorId));
   const buildings = useBuildings(projectId);

@@ -137,7 +137,10 @@ account disable/re-enable — is `eps_admin`-only. Roles: `contractor` (field ap
 including the contractor master data page `/contractors`). An approved contractor without a company sees a
 "contact the administrator" screen; the admin links it in one step from the Active tab of `/admin/users`
 (**Link contractor** → `POST /users/:id/link`). The registration and link pickers list only contractors of
-the current project (`GET /auth/registration-options?projectId=...`). Approval can select an existing contractor;
+the current project (`GET /auth/registration-options?projectId=...`). Memberships are project-scoped
+(`contractor_memberships.project_id`): the link/approve dialogs record the project, `GET /auth/me` returns
+each membership's `projectId`, and the field app only works with memberships of the selected project.
+Approval can select an existing contractor;
 membership and approval are committed together. Approving an Other company without a mapping preserves
 its name and creates no contractor or membership. The signed-in field app shows an unlinked-company state
 and does not permit report submission. Rejection requires a reason; only a correct password reveals a

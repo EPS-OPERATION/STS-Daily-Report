@@ -112,8 +112,8 @@ async function assertProject(projectId: string) {
 }
 
 // A user acts for a contractor only through an active membership.
-async function assertContractorAccess(auth: AuthContext, contractorId: string) {
-  const memberships = await listActiveContractorsForUser(getDb(), auth.user.id);
+async function assertContractorAccess(auth: AuthContext, contractorId: string, projectId: string) {
+  const memberships = await listActiveContractorsForUser(getDb(), auth.user.id, projectId);
   if (!memberships.some((c) => c.id === contractorId)) {
     throw new ForbiddenError("You are not a member of this contractor", { contractorId });
   }
@@ -122,7 +122,7 @@ async function assertContractorAccess(auth: AuthContext, contractorId: string) {
 async function loadOwnedReport(auth: AuthContext, reportId: string) {
   const report = await getReportById(getDb(), reportId);
   if (!report) throw new NotFoundError("Daily report not found", { reportId });
-  await assertContractorAccess(auth, report.contractorId);
+  await assertContractorAccess(auth, report.contractorId, report.projectId);
   return report;
 }
 
@@ -217,7 +217,7 @@ export async function getCurrentReportService(
   contractorId?: string,
 ) {
   await assertProject(projectId);
-  const memberships = await listActiveContractorsForUser(getDb(), auth.user.id);
+  const memberships = await listActiveContractorsForUser(getDb(), auth.user.id, projectId);
   const contractor = contractorId ? memberships.find((c) => c.id === contractorId) : memberships[0];
   if (!contractor) {
     throw new ForbiddenError(
@@ -242,7 +242,7 @@ export async function getCurrentReportService(
 // Draft row so photos can be attached before any shift is sent.
 export async function ensureDraftService(auth: AuthContext, projectId: string, date: string, contractorId: string) {
   await assertProject(projectId);
-  await assertContractorAccess(auth, contractorId);
+  await assertContractorAccess(auth, contractorId, projectId);
   if (!(await isContractorInProject(getDb(), projectId, contractorId))) {
     throw new ValidationError("Contractor is not assigned to this project", { contractorId });
   }
@@ -292,7 +292,7 @@ function validateCrew(crew: CrewInput): number {
 export async function submitMorningService(auth: AuthContext, projectId: string, input: MorningInput) {
   const db = getDb();
   await assertProject(projectId);
-  await assertContractorAccess(auth, input.contractorId);
+  await assertContractorAccess(auth, input.contractorId, projectId);
   if (!(await isContractorInProject(db, projectId, input.contractorId))) {
     throw new ValidationError("Contractor is not assigned to this project", { contractorId: input.contractorId });
   }
@@ -403,7 +403,7 @@ function validateTomorrow(
 export async function submitEveningService(auth: AuthContext, projectId: string, input: EveningInput) {
   const db = getDb();
   await assertProject(projectId);
-  await assertContractorAccess(auth, input.contractorId);
+  await assertContractorAccess(auth, input.contractorId, projectId);
   if (!(await isContractorInProject(db, projectId, input.contractorId))) {
     throw new ValidationError("Contractor is not assigned to this project", { contractorId: input.contractorId });
   }
@@ -505,7 +505,7 @@ export async function listReviewQueueService(
     const rows = await listReportsForReview(getDb(), projectId, range);
     return rows.map(toReviewRow);
   }
-  const memberships = await listActiveContractorsForUser(getDb(), auth.user.id);
+  const memberships = await listActiveContractorsForUser(getDb(), auth.user.id, projectId);
   if (memberships.length === 0) return [];
   const rows = await listReportsForReview(
     getDb(),
@@ -937,7 +937,7 @@ export async function printReportService(auth: AuthContext, reportId: string) {
   const db = getDb();
   const report = await getReportById(db, reportId);
   if (!report) throw new NotFoundError("Daily report not found", { reportId });
-  if (!isEpsStaff(auth.user.role)) await assertContractorAccess(auth, report.contractorId);
+  if (!isEpsStaff(auth.user.role)) await assertContractorAccess(auth, report.contractorId, report.projectId);
 
   const [detail, project, contractor, planned, qaqc, record] = await Promise.all([
     reportDetail(reportId),

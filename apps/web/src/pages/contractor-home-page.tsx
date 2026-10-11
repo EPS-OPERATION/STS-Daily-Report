@@ -50,7 +50,9 @@ export function ContractorHomePage() {
   const allowResubmit = Boolean(useAuthConfig().data?.data.allowResubmit);
 
   // Automatically bind to the contractor of the logged-in user
-  const myContractors = me.data?.data.contractors ?? [];
+  const allContractors = me.data?.data.contractors ?? [];
+  // Memberships are project-scoped; the field app works inside the selected project.
+  const myContractors = projectId ? allContractors.filter((c) => c.projectId === projectId) : allContractors;
   const contractorId = myContractors[0]?.id;
 
   // The edit window closes at a fixed time, so keep "now" fresh while the page is open.

@@ -1,6 +1,7 @@
 import { check, pgTable, text, timestamp, unique, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { contractors } from "./contractor.schema.js";
+import { projects } from "./project.schema.js";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -27,9 +28,10 @@ export const users = pgTable("users", {
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
-// A user may belong to many contractors (and later projects); never put
-// contractor_id on users. Memberships cascade so deleting a user or a
-// contractor cannot leave orphan membership rows.
+// A user may belong to several contractors per project; never put
+// contractor_id on users. Membership is project-scoped: the same contractor
+// can be linked to the user in more than one project. Memberships cascade so
+// deleting a user, contractor, or project cannot leave orphan rows.
 export const contractorMemberships = pgTable(
   "contractor_memberships",
   {
@@ -40,11 +42,14 @@ export const contractorMemberships = pgTable(
     contractorId: uuid("contractor_id")
       .notNull()
       .references(() => contractors.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
     status: text("status").notNull().default("active"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique("contractor_memberships_user_contractor_unique").on(t.userId, t.contractorId)],
+  (t) => [unique("contractor_memberships_user_contractor_project_unique").on(t.userId, t.contractorId, t.projectId)],
 );
 
 export type ContractorMembership = typeof contractorMemberships.$inferSelect;

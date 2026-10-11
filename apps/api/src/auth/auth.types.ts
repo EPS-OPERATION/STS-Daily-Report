@@ -30,6 +30,7 @@ export interface MembershipContractor {
   id: string;
   code: string;
   name: string;
+  projectId: string;
 }
 
 export interface MeResponse {

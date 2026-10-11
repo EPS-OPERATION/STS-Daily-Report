@@ -52,7 +52,7 @@ export function UserManagement() {
   useEffect(() => { const timer = window.setTimeout(() => { setDebounced(search); setPagination((p) => ({ ...p, page: 0 })); }, 250); return () => window.clearTimeout(timer); }, [search]);
   // eps_site only ever sees the pending approval queue; admin tabs stay hidden.
   useEffect(() => { if (me.isSuccess && !isAdmin && status !== "pending") setStatus("pending"); }, [isAdmin, me.isSuccess, status]);
-  const users = useUsers({ status, ...pagination, page: pagination.page + 1, search: debounced });
+  const users = useUsers({ status, ...pagination, page: pagination.page + 1, search: debounced, projectId: projectId ?? undefined });
   const actionsWidth = status === "pending" ? 180 : status === "active" && isAdmin ? 560 : 170;
   const openLink = (row: ManagedUser) => { link.reset(); setLinkContractorId(""); setLinkTarget(row); };
   const columns: GridColDef<ManagedUser>[] = [
@@ -99,7 +99,7 @@ export function UserManagement() {
         paginationMode="server" paginationModel={pagination} onPaginationModelChange={setPagination} pageSizeOptions={[20, 50, 100]} disableRowSelectionOnClick disableColumnMenu
         localeText={{ noRowsLabel: status === "pending" ? "No registrations awaiting approval" : "No users found" }} /></Box>
     </Stack>
-    {decision && <UserDecisionDialog key={`${decision.user.id}-${decision.action}`} {...decision} onClose={() => setDecision(null)} />}
+    {decision && <UserDecisionDialog key={`${decision.user.id}-${decision.action}`} {...decision} projectId={projectId ?? undefined} onClose={() => setDecision(null)} />}
     <Dialog open={Boolean(linkTarget)} onClose={link.isPending ? undefined : () => { setLinkTarget(null); link.reset(); }} fullWidth maxWidth="sm">
       <DialogTitle>Link contractor</DialogTitle>
       <DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
@@ -110,7 +110,7 @@ export function UserManagement() {
       </Stack></DialogContent>
       <DialogActions>
         <Button color="inherit" disabled={link.isPending} onClick={() => { setLinkTarget(null); link.reset(); }}>Cancel</Button>
-        <Button variant="contained" disabled={!linkContractorId || link.isPending} onClick={() => linkTarget && link.mutate({ id: linkTarget.id, contractorId: linkContractorId }, { onSuccess: () => setLinkTarget(null) })}>{link.isPending ? "Linking…" : "Link contractor"}</Button>
+        <Button variant="contained" disabled={!linkContractorId || link.isPending} onClick={() => linkTarget && link.mutate({ id: linkTarget.id, contractorId: linkContractorId, projectId: projectId ?? undefined }, { onSuccess: () => setLinkTarget(null) })}>{link.isPending ? "Linking…" : "Link contractor"}</Button>
       </DialogActions>
     </Dialog>
     <Dialog open={Boolean(resetUser)} onClose={reset.isPending ? undefined : () => { setResetUser(null); reset.reset(); }} fullWidth maxWidth="sm">

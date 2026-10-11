@@ -5,6 +5,6 @@ export interface ManagedUser {
   requestedContractorId: string | null; requestedContractorName: string | null; requestedCompanyName: string | null;
   rejectionReason: string | null; membershipCount: number; createdAt: string; decidedAt: string | null;
 }
-export interface UserFilters { status: UserStatus; page: number; pageSize: number; search?: string }
+export interface UserFilters { status: UserStatus; page: number; pageSize: number; search?: string; projectId?: string }
 export type UserListResponse = PaginatedResponse<ManagedUser>;
 export interface ResetLink { url: string; expiresAt: string }
