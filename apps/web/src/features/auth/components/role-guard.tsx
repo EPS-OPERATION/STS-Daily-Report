@@ -1,5 +1,6 @@
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
+import type { UserRole } from "@sts/shared";
 import { Navigate, Outlet } from "react-router-dom";
 import { useMe } from "../hooks/use-me.js";
 
@@ -8,7 +9,7 @@ export function RoleGuard({
   allowedRoles,
   redirectTo,
 }: {
-  allowedRoles: ("contractor" | "eps")[];
+  allowedRoles: UserRole[];
   redirectTo: string;
 }) {
   const me = useMe();

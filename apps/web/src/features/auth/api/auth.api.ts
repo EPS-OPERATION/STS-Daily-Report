@@ -21,6 +21,9 @@ export const authApi = {
   resetPassword(token: string, password: string): Promise<{ data: { ok: boolean } }> {
     return http.post("/auth/reset-password", { token, password });
   },
+  linkRequest(contractorId: string): Promise<{ data: { requestedContractorId: string } }> {
+    return http.post("/auth/link-request", { contractorId });
+  },
   contractors(search: string): Promise<PaginatedResponse<ContractorOption>> {
     return http.get(`/auth/registration-options?${new URLSearchParams({ page: "1", pageSize: "100", search })}`);
   },

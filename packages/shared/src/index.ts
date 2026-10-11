@@ -4,3 +4,4 @@ export * from "./result.js";
 export * from "./utils.js";
 export * from "./daily-report.js";
 export * from "./allocation-time.js";
+export * from "./user-role.js";

@@ -1,4 +1,4 @@
-import { REQUEST_TRANSITIONS, type RequestStatus } from "@sts/shared";
+import { isEpsStaff, REQUEST_TRANSITIONS, type RequestStatus } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import type { AuthContext } from "@/auth/auth.types.js";
@@ -66,7 +66,7 @@ export async function listRequestsService(auth: AuthContext, projectId: string, 
     throw new ValidationError("Date range must be 0–62 days", { from: q.from, to: q.to });
   }
   let contractorIds: string[] | undefined;
-  if (auth.user.role !== "eps") {
+  if (!isEpsStaff(auth.user.role)) {
     const mine = await memberContractorIds(auth);
     contractorIds = q.contractorId ? mine.filter((id) => id === q.contractorId) : mine;
     if (contractorIds.length === 0) return [];
@@ -124,7 +124,7 @@ export async function deleteRequestService(auth: AuthContext, requestId: string)
 
 // EPS-only kanban move. Inspected requires a pass/fail result (feeds first-pass rate).
 export async function transitionRequestService(auth: AuthContext, requestId: string, input: TransitionInput) {
-  if (auth.user.role !== "eps") throw new ForbiddenError("Only EPS staff can change request status");
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can change request status");
   const row = await getRequest(getDb(), requestId);
   if (!row) throw new NotFoundError("Request not found", { requestId });
   const from = row.status as RequestStatus;

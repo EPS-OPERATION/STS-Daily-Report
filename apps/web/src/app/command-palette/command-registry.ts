@@ -1,3 +1,4 @@
+import type { UserRole } from "@sts/shared";
 import type { NavigateFunction } from "react-router-dom";
 import { navigationIcons } from "@/app/icons/navigation-icons.js";
 import { CONTRACTOR_OPTIONS, ZONES } from "@/mock/site-data.js";
@@ -38,8 +39,10 @@ const ACTIONS: Omit<NavDef, "iconKey">[] = [
 
 // Static command set. Entity entries come from local mock data today;
 // later this is where an async source (debounced TanStack Query against
-export function buildCommands(navigate: NavigateFunction, role: "contractor" | "eps" = "eps"): Command[] {
+export function buildCommands(navigate: NavigateFunction, role: UserRole = "contractor"): Command[] {
   const go = (to: string) => () => navigate(to);
+  // eps_site has no contractor visibility: drop contractor destinations from the palette.
+  const canSeeContractors = role === "eps_admin";
 
   if (role === "contractor") {
     return [
@@ -91,7 +94,7 @@ export function buildCommands(navigate: NavigateFunction, role: "contractor" | "
     ];
   }
 
-  const navigateCmds: Command[] = NAV.map((n) => ({
+  const navigateCmds: Command[] = (canSeeContractors ? NAV : NAV.filter((n) => n.id !== "nav-contractors")).map((n) => ({
     id: n.id,
     label: `Open ${n.label}`,
     description: n.description,
@@ -101,7 +104,7 @@ export function buildCommands(navigate: NavigateFunction, role: "contractor" | "
     action: go(n.to),
   }));
 
-  const actionCmds: Command[] = ACTIONS.map((a) => ({
+  const actionCmds: Command[] = (canSeeContractors ? ACTIONS : ACTIONS.filter((a) => a.id !== "act-add-contractor")).map((a) => ({
     id: a.id,
     label: a.label,
     description: a.description,
@@ -111,7 +114,7 @@ export function buildCommands(navigate: NavigateFunction, role: "contractor" | "
     action: go(a.to),
   }));
 
-  const contractorCmds: Command[] = CONTRACTOR_OPTIONS.map((name) => ({
+  const contractorCmds: Command[] = canSeeContractors ? CONTRACTOR_OPTIONS.map((name) => ({
     id: `contractor-${name}`,
     label: name,
     description: "Contractor · STS Project",
@@ -119,7 +122,7 @@ export function buildCommands(navigate: NavigateFunction, role: "contractor" | "
     keywords: [name.toLowerCase(), "contractor", "company", "abc"],
     icon: navigationIcons.contractors,
     action: go("/contractors"),
-  }));
+  })) : [];
 
   const zoneCmds: Command[] = ZONES.map((z) => ({
     id: `zone-${z.id}`,

@@ -5,8 +5,8 @@ import { InvalidLoginError } from "@/shared/errors/app-error.js";
 import { getEnv } from "@/config/env.js";
 import { ok, paginated } from "@/shared/http/response.js";
 import { requireAuth } from "@/middleware/require-auth.js";
-import { demoLoginEnabled, limitAuthAttempts, loadMe, loginWithEmail, loginWithPassword, logoutSession, registerUser, registrationOptions } from "./auth.service.js";
-import { loginBody, registerBody, resetPasswordBody } from "./auth.schema.js";
+import { demoLoginEnabled, limitAuthAttempts, loadMe, loginWithEmail, loginWithPassword, logoutSession, registerUser, registrationOptions, requestContractorLink } from "./auth.service.js";
+import { linkRequestBody, loginBody, registerBody, resetPasswordBody } from "./auth.schema.js";
 import { resetPassword } from "./password-reset.service.js";
 import { listContractorsQuery } from "@/modules/contractors/contractor.schema.js";
 
@@ -80,6 +80,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
   .get("/me", async ({ auth }) => {
     return loadMe({ userId: auth.user.id, email: auth.user.email, method: auth.identity.method });
   })
+  .post("/link-request", async ({ auth, body }) => ok(await requestContractorLink(auth, body.contractorId)), { body: linkRequestBody })
   .post("/logout", async ({ cookie }) => {
     const jar = cookieJar(cookie as Record<string, { value?: unknown } | undefined>);
     const raw = typeof jar?.value === "string" ? jar.value : undefined;

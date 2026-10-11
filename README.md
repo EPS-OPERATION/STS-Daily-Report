@@ -131,7 +131,13 @@ an Argon2id password hash, and exactly one requested contractor or free-text com
 3–20 characters (`a-z`, `0-9`, `.`, `_`, `-`); passwords are 8–128 characters and are never trimmed.
 Registration creates a `pending` contractor user without a membership or session. EPS accounts remain seeded.
 
-EPS staff use `/admin/users` to approve or reject registrations. Approval can select an existing contractor;
+EPS staff use `/admin/users` to approve or reject registrations. Roles: `contractor` (field app), `eps_site`
+(EPS operations — review, QAQC, safety, approvals; sees only the pending queue in `/admin/users`), and
+`eps_admin` (adds password reset links, role changes, account disable/re-enable; only `eps_admin` sees the
+contractor master data page `/contractors` or can browse active/rejected/disabled users). An approved
+contractor without a company sees a self-service picker on the field page: `POST /auth/link-request`
+stores the chosen contractor and the row reappears in the pending queue as a link request for EPS to approve.
+Approval can select an existing contractor;
 membership and approval are committed together. Approving an Other company without a mapping preserves
 its name and creates no contractor or membership. The signed-in field app shows an unlinked-company state
 and does not permit report submission. Rejection requires a reason; only a correct password reveals a
@@ -150,9 +156,12 @@ Public API (exact methods; all paths below use `/api/v1`):
 - `POST /auth/login {identifier, password}` (email or username); legacy demo body `{email, accessCode?}` remains supported
 - `POST /auth/reset-password {token, password}`
 
-Session API: `GET /auth/me`, `POST /auth/logout`. EPS-only API: `GET /users?status&page&pageSize&search`,
-`POST /users/:id/approve {contractorId?}`, `POST /users/:id/reject {reason}`, and
-`POST /users/:id/reset-password` (returns the raw link once). Responses never expose password hashes.
+Session API: `GET /auth/me`, `POST /auth/logout`. Staff API (`eps_site`/`eps_admin`):
+`GET /users?status&page&pageSize&search` (eps_site may only query `status=pending`),
+`POST /users/:id/approve {contractorId?}`, `POST /users/:id/reject {reason}`. Admin-only API:
+`POST /users/:id/reset-password` (returns the raw link once), `PATCH /users/:id/role {role}`, and
+`PATCH /users/:id/status {active|disabled}` (disabling revokes the user's sessions; role/status changes on
+your own account are rejected). Responses never expose password hashes.
 `auth_rate_limits` stores hashed attempt keys: login 30 attempts per identifier per 15 minutes;
 registration 100 and reset 60 attempts per network peer per 15 minutes. Behind a proxy the peer can be shared;
 configure deployment-level throttling for the real client IP. Expired counter rows can be pruned operationally.
@@ -163,13 +172,15 @@ Legacy email-only demos require `ALLOW_DEMO_LOGIN=true`, or `AUTH_PROVIDER=local
 and are restricted to the six seeded identities. `DEMO_ACCESS_CODE` applies only to that demo path.
 Keep hosted demos behind deployment protection. Newly registered users can never use email-only login.
 
-Local development seed users: `eps@sts.local`, `contractor@sts.local`, `trial@sts.local`, and
-`contractor01@sts.local`–`contractor03@sts.local`; usernames are their email prefixes, default password
-`sts123456`. Credentials are initialized only in development when missing; seed never overwrites a changed
+Local development seed users: `eps@sts.local` (eps_admin), `eps-site@sts.local` (eps_site),
+`contractor@sts.local`, `trial@sts.local`, and `contractor01@sts.local`–`contractor03@sts.local`;
+usernames are their email prefixes, default password `sts123456`. Demo identities are seeded only in
+development or when `ALLOW_DEMO_LOGIN=true` — a production seed inserts just the EPS administrator.
+Credentials are initialized only in development when missing; seed never overwrites a changed
 password. Do not use these shared credentials for a live deployment. The API dev/migration/seed scripts load
 the root `.env` explicitly, including when invoked through workspace filters.
 
-For an existing production EPS account with no password, an operator sets `EPS_BOOTSTRAP_EMAIL` and
+For an existing production EPS administrator account with no password, an operator sets `EPS_BOOTSTRAP_EMAIL` and
 `EPS_BOOTSTRAP_PASSWORD` through the process environment and runs
 `bun apps/api/scripts/bootstrap-eps-password.ts` from the root. This initializes only a passwordless active
 EPS account and revokes its sessions; it cannot overwrite an existing password. Never commit the bootstrap

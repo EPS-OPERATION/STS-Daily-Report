@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ACCIDENT_CATEGORY_CODES, INJURY_CATEGORIES, manHours, type AccidentCategory, type FindingType } from "@sts/shared";
+import { ACCIDENT_CATEGORY_CODES, INJURY_CATEGORIES, isEpsStaff, manHours, type AccidentCategory, type FindingType } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import type { AuthContext } from "@/auth/auth.types.js";
 import { listReportHoursInRange } from "@/modules/daily-reports/daily-report.repository.js";
@@ -38,7 +38,7 @@ async function assertProject(projectId: string) {
 }
 
 function assertEps(auth: AuthContext) {
-  if (auth.user.role !== "eps") throw new ForbiddenError("Only EPS staff can record safety line walks");
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can record safety line walks");
 }
 
 function assertRange(from: string, to: string) {

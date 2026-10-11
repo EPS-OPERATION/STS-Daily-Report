@@ -3,23 +3,19 @@ import { getEnv } from "@/config/env.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { listContractorsService } from "@/modules/contractors/contractor.service.js";
 import { ConflictError, ForbiddenError, InvalidLoginError, RateLimitedError, ValidationError } from "@/shared/errors/app-error.js";
-import { countAuthAttempt, findUserByEmail, findUserById, findUserByIdentifier, insertRegisteredUser, listActiveContractorsForUser, normalizeEmail } from "./auth.repository.js";
+import { toUserRole } from "@sts/shared";
+import { countAuthAttempt, findUserByEmail, findUserById, findUserByIdentifier, insertRegisteredUser, listActiveContractorsForUser, normalizeEmail, updateRequestedContractor } from "./auth.repository.js";
 import { DEMO_ACCOUNTS } from "./demo-accounts.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import { hashSessionToken } from "./session.service.js";
 import { createSession, revokeSessionToken, validateSessionToken } from "./session.service.js";
-import type { AuthContext, AuthIdentity, MeResponse, UserRole } from "./auth.types.js";
-
-// Unknown values fall back to the least-privileged role.
-function toRole(role: string): UserRole {
-  return role === "eps" ? "eps" : "contractor";
-}
+import type { AuthContext, AuthIdentity, MeResponse } from "./auth.types.js";
 
 async function buildContext(userId: string): Promise<AuthContext> {
   const user = await findUserById(getDb(), userId);
   if (!user || user.status !== "active") throw new InvalidLoginError();
   return {
-    user: { id: user.id, email: user.email, displayName: user.displayName, role: toRole(user.role) },
+    user: { id: user.id, email: user.email, displayName: user.displayName, role: toUserRole(user.role) },
     identity: { method: "session" },
   };
 }
@@ -31,7 +27,7 @@ export async function loginWithEmail(
   if (!demoLoginEnabled() || !user || user.status !== "active" || !DEMO_ACCOUNTS.some((d) => d.id === user.id && d.email === user.email)) throw new InvalidLoginError();
   const { token, expiresAt } = await createSession(user.id);
   const context: AuthContext = {
-    user: { id: user.id, email: user.email, displayName: user.displayName, role: toRole(user.role) },
+    user: { id: user.id, email: user.email, displayName: user.displayName, role: toUserRole(user.role) },
     identity: { method: "session" },
   };
   return { context, token, expiresAt };
@@ -65,10 +61,11 @@ export async function loginWithPassword(identifier: string, password: string) {
     if (!current || current.passwordHash !== user.passwordHash) throw new InvalidLoginError("Invalid email, username or password.");
     if (current.status === "pending") throw new ForbiddenError("บัญชีอยู่ระหว่างรอการอนุมัติ");
     if (current.status === "rejected") throw new ForbiddenError(`บัญชีถูกปฏิเสธ: ${current.rejectionReason ?? "กรุณาติดต่อผู้ดูแลระบบ"}`);
+    if (current.status === "disabled") throw new ForbiddenError("บัญชีถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ");
     if (current.status !== "active") throw new InvalidLoginError("Invalid email, username or password.");
     const session = await createSession(current.id, tx);
     const context: AuthContext = {
-      user: { id: current.id, email: current.email, displayName: current.displayName, role: toRole(current.role) },
+      user: { id: current.id, email: current.email, displayName: current.displayName, role: toUserRole(current.role) },
       identity: { method: "session" },
     };
     return { context, ...session };
@@ -101,6 +98,18 @@ export async function registerUser(input: RegisterInput) {
 export async function registrationOptions(query: { page: number; pageSize: number; search?: string }) {
   const result = await listContractorsService({ ...query, sort: "name", order: "asc" });
   return { rows: result.rows.map(({ id, code, name }) => ({ id, code, name })), total: result.total };
+}
+
+// Approved-but-unlinked contractors may propose their company; EPS approves the link afterward.
+export async function requestContractorLink(auth: AuthContext, contractorId: string) {
+  if (auth.user.role !== "contractor") throw new ForbiddenError("Only contractor accounts can request a company link.");
+  const db = getDb();
+  if ((await listActiveContractorsForUser(db, auth.user.id)).length > 0) {
+    throw new ConflictError("Your account is already linked to a contractor.");
+  }
+  if (!(await getContractorById(db, contractorId))) throw new ValidationError("Unknown contractor");
+  await updateRequestedContractor(db, auth.user.id, contractorId);
+  return { requestedContractorId: contractorId };
 }
 
 export async function loadAuthContext(identity: AuthIdentity): Promise<AuthContext> {

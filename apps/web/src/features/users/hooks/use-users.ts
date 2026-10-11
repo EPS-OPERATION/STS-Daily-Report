@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { UserRole } from "@sts/shared";
 import { usersApi } from "../api/user.api.js";
 import { usersKeys } from "../api/user.keys.js";
 import type { UserFilters } from "../types/user.types.js";
@@ -16,4 +17,12 @@ export function useDecideUser() {
 export function useIssueResetLink() {
   const client = useQueryClient();
   return useMutation({ mutationFn: (id: string) => usersApi.reset(id), onSuccess: () => client.invalidateQueries({ queryKey: usersKeys.lists() }) });
+}
+export function useChangeUserRole() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (input: { id: string; role: UserRole }) => usersApi.changeRole(input.id, input.role), onSuccess: () => client.invalidateQueries({ queryKey: usersKeys.lists() }) });
+}
+export function useChangeUserStatus() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (input: { id: string; status: "active" | "disabled" }) => usersApi.changeStatus(input.id, input.status), onSuccess: () => client.invalidateQueries({ queryKey: usersKeys.lists() }) });
 }

@@ -63,18 +63,37 @@ await db
     set: { name: "STS Biomass Power Plant", description: "Seed project for the site-plan vertical slice." },
   });
 
-// Development login only (no password): contractor@sts.local
-await db
-  .insert(users)
-  .values({
-    id: USER_CONTRACTOR,
-    email: "contractor@sts.local",
-    displayName: "Contractor User",
-    status: "active",
-  })
-  .onConflictDoNothing({ target: users.id });
+// Demo identities exist only in development or on hosted demos (ALLOW_DEMO_LOGIN).
+// Real deploys insert only the bootstrap EPS administrator below.
+const env = getEnv();
+const seedDemoUsers = env.NODE_ENV === "development" || env.ALLOW_DEMO_LOGIN;
 
-// Development EPS (owner-side QAQC) login — moves Daily Requests on the QAQC board.
+if (seedDemoUsers) {
+  // Development login only (no password until the development seed fills one in).
+  await db
+    .insert(users)
+    .values({
+      id: USER_CONTRACTOR,
+      email: "contractor@sts.local",
+      displayName: "Contractor User",
+      status: "active",
+    })
+    .onConflictDoNothing({ target: users.id });
+
+  // EPS operations staff (limited) — dev/demo login for testing the pending-only scope.
+  await db
+    .insert(users)
+    .values({
+      id: "99999999-9999-4999-8999-999999999998",
+      email: "eps-site@sts.local",
+      displayName: "EPS Site Staff",
+      status: "active",
+      role: "eps_site",
+    })
+    .onConflictDoNothing({ target: users.id });
+}
+
+// Bootstrap EPS administrator — needed on every deploy; scripts/bootstrap-eps-password.ts sets its password.
 await db
   .insert(users)
   .values({
@@ -82,7 +101,7 @@ await db
     email: "eps@sts.local",
     displayName: "EPS QAQC",
     status: "active",
-    role: "eps",
+    role: "eps_admin",
   })
   .onConflictDoNothing({ target: users.id });
 
@@ -257,46 +276,48 @@ await db
   .values(SITE_CONTRACTORS.map((c) => ({ projectId: PROJECT_ID, contractorId: c.id })))
   .onConflictDoNothing();
 
-const SAMPLE_CONTRACTORS = SITE_CONTRACTORS.filter((c) => ["ZCE", "LCE", "UME"].includes(c.code));
+if (seedDemoUsers) {
+  const SAMPLE_CONTRACTORS = SITE_CONTRACTORS.filter((c) => ["ZCE", "LCE", "UME"].includes(c.code));
 
-// One login per sample contractor: contractor01→ZCE, 02→LCE, 03→UME (email only, no password).
-const SAMPLE_USERS = SAMPLE_CONTRACTORS.map((c, i) => ({
-  id: `aaaaaaaa-aaaa-4aaa-8aaa-00000000000${i + 1}`,
-  email: `contractor0${i + 1}@sts.local`,
-  displayName: `Contractor 0${i + 1} (${c.code})`,
-  status: "active" as const,
-  contractorId: c.id,
-}));
-await db
-  .insert(users)
-  .values(SAMPLE_USERS.map(({ contractorId: _, ...u }) => u))
-  .onConflictDoNothing({ target: users.id });
-for (const u of SAMPLE_USERS) {
-  await db.delete(contractorMemberships).where(eq(contractorMemberships.userId, u.id));
+  // One login per sample contractor: contractor01→ZCE, 02→LCE, 03→UME.
+  const SAMPLE_USERS = SAMPLE_CONTRACTORS.map((c, i) => ({
+    id: `aaaaaaaa-aaaa-4aaa-8aaa-00000000000${i + 1}`,
+    email: `contractor0${i + 1}@sts.local`,
+    displayName: `Contractor 0${i + 1} (${c.code})`,
+    status: "active" as const,
+    contractorId: c.id,
+  }));
   await db
-    .insert(contractorMemberships)
-    .values({ userId: u.id, contractorId: u.contractorId, status: "active" as const });
-}
+    .insert(users)
+    .values(SAMPLE_USERS.map(({ contractorId: _, ...u }) => u))
+    .onConflictDoNothing({ target: users.id });
+  for (const u of SAMPLE_USERS) {
+    await db.delete(contractorMemberships).where(eq(contractorMemberships.userId, u.id));
+    await db
+      .insert(contractorMemberships)
+      .values({ userId: u.id, contractorId: u.contractorId, status: "active" as const });
+  }
 
-// Shared trial login: one account that can report for every contractor on the project
-// (the field report page has a contractor picker). Email only, like the others.
-const TRIAL_USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-0000000000f1";
-await db
-  .insert(users)
-  .values({ id: TRIAL_USER_ID, email: "trial@sts.local", displayName: "Trial (all contractors)", status: "active" })
-  .onConflictDoNothing({ target: users.id });
-
-for (const userId of [TRIAL_USER_ID, USER_CONTRACTOR]) {
-  await db.delete(contractorMemberships).where(eq(contractorMemberships.userId, userId));
+  // Shared trial login: one account that can report for every contractor on the project
+  // (the field report page has a contractor picker).
+  const TRIAL_USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-0000000000f1";
   await db
-    .insert(contractorMemberships)
-    .values(
-      SITE_CONTRACTORS.map((c) => ({
-        userId,
-        contractorId: c.id,
-        status: "active" as const,
-      })),
-    );
+    .insert(users)
+    .values({ id: TRIAL_USER_ID, email: "trial@sts.local", displayName: "Trial (all contractors)", status: "active" })
+    .onConflictDoNothing({ target: users.id });
+
+  for (const userId of [TRIAL_USER_ID, USER_CONTRACTOR]) {
+    await db.delete(contractorMemberships).where(eq(contractorMemberships.userId, userId));
+    await db
+      .insert(contractorMemberships)
+      .values(
+        SITE_CONTRACTORS.map((c) => ({
+          userId,
+          contractorId: c.id,
+          status: "active" as const,
+        })),
+      );
+  }
 }
 
 // (Sample daily reports, QAQC inspection requests and safety findings were
@@ -313,6 +334,6 @@ if (getEnv().NODE_ENV === "development") {
 }
 
 console.log(
-  `seed ok: 1 project, ${SITE_CONTRACTORS.length} site contractors, 21 zones, 1 site plan, 16 areas, ${BUILDINGS.length} buildings + markers — users: eps/contractor/trial/contractor01-03 (dev logins), no sample reports`,
+  `seed ok: 1 project, ${SITE_CONTRACTORS.length} site contractors, 21 zones, 1 site plan, 16 areas, ${BUILDINGS.length} buildings + markers — users: eps admin${seedDemoUsers ? " + dev demo logins (eps-site/contractor/trial/contractor01-03)" : ""}, no sample reports`,
 );
 process.exit(0);

@@ -40,6 +40,11 @@ export async function findUserByEmail(db: Db, email: string) {
   return rows[0] ?? null;
 }
 
+// Self-service link request from an approved-but-unlinked contractor.
+export async function updateRequestedContractor(db: Db, userId: string, contractorId: string) {
+  await db.update(users).set({ requestedContractorId: contractorId, updatedAt: sql`now()` }).where(eq(users.id, userId));
+}
+
 export async function listActiveContractorsForUser(db: Db, userId: string): Promise<MembershipContractor[]> {
   const rows = await db
     .select({ id: contractors.id, code: contractors.code, name: contractors.name })

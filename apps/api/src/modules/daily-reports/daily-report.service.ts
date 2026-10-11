@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DISCIPLINE_CODES, REQUEST_STATUSES, allocationPeak, canEditReport, dayManpower, timeWindowsOverlap, editDeadline, normalizePagination, workloadLevel, type Discipline, type PermitType, type RequestStatus } from "@sts/shared";
+import { DISCIPLINE_CODES, REQUEST_STATUSES, allocationPeak, canEditReport, dayManpower, timeWindowsOverlap, editDeadline, isEpsStaff, normalizePagination, workloadLevel, type Discipline, type PermitType, type RequestStatus } from "@sts/shared";
 import { getEnv } from "@/config/env.js";
 import { getDb } from "@/db/client.js";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
@@ -474,7 +474,7 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
 // Owner-side QAQC decision on a submitted report. Contractors can never move
 // review_status themselves — same guard shape as the inspection transition.
 export async function reviewReportService(auth: AuthContext, reportId: string, input: ReviewInput) {
-  if (auth.user.role !== "eps") throw new ForbiddenError("Only EPS staff can review daily reports");
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can review daily reports");
   const report = await getReportById(getDb(), reportId);
   if (!report) throw new NotFoundError("Daily report not found", { reportId });
   if (report.morningStatus !== "submitted" && report.eveningStatus !== "submitted") {
@@ -501,7 +501,7 @@ export async function listReviewQueueService(
   range: { date?: string; from?: string; to?: string },
 ) {
   await assertProject(projectId);
-  if (auth.user.role === "eps") {
+  if (isEpsStaff(auth.user.role)) {
     const rows = await listReportsForReview(getDb(), projectId, range);
     return rows.map(toReviewRow);
   }
@@ -937,7 +937,7 @@ export async function printReportService(auth: AuthContext, reportId: string) {
   const db = getDb();
   const report = await getReportById(db, reportId);
   if (!report) throw new NotFoundError("Daily report not found", { reportId });
-  if (auth.user.role !== "eps") await assertContractorAccess(auth, report.contractorId);
+  if (!isEpsStaff(auth.user.role)) await assertContractorAccess(auth, report.contractorId);
 
   const [detail, project, contractor, planned, qaqc, record] = await Promise.all([
     reportDetail(reportId),

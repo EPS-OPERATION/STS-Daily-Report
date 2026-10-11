@@ -21,6 +21,7 @@ import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import type { UserRole } from "@sts/shared";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { CommandPalette } from "@/app/command-palette/command-palette.js";
@@ -36,23 +37,26 @@ interface NavItem {
   to: string;
   label: string;
   icon: NavigationIconKey;
+  roles?: UserRole[];
 }
 
 interface NavGroup {
   title: string;
   items: NavItem[];
-  roles: ("contractor" | "eps")[];
+  roles: UserRole[];
 }
+
+const EPS_VIEWERS: UserRole[] = ["eps_site", "eps_admin"];
 
 const GROUPS: NavGroup[] = [
   {
     title: "Overview",
-    roles: ["eps"],
+    roles: EPS_VIEWERS,
     items: [{ to: "/", label: "Dashboard", icon: "dashboard" }],
   },
   {
     title: "Daily Operations",
-    roles: ["eps"],
+    roles: EPS_VIEWERS,
     items: [
       { to: "/daily-reports", label: "Daily Reports", icon: "dailyReports" },
       { to: "/today-requests", label: "Daily Request", icon: "tomorrow" },
@@ -62,9 +66,8 @@ const GROUPS: NavGroup[] = [
   },
   {
     title: "Project Control",
-    roles: ["eps"],
+    roles: EPS_VIEWERS,
     items: [
-      { to: "/contractors", label: "Contractors", icon: "contractors" },
       { to: "/manpower", label: "Manpower", icon: "manpower" },
       { to: "/work-permits", label: "Work Permits", icon: "workPermits" },
       { to: "/qaqc", label: "QAQC", icon: "qaqc" },
@@ -74,7 +77,7 @@ const GROUPS: NavGroup[] = [
   },
   {
     title: "Progress",
-    roles: ["eps"],
+    roles: EPS_VIEWERS,
     items: [
       { to: "/progress", label: "Drone Progress", icon: "drone" },
     ],
@@ -90,8 +93,13 @@ const GROUPS: NavGroup[] = [
   },
   {
     title: "Administration",
-    roles: ["eps"],
-    items: [{ to: "/admin/users", label: "Users", icon: "users" }, { to: "/settings", label: "Settings", icon: "settings" }],
+    roles: EPS_VIEWERS,
+    items: [
+      { to: "/admin/users", label: "Users", icon: "users" },
+      // Contractor master data stays eps_admin-only (eps_site has no contractor visibility).
+      { to: "/contractors", label: "Contractors", icon: "contractors", roles: ["eps_admin"] },
+      { to: "/settings", label: "Settings", icon: "settings" },
+    ],
   },
 ];
 
@@ -99,7 +107,10 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
   const me = useMe();
   const role = me.data?.data.user.role ?? "contractor";
   const isContractor = role === "contractor";
-  const visibleGroups = GROUPS.filter((g) => g.roles.includes(role));
+  const visibleGroups = GROUPS.filter((g) => g.roles.includes(role)).map((g) => ({
+    ...g,
+    items: g.items.filter((item) => !item.roles || item.roles.includes(role)),
+  }));
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>

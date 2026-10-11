@@ -15,13 +15,13 @@ export const users = pgTable("users", {
   decidedBy: uuid("decided_by").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
   decidedAt: timestamp("decided_at", { withTimezone: true }),
   status: text("status").notNull().default("active"),
-  // "contractor" acts through memberships; "eps" = owner-side staff (QAQC, review).
+  // "contractor" acts through memberships; "eps_site"/"eps_admin" = owner-side staff.
   role: text("role").notNull().default("contractor"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-  check("users_status_check", sql`${t.status} IN ('active', 'pending', 'rejected')`),
-  check("users_role_check", sql`${t.role} IN ('contractor', 'eps')`),
+  check("users_status_check", sql`${t.status} IN ('active', 'pending', 'rejected', 'disabled')`),
+  check("users_role_check", sql`${t.role} IN ('contractor', 'eps_site', 'eps_admin')`),
 ]);
 
 export type User = typeof users.$inferSelect;

@@ -10,7 +10,9 @@ export interface AuthIdentity {
   method: AuthMethod;
 }
 
-export type UserRole = "contractor" | "eps";
+import type { UserRole } from "@sts/shared";
+
+export type { UserRole };
 
 export interface AuthUser {
   id: string;

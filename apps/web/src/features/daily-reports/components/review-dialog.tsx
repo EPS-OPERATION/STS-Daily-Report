@@ -22,7 +22,7 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { POSITIONS, WEATHER_CONDITIONS } from "@sts/shared";
+import { POSITIONS, WEATHER_CONDITIONS, isEpsStaff } from "@sts/shared";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { StatusChip } from "@/components/ui/status-chip.js";
@@ -72,7 +72,7 @@ export function ReviewDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report?.id]);
 
-  const isEps = me.data?.data.user.role === "eps";
+  const isEps = isEpsStaff(me.data?.data.user.role);
   const busy = review.isPending;
 
   const decide = (decision: "approved" | "rejected") => {
