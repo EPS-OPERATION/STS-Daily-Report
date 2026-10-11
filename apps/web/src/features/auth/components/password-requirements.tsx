@@ -7,9 +7,9 @@ import type { ReactNode } from "react";
 
 function Rule({ met, children }: { met: boolean; children: ReactNode }) {
   return (
-    <Stack direction="row" spacing={1} sx={{ alignItems: "center", color: met ? "success.main" : "text.disabled" }}>
-      <CheckOutlinedIcon sx={{ fontSize: 18 }} aria-hidden="true" />
-      <Typography variant="body2" sx={{ color: "inherit" }}>
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", color: met ? "success.main" : "text.disabled" }}>
+      <CheckOutlinedIcon sx={{ fontSize: 16 }} aria-hidden="true" />
+      <Typography variant="body2" sx={{ color: "inherit", lineHeight: 1.4 }}>
         {children}
       </Typography>
     </Stack>
@@ -18,23 +18,24 @@ function Rule({ met, children }: { met: boolean; children: ReactNode }) {
 
 // Live checklist mirroring checkPassword (@sts/shared) — used on the register and
 // reset-password forms so the rule the API enforces is visible while typing.
+// Compact: the four class rules run in a two-column grid to save vertical space.
 export function PasswordRequirements({ password }: { password: string }) {
   const checks = checkPassword(password);
   return (
-    <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}>
-      <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+    <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1.5 }}>
+      <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75 }}>
         Your password must contain:
       </Typography>
-      <Stack spacing={0.75}>
+      <Stack spacing={0.5}>
         <Rule met={checks.length}>At least 8 characters</Rule>
         <Box>
           <Rule met={checks.classRequirement}>At least 3 of the following:</Rule>
-          <Stack spacing={0.5} sx={{ pl: 3.5, mt: 0.5 }}>
-            <Rule met={checks.lower}>Lowercase letters (a-z)</Rule>
-            <Rule met={checks.upper}>Uppercase letters (A-Z)</Rule>
+          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 1.5, rowGap: 0.25, pl: 3, mt: 0.25 }}>
+            <Rule met={checks.lower}>Lowercase (a-z)</Rule>
+            <Rule met={checks.upper}>Uppercase (A-Z)</Rule>
             <Rule met={checks.digit}>Numbers (0-9)</Rule>
-            <Rule met={checks.special}>Special characters (e.g. !@#$%^&amp;*)</Rule>
-          </Stack>
+            <Rule met={checks.special}>Special (!@#$%^&amp;*)</Rule>
+          </Box>
         </Box>
       </Stack>
     </Box>
