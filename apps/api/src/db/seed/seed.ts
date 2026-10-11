@@ -1,6 +1,9 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { BUILDINGS, RETIRED_BUILDING_CODES, type BuildingCode } from "@sts/shared";
 import { getDb } from "@/db/client.js";
+import { getEnv } from "@/config/env.js";
+import { DEMO_ACCOUNTS } from "@/auth/demo-accounts.js";
+import { hashPassword } from "@/auth/password.js";
 import {
   buildingMarkers,
   buildings,
@@ -299,6 +302,15 @@ for (const userId of [TRIAL_USER_ID, USER_CONTRACTOR]) {
 // (Sample daily reports, QAQC inspection requests and safety findings were
 // removed on 2026-10-11 so the seeded database is deploy-ready. Restore from
 // git history if demo data is needed.)
+
+// Local credentials only; running seed again never replaces a changed password.
+if (getEnv().NODE_ENV === "development") {
+  const passwordHash = await hashPassword("sts123456");
+  for (const account of DEMO_ACCOUNTS) {
+    await db.update(users).set({ passwordHash }).where(and(eq(users.id, account.id), isNull(users.passwordHash)));
+    await db.update(users).set({ username: account.username }).where(and(eq(users.id, account.id), isNull(users.username)));
+  }
+}
 
 console.log(
   `seed ok: 1 project, ${SITE_CONTRACTORS.length} site contractors, 21 zones, 1 site plan, 16 areas, ${BUILDINGS.length} buildings + markers — users: eps/contractor/trial/contractor01-03 (dev logins), no sample reports`,

@@ -28,8 +28,10 @@ export const apiEnvSchema = z.object({
   // Trial mode: contractors may re-send the morning/evening report (and edit photos) any
   // number of times instead of locking after submit. Off = normal locking.
   ALLOW_RESUBMIT: boolFromString.default(false),
-  // TEMPORARY development-only provider. See local-email-auth.ts.
-  AUTH_PROVIDER: z.enum(["local-email"]).default("local-email"),
+  // Password auth is always available; local-email additionally enables seeded demos in development.
+  AUTH_PROVIDER: z.enum(["local-email", "password"]).default("local-email"),
+  // Canonical URL for links; WEB_ORIGIN may contain multiple CORS origins.
+  WEB_URL: z.string().url().optional(),
   WEB_ORIGIN: z.string().default("http://localhost:5173"),
   SESSION_COOKIE_NAME: z.string().min(1).default("sts_session"),
   SESSION_TTL_HOURS: z.coerce.number().positive().default(24),
@@ -44,8 +46,7 @@ export function parseApiEnv(raw: Record<string, unknown> = process.env): ApiEnv 
     throw new Error(`Invalid API env: ${JSON.stringify(details)}`);
   }
   const env = parsed.data;
-  // Mandatory production guard: email-only lookup is NOT real identity
-  // verification and must never run in production.
+  // Legacy production demos require an explicit opt-in. Password deployments do not.
   if (env.NODE_ENV === "production" && env.AUTH_PROVIDER === "local-email" && !env.ALLOW_DEMO_LOGIN) {
     throw new Error(
       "Refusing to start: AUTH_PROVIDER=local-email is development-only and forbidden in production.",

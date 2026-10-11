@@ -91,7 +91,7 @@ const GROUPS: NavGroup[] = [
   {
     title: "Administration",
     roles: ["eps"],
-    items: [{ to: "/settings", label: "Settings", icon: "settings" }],
+    items: [{ to: "/admin/users", label: "Users", icon: "users" }, { to: "/settings", label: "Settings", icon: "settings" }],
   },
 ];
 

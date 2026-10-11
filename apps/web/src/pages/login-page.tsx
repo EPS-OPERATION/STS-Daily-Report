@@ -1,69 +1,27 @@
-import Box from "@mui/material/Box";
-import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
+import { useState } from "react";
 import { LoginForm } from "@/features/auth/components/login-form.js";
+import { RegisterForm } from "@/features/auth/components/register-form.js";
+import { AuthShell } from "@/features/auth/components/auth-shell.js";
 
 export function LoginPage() {
+  const [tab, setTab] = useState(0);
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        bgcolor: "background.default",
-        p: 2,
-      }}
-    >
-      <Box
-        sx={{
-          width: "100%",
-          maxWidth: 400,
-          bgcolor: "background.paper",
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: 3,
-          p: { xs: 3, sm: 4 },
-        }}
-      >
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 3 }}>
-          <Box
-            sx={{
-              width: 44,
-              height: 44,
-              borderRadius: 2,
-              bgcolor: "#FFFFFF",
-              border: "1px solid",
-              borderColor: "divider",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              p: 0.5,
-              flexShrink: 0,
-            }}
-          >
-            <Box
-              component="img"
-              src="/brand/logo-eps.png"
-              alt="EPS"
-              sx={{ width: "100%", height: "100%", objectFit: "contain" }}
-            />
-          </Box>
-          <Box>
-            <Typography variant="h5">STS Platform</Typography>
-            <Typography variant="caption" color="text.secondary">
-              Construction Operations
-            </Typography>
-          </Box>
-        </Stack>
+    <AuthShell>
         <Typography variant="h4" sx={{ mb: 0.5 }}>
-          Sign in
+          {tab === 0 ? "Sign in" : "Create account"}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Use your work email to access the platform
+          {tab === 0 ? "Use your email or username to access the platform" : "Request access for your contractor company"}
         </Typography>
-        <LoginForm />
-      </Box>
-    </Box>
+        <Tabs value={tab} onChange={(_, value: number) => setTab(value)} variant="fullWidth" aria-label="Account access" sx={{ mb: 3 }}>
+          <Tab label="Sign in" id="sign-in-tab" aria-controls="sign-in-panel" /><Tab label="Create account" id="create-account-tab" aria-controls="create-account-panel" />
+        </Tabs>
+        <div role="tabpanel" id={tab === 0 ? "sign-in-panel" : "create-account-panel"} aria-labelledby={tab === 0 ? "sign-in-tab" : "create-account-tab"}>
+          {tab === 0 ? <LoginForm /> : <RegisterForm onBack={() => setTab(0)} />}
+        </div>
+    </AuthShell>
   );
 }

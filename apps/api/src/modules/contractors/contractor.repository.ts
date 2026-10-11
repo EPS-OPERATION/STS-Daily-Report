@@ -1,6 +1,6 @@
 import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { contractors } from "@/db/schema/index.js";
-import type { Db } from "@/db/client.js";
+import type { QueryDb as Db } from "@/db/client.js";
 import type { CreateContractorInput, ListContractorsQuery, UpdateContractorInput } from "./contractor.type.js";
 
 const SORTABLE: Record<string, "code" | "name" | "createdAt"> = {

@@ -9,7 +9,7 @@
   (`sts-*`, `impeccable`, `web-design-guidelines`, `vercel-react-best-practices`) — design system อยู่ที่ `DESIGN.md` และ `.impeccable/`
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
-- Schema (migrations `0000`–`0015`): projects, contractors, project_contractors, users(role)/memberships/sessions, zones,
+- Schema (migrations `0000`–`0016`): projects, contractors, project_contractors, users(username/password_hash/requested_company/decision)/memberships/sessions/password_reset_tokens/auth_rate_limits, zones,
   site_plans/zone_map_areas, site_activities, buildings, daily_reports(+_positions/_equipment/_allocations/_machinery/
   _permits/_road_usage/_photos/_materials), inspection_requests
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
@@ -18,7 +18,7 @@
 - Screens: `/` dashboard, `/site-coordination` (EPS Map, ปุ่ม แก้ไขผัง; dashboard แสดง Map เดียวกันแบบ read-only; pins เก็บ localStorage ต่อ browser ยังไม่มี API), `/site-plan` (Option), `/daily-reports` (work done summary + review queue), `/today-requests` = Daily Request (คำขอประจำวัน + แผนงานพรุ่งนี้ที่ `?view=plan`: agenda เดียวรวมเครื่องจักร/อุปกรณ์/ถนน/PTW/QAQC/งานวางแผน กรองตามประเภท+ผู้รับเหมา, export CSV), `/tomorrow`, `/weekly-summary`,
   `/field` (Today's Tasks: Daily Report=เช้า, Daily Request=บ่าย + History 14 วัน ปุ่มแก้ไข/ดู/PDF) + `/field/report` + `/field/coordination` (Map), `/qaqc` (RFI: Today & Tomorrow + Donut + history ที่ EPS confirm/pass/not pass), `/contractors`, `/work-permits`, `/progress` (Drone Progress),
   `/materials` (Option: totals + log จาก evening check-out, real API)
-- ยังไม่มี: lint config, CI, production auth, domains permits (ดู README §12/13); unit tests เริ่มต้นที่ `bun test`
+- ยังไม่มี: lint config, CI, domains permits (ดู README §12/13); unit tests `bun test`; auth integration ดู README §15
 
 ## กฎการ update ไฟล์นี้ (บังคับ)
 
@@ -51,7 +51,7 @@
 ## Pitfalls (เจอจริง)
 
 - `minio/minio:latest` โดนถอดจาก Docker Hub → pin `RELEASE.2025-04-22T22-12-26Z` ใน compose
-- `bun --filter` ออกจาก root; Bun โหลด root `.env` อัตโนมัติ (env จริง override ไฟล์)
+- `bun --filter` จาก root; API dev/migrate/seed โหลด root `.env` ผ่าน `--env-file=../../.env` (env จริง override ไฟล์)
 - compose merge `ports` แบบ additive — ไฟล์ override นอก repo ต้องใช้ `ports: !override`
 - localhost ชนโปรเจกต์อื่นได้ (เคยเจอ 3000/5432/9000 ถูกใช้) — verify ด้วย project/ports สำรองนอก repo
 - `errorPlugin` ต้องเช็ค `instanceof AppError` ก่อน Elysia validation branch (ไม่งั้น 409 กลายเป็น 400)
@@ -73,9 +73,9 @@
   contractors barrel ครบ (hooks/components/schema); contractors-page ใช้ PageHeader เหมือนหน้าอื่น
 - Docker: compose มี postgres+minio (default) + api/web images ใต้ profile `app` (`--profile app up -d --build`);
   Dockerfiles build จาก repo root (Bun workspaces), web เสิร์ฟผ่าน nginx + SPA fallback
-- Auth phase 1 (dev-only): boundary AuthIdentity (session→user→memberships); ตาราง users/contractor_memberships/sessions
-  (token_hash เท่านั้น); routes POST /auth/login, GET /auth/me, POST /auth/logout; cookie sts_session HttpOnly;
-  guard requireAuth; ห้าม local-email ใน production (startup fail); seed login: trial@sts.local (ทุก contractor, ตัวเลือกผู้รับเหมาในหน้า /field/report) + contractor@sts.local + contractor01/02/03@sts.local (=ZCE/LCE/UME) (ไม่มีรหัสผ่าน)
+- Auth v2: register contractor→pending→EPS approve/reject; username lowercase 3–20 `[a-z0-9._-]`, password 8–128 Argon2id; sessions/cookie เดิม; `/login` มีสมัคร + `/admin/users` (EPS) + `/reset-password`; Other เก็บชื่อ ไม่มี membership→field แจ้งยังไม่ผูกบริษัท
+  API `/auth/register`, `/auth/login` (identifier+password หรือ seeded demo email+accessCode), `/auth/reset-password`, `/auth/me`, `/auth/logout`, `/auth/registration-options`; `/users` list/approve/reject/reset-password; guard requireAuth+assertEps; token ใช้ครั้งเดียว 60 นาที, reset revoke sessions; รายละเอียด README §15
+  Seed dev เท่านั้น: eps/contractor/trial/contractor01–03@sts.local, username=email prefix, password `sts123456` (fill NULL ไม่ทับรหัสที่เปลี่ยน); production `AUTH_PROVIDER=password`, demo opt-in `ALLOW_DEMO_LOGIN`; migration `0016_elite_turbo`, rate limits อยู่ DB
 - Site-plan vertical (real DB): ตาราง zones/site_plans/zone_map_areas/site_activities (geometry normalized 0..1 JSONB);
   modules zones/site-activities/site-plans/projects; writes กันด้วย requireAuth; reads เปิด; seed 21 zones/1 plan/6 areas;
   frontend features/site-plan + features/projects (ProjectProvider)
@@ -96,4 +96,4 @@
 - Safety `/safety` (EPS): `safety_findings` (line walk + รูป MinIO) + `daily_reports.accident_category` (ผู้รับเหมาเลือก 5 หมวด) → stats; PDF = `/safety/report` (print A4, นอก AppLayout); Daily report PDF = `/daily-reports/:reportId/print` (ฟอร์ม R003 A4 + หน้า 2 สรุป เช้า/บ่าย·plan vs actual·คำขอพรุ่งนี้, API `GET /daily-reports/:id/print`, ปุ่ม Export PDF ที่ ReviewDialog + ReportSummary)
 - Trial mode `ALLOW_RESUBMIT=true` (default false; `/auth/config` ส่ง allowResubmit ให้เว็บ): เช้า/เย็น/รูป ส่งซ้ำได้ไม่ล็อก, ส่งซ้ำแล้ว review กลับ pending, ส่งเช้าซ้ำคง actual%/countermeasure ของอาคารเดิม
 - UI ไม่มี mock/fallback ข้อมูลรายงานแล้ว (2026-10-11): daily-reports page + ReviewDialog โชว์ค่าว่าง/Alert จากข้อมูลจริงเท่านั้น; mock ที่เหลือ = placeholder ของโมดูลที่ยังไม่มี API (work-permits, drone, dashboard HIGHLIGHTS)
-- Deploy: Vercel project `sts-daily-report` (Hobby) = `vercel.json` services (web Vite + api container `Dockerfile.vercel`, `/api/*`+`/health`→api); DB Supabase `rwlndwoimtqycwqlmczm` ผ่าน transaction pooler :6543 (`prepare:false`); รูป = Supabase Storage bucket `sts` (`STORAGE_PROVIDER=supabase`); login = demo email + `DEMO_ACCESS_CODE` (`ALLOW_DEMO_LOGIN`), production บังคับ session ทุก API ยกเว้น /auth/*
+- Deploy: Vercel project `sts-daily-report` (Hobby) = `vercel.json` services (web Vite + api container `Dockerfile.vercel`, `/api/*`+`/health`→api); DB Supabase `rwlndwoimtqycwqlmczm` ผ่าน transaction pooler :6543 (`prepare:false`); รูป = Supabase Storage bucket `sts` (`STORAGE_PROVIDER=supabase`); production password auth + optional seeded demo; public เฉพาะ auth methods/paths ที่ระบุ; `WEB_URL`=reset origin (`WEB_ORIGIN`=CORS list)

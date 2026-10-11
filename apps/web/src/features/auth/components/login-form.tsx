@@ -3,26 +3,27 @@ import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { authApi } from "../api/auth.api.js";
+import { useAuthConfig } from "../hooks/use-auth-config.js";
 import { useLogin } from "../hooks/use-login.js";
-import { loginFormSchema, type LoginFormValues } from "../schemas/login.schema.js";
+import { demoFormSchema, loginFormSchema, type LoginFormValues } from "../schemas/login.schema.js";
 
 export function LoginForm() {
   const mutation = useLogin();
+  const [demo, setDemo] = useState(false);
   // Hosted demo asks for a shared access code; local dev does not.
-  const config = useQuery({ queryKey: ["auth", "config"], queryFn: () => authApi.config(), staleTime: Infinity, retry: false });
+  const config = useAuthConfig();
   const needsCode = Boolean(config.data?.data.accessCodeRequired);
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginFormValues>({ resolver: zodResolver(loginFormSchema) });
+    reset,
+  } = useForm<LoginFormValues & { accessCode?: string }>({ resolver: zodResolver(demo ? demoFormSchema : loginFormSchema) });
 
   const onSubmit = handleSubmit((values) => {
-    mutation.mutate({ email: values.email, accessCode: needsCode ? values.accessCode : undefined });
+    mutation.mutate(demo ? { email: values.identifier, accessCode: needsCode ? values.accessCode : undefined } : { identifier: values.identifier, password: values.password });
   });
 
   return (
@@ -33,25 +34,22 @@ export function LoginForm() {
         </Alert>
       ) : null}
       <TextField
-        label="Work email"
-        type="email"
-        autoComplete="email"
-        placeholder="you@company.com"
-        {...register("email")}
-        error={Boolean(errors.email)}
-        helperText={errors.email?.message}
+        label={demo ? "Demo email" : "Email or username"}
+        type={demo ? "email" : "text"}
+        autoComplete="username"
+        {...register("identifier")}
+        error={Boolean(errors.identifier)}
+        helperText={errors.identifier?.message}
       />
-      {needsCode ? (
+      {!demo && <TextField label="Password" type="password" autoComplete="current-password" {...register("password")} error={Boolean(errors.password)} helperText={errors.password?.message} />}
+      {demo && needsCode ? (
         <TextField label="Access code" type="password" autoComplete="current-password" {...register("accessCode")} />
       ) : null}
       <Button type="submit" size="large" disabled={isSubmitting || mutation.isPending} fullWidth>
-        Continue
+        {mutation.isPending ? "Signing in…" : "Sign in"}
       </Button>
-      {import.meta.env.DEV ? (
-        <Typography variant="caption" color="text.secondary" align="center">
-          Development authentication — email lookup only, no password. Never use in production.
-        </Typography>
-      ) : null}
+      {config.isError && <Alert severity="warning">Unable to load sign-in options. Password sign-in is available.</Alert>}
+      {config.data?.data.demoLoginEnabled && <Button variant="text" disabled={mutation.isPending} onClick={() => { setDemo(!demo); reset(); mutation.reset(); }}>{demo ? "Use password sign-in" : "Demo access"}</Button>}
     </Stack>
   );
 }

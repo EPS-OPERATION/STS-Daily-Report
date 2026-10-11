@@ -37,6 +37,7 @@ import {
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
+import { UnlinkedCompany } from "@/features/auth/components/unlinked-company.js";
 
 const HISTORY_DAYS = 14;
 
@@ -61,7 +62,7 @@ export function ContractorHomePage() {
 
   const today = todayIso();
   const tomorrow = addDaysIso(today, 1);
-  const current = useCurrentReport(projectId, today, contractorId);
+  const current = useCurrentReport(projectId, today, contractorId, Boolean(contractorId));
   const rfi = useInspectionRequests(projectId, { from: tomorrow, to: tomorrow, by: "inspection" });
   const history = useReviewQueue(projectId, { from: addDaysIso(today, -(HISTORY_DAYS - 1)), to: today });
 
@@ -94,6 +95,7 @@ export function ContractorHomePage() {
   const initial = (me.data?.data.user.displayName ?? me.data?.data.user.email ?? "?").charAt(0).toUpperCase();
   const loadError = [current.error, history.error].find((e) => e instanceof HttpError) as HttpError | undefined;
 
+  if (me.isSuccess && !myContractors.length) return <UnlinkedCompany />;
   return (
     <Box sx={{ maxWidth: { xs: 480, md: 960 }, mx: "auto", pb: 10 }}>
       <Card sx={{ bgcolor: "navy.dark", border: "none", mb: 2 }}>

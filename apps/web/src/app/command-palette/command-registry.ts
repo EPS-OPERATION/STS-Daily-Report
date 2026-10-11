@@ -26,6 +26,7 @@ const NAV: NavDef[] = [
   { id: "nav-materials", label: "Materials (Option)", to: "/materials", iconKey: "materials", description: "Deliveries and suppliers", keywords: ["material", "delivery", "supplier"] },
   { id: "nav-drone", label: "Drone Progress", to: "/progress", iconKey: "drone", description: "Periodic capture vs plan", keywords: ["drone", "photo", "progress", "survey"] },
   { id: "nav-settings", label: "Settings", to: "/settings", iconKey: "settings", description: "Project configuration", keywords: ["setting", "config", "admin"] },
+  { id: "nav-users", label: "Users", to: "/admin/users", iconKey: "users", description: "Review registrations and reset passwords", keywords: ["user", "account", "approval", "admin"] },
 ];
 
 const ACTIONS: Omit<NavDef, "iconKey">[] = [

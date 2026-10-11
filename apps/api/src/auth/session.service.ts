@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { getDb } from "@/db/client.js";
+import { getDb, type QueryDb } from "@/db/client.js";
 import { getEnv } from "@/config/env.js";
 import {
   findSessionByTokenHash,
@@ -22,11 +22,11 @@ export interface CreatedSession {
   expiresAt: Date;
 }
 
-export async function createSession(userId: string): Promise<CreatedSession> {
+export async function createSession(userId: string, db: QueryDb = getDb()): Promise<CreatedSession> {
   const { SESSION_TTL_HOURS } = getEnv();
   const token = generateSessionToken();
   const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 3_600_000);
-  await insertSession(getDb(), { userId, tokenHash: hashSessionToken(token), expiresAt });
+  await insertSession(db, { userId, tokenHash: hashSessionToken(token), expiresAt });
   return { token, expiresAt };
 }
 

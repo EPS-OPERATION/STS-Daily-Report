@@ -1,4 +1,5 @@
 import AccountTreeOutlined from "@mui/icons-material/AccountTreeOutlined";
+import ManageAccountsOutlined from "@mui/icons-material/ManageAccountsOutlined";
 import AssessmentOutlined from "@mui/icons-material/AssessmentOutlined";
 import AssignmentOutlined from "@mui/icons-material/AssignmentOutlined";
 import BusinessOutlined from "@mui/icons-material/BusinessOutlined";
@@ -39,6 +40,7 @@ export const navigationIcons = {
   field: SmartphoneOutlined,
   projects: AccountTreeOutlined,
   settings: SettingsOutlined,
+  users: ManageAccountsOutlined,
   zoneConfig: TuneOutlined,
 } satisfies Record<string, NavigationIcon>;
 
