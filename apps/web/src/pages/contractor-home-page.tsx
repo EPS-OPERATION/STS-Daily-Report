@@ -37,6 +37,7 @@ import {
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
+import { UnlinkedCompany } from "@/features/auth/components/unlinked-company.js";
 
 const HISTORY_DAYS = 14;
 
@@ -49,7 +50,9 @@ export function ContractorHomePage() {
   const allowResubmit = Boolean(useAuthConfig().data?.data.allowResubmit);
 
   // Automatically bind to the contractor of the logged-in user
-  const myContractors = me.data?.data.contractors ?? [];
+  const allContractors = me.data?.data.contractors ?? [];
+  // Memberships are project-scoped; the field app works inside the selected project.
+  const myContractors = projectId ? allContractors.filter((c) => c.projectId === projectId) : allContractors;
   const contractorId = myContractors[0]?.id;
 
   // The edit window closes at a fixed time, so keep "now" fresh while the page is open.
@@ -61,7 +64,7 @@ export function ContractorHomePage() {
 
   const today = todayIso();
   const tomorrow = addDaysIso(today, 1);
-  const current = useCurrentReport(projectId, today, contractorId);
+  const current = useCurrentReport(projectId, today, contractorId, Boolean(contractorId));
   const rfi = useInspectionRequests(projectId, { from: tomorrow, to: tomorrow, by: "inspection" });
   const history = useReviewQueue(projectId, { from: addDaysIso(today, -(HISTORY_DAYS - 1)), to: today });
 
@@ -94,6 +97,7 @@ export function ContractorHomePage() {
   const initial = (me.data?.data.user.displayName ?? me.data?.data.user.email ?? "?").charAt(0).toUpperCase();
   const loadError = [current.error, history.error].find((e) => e instanceof HttpError) as HttpError | undefined;
 
+  if (me.isSuccess && !myContractors.length) return <UnlinkedCompany />;
   return (
     <Box sx={{ maxWidth: { xs: 480, md: 960 }, mx: "auto", pb: 10 }}>
       <Card sx={{ bgcolor: "navy.dark", border: "none", mb: 2 }}>

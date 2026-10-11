@@ -1,3 +1,4 @@
+import type { UserRole } from "@sts/shared";
 import type { NavigateFunction } from "react-router-dom";
 import { navigationIcons } from "@/app/icons/navigation-icons.js";
 import { CONTRACTOR_OPTIONS, ZONES } from "@/mock/site-data.js";
@@ -26,6 +27,7 @@ const NAV: NavDef[] = [
   { id: "nav-materials", label: "Materials (Option)", to: "/materials", iconKey: "materials", description: "Deliveries and suppliers", keywords: ["material", "delivery", "supplier"] },
   { id: "nav-drone", label: "Drone Progress", to: "/progress", iconKey: "drone", description: "Periodic capture vs plan", keywords: ["drone", "photo", "progress", "survey"] },
   { id: "nav-settings", label: "Settings", to: "/settings", iconKey: "settings", description: "Project configuration", keywords: ["setting", "config", "admin"] },
+  { id: "nav-users", label: "Users", to: "/admin/users", iconKey: "users", description: "Review registrations and reset passwords", keywords: ["user", "account", "approval", "admin"] },
 ];
 
 const ACTIONS: Omit<NavDef, "iconKey">[] = [
@@ -37,8 +39,11 @@ const ACTIONS: Omit<NavDef, "iconKey">[] = [
 
 // Static command set. Entity entries come from local mock data today;
 // later this is where an async source (debounced TanStack Query against
-export function buildCommands(navigate: NavigateFunction, role: "contractor" | "eps" = "eps"): Command[] {
+export function buildCommands(navigate: NavigateFunction, role: UserRole = "contractor"): Command[] {
   const go = (to: string) => () => navigate(to);
+  // eps_site has no user/contractor administration: drop those destinations from the palette.
+  const isAdmin = role === "eps_admin";
+  const adminOnly = new Set(["nav-contractors", "nav-users"]);
 
   if (role === "contractor") {
     return [
@@ -90,7 +95,7 @@ export function buildCommands(navigate: NavigateFunction, role: "contractor" | "
     ];
   }
 
-  const navigateCmds: Command[] = NAV.map((n) => ({
+  const navigateCmds: Command[] = (isAdmin ? NAV : NAV.filter((n) => !adminOnly.has(n.id))).map((n) => ({
     id: n.id,
     label: `Open ${n.label}`,
     description: n.description,
@@ -100,7 +105,7 @@ export function buildCommands(navigate: NavigateFunction, role: "contractor" | "
     action: go(n.to),
   }));
 
-  const actionCmds: Command[] = ACTIONS.map((a) => ({
+  const actionCmds: Command[] = (isAdmin ? ACTIONS : ACTIONS.filter((a) => a.id !== "act-add-contractor")).map((a) => ({
     id: a.id,
     label: a.label,
     description: a.description,
@@ -110,7 +115,7 @@ export function buildCommands(navigate: NavigateFunction, role: "contractor" | "
     action: go(a.to),
   }));
 
-  const contractorCmds: Command[] = CONTRACTOR_OPTIONS.map((name) => ({
+  const contractorCmds: Command[] = isAdmin ? CONTRACTOR_OPTIONS.map((name) => ({
     id: `contractor-${name}`,
     label: name,
     description: "Contractor · STS Project",
@@ -118,7 +123,7 @@ export function buildCommands(navigate: NavigateFunction, role: "contractor" | "
     keywords: [name.toLowerCase(), "contractor", "company", "abc"],
     icon: navigationIcons.contractors,
     action: go("/contractors"),
-  }));
+  })) : [];
 
   const zoneCmds: Command[] = ZONES.map((z) => ({
     id: `zone-${z.id}`,

@@ -5,6 +5,7 @@ export type ErrorCode =
   | "AUTH_REQUIRED"
   | "FORBIDDEN"
   | "INVALID_LOGIN"
+  | "RATE_LIMITED"
   | "INTERNAL_ERROR";
 
 export class AppError extends Error {
@@ -53,6 +54,12 @@ export class InvalidLoginError extends AppError {
   // Generic on purpose: never reveal whether the email exists or is inactive.
   constructor(message = "Unable to sign in with this email.") {
     super("INVALID_LOGIN", 401, message);
+  }
+}
+
+export class RateLimitedError extends AppError {
+  constructor() {
+    super("RATE_LIMITED", 429, "Too many attempts. Please try again in 15 minutes.");
   }
 }
 

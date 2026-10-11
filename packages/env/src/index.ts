@@ -20,16 +20,11 @@ export const apiEnvSchema = z.object({
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   STORAGE_BUCKET: z.string().default("sts"),
-  // Hosted demo only: allow the email-only login in production. The site must sit
-  // behind Vercel Deployment Protection — anyone who can open it can sign in.
-  ALLOW_DEMO_LOGIN: boolFromString.default(false),
-  // Shared code the hosted demo login asks for (empty = not required). Set in Vercel only.
-  DEMO_ACCESS_CODE: z.string().optional(),
   // Trial mode: contractors may re-send the morning/evening report (and edit photos) any
   // number of times instead of locking after submit. Off = normal locking.
   ALLOW_RESUBMIT: boolFromString.default(false),
-  // TEMPORARY development-only provider. See local-email-auth.ts.
-  AUTH_PROVIDER: z.enum(["local-email"]).default("local-email"),
+  // Canonical URL for links; WEB_ORIGIN may contain multiple CORS origins.
+  WEB_URL: z.string().url().optional(),
   WEB_ORIGIN: z.string().default("http://localhost:5173"),
   SESSION_COOKIE_NAME: z.string().min(1).default("sts_session"),
   SESSION_TTL_HOURS: z.coerce.number().positive().default(24),
@@ -44,13 +39,6 @@ export function parseApiEnv(raw: Record<string, unknown> = process.env): ApiEnv 
     throw new Error(`Invalid API env: ${JSON.stringify(details)}`);
   }
   const env = parsed.data;
-  // Mandatory production guard: email-only lookup is NOT real identity
-  // verification and must never run in production.
-  if (env.NODE_ENV === "production" && env.AUTH_PROVIDER === "local-email" && !env.ALLOW_DEMO_LOGIN) {
-    throw new Error(
-      "Refusing to start: AUTH_PROVIDER=local-email is development-only and forbidden in production.",
-    );
-  }
   if (env.STORAGE_PROVIDER === "supabase" && (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY)) {
     throw new Error("STORAGE_PROVIDER=supabase needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
   }

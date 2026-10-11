@@ -20,11 +20,11 @@ export function usePrintReport(reportId: string | null) {
   });
 }
 
-export function useCurrentReport(projectId: string | null, date: string, contractorId?: string) {
+export function useCurrentReport(projectId: string | null, date: string, contractorId?: string, enabled = true) {
   return useQuery({
     queryKey: dailyReportKeys.current(projectId ?? "", date, contractorId),
     queryFn: () => dailyReportApi.current(projectId!, date, contractorId),
-    enabled: Boolean(projectId && date),
+    enabled: Boolean(projectId && date && enabled),
   });
 }
 

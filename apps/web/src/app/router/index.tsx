@@ -9,6 +9,8 @@ import { DashboardPage } from "@/pages/dashboard-page.js";
 import { DevGeometryMapper } from "@/pages/dev-geometry-mapper.js";
 import { FieldReportPage } from "@/pages/field-report-page.js";
 import { LoginPage } from "@/pages/login-page.js";
+import { ResetPasswordPage } from "@/pages/reset-password-page.js";
+import { AdminUsersPage } from "@/pages/admin-users-page.js";
 import { NotFoundPage } from "@/pages/not-found-page.js";
 import { DroneProgressPage } from "@/pages/drone-progress-page.js";
 import { ManpowerPage } from "@/pages/manpower-page.js";
@@ -36,13 +38,14 @@ function RootIndex() {
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
+  { path: "/reset-password", element: <ResetPasswordPage /> },
   {
     path: "/",
     element: <RequireAuth />,
     errorElement: <RouteErrorBoundary />,
     children: [
       {
-        element: <RoleGuard allowedRoles={["eps"]} redirectTo="/field" />,
+        element: <RoleGuard allowedRoles={["eps_site", "eps_admin"]} redirectTo="/field" />,
         children: [{ path: "safety/report", element: <SafetyReportPrintPage /> }],
       },
       // Printable daily report: EPS (any report) or the owning contractor (checked by the API).
@@ -64,7 +67,7 @@ export const router = createBrowserRouter([
           },
           // EPS management & review routes (cut out for contractors)
           {
-            element: <RoleGuard allowedRoles={["eps"]} redirectTo="/field" />,
+            element: <RoleGuard allowedRoles={["eps_site", "eps_admin"]} redirectTo="/field" />,
             children: [
               { path: "daily-reports", element: <DailyReportsPage /> },
               { path: "site-coordination", element: <SiteCoordinationPage /> },
@@ -74,7 +77,14 @@ export const router = createBrowserRouter([
               { path: "today-request", element: <Navigate to="/today-requests" replace /> },
               { path: "tomorrow", element: <Navigate to="/today-requests" replace /> },
               { path: "weekly-summary", element: <Navigate to="/today-requests" replace /> },
-              { path: "contractors", element: <ContractorsPage /> },
+              {
+                // Contractor master data and user management are eps_admin-only.
+                element: <RoleGuard allowedRoles={["eps_admin"]} redirectTo="/" />,
+                children: [
+                  { path: "contractors", element: <ContractorsPage /> },
+                  { path: "admin/users", element: <AdminUsersPage /> },
+                ],
+              },
               // Dev-only geometry mapper: reachable by URL, never linked in navigation.
               { path: "dev/map-zones", element: <DevGeometryMapper /> },
               { path: "manpower", element: <ManpowerPage /> },

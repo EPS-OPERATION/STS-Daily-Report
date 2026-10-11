@@ -1,14 +1,17 @@
+import type { UserRole } from "@sts/shared";
+
 export interface AuthUser {
   id: string;
   email: string;
   displayName: string | null;
-  role: "contractor" | "eps";
+  role: UserRole;
 }
 
 export interface MembershipContractor {
   id: string;
   code: string;
   name: string;
+  projectId: string;
 }
 
 export interface MeResponse {
@@ -24,3 +27,7 @@ export interface LoginResponse {
     contractors: MembershipContractor[];
   };
 }
+
+export type LoginPayload = { identifier: string; password: string } | { email: string; accessCode?: string };
+export interface RegisterPayload { email: string; username: string; password: string; contractorId?: string; companyName?: string }
+export interface ContractorOption { id: string; code: string; name: string }

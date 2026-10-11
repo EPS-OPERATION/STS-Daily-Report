@@ -1,6 +1,6 @@
 import { and, eq, isNull, lt } from "drizzle-orm";
 import { sessions } from "@/db/schema/index.js";
-import type { Db } from "@/db/client.js";
+import type { QueryDb as Db } from "@/db/client.js";
 
 export interface NewSession {
   userId: string;

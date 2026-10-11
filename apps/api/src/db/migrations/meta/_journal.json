@@ -113,6 +113,27 @@
       "when": 1791532801304,
       "tag": "0015_majestic_norrin_radd",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791731456410,
+      "tag": "0016_elite_turbo",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791734307686,
+      "tag": "0017_harsh_dark_phoenix",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791735417743,
+      "tag": "0018_massive_bloodscream",
+      "breakpoints": true
     }
   ]
 }

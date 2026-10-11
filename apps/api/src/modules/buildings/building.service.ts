@@ -1,3 +1,4 @@
+import { isEpsStaff } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import type { AuthContext } from "@/auth/auth.types.js";
 import type { SiteMapView } from "@/db/schema/index.js";
@@ -56,7 +57,7 @@ export async function siteMapService(projectId: string) {
 }
 
 async function assertEditable(auth: AuthContext, projectId: string, buildingId: string) {
-  if (auth.user.role !== "eps") throw new ForbiddenError("Only EPS staff can configure the site map");
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can configure the site map");
   const b = await getBuilding(getDb(), buildingId);
   if (!b || b.projectId !== projectId) throw new NotFoundError("Building not found", { buildingId });
 }
@@ -97,7 +98,7 @@ export async function createPartService(auth: AuthContext, projectId: string, bu
 }
 
 async function loadPart(auth: AuthContext, projectId: string, partId: string) {
-  if (auth.user.role !== "eps") throw new ForbiddenError("Only EPS staff can configure the site map");
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can configure the site map");
   const part = await getPart(getDb(), partId);
   if (!part || part.projectId !== projectId) throw new NotFoundError("Work part not found", { partId });
   return part;

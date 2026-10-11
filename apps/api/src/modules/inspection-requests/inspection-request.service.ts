@@ -1,4 +1,4 @@
-import { REQUEST_TRANSITIONS, type RequestStatus } from "@sts/shared";
+import { isEpsStaff, REQUEST_TRANSITIONS, type RequestStatus } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import type { AuthContext } from "@/auth/auth.types.js";
@@ -23,12 +23,12 @@ function daysBetween(from: string, to: string) {
   return (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000;
 }
 
-async function memberContractorIds(auth: AuthContext) {
-  return (await listActiveContractorsForUser(getDb(), auth.user.id)).map((c) => c.id);
+async function memberContractorIds(auth: AuthContext, projectId: string) {
+  return (await listActiveContractorsForUser(getDb(), auth.user.id, projectId)).map((c) => c.id);
 }
 
-async function assertMember(auth: AuthContext, contractorId: string) {
-  if (!(await memberContractorIds(auth)).includes(contractorId)) {
+async function assertMember(auth: AuthContext, contractorId: string, projectId: string) {
+  if (!(await memberContractorIds(auth, projectId)).includes(contractorId)) {
     throw new ForbiddenError("You are not a member of this contractor", { contractorId });
   }
 }
@@ -66,8 +66,8 @@ export async function listRequestsService(auth: AuthContext, projectId: string, 
     throw new ValidationError("Date range must be 0–62 days", { from: q.from, to: q.to });
   }
   let contractorIds: string[] | undefined;
-  if (auth.user.role !== "eps") {
-    const mine = await memberContractorIds(auth);
+  if (!isEpsStaff(auth.user.role)) {
+    const mine = await memberContractorIds(auth, projectId);
     contractorIds = q.contractorId ? mine.filter((id) => id === q.contractorId) : mine;
     if (contractorIds.length === 0) return [];
   } else if (q.contractorId) {
@@ -78,7 +78,7 @@ export async function listRequestsService(auth: AuthContext, projectId: string, 
 
 export async function createRequestService(auth: AuthContext, projectId: string, input: CreateRequestInput) {
   const db = getDb();
-  await assertMember(auth, input.contractorId);
+  await assertMember(auth, input.contractorId, projectId);
   if (!(await isContractorInProject(db, projectId, input.contractorId))) {
     throw new ValidationError("Contractor is not assigned to this project", { contractorId: input.contractorId });
   }
@@ -103,7 +103,7 @@ export async function createRequestService(auth: AuthContext, projectId: string,
 async function loadEditable(auth: AuthContext, requestId: string) {
   const row = await getRequest(getDb(), requestId);
   if (!row) throw new NotFoundError("Request not found", { requestId });
-  await assertMember(auth, row.contractorId);
+  await assertMember(auth, row.contractorId, row.projectId);
   if (!CONTRACTOR_EDITABLE.includes(row.status as RequestStatus)) {
     throw new ConflictError("QAQC has already confirmed this request — ask EPS to change it", { status: row.status });
   }
@@ -124,7 +124,7 @@ export async function deleteRequestService(auth: AuthContext, requestId: string)
 
 // EPS-only kanban move. Inspected requires a pass/fail result (feeds first-pass rate).
 export async function transitionRequestService(auth: AuthContext, requestId: string, input: TransitionInput) {
-  if (auth.user.role !== "eps") throw new ForbiddenError("Only EPS staff can change request status");
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can change request status");
   const row = await getRequest(getDb(), requestId);
   if (!row) throw new NotFoundError("Request not found", { requestId });
   const from = row.status as RequestStatus;
