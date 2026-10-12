@@ -114,33 +114,14 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
-      <Box sx={{ px: 2.5, py: 2.5 }}>
+      <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 2 }}>
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Box
-            sx={{
-              width: 38,
-              height: 38,
-              borderRadius: 2,
-              bgcolor: "#FFFFFF",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              p: 0.5,
-              flexShrink: 0,
-              boxShadow: "0 2px 4px rgba(0,0,0,0.12)",
-            }}
-          >
-            <Box
-              component="img"
-              src="/brand/logo-eps.png"
-              alt="EPS"
-              sx={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-              }}
-            />
-          </Box>
+            component="img"
+            src="/brand/logo-eps.png"
+            alt="EPS"
+            sx={{ width: 48, height: 48, objectFit: "contain", display: "block", flexShrink: 0 }}
+          />
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, display: collapsed ? "none" : "block" }}>
               STS Platform
