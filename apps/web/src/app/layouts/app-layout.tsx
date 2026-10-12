@@ -16,7 +16,6 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
-import Stack from "@mui/material/Stack";
 import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -114,35 +113,30 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
-      <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 1.75 }}>
-        {collapsed ? (
+      <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 1.5 }}>
+        <Box
+          component={NavLink}
+          to="/"
+          onClick={onNavigate}
+          aria-label="STS Platform — home"
+          title="STS Platform — home"
+          sx={{
+            display: "block",
+            width: "fit-content",
+            mx: collapsed ? "auto" : 0,
+            borderRadius: 1.5,
+            textDecoration: "none",
+            transition: "opacity 0.15s",
+            "&:hover": { opacity: 0.85 },
+          }}
+        >
           <Box
             component="img"
-            src="/brand/logo-eps-mark-on-dark.png"
-            alt="EPS"
-            sx={{ width: 40, height: "auto", display: "block", mx: "auto" }}
+            src={collapsed ? "/brand/logo-eps-mark-on-dark.png" : "/brand/logo-eps-on-dark.png"}
+            alt="EPS — STS Platform"
+            sx={collapsed ? { width: 40, height: "auto", display: "block" } : { height: 32, width: "auto", display: "block" }}
           />
-        ) : (
-          <Stack spacing={0.75}>
-            <Box
-              component="img"
-              src="/brand/logo-eps-on-dark.png"
-              alt="EPS"
-              sx={{ height: 28, width: "auto", display: "block" }}
-            />
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-                STS Platform
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{ color: isContractor ? "#60A5FA" : "#9DB4CC", fontWeight: isContractor ? 600 : 400, fontSize: 12 }}
-              >
-                {isContractor ? "Contractor Field" : "Construction Operations"}
-              </Typography>
-            </Box>
-          </Stack>
-        )}
+        </Box>
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
       <Box className="sts-navy-scroll" sx={{ flexGrow: 1, overflowY: "auto", px: 1.5, py: 1 }}>
