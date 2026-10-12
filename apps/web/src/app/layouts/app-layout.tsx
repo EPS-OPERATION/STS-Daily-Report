@@ -114,26 +114,35 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
-      <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 2 }}>
-        <Stack direction="row" spacing={1.5} alignItems="center">
+      <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 1.75 }}>
+        {collapsed ? (
           <Box
             component="img"
-            src="/brand/logo-eps.png"
+            src="/brand/logo-eps-mark-on-dark.png"
             alt="EPS"
-            sx={{ width: 48, height: 48, objectFit: "contain", display: "block", flexShrink: 0 }}
+            sx={{ width: 40, height: "auto", display: "block", mx: "auto" }}
           />
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, display: collapsed ? "none" : "block" }}>
-              STS Platform
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: isContractor ? "#60A5FA" : "#9DB4CC", fontWeight: isContractor ? 600 : 400, fontSize: 12, whiteSpace: "nowrap", display: collapsed ? "none" : "block" }}
-            >
-              {isContractor ? "Contractor Field" : "Construction Operations"}
-            </Typography>
-          </Box>
-        </Stack>
+        ) : (
+          <Stack spacing={0.75}>
+            <Box
+              component="img"
+              src="/brand/logo-eps-on-dark.png"
+              alt="EPS"
+              sx={{ height: 28, width: "auto", display: "block" }}
+            />
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                STS Platform
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ color: isContractor ? "#60A5FA" : "#9DB4CC", fontWeight: isContractor ? 600 : 400, fontSize: 12 }}
+              >
+                {isContractor ? "Contractor Field" : "Construction Operations"}
+              </Typography>
+            </Box>
+          </Stack>
+        )}
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
       <Box className="sts-navy-scroll" sx={{ flexGrow: 1, overflowY: "auto", px: 1.5, py: 1 }}>
