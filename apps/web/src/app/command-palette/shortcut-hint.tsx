@@ -21,7 +21,7 @@ export function useCommandPaletteShortcut(open: boolean, setOpen: (v: boolean) =
   }, [open, setOpen]);
 }
 
-// "Ctrl K" on Windows/Linux, "⌘K" on macOS.
+// "Ctrl K" on Windows/Linux, "⌘K" on macOS — styled as a keyboard key chip.
 export function PaletteShortcutHint() {
   const [mac, setMac] = useState(false);
   useEffect(() => {
@@ -29,10 +29,19 @@ export function PaletteShortcutHint() {
   }, []);
   return (
     <Box
-      component="span"
+      component="kbd"
       sx={{
-        fontSize: 12,
-        color: "text.disabled",
+        fontFamily: "inherit",
+        fontSize: 11,
+        fontWeight: 600,
+        lineHeight: 1.6,
+        color: "text.secondary",
+        bgcolor: "grey.100",
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: 0.75,
+        px: 0.75,
+        py: 0,
         whiteSpace: "nowrap",
       }}
     >

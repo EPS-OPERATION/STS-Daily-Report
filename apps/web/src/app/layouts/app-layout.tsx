@@ -333,27 +333,31 @@ export function AppLayout() {
               </Select>
             </FormControl>
             <Button
-              variant="outlined"
-              color="inherit"
-              size="small"
               onClick={() => setPaletteOpen(true)}
-              startIcon={<SearchOutlinedIcon fontSize="small" />}
-              endIcon={<PaletteShortcutHint />}
+              aria-keyshortcuts="Control+K Meta+K"
               sx={{
                 width: 240,
                 height: 40,
+                px: 1.5,
                 justifyContent: "flex-start",
-                gap: 1,
-                fontWeight: 400,
-                fontSize: 13,
-                whiteSpace: "nowrap",
-                color: "text.secondary",
+                bgcolor: "background.paper",
+                border: "1px solid",
                 borderColor: "divider",
-                display: { xs: "none", sm: "inline-flex" },
+                borderRadius: 1,
+                color: "text.disabled",
+                fontSize: 14,
+                fontWeight: 400,
                 textTransform: "none",
+                whiteSpace: "nowrap",
+                display: { xs: "none", sm: "inline-flex" },
+                "&:hover": { bgcolor: "grey.50", borderColor: "grey.400" },
               }}
             >
-              Search anything…
+              <SearchOutlinedIcon sx={{ fontSize: 19, mr: 1 }} />
+              <Box component="span" sx={{ flexGrow: 1, textAlign: "left" }}>
+                Search anything…
+              </Box>
+              <PaletteShortcutHint />
             </Button>
             <Box sx={{ flexGrow: 1 }} />
             <IconButton aria-label="Notifications">
