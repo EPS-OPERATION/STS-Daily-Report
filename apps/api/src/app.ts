@@ -1,4 +1,5 @@
 import { cors } from "@elysiajs/cors";
+import { coordinationRoutes } from "@/modules/site-coordination/index.js";
 import { Elysia } from "elysia";
 import { API_PREFIX, HEALTH_PATH } from "@/config/constants.js";
 import { getEnv } from "@/config/env.js";
@@ -44,7 +45,7 @@ export function buildApp() {
     })
     .get(HEALTH_PATH, () => ({ status: "ok" }))
     .group(API_PREFIX, (group) =>
-      group.use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(inspectionRequestRoutes).use(safetyRoutes),
+      group.use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(inspectionRequestRoutes).use(safetyRoutes).use(coordinationRoutes),
     )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;

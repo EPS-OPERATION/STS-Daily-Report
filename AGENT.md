@@ -3,19 +3,19 @@
 > Living document: ถ้ามีการ update อะไรก็ตามใน repo นี้ (code, config, schema, script, docs, โครงสร้าง,
 > คำสั่ง build/test/deploy) ต้อง update ไฟล์นี้ให้ตรงของจริงใน commit เดียวกัน ห้ามปล่อยล้าสมัย
 
-## สถานะปัจจุบัน (2026-10-11, branch `dev` — กฎ git ดู `PROJECT_WORKFLOW.md`)
+## สถานะปัจจุบัน (2026-10-12, branch `dev-got` — กฎ git ดู `PROJECT_WORKFLOW.md`)
 
 - Agent docs: `CLAUDE.md` (entry, import ไฟล์นี้), `SKILLS.md` (index), skills ที่ `.claude/skills/`
   (`sts-*`, `impeccable`, `web-design-guidelines`, `vercel-react-best-practices`) — design system อยู่ที่ `DESIGN.md` และ `.impeccable/`
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
-- Schema (migrations `0000`–`0016`): projects, contractors, project_contractors, users(username/password_hash/requested_company/decision)/memberships/sessions/password_reset_tokens/auth_rate_limits, zones,
+- Schema (migrations `0000`–`0019`): projects, contractors, project_contractors, users(username/password_hash/requested_company/decision)/memberships/sessions/password_reset_tokens/auth_rate_limits, zones,
   site_plans/zone_map_areas, site_activities, buildings, daily_reports(+_positions/_equipment/_allocations/_machinery/
-  _permits/_road_usage/_photos/_materials), inspection_requests
+  _permits/_road_usage/_photos/_materials), inspection_requests, coordination_maps/colors/items
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
 - Design system "Industrial Operational Minimal": theme ที่ `apps/web/src/app/theme/` (palette navy #0B4D8B,
   Inter (Latin)+Sarabun (Thai), radius 6/8/10, border-over-shadow); primitives `components/ui/` (StatusChip/KpiCard/PageHeader)
-- Screens: `/` dashboard, `/site-coordination` (EPS Map, ปุ่ม แก้ไขผัง; dashboard แสดง Map เดียวกันแบบ read-only; pins เก็บ localStorage ต่อ browser ยังไม่มี API), `/site-plan` (Option), `/daily-reports` (work done summary + review queue), `/today-requests` = Daily Request (คำขอประจำวัน + แผนงานพรุ่งนี้ที่ `?view=plan`: agenda เดียวรวมเครื่องจักร/อุปกรณ์/ถนน/PTW/QAQC/งานวางแผน กรองตามประเภท+ผู้รับเหมา, export CSV), `/tomorrow`, `/weekly-summary`,
+- Screens: `/` dashboard, `/site-coordination` (Konva Map รายวันบน STS_KY_Layout_Plan.png, icon 7 แบบ หรือ marker ข้อความ, พิมพ์ข้อความบนผัง + floating pill (ลาก/หมุน/เชื่อม-แยกเส้น), เส้นเชื่อมหมุดผูกจุดใกล้สุดของขอบเขต + ปิดได้ต่อรายการ (`coordination_items.link_area`) + rectangle/polygon, สีต่อ contractor, บันทึกร่างลง DB; Dashboard read-only; `/field/coordination` แก้เฉพาะ membership/project; revision ป้องกันทับ, refresh 10s; README §16), `/site-plan` (Option), `/daily-reports` (work done summary + review queue), `/today-requests` = Daily Request (คำขอประจำวัน + แผนงานพรุ่งนี้ที่ `?view=plan`: agenda เดียวรวมเครื่องจักร/อุปกรณ์/ถนน/PTW/QAQC/งานวางแผน กรองตามประเภท+ผู้รับเหมา, export CSV), `/tomorrow`, `/weekly-summary`,
   `/field` (Today's Tasks: Daily Report=เช้า, Daily Request=บ่าย + History 14 วัน ปุ่มแก้ไข/ดู/PDF) + `/field/report` + `/field/coordination` (Map), `/qaqc` (RFI: Today & Tomorrow + Donut + history ที่ EPS confirm/pass/not pass), `/contractors`, `/work-permits`, `/progress` (Drone Progress),
   `/materials` (Option: totals + log จาก evening check-out, real API)
 - ยังไม่มี: lint config, CI, domains permits (ดู README §12/13); unit tests `bun test`; auth integration ดู README §15

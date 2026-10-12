@@ -21,13 +21,13 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs, { type Dayjs } from "dayjs";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { KpiCard } from "@/components/ui/kpi-card.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { SiteConditionsStrip } from "@/components/dashboard/site-conditions-strip.js";
 import { HIGHLIGHTS, KPI_BY_RANGE } from "@/mock/site-data.js";
-import { CoordinationMapBoard, useCoordinationState } from "@/features/site-coordination/index.js";
+import { CoordinationWorkspace } from "@/features/site-coordination/index.js";
 import { addDaysIso, todayIso, useInspectionRequests } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 
@@ -223,47 +223,6 @@ export function DashboardPage() {
   );
 }
 
-// Same pins as the Map page (EPS edits them there); view-only here. The board is laid
-// out at the Map page's width and scaled down as a whole, so callouts keep their
-// positions relative to the drawing instead of overflowing a narrow card.
-const MAP_DESIGN_WIDTH = 1200;
-
 function DashboardSiteMap() {
-  const { markers, activeMarkerId, setActiveMarkerId, mapView, setMapView } = useCoordinationState();
-  const outerRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState({ scale: 0.5, height: 400 });
-
-  useEffect(() => {
-    const outer = outerRef.current;
-    const inner = innerRef.current;
-    if (!outer || !inner) return;
-    const measure = () => {
-      const scale = Math.min(1, outer.clientWidth / MAP_DESIGN_WIDTH);
-      setFit({ scale, height: inner.offsetHeight * scale });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(outer);
-    ro.observe(inner);
-    return () => ro.disconnect();
-  }, []);
-
-  return (
-    <Box ref={outerRef} sx={{ position: "relative", overflow: "hidden", height: fit.height }}>
-      <Box
-        ref={innerRef}
-        sx={{ width: MAP_DESIGN_WIDTH, transform: `scale(${fit.scale})`, transformOrigin: "top left" }}
-      >
-        <CoordinationMapBoard
-          markers={markers}
-          activeMarkerId={activeMarkerId}
-          onSelectMarker={setActiveMarkerId}
-          mapView={mapView}
-          onChangeMapView={setMapView}
-          readOnly
-        />
-      </Box>
-    </Box>
-  );
+  return <CoordinationWorkspace readOnly compact />;
 }

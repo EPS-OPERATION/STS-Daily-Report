@@ -1,6 +1,7 @@
 import { inArray, sql } from "drizzle-orm";
 import { BUILDINGS, RETIRED_BUILDING_CODES, type BuildingCode } from "@sts/shared";
 import { getDb } from "@/db/client.js";
+import { coordinationMaps } from "@/db/schema/coordination.schema.js";
 import {
   buildingMarkers,
   buildings,
@@ -236,6 +237,9 @@ await db
 // (Sample daily reports, QAQC inspection requests and safety findings were
 // removed on 2026-10-11 so the seeded database is deploy-ready. Restore from
 // git history if demo data is needed.)
+
+// Dedicated coordination image; does not change WBS or facility marker backgrounds.
+await db.insert(coordinationMaps).values({ projectId: PROJECT_ID, imagePath: "/site-plan/STS_KY_Layout_Plan.png", width: 6542, height: 4951 }).onConflictDoNothing();
 
 console.log(
   `seed ok: 1 project, ${SITE_CONTRACTORS.length} site contractors, 21 zones, 1 site plan, 16 areas, ${BUILDINGS.length} buildings + markers — no users (bootstrap the first admin with scripts/bootstrap-admin.ts), no sample reports`,

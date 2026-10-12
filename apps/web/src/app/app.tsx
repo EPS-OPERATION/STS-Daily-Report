@@ -1,4 +1,5 @@
 import { RouterProvider } from "react-router-dom";
+import { Toaster } from "sonner";
 import { LocalizationProvider } from "@/app/providers/localization-provider.js";
 import { QueryProvider } from "@/app/providers/query-provider.js";
 import { AppThemeProvider } from "@/app/providers/theme-provider.js";
@@ -12,6 +13,7 @@ export function App() {
         <QueryProvider>
           <ProjectProvider>
             <RouterProvider router={router} />
+            <Toaster position="bottom-right" richColors closeButton />
           </ProjectProvider>
         </QueryProvider>
       </LocalizationProvider>

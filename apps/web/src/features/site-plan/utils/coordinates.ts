@@ -1,7 +1,7 @@
 // Framework-free map math. Map space = base image natural pixels;
 // stored geometry is always normalized 0..1 (never viewport pixels).
 
-// Map space = base drawing natural pixels (master-layout-map.png 1586x992).
+// Map space = base drawing natural pixels (1586x992).
 export const SITE_MAP_W = 1586;
 export const SITE_MAP_H = 992;
 
