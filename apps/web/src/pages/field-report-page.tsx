@@ -8,14 +8,13 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import Skeleton from "@mui/material/Skeleton";
-import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { canEditReport } from "@sts/shared";
-import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import { FieldBottomNav } from "@/components/field/field-bottom-nav.js";
 import {
   EveningForm,
@@ -52,7 +51,6 @@ export function FieldReportPage() {
   const contractorId = myContractors[0]?.id;
   const current = useCurrentReport(projectId, date, contractorId, Boolean(contractorId));
   const buildings = useBuildings(projectId);
-  const [toast, setToast] = useState<string | null>(null);
 
   const report = current.data?.data.report ?? null;
   const contractor = current.data?.data.contractor;
@@ -184,7 +182,7 @@ export function FieldReportPage() {
           report={report}
           plannedToday={current.data.data.plannedToday}
           onSubmitted={() => {
-            setToast("ส่งรายงานเช้าแล้ว");
+            toast.success("ส่งรายงานเช้าแล้ว");
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />
@@ -217,23 +215,12 @@ export function FieldReportPage() {
           report={report}
           buildings={buildings.data?.data ?? []}
           onSubmitted={() => {
-            setToast("ส่งรายงานบ่ายเรียบร้อย");
+            toast.success("ส่งรายงานบ่ายเรียบร้อย");
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />
         </>
       )}
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={3000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert severity="success" variant="filled" onClose={() => setToast(null)}>
-          {toast}
-        </Alert>
-      </Snackbar>
 
       <FieldBottomNav />
     </Box>
