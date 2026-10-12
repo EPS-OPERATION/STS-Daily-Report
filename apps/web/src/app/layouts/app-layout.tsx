@@ -244,8 +244,18 @@ export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const { projectId, setProjectId, projects, loading: projectsLoading } = useCurrentProject();
+  const me = useMe();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const desktop = useMediaQuery("(min-width:900px)");
+
+  // Show the project switcher only when there is an actual choice: contractors see the
+  // projects they are linked to (memberships), EPS staff see all projects. One project → hidden.
+  const role = me.data?.data.user.role ?? "contractor";
+  const membershipProjectIds = new Set((me.data?.data.contractors ?? []).map((c) => c.projectId));
+  const projectOptions = role === "contractor"
+    ? projects.filter((p) => membershipProjectIds.has(p.id))
+    : projects;
+  const showProjectSelect = !projectsLoading && projectOptions.length > 1;
 
   useCommandPaletteShortcut(paletteOpen, setPaletteOpen);
 
@@ -311,27 +321,24 @@ export function AppLayout() {
                 <MenuOutlinedIcon />
               )}
             </IconButton>
-            <FormControl size="small" sx={{ minWidth: { xs: 150, sm: 230 } }}>
-              <Select
-                value={projectId ?? ""}
-                onChange={(e) => setProjectId(e.target.value)}
-                aria-label="Select project"
-                disabled={projectsLoading || projects.length === 0}
-                displayEmpty
-                sx={{ fontWeight: 600 }}
-              >
-                {projectsLoading && (
-                  <MenuItem value="" disabled>
-                    Loading projects…
-                  </MenuItem>
-                )}
-                {projects.map((p) => (
-                  <MenuItem key={p.id} value={p.id}>
-                    {p.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {showProjectSelect ? (
+              <FormControl size="small" sx={{ minWidth: { xs: 150, sm: 230 } }}>
+                <Select
+                  value={projectId ?? ""}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  aria-label="Select project"
+                  disabled={projectsLoading || projectOptions.length === 0}
+                  displayEmpty
+                  sx={{ fontWeight: 600 }}
+                >
+                  {projectOptions.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>
+                      {p.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            ) : null}
             <Button
               onClick={() => setPaletteOpen(true)}
               aria-keyshortcuts="Control+K Meta+K"
