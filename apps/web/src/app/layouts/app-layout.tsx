@@ -16,6 +16,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
+import Stack from "@mui/material/Stack";
 import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -110,6 +111,13 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
     ...g,
     items: g.items.filter((item) => !item.roles || item.roles.includes(role)),
   }));
+  const { projectId, projects } = useCurrentProject();
+  const project = projects.find((p) => p.id === projectId);
+  const myContractor = me.data?.data.contractors[0];
+  // Quiet context line: which project (EPS staff) or which company (contractor) this session reports for.
+  const contextLabel = isContractor
+    ? (myContractor ? `${myContractor.code} · ${myContractor.name}` : "ยังไม่ผูกผู้รับเหมา")
+    : (project ? `${project.code} · ${project.name}` : "STS Project");
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
@@ -209,20 +217,23 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
         ))}
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
-      <Box sx={{ p: collapsed ? 1.5 : 2 }}>
-        <Box sx={{ borderRadius: 2, bgcolor: "rgba(255,255,255,0.06)", p: 1.5, textAlign: "center" }}>
-          <Typography variant="body2" sx={{ fontWeight: 600, display: collapsed ? "none" : "block" }}>
-            {isContractor ? (me.data?.data.contractors[0]?.name ?? "Contractor Field") : "Biomass Power Plant"}
-          </Typography>
-          <Typography variant="caption" sx={{ color: "#9DB4CC", display: collapsed ? "none" : "block" }}>
-            {isContractor ? "STS Daily Field" : "STS Project"}
-          </Typography>
-          {collapsed && (
-            <Typography variant="caption" sx={{ color: "#FFFFFF", fontWeight: 700 }}>
-              {isContractor ? "FIELD" : "STS"}
+      <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 1.75 }}>
+        {collapsed ? (
+          <Tooltip title={contextLabel} placement="right" arrow>
+            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "success.main", mx: "auto" }} />
+          </Tooltip>
+        ) : (
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", minWidth: 0 }}>
+            <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "success.main", flexShrink: 0 }} />
+            <Typography
+              variant="body2"
+              title={contextLabel}
+              sx={{ color: "#9DB4CC", fontSize: 12.5, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+            >
+              {contextLabel}
             </Typography>
-          )}
-        </Box>
+          </Stack>
+        )}
       </Box>
 
     </Box>
