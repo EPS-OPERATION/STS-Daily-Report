@@ -385,9 +385,9 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
                   <Rect x={-textLayout!.width / 2} y={-textLayout!.height / 2} width={textLayout!.width} height={textLayout!.height} fill={theme.palette.background.paper} opacity={0.94} stroke={color} strokeWidth={selected ? 3 : 1.5} cornerRadius={Math.min(16, textLayout!.height / 2)} />
                   <Text x={-textLayout!.width / 2 + 12} y={-textLayout!.height / 2 + 7} width={textLayout!.width - 24} text={textLayout!.lines.join("\n")} fontFamily="Inter" fontSize={13} fontStyle="bold" lineHeight={TEXT_LINE_HEIGHT / 13} align="center" fill={theme.palette.text.primary} listening={false} />
                 </>) : <>
-                  <Circle radius={28} fill={theme.palette.background.paper} opacity={0.94} stroke={color} strokeWidth={selected ? 3 : 1.5} />
+                  <Circle radius={24} fill={theme.palette.background.paper} opacity={0.94} stroke={color} strokeWidth={selected ? 3 : 1.5} />
                   <MachineIcon icon={item.icon} color={color} rotation={item.rotation} />
-                  {captionLayout && !(textEditing && editing) && <Text x={-captionLayout.width / 2} y={32} width={captionLayout.width} text={captionLayout.lines.join("\n")} fontFamily="Inter" fontSize={12} fontStyle="600" lineHeight={CAPTION_LINE_HEIGHT / 12} align="center" fill={theme.palette.text.primary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled listening={false} />}
+                  {captionLayout && !(textEditing && editing) && <Text x={-captionLayout.width / 2} y={28} width={captionLayout.width} text={captionLayout.lines.join("\n")} fontFamily="Inter" fontSize={12} fontStyle="600" lineHeight={CAPTION_LINE_HEIGHT / 12} align="center" fill={theme.palette.text.primary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled listening={false} />}
                 </>}
               </Group>
             </Group>;
@@ -402,7 +402,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
       ) : (
         // Icon caption editor: typed in place of the halo caption under the marker.
         <InputBase autoFocus multiline rows={overlay.caption.lines.length} value={draft.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="ชื่อเครื่องจักร…" inputProps={{ "aria-label": "ชื่อเครื่องจักรบนผัง" }}
-          sx={{ position: "absolute", left: overlay.left, top: overlay.top + 32, transform: "translateX(-50%)", width: Math.max(168, overlay.caption.width), px: 1, py: "4px", borderRadius: 1, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 12, fontWeight: 600, lineHeight: `${CAPTION_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
+          sx={{ position: "absolute", left: overlay.left, top: overlay.top + 28, transform: "translateX(-50%)", width: Math.max(168, overlay.caption.width), px: 1, py: "4px", borderRadius: 1, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 12, fontWeight: 600, lineHeight: `${CAPTION_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
       ))}
     {overlay && draft && (() => {
       // Floating bar anchored to the selection. Popper flips/shifts it, so it stays

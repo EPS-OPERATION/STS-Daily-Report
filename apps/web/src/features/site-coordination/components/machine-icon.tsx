@@ -58,7 +58,7 @@ function tintIcon(icon: MachineIconName, color: string, source: HTMLImageElement
   return canvas;
 }
 
-export function MachineIcon({ icon, color, rotation = 0, size = 52 }: { icon: MachineIconName; color: string; rotation?: number; size?: number }) {
+export function MachineIcon({ icon, color, rotation = 0, size = 38 }: { icon: MachineIconName; color: string; rotation?: number; size?: number }) {
   const [tinted, setTinted] = useState<HTMLCanvasElement | null>(() => tints.get(`${icon}|${color}`) ?? null);
   useEffect(() => {
     const key = `${icon}|${color}`;
