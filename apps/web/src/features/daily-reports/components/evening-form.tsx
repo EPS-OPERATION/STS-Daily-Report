@@ -22,9 +22,9 @@ import {
   type MachineType,
   type PermitType,
   type PositionCode,
-  type SiteEquipmentType,
 } from "@sts/shared";
 import MenuItem from "@mui/material/MenuItem";
+import { useState } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormReturn } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
@@ -37,8 +37,7 @@ import { NumberStepper } from "./number-stepper.js";
 import { RequestSection } from "./request-section.js";
 import { SectionCard } from "./section-card.js";
 import { SignaturePad } from "./signature-pad.js";
-import { EquipmentRequests, MachineryRequests, PermitRequests, RoadUsageRequests } from "./tomorrow-requests.js";
-import { MaterialInputs } from "./material-inputs.js";
+import { EquipmentRequests, ForecastActivities, MachineryRequests, PermitRequests, RoadUsageRequests } from "./tomorrow-requests.js";
 
 const disciplineLabel = (d: Discipline) => DISCIPLINES.find((x) => x.code === d)?.label ?? d;
 
@@ -101,7 +100,7 @@ export function EveningForm({
         purpose: m.purpose ?? "",
       })),
       equipmentRequests: (report?.equipmentRequests ?? []).map((e) => ({
-        equipmentType: e.equipmentType as SiteEquipmentType,
+        equipmentType: e.equipmentType,
         qty: e.qty,
         buildingId: e.buildingId,
         purpose: e.purpose ?? "",
@@ -111,6 +110,9 @@ export function EveningForm({
         otherLabel: p.otherLabel ?? "",
         buildingId: p.buildingId,
         workers: p.workers,
+        highRisk: p.highRisk ?? false,
+        taskName: p.taskName ?? "",
+        supervisorName: p.supervisorName ?? "",
       })),
       roadUsage: (report?.roadUsage ?? []).map((r) => ({
         roadLocation: r.roadLocation,
@@ -124,6 +126,7 @@ export function EveningForm({
         qty: m.qty,
         unit: m.unit,
       })),
+      forecasts: (report?.forecasts ?? []).map((f) => ({ description: f.description, buildingId: f.buildingId })),
       // Disciplines that worked this afternoon: saved evening crews, else the morning's.
       disciplines: DISCIPLINE_CODES.filter((d) =>
         (report?.crews.some((c) => c.shift === "evening") ? report.crews.filter((c) => c.shift === "evening") : (report?.crews ?? [])).some(
@@ -138,11 +141,13 @@ export function EveningForm({
         countermeasure: a.countermeasure ?? "",
       })),
       signatureName: report?.signatureName ?? "",
-      signatureData: "",
+      signatureData: report?.hasSignature ? "existing" : "",
     },
     mode: "onTouched",
   });
-  const { control, handleSubmit, setValue, formState } = form;
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const hasExistingSignature = Boolean(report?.hasSignature);
+  const { control, handleSubmit, setValue, formState, watch } = form;
   const progress = useFieldArray({ control, name: "progress" });
   const accident = useWatch({ control, name: "accidentOccurred" });
   const disciplineValues = useWatch({ control, name: "disciplines" });
@@ -150,35 +155,37 @@ export function EveningForm({
   const picked = DISCIPLINE_CODES.filter((d) => disciplineValues.includes(d));
   const crewsOk = picked.length > 0 && picked.every((d) => crewTotals(crewValues[d]).ok);
 
-  const onSubmit = handleSubmit((v) => {
-    submit.mutate(
-      {
-        date,
-        contractorId: contractor.id,
-        otHours: v.otHours,
-        accidentOccurred: v.accidentOccurred ?? false,
-        accidentNote: v.accidentOccurred ? v.accidentNote?.trim() : undefined,
-        accidentCategory: v.accidentOccurred ? (v.accidentCategory ?? undefined) : undefined,
-        crews: DISCIPLINE_CODES.filter((d) => v.disciplines.includes(d)).map((d) => {
-          const c = v.crews[d];
-          return {
-            discipline: d,
-            positions: Object.entries(c.positions)
-              .filter(([, n]) => n > 0)
-              .map(([position, headcount]) => ({ position: position as PositionCode, headcount })),
-            thaiMale: c.thaiMale,
-            thaiFemale: c.thaiFemale,
-            foreignMale: c.foreignMale,
-            foreignFemale: c.foreignFemale,
-          };
-        }),
-        progress: v.progress.map((p) => ({
-          allocationId: p.allocationId,
-          actualPercent: p.actualPercent,
-          countermeasure: p.countermeasure?.trim() || undefined,
-        })),
-        signatureName: v.signatureName.trim(),
-        signatureData: v.signatureData,
+  const onSubmit = handleSubmit(
+    (v) => {
+      setValidationError(null);
+      submit.mutate(
+        {
+          date,
+          contractorId: contractor.id,
+          otHours: v.otHours,
+          accidentOccurred: v.accidentOccurred ?? false,
+          accidentNote: v.accidentOccurred ? v.accidentNote?.trim() : undefined,
+          accidentCategory: v.accidentOccurred ? (v.accidentCategory ?? undefined) : undefined,
+          crews: DISCIPLINE_CODES.filter((d) => v.disciplines.includes(d)).map((d) => {
+            const c = v.crews[d];
+            return {
+              discipline: d,
+              positions: Object.entries(c.positions)
+                .filter(([, n]) => n > 0)
+                .map(([position, headcount]) => ({ position: position as PositionCode, headcount })),
+              thaiMale: c.thaiMale,
+              thaiFemale: c.thaiFemale,
+              foreignMale: c.foreignMale,
+              foreignFemale: c.foreignFemale,
+            };
+          }),
+          progress: v.progress.map((p) => ({
+            allocationId: p.allocationId,
+            actualPercent: p.actualPercent,
+            countermeasure: p.countermeasure?.trim() || undefined,
+          })),
+          signatureName: v.signatureName.trim(),
+          signatureData: v.signatureData === "existing" ? undefined : v.signatureData,
         machinery: v.machinery.map((m) => ({
           buildingId: m.buildingId,
           machineType: m.machineType as MachineType,
@@ -189,7 +196,7 @@ export function EveningForm({
         })),
         equipmentRequests: v.equipmentRequests.map((e) => ({
           buildingId: e.buildingId,
-          equipmentType: e.equipmentType as SiteEquipmentType,
+          equipmentType: e.equipmentType.trim(),
           qty: e.qty,
           purpose: e.purpose?.trim() || undefined,
         })),
@@ -198,6 +205,9 @@ export function EveningForm({
           permitType: p.permitType as PermitType,
           otherLabel: p.permitType === "other" ? p.otherLabel?.trim() : undefined,
           workers: p.workers,
+          highRisk: p.highRisk,
+          taskName: p.highRisk ? p.taskName.trim() : undefined,
+          supervisorName: p.highRisk ? p.supervisorName.trim() : undefined,
         })),
         roadUsage: v.roadUsage.map((r) => ({
           buildingId: r.buildingId,
@@ -211,9 +221,18 @@ export function EveningForm({
           qty: m.qty,
           unit: m.unit.trim(),
         })),
+        forecasts: v.forecasts.map((f) => ({ buildingId: f.buildingId, description: f.description.trim() })),
       },
       { onSuccess: onSubmitted },
     );
+  },
+  (errors) => {
+    const errList = Object.keys(errors);
+    if (errList.length > 0) {
+      setValidationError("กรุณาตรวจสอบข้อมูลที่ยังไม่ครบถ้วนหรือไม่ถูกต้องก่อนส่ง");
+      const first = document.querySelector(`[name="${errList[0]}"]`);
+      first?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   });
 
   const serverError = submit.error instanceof HttpError ? submit.error : null;
@@ -385,6 +404,9 @@ export function EveningForm({
         title="คำขอและแผนงานสำหรับวันพรุ่งนี้ (Tomorrow's Requests)"
         subtitle={`สำหรับ ${formatThaiDate(tomorrow)} — ใช้ในประชุมประสานงาน 17:00 ส่งพร้อมรายงานบ่าย`}
       >
+        <SubHeading>แผนงานพรุ่งนี้ (Tomorrow Forecast Activities)</SubHeading>
+        <ForecastActivities control={control} buildings={buildings} />
+        <Divider sx={{ my: 2.5 }} />
         <SubHeading>ขอตรวจ QAQC</SubHeading>
         <RequestSection
           projectId={projectId}
@@ -407,16 +429,9 @@ export function EveningForm({
         <PermitRequests control={control} buildings={buildings} />
       </SectionCard>
 
-      <SectionCard
-        index={6}
-        tone="navy"
-        title="วัสดุหน้างาน (Materials on site)"
-        subtitle="วัสดุที่รับเข้าหรือใช้ไปวันนี้ — กรอกเฉพาะที่มี"
-      >
-        <MaterialInputs control={control} />
-      </SectionCard>
+      {/* Materials on site — future feature, hidden for now (schema/API/material-inputs kept). */}
 
-      <SectionCard index={7} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
+      <SectionCard index={6} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
         <Stack spacing={1.5}>
           <Controller
             name="signatureName"
@@ -433,11 +448,18 @@ export function EveningForm({
             )}
           />
           <SignaturePad
+            hasExistingSignature={hasExistingSignature && watch("signatureData") === "existing"}
             onChange={(url) => setValue("signatureData", url ?? "", { shouldValidate: formState.isSubmitted })}
             error={formState.errors.signatureData?.message}
           />
         </Stack>
       </SectionCard>
+
+      {validationError ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {validationError}
+        </Alert>
+      ) : null}
 
       {serverError ? (
         <Alert severity="error" sx={{ mb: 2 }}>

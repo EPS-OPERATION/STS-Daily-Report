@@ -5,13 +5,24 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { DISCIPLINES, PERMIT_TYPES, POSITIONS, WEATHER_CONDITIONS, type PermitType } from "@sts/shared";
 import dayjs from "dayjs";
-import { useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
-import { usePrintReport, inspectionTypeLabel, type PrintReport } from "@/features/daily-reports/index.js";
+import { Fragment, useEffect, useMemo, useRef } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
+import {
+  ALL_CONTRACTORS,
+  filterSubmissions,
+  inspectionTypeLabel,
+  isSubmissionFilter,
+  todayIso,
+  usePrintReport,
+  usePrintReports,
+  useReviewQueue,
+  type PrintReport,
+} from "@/features/daily-reports/index.js";
+import { useCurrentProject } from "@/features/projects/index.js";
 
 const BLUE = "#dbe9f6";
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_ACTIVITY_ROWS = 10;
-const PHOTO_SLOTS = 6;
 
 // Buddhist-era short date as written on the paper form (3/9/69).
 function thaiShortDate(iso: string): string {
@@ -62,18 +73,7 @@ export function DailyReportPrintPage() {
 
   return (
     <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
-      <style>{`
-        @page { size: A4 portrait; margin: 8mm; }
-        @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-        .sheet { break-after: page; font-size: 10px; line-height: 1.25; }
-        .sheet:last-child { break-after: auto; }
-        .f { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .f td, .f th { border: 1px solid #222; padding: 2px 4px; vertical-align: middle; overflow-wrap: anywhere; }
-        .f th { background: ${BLUE}; font-weight: 700; text-align: center; }
-        .c { text-align: center; } .b { font-weight: 700; } .blue { background: ${BLUE}; }
-        .photo { height: 78px; object-fit: cover; width: 100%; display: block; }
-        .gap { height: 6px; }
-      `}</style>
+      <PrintStyles />
 
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
         <Button onClick={() => window.print()}>พิมพ์ / บันทึกเป็น PDF</Button>
@@ -88,6 +88,110 @@ export function DailyReportPrintPage() {
   );
 }
 
+function PrintStyles() {
+  return (
+    <style>{`
+        @page { size: A4 portrait; margin: 8mm; }
+        @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        .sheet { break-after: page; font-size: 10px; line-height: 1.25; }
+        .sheet:last-child { break-after: auto; }
+        .f { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .f td, .f th { border: 1px solid #222; padding: 2px 4px; vertical-align: middle; overflow-wrap: anywhere; }
+        .f th { background: ${BLUE}; font-weight: 700; text-align: center; }
+        .c { text-align: center; } .b { font-weight: 700; } .blue { background: ${BLUE}; }
+        .photo { height: 78px; object-fit: cover; width: 100%; display: block; }
+        .gap { height: 6px; }
+      `}</style>
+  );
+}
+
+// Combined R003 export: every sent report among the Submission History rows (same range + filter
+// chip + contractor + search as the table), two A4 pages each, one print dialog.
+export function DailyReportsBatchPrintPage() {
+  const [params] = useSearchParams();
+  const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : todayIso();
+  const rawTo = ISO_DATE.test(params.get("to") ?? "") ? params.get("to")! : rawFrom;
+  const from = rawFrom <= rawTo ? rawFrom : rawTo;
+  const to = rawFrom <= rawTo ? rawTo : rawFrom;
+  const filterParam = params.get("filter");
+  const filter = isSubmissionFilter(filterParam) ? filterParam : "all";
+  const contractor = params.get("contractor") || ALL_CONTRACTORS;
+  const search = params.get("q") ?? "";
+  const current = useCurrentProject();
+  const projectId = params.get("projectId") || current.projectId;
+
+  const history = useReviewQueue(projectId, { from, to });
+  const ids = useMemo(
+    () =>
+      filterSubmissions(history.data?.data ?? [], { filter, contractor, search })
+        .map((r) => r.id)
+        .filter((id): id is string => Boolean(id)),
+    [history.data, filter, contractor, search],
+  );
+  const reports = usePrintReports(ids);
+  const done = reports.filter((q) => q.data).length;
+  const failed = reports.filter((q) => q.isError).length;
+  const ready = Boolean(history.data) && done + failed === ids.length;
+  const printed = useRef(false);
+
+  useEffect(() => {
+    if (!ready || printed.current || ids.length === 0) return;
+    document.title = `Daily reports ${from}${from === to ? "" : `_${to}`}`;
+    const imgs = Array.from(document.images);
+    Promise.all(
+      imgs.map((img) => (img.complete ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = () => r(null); }))),
+    ).then(() => {
+      printed.current = true;
+      setTimeout(() => window.print(), 300);
+    });
+  }, [ready, ids.length, from, to]);
+
+  if (history.isError) {
+    return (
+      <Stack alignItems="center" sx={{ py: 10 }}>
+        <Typography color="error">โหลดข้อมูลไม่สำเร็จ — ไม่มีสิทธิ์เข้าถึงหรือการเชื่อมต่อขัดข้อง</Typography>
+      </Stack>
+    );
+  }
+  if (history.data && ids.length === 0) {
+    return (
+      <Stack alignItems="center" sx={{ py: 10 }}>
+        <Typography>ไม่มีรายงานที่ส่งแล้วในช่วงและตัวกรองที่เลือก</Typography>
+      </Stack>
+    );
+  }
+  if (!ready) {
+    return (
+      <Stack alignItems="center" spacing={2} sx={{ py: 10 }}>
+        <CircularProgress />
+        <Typography>
+          กำลังเตรียมรายงาน… {done}/{ids.length}
+        </Typography>
+      </Stack>
+    );
+  }
+
+  return (
+    <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
+      <PrintStyles />
+      <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
+        <Button onClick={() => window.print()}>พิมพ์ / บันทึกเป็น PDF</Button>
+        <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
+          {ids.length} รายงาน ({ids.length * 2} หน้า){failed > 0 ? ` · โหลดไม่สำเร็จ ${failed} รายงาน` : ""} — ในหน้าต่างพิมพ์ เลือก "Save as PDF"
+        </Typography>
+      </Stack>
+      {reports.map((q) =>
+        q.data ? (
+          <Fragment key={q.data.data.id}>
+            <FormSheet r={q.data.data} />
+            <SummarySheet r={q.data.data} />
+          </Fragment>
+        ) : null,
+      )}
+    </Box>
+  );
+}
+
 function FormSheet({ r }: { r: PrintReport }) {
   const w = r.weather;
   const eveningDone = r.eveningStatus === "submitted";
@@ -96,9 +200,8 @@ function FormSheet({ r }: { r: PrintReport }) {
   const permitWorkers = (type: PermitType) => permitsToday.filter((p) => p.permitType === type).reduce((s, p) => s + p.workers, 0);
   const otherPermits = permitsToday.filter((p) => p.permitType === "other");
   const activities = r.allocations.slice(0, MAX_ACTIVITY_ROWS);
-  const forecast = r.inspections.filter((i) => i.inspectionDate > r.reportDate).slice(0, MAX_ACTIVITY_ROWS);
+  const forecast = r.forecasts.slice(0, MAX_ACTIVITY_ROWS);
   const behind = r.allocations.filter((a) => a.countermeasure);
-  const photos = r.photos.slice(0, PHOTO_SLOTS);
   const morningTotal = sumOf(r.positions);
   const eveningTotal = r.eveningHeadcount;
   const equipmentRows = Array.from({ length: 12 }, (_, i) => r.equipment[i] ?? null);
@@ -109,7 +212,10 @@ function FormSheet({ r }: { r: PrintReport }) {
         <tbody>
           <tr>
             <td rowSpan={2} style={{ width: "26%" }}>
-              <img src="/brand/logo-eps.png" alt="EPS" style={{ height: 36 }} />
+              {/* logo-eps.png is a 447px square with the mark at x52–388, y184–260: crop the padding. */}
+              <div style={{ width: 200, height: 45, overflow: "hidden", position: "relative", margin: "2px 0" }}>
+                <img src="/brand/logo-eps.png" alt="EPS" style={{ position: "absolute", width: 266, height: 266, left: -31, top: -110 }} />
+              </div>
               <div style={{ fontSize: 9 }}>บริษัทอีโค่ แพลนท์ เซอร์วิสเซส จำกัด</div>
             </td>
             <td rowSpan={2} className="c blue" style={{ width: "34%" }}>
@@ -270,7 +376,7 @@ function FormSheet({ r }: { r: PrintReport }) {
                 </td>
                 <td className="c">{a?.buildingCode ?? ""}</td>
                 <td className="c">{i + 1}</td>
-                <td>{f ? (f.inspectionType && f.inspectionType !== "other" ? `${inspectionTypeLabel(f.inspectionType)} · ${f.workItem}` : f.workItem) : ""}</td>
+                <td>{f?.description ?? ""}</td>
                 <td className="c">{f?.buildingCode ?? ""}</td>
               </tr>
             );
@@ -296,7 +402,7 @@ function FormSheet({ r }: { r: PrintReport }) {
       <table className="f">
         <tbody>
           <tr>
-            <td style={{ width: "38%", padding: 0, verticalAlign: "top" }}>
+            <td style={{ width: "55%", padding: 0, verticalAlign: "top" }}>
               <table className="f" style={{ border: 0 }}>
                 <thead>
                   <tr>
@@ -318,42 +424,21 @@ function FormSheet({ r }: { r: PrintReport }) {
             </td>
             <td style={{ padding: 0, verticalAlign: "top" }}>
               <table className="f" style={{ border: 0 }}>
-                <thead>
-                  <tr>
-                    <th colSpan={3}>Daily Progress and Highrisk Photo</th>
-                  </tr>
-                </thead>
                 <tbody>
-                  {[0, 1].map((row) => (
-                    <tr key={row}>
-                      {[0, 1, 2].map((col) => {
-                        const idx = row * 3 + col;
-                        const p = photos[idx];
-                        return (
-                          <td key={col} style={{ padding: 1, height: 96, verticalAlign: "top" }}>
-                            {p?.url ? <img className="photo" src={p.url} alt="" /> : <div style={{ height: 78 }} />}
-                            <div style={{ fontSize: 8 }}>
-                              No.{idx + 1}: {p ? (p.category === "safety" ? "Safety" : "Progress") : ""}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
                   <tr>
-                    <td colSpan={2} style={{ height: 54, verticalAlign: "top" }}>
+                    <td style={{ height: 110, verticalAlign: "top" }}>
                       <div className="b">Prepared by Contractor:</div>
                       <div>Signature</div>
-                      {r.signatureData ? <img src={r.signatureData} alt="signature" style={{ height: 24 }} /> : null}
+                      {r.signatureData ? <img src={r.signatureData} alt="signature" style={{ height: 40 }} /> : null}
                       <div>Name {r.signatureName ?? ""}</div>
                     </td>
-                    <td style={{ verticalAlign: "top" }}>
+                  </tr>
+                  <tr>
+                    <td style={{ height: 110, verticalAlign: "top" }}>
                       <div className="b">Checked by EPS:</div>
-                      <div>
-                        {r.reviewStatus === "approved" ? "✔ อนุมัติแล้ว" : r.reviewStatus === "rejected" ? "✘ ส่งกลับแก้ไข" : "รอตรวจสอบ"}
-                      </div>
-                      <div style={{ fontSize: 8 }}>Signature</div>
-                      <div style={{ fontSize: 8 }}>Name</div>
+                      <div>Signature</div>
+                      <div style={{ height: 40 }} />
+                      <div>Name</div>
                     </td>
                   </tr>
                 </tbody>
@@ -376,7 +461,7 @@ function SummarySheet({ r }: { r: PrintReport }) {
   const hrs = r.workHours ?? 0;
   const nat = (a: number | null, b: number | null, c: number | null, d: number | null) =>
     a === null ? "-" : `ไทย ช ${a} / ญ ${b} · ต่างชาติ ช ${c} / ญ ${d}`;
-  const extraPhotos = r.photos.slice(PHOTO_SLOTS);
+  const extraPhotos = r.photos;
   const inspections = r.inspections;
   const tomorrowCount = r.machinery.length + r.equipmentRequests.length + r.roadUsage.length + r.permits.length;
 
@@ -562,16 +647,9 @@ function SummarySheet({ r }: { r: PrintReport }) {
         </div>
       ) : null}
 
-      <Heading>4. วัสดุหน้างาน (Materials on site)</Heading>
-      {r.materials.length === 0 ? (
-        <div>ไม่มีการรายงานวัสดุ</div>
-      ) : (
-        <div>{r.materials.map((m) => `${m.materialName} ${m.qty.toLocaleString()} ${m.unit}`).join(" · ")}</div>
-      )}
-
       {extraPhotos.length > 0 ? (
         <>
-          <Heading>5. รูปถ่ายเพิ่มเติม</Heading>
+          <Heading>4. รูปถ่าย</Heading>
           <table className="f">
             <tbody>
               {Array.from({ length: Math.ceil(extraPhotos.length / 4) }, (_, row) => (
@@ -590,12 +668,6 @@ function SummarySheet({ r }: { r: PrintReport }) {
             </tbody>
           </table>
         </>
-      ) : null}
-
-      {r.reviewNote ? (
-        <div style={{ marginTop: 6 }}>
-          <b>หมายเหตุจาก EPS:</b> {r.reviewNote}
-        </div>
       ) : null}
     </Box>
   );

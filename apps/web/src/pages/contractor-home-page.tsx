@@ -15,6 +15,7 @@ import CardContent from "@mui/material/CardContent";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import Skeleton from "@mui/material/Skeleton";
+import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -22,7 +23,7 @@ import type { SvgIconProps } from "@mui/material/SvgIcon";
 import { canEditReport } from "@sts/shared";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 import { FieldBottomNav } from "@/components/field/field-bottom-nav.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import { useAuthConfig, useMe } from "@/features/auth/index.js";
@@ -81,10 +82,33 @@ export function ContractorHomePage() {
     [history.data, contractorId],
   );
 
+  const location = useLocation();
+  const [toast, setToast] = useState<string | null>((location.state as { toast?: string } | null)?.toast ?? null);
+
+  useEffect(() => {
+    const state = location.state as { toast?: string } | null;
+    if (state?.toast) {
+      setToast(state.toast);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   const reportLink = (date: string, shift?: "morning" | "evening") =>
     `/field/report?date=${date}${contractorId ? `&contractor=${contractorId}` : ""}${shift ? `&shift=${shift}` : ""}`;
   const isEditable = (date: string) => allowResubmit || canEditReport(date, now);
-  const sentAt = (iso: string | null | undefined) => (iso ? `ส่งแล้ว ${dayjs(iso).format("HH:mm")} น.` : "ส่งแล้ว");
+  const formatShiftStatus = (
+    submittedAt: string | null | undefined,
+    updatedAt: string | null | undefined,
+    emptyText: string,
+  ) => {
+    if (!submittedAt) return emptyText;
+    const sent = `ส่งแล้ว ${dayjs(submittedAt).format("HH:mm")} น.`;
+    if (updatedAt && dayjs(updatedAt).diff(dayjs(submittedAt), "minute") >= 1) {
+      const edit = dayjs(updatedAt).format("HH:mm");
+      return `${sent} · แก้ไขล่าสุด ${edit} น.`;
+    }
+    return sent;
+  };
 
   const next = !morningDone
     ? { label: "ส่ง Daily Report", to: reportLink(today, "morning") }
@@ -149,7 +173,7 @@ export function ContractorHomePage() {
                 icon={morningDone ? CheckCircleOutlineIcon : ScheduleOutlinedIcon}
                 tone={morningDone ? "success" : "warning"}
                 title="Daily Report"
-                caption={morningDone ? sentAt(report?.morningSubmittedAt) : "ยังไม่ส่ง · รายงานเช้า กำลังคน และแผนงาน"}
+                caption={formatShiftStatus(report?.morningSubmittedAt, report?.morningUpdatedAt, "ยังไม่ส่ง · รายงานเช้า กำลังคน และแผนงาน")}
                 action={
                   <Button
                     component={RouterLink}
@@ -165,7 +189,7 @@ export function ContractorHomePage() {
                 icon={eveningDone ? CheckCircleOutlineIcon : ScheduleOutlinedIcon}
                 tone={eveningDone ? "success" : "warning"}
                 title="Daily Request"
-                caption={eveningDone ? sentAt(report?.eveningSubmittedAt) : "ยังไม่ส่ง · รายงานบ่าย ผลงาน และคำขอพรุ่งนี้"}
+                caption={formatShiftStatus(report?.eveningSubmittedAt, report?.eveningUpdatedAt, "ยังไม่ส่ง · รายงานบ่าย ผลงาน และคำขอพรุ่งนี้")}
                 action={
                   <Button
                     component={RouterLink}
@@ -231,7 +255,7 @@ export function ContractorHomePage() {
           <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }} aria-label="ประวัติรายงาน">
             {rows.map((r) => (
               <HistoryRow
-                key={r.id}
+                key={`${r.contractorId}-${r.reportDate}`}
                 row={r}
                 today={today}
                 editable={isEditable(r.reportDate)}
@@ -243,6 +267,17 @@ export function ContractorHomePage() {
       </Card>
 
       <FieldBottomNav />
+
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setToast(null)}>
+          {toast}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
@@ -293,12 +328,6 @@ function HistoryRow({
   const relative = row.reportDate === today ? "วันนี้" : row.reportDate === addDaysIso(today, -1) ? "เมื่อวาน" : null;
   // Only today's and yesterday's reports can still be inside the window.
   const until = row.reportDate === today ? "ถึงพรุ่งนี้ 12:00" : "ถึงวันนี้ 12:00";
-  const review =
-    row.reviewStatus === "approved"
-      ? { status: "approved", label: "EPS อนุมัติ" }
-      : row.reviewStatus === "rejected"
-        ? { status: "rejected", label: "ตีกลับแก้ไข" }
-        : { status: "pending", label: "รอ EPS ตรวจ" };
 
   return (
     <Box component="li" sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: "divider" }}>
@@ -315,19 +344,27 @@ function HistoryRow({
             ) : null}
           </Stack>
           <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
-            <StatusChip status={morning ? "submitted" : "draft"} label={morning ? "Daily Report" : "Daily Report ยังไม่ส่ง"} />
-            <StatusChip status={evening ? "submitted" : "draft"} label={evening ? "Daily Request" : "Daily Request ยังไม่ส่ง"} />
-            {anySent ? <StatusChip status={review.status} label={review.label} /> : null}
+            <StatusChip
+              status={morning ? "submitted" : "draft"}
+              label={
+                morning
+                  ? `Daily Report${row.morningUpdatedAt && dayjs(row.morningUpdatedAt).diff(dayjs(row.morningSubmittedAt), "minute") >= 1 ? ` (แก้ ${dayjs(row.morningUpdatedAt).format("HH:mm")})` : row.morningSubmittedAt ? ` (${dayjs(row.morningSubmittedAt).format("HH:mm")})` : ""}`
+                  : "Daily Report ยังไม่ส่ง"
+              }
+            />
+            <StatusChip
+              status={evening ? "submitted" : "draft"}
+              label={
+                evening
+                  ? `Daily Request${row.eveningUpdatedAt && dayjs(row.eveningUpdatedAt).diff(dayjs(row.eveningSubmittedAt), "minute") >= 1 ? ` (แก้ ${dayjs(row.eveningUpdatedAt).format("HH:mm")})` : row.eveningSubmittedAt ? ` (${dayjs(row.eveningSubmittedAt).format("HH:mm")})` : ""}`
+                  : "Daily Request ยังไม่ส่ง"
+              }
+            />
           </Stack>
-          {row.reviewStatus === "rejected" && row.reviewNote ? (
-            <Typography variant="caption" sx={{ display: "block", mt: 0.5, color: "error.dark" }}>
-              EPS: {row.reviewNote}
-            </Typography>
-          ) : null}
         </Box>
         <Stack alignItems="flex-end" spacing={0.25} sx={{ flexShrink: 0 }}>
           <Stack direction="row" spacing={0.5} alignItems="center">
-            {evening ? (
+            {evening && row.id ? (
               <Tooltip title="Export PDF">
                 <IconButton
                   size="small"

@@ -21,8 +21,8 @@ const NAV: NavDef[] = [
   { id: "nav-today-requests", label: "Daily Request", to: "/today-requests", iconKey: "tomorrow", description: "Daily requests for inspections, machinery, and permits", keywords: ["request", "today", "plan", "permit", "inspection"] },
   { id: "nav-contractors", label: "Contractors", to: "/contractors", iconKey: "contractors", description: "Contractor registry", keywords: ["abc", "contractor", "company"] },
   { id: "nav-manpower", label: "Manpower", to: "/manpower", iconKey: "manpower", description: "Workforce headcount", keywords: ["worker", "people", "labour", "labor"] },
-  { id: "nav-work-permits", label: "Work Permits", to: "/work-permits", iconKey: "workPermits", description: "High-risk work permits", keywords: ["permit", "hot work", "height"] },
-  { id: "nav-safety", label: "Safety", to: "/safety", iconKey: "safety", description: "Safety line walk, incidents and summary", keywords: ["safety", "accident", "line walk", "unsafe", "ปลอดภัย"] },
+  { id: "nav-work-permits", label: "Work Permits", to: "/safety?tab=permits", iconKey: "workPermits", description: "High-risk work permits", keywords: ["permit", "hot work", "height"] },
+  { id: "nav-safety", label: "Safety & Permits", to: "/safety", iconKey: "safety", description: "Safety line walk, incidents and summary", keywords: ["safety", "accident", "line walk", "unsafe", "ปลอดภัย"] },
   { id: "nav-qaqc", label: "QAQC", to: "/qaqc", iconKey: "qaqc", description: "Inspections and RFI status", keywords: ["inspection", "quality", "rfi"] },
   { id: "nav-materials", label: "Materials (Option)", to: "/materials", iconKey: "materials", description: "Deliveries and suppliers", keywords: ["material", "delivery", "supplier"] },
   { id: "nav-drone", label: "Drone Progress", to: "/progress", iconKey: "drone", description: "Periodic capture vs plan", keywords: ["drone", "photo", "progress", "survey"] },
@@ -43,7 +43,7 @@ export function buildCommands(navigate: NavigateFunction, role: UserRole = "cont
   const go = (to: string) => () => navigate(to);
   // eps_site has no user/contractor administration: drop those destinations from the palette.
   const isAdmin = role === "eps_admin";
-  const adminOnly = new Set(["nav-contractors", "nav-users"]);
+  const adminOnly = new Set(["nav-contractors", "nav-users", "nav-site-plan", "nav-materials"]);
 
   if (role === "contractor") {
     return [

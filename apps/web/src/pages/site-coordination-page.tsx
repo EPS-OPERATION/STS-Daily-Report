@@ -1,4 +1,5 @@
 import CheckOutlinedIcon from "@mui/icons-material/CheckOutlined";
+import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import Box from "@mui/material/Box";
@@ -6,91 +7,87 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
-import FormControl from "@mui/material/FormControl";
-import Grid from "@mui/material/Grid";
-import InputLabel from "@mui/material/InputLabel";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { useState } from "react";
+import dayjs from "dayjs";
+import { useMemo, useState } from "react";
+import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
+import { ContractorFilterPopover } from "@/features/daily-reports/index.js";
 import {
-  CONTRACTOR_PALETTES,
   CoordinationMapBoard,
-  SITE_ICONS,
+  FALLBACK_MAP_COLOR,
+  MapDayPicker,
+  MapItemList,
   useCoordinationState,
 } from "@/features/site-coordination/index.js";
 
 export function SiteCoordinationPage() {
-  const {
-    filteredMarkers,
-    activeMarkerId,
-    setActiveMarkerId,
-    selectedContractor,
-    setSelectedContractor,
-    mapView,
-    setMapView,
-    addCallout,
-    updateTargetPosition,
-    updateBoxPosition,
-    updateCallout,
-    deleteCallout,
-    resetToDefault,
-  } = useCoordinationState();
+  const [date, setDate] = useState(() => dayjs().format("YYYY-MM-DD"));
+  const map = useCoordinationState(date);
+  const { projectId } = useCurrentProject();
+  const projectContractors = useProjectContractors(projectId).data?.data ?? [];
   // EPS views the map in meetings by default and switches to edit to fix pins.
   const [editing, setEditing] = useState(false);
 
+  const confirmDelete = (fn: (id: string) => void) => (id: string) => {
+    if (window.confirm("ลบรายการนี้ออกจากผัง?")) fn(id);
+  };
+
+  const allCodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of map.dayContractors) set.add(c.code);
+    for (const c of projectContractors) set.add(c.code);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [map.dayContractors, projectContractors]);
+
+  const contractorNames = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of projectContractors) m.set(c.code, c.name);
+    for (const c of map.dayContractors) m.set(c.code, c.name);
+    return m;
+  }, [projectContractors, map.dayContractors]);
+
+  const selectedCodes = useMemo<Set<string>>(() => {
+    if (map.selectedContractors !== null) return map.selectedContractors;
+    return new Set(allCodes);
+  }, [map.selectedContractors, allCodes]);
+
+  const handleContractorsChange = (next: Set<string>) => {
+    map.setSelectedContractors(next.size === allCodes.length ? null : next);
+  };
+
+  const filterItems = useMemo(() => {
+    return allCodes.map((code) => {
+      const n = map.markers.filter((m) => m.contractorCode === code).length;
+      return {
+        code,
+        name: contractorNames.get(code),
+        color: map.colors.get(code) ?? FALLBACK_MAP_COLOR,
+        countLabel: `${n} จุด`,
+      };
+    });
+  }, [allCodes, map.markers, contractorNames, map.colors]);
+
   return (
     <Box sx={{ maxWidth: 1600, mx: "auto" }}>
-      {/* Top Header */}
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", md: "center" }}
-        spacing={2}
-        sx={{ mb: 2 }}
-      >
-        <Box>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Typography variant="h4" sx={{ fontWeight: 800 }}>
-              Map (ผังประสานงานหน้างาน)
-            </Typography>
-            <Chip
-              label="EPS Meeting & Review"
-              color="primary"
-              size="small"
-              sx={{ fontWeight: 700, borderRadius: 1 }}
-            />
-          </Stack>
-        </Box>
-
-        {/* Filter by Contractor & Reset */}
+      <Stack direction={{ xs: "column", lg: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }} spacing={2} sx={{ mb: 2 }}>
         <Stack direction="row" spacing={1.5} alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id="filter-contractor-label">แสดงผู้รับเหมา</InputLabel>
-            <Select
-              labelId="filter-contractor-label"
-              label="แสดงผู้รับเหมา"
-              value={selectedContractor}
-              onChange={(e) => setSelectedContractor(e.target.value)}
-            >
-              <MenuItem value="all">
-                <em>ทุกเจ้า ({filteredMarkers.length} จุด)</em>
-              </MenuItem>
-              {CONTRACTOR_PALETTES.map((c) => (
-                <MenuItem key={c.code} value={c.code}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: c.defaultColor }} />
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {c.name} ({c.code})
-                    </Typography>
-                  </Stack>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Typography variant="h4" sx={{ fontWeight: 800 }}>
+            Map (ผังประสานงานหน้างาน)
+          </Typography>
+          <Chip label="EPS Meeting & Review" color="primary" size="small" sx={{ fontWeight: 700, borderRadius: 1 }} />
+        </Stack>
 
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+          <MapDayPicker date={date} onChange={setDate} />
+          {allCodes.length > 0 && (
+            <ContractorFilterPopover
+              items={filterItems}
+              selectedCodes={selectedCodes}
+              onChange={handleContractorsChange}
+            />
+          )}
           <Button
             size="small"
             variant={editing ? "contained" : "outlined"}
@@ -100,19 +97,29 @@ export function SiteCoordinationPage() {
           >
             {editing ? "เสร็จสิ้น" : "แก้ไขผัง"}
           </Button>
-
-          <Tooltip title="รีเซ็ตข้อมูลตัวอย่างกลับเป็นค่าเริ่มต้น">
-            <Button
-              size="small"
-              variant="outlined"
-              color="inherit"
-              onClick={resetToDefault}
-              startIcon={<RestartAltIcon fontSize="small" />}
-              sx={{ whiteSpace: "nowrap" }}
-            >
-              รีเซ็ตตัวอย่าง
-            </Button>
-          </Tooltip>
+          {editing ? (
+            <>
+              <Tooltip title={map.previousDate ? `คัดลอกงานบนผังจากวันที่ ${dayjs(map.previousDate).format("D/M/YYYY")}` : "ยังไม่มีแผนของวันก่อนหน้า"}>
+                <span>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={!map.previousDate}
+                    onClick={map.copyFromPreviousDay}
+                    startIcon={<ContentCopyOutlinedIcon fontSize="small" />}
+                    sx={{ whiteSpace: "nowrap" }}
+                  >
+                    คัดลอกจากวันก่อน
+                  </Button>
+                </span>
+              </Tooltip>
+              <Tooltip title="แทนที่ผังของวันนี้ด้วยข้อมูลตัวอย่าง">
+                <Button size="small" variant="outlined" color="inherit" onClick={map.resetToDefault} startIcon={<RestartAltIcon fontSize="small" />} sx={{ whiteSpace: "nowrap" }}>
+                  รีเซ็ตตัวอย่าง
+                </Button>
+              </Tooltip>
+            </>
+          ) : null}
         </Stack>
       </Stack>
 
@@ -120,90 +127,36 @@ export function SiteCoordinationPage() {
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
           <CoordinationMapBoard
-            markers={filteredMarkers}
-            activeMarkerId={activeMarkerId}
-            onSelectMarker={setActiveMarkerId}
-            mapView={mapView}
-            onChangeMapView={setMapView}
-            onUpdateTarget={updateTargetPosition}
-            onUpdateBox={updateBoxPosition}
-            onUpdateCallout={updateCallout}
-            onDeleteCallout={deleteCallout}
-            onAddCallout={addCallout}
+            date={date}
+            markers={map.filteredMarkers}
+            colors={map.colors}
+            contractors={projectContractors}
+            activeMarkerId={map.activeMarkerId}
+            onSelectMarker={map.setActiveMarkerId}
+            mapView={map.mapView}
+            onChangeMapView={map.setMapView}
+            onUpdateTarget={map.updateTargetPosition}
+            onUpdateBox={map.updateBoxPosition}
+            onUpdateCallout={map.updateCallout}
+            onDeleteCallout={map.deleteCallout}
+            onAddCallout={map.addCallout}
             readOnly={!editing}
           />
         </CardContent>
       </Card>
 
-      {/* List of items on map */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
-          รายการจุดงาน & กล่องข้อความบนผัง ({filteredMarkers.length})
+          รายการบนผัง วันที่ {dayjs(date).format("D/M/YYYY")} ({map.filteredMarkers.length})
         </Typography>
-
-        <Grid container spacing={2}>
-          {filteredMarkers.map((m) => {
-            const iconObj = SITE_ICONS.find((i) => i.type === m.icon);
-            const isSelected = m.id === activeMarkerId;
-
-            return (
-              <Grid key={m.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Card
-                  onClick={() => setActiveMarkerId(m.id)}
-                  sx={{
-                    cursor: "pointer",
-                    border: "2px solid",
-                    borderColor: isSelected ? m.color : "divider",
-                    boxShadow: isSelected ? `0 4px 16px ${m.color}33` : "none",
-                    borderRadius: 2,
-                    transition: "all 0.15s ease",
-                    "&:hover": { borderColor: m.color, transform: "translateY(-2px)" },
-                  }}
-                >
-                  <CardContent sx={{ p: 2 }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                      <Stack direction="row" spacing={1.25} alignItems="center">
-                        <Box
-                          sx={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: "50%",
-                            bgcolor: `${m.color}20`,
-                            border: `2px solid ${m.color}`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 20,
-                          }}
-                        >
-                          {iconObj?.emoji ?? "📍"}
-                        </Box>
-                        <Chip
-                          size="small"
-                          label={`${m.contractorName} (${m.contractorCode})`}
-                          sx={{
-                            bgcolor: m.color,
-                            color: "#FFFFFF",
-                            fontWeight: 800,
-                            fontSize: 11.5,
-                          }}
-                        />
-                      </Stack>
-                    </Stack>
-
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary", mt: 0.5, fontSize: 13.5 }}>
-                      {m.text}
-                    </Typography>
-
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-                      บันทึกเมื่อ: {m.createdAt}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
+        <MapItemList
+          markers={map.filteredMarkers}
+          colors={map.colors}
+          activeId={map.activeMarkerId}
+          onSelect={map.setActiveMarkerId}
+          canDelete={() => editing}
+          onDelete={confirmDelete(map.deleteCallout)}
+        />
       </Box>
     </Box>
   );

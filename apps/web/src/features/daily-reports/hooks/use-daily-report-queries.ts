@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { dailyReportApi } from "../api/daily-report.api.js";
 import { dailyReportKeys } from "../api/daily-report.keys.js";
 
@@ -17,6 +17,17 @@ export function usePrintReport(reportId: string | null) {
     queryFn: () => dailyReportApi.printReport(reportId!),
     enabled: Boolean(reportId),
     staleTime: 0,
+  });
+}
+
+// Several printable reports at once (combined R003 export), in the order given.
+export function usePrintReports(reportIds: string[]) {
+  return useQueries({
+    queries: reportIds.map((id) => ({
+      queryKey: dailyReportKeys.print(id),
+      queryFn: () => dailyReportApi.printReport(id),
+      staleTime: 0,
+    })),
   });
 }
 

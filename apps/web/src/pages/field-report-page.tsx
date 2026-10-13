@@ -14,8 +14,9 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { canEditReport } from "@sts/shared";
+import dayjs from "dayjs";
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { FieldBottomNav } from "@/components/field/field-bottom-nav.js";
 import {
   EveningForm,
@@ -39,6 +40,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 // machinery, permits) and evening check-out (OT, actual %, photos, signature).
 // ?date=YYYY-MM-DD back-fills another day; ?shift=morning|evening picks the tab.
 export function FieldReportPage() {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const date = ISO_DATE.test(params.get("date") ?? "") ? params.get("date")! : todayIso();
   const { projectId, projects } = useCurrentProject();
@@ -184,8 +186,15 @@ export function FieldReportPage() {
           report={report}
           plannedToday={current.data.data.plannedToday}
           onSubmitted={() => {
-            setToast("ส่งรายงานเช้าแล้ว");
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            const isEdit = morningDone;
+            const time = dayjs().format("HH:mm");
+            navigate("/field", {
+              state: {
+                toast: isEdit
+                  ? `บันทึกการแก้ไข Daily Report เรียบร้อย (เวลา ${time} น.)`
+                  : `ส่ง Daily Report เรียบร้อย (เวลา ${time} น.)`,
+              },
+            });
           }}
         />
         )
@@ -204,9 +213,11 @@ export function FieldReportPage() {
               </Button>
             }
           >
-            {allowResubmit
-              ? "ส่งรายงานบ่ายแล้ว — แก้ไขและส่งซ้ำได้"
-              : `ส่งรายงานบ่ายแล้ว — แก้ไขและส่งใหม่ได้ถึง ${editUntil}`}
+            {report.eveningUpdatedAt
+              ? `ส่งรายงานบ่ายแล้วเมื่อ ${report.eveningSubmittedAt ? dayjs(report.eveningSubmittedAt).format("HH:mm") + " น." : ""} (แก้ไขล่าสุด ${dayjs(report.eveningUpdatedAt).format("HH:mm")} น.) — แก้ไขและส่งซ้ำได้`
+              : allowResubmit
+                ? `ส่งรายงานบ่ายแล้วเมื่อ ${report.eveningSubmittedAt ? dayjs(report.eveningSubmittedAt).format("HH:mm") + " น." : ""} — แก้ไขและส่งซ้ำได้`
+                : `ส่งรายงานบ่ายแล้ว — แก้ไขและส่งใหม่ได้ถึง ${editUntil}`}
           </Alert>
         ) : null}
         <EveningForm
@@ -217,8 +228,15 @@ export function FieldReportPage() {
           report={report}
           buildings={buildings.data?.data ?? []}
           onSubmitted={() => {
-            setToast("ส่งรายงานบ่ายเรียบร้อย");
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            const isEdit = eveningDone;
+            const time = dayjs().format("HH:mm");
+            navigate("/field", {
+              state: {
+                toast: isEdit
+                  ? `บันทึกการแก้ไข Daily Request เรียบร้อย (เวลา ${time} น.)`
+                  : `ส่ง Daily Request เรียบร้อย (เวลา ${time} น.)`,
+              },
+            });
           }}
         />
         </>

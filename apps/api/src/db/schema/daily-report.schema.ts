@@ -35,6 +35,7 @@ export const dailyReports = pgTable(
     morningStatus: text("morning_status").notNull().default("draft"),
     morningSubmittedAt: timestamp("morning_submitted_at", { withTimezone: true }),
     morningSubmittedBy: uuid("morning_submitted_by").references(() => users.id, { onDelete: "set null" }),
+    morningUpdatedAt: timestamp("morning_updated_at", { withTimezone: true }),
     // Afternoon crew nationality/sex split (null until the evening is sent / on older rows).
     eveningThaiMale: integer("evening_thai_male"),
     eveningThaiFemale: integer("evening_thai_female"),
@@ -48,6 +49,7 @@ export const dailyReports = pgTable(
     eveningStatus: text("evening_status").notNull().default("draft"),
     eveningSubmittedAt: timestamp("evening_submitted_at", { withTimezone: true }),
     eveningSubmittedBy: uuid("evening_submitted_by").references(() => users.id, { onDelete: "set null" }),
+    eveningUpdatedAt: timestamp("evening_updated_at", { withTimezone: true }),
     signatureName: text("signature_name"),
     // PNG data URL from the tap-to-sign pad (small; bytes of real photos go to MinIO).
     signatureData: text("signature_data"),
@@ -270,6 +272,11 @@ export const dailyReportPermits = pgTable(
     permitType: text("permit_type").notNull(),
     otherLabel: text("other_label"),
     workers: integer("workers").notNull(),
+    // Contractor marks the job high-risk → task name + EPS supervisor are required; jobs with the
+    // same task name (contractor × day) show as one card on the Safety page.
+    highRisk: boolean("high_risk").notNull().default(false),
+    taskName: text("task_name"),
+    supervisorName: text("supervisor_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -305,6 +312,29 @@ export const dailyReportEquipmentRequests = pgTable(
     check("daily_report_equipment_requests_qty_check", sql`${t.qty} > 0`),
     index("daily_report_equipment_requests_report_idx").on(t.reportId),
     index("daily_report_equipment_requests_target_idx").on(t.targetDate),
+  ],
+);
+
+// Tomorrow Forecast Activities (paper form R003): work the contractor plans for the next day,
+// raised in the evening report of day T for target_date T+1. Replaced on every evening save.
+export const dailyReportForecasts = pgTable(
+  "daily_report_forecasts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reportId: uuid("report_id")
+      .notNull()
+      .references(() => dailyReports.id, { onDelete: "cascade" }),
+    targetDate: date("target_date").notNull(),
+    buildingId: uuid("building_id")
+      .notNull()
+      .references(() => buildings.id, { onDelete: "restrict" }),
+    description: text("description").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("daily_report_forecasts_report_idx").on(t.reportId),
+    index("daily_report_forecasts_target_idx").on(t.targetDate),
   ],
 );
 

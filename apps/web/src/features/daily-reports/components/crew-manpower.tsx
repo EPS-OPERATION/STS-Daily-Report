@@ -70,14 +70,14 @@ export function CrewManpower({
       <Box
         sx={{
           mt: 2,
-          p: 1.5,
+          p: { xs: 1.25, sm: 1.75 },
           borderRadius: 2,
           border: 1.5,
           borderColor: ok ? "success.main" : "warning.main",
           bgcolor: ok ? "success.light" : "warning.light",
         }}
       >
-        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 1 }}>
+        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 1.25 }}>
           {ok ? (
             <CheckCircleOutlineIcon sx={{ fontSize: 18, color: "success.dark" }} />
           ) : (
@@ -87,15 +87,46 @@ export function CrewManpower({
             สัญชาติ / เพศ (บังคับกรอก) — {byNationality} / {total} คน
           </Typography>
         </Stack>
-        <Grid container spacing={1.5}>
-          {NATIONALITY_FIELDS.map((f) => (
-            <Grid key={f.name} size={{ xs: 6, sm: 3 }}>
-              <NumberStepper label={f.label} value={value[f.name]} onChange={(n) => onSplit(f.name, n)} />
-            </Grid>
-          ))}
+        <Grid container spacing={{ xs: 1, sm: 1.5 }}>
+          {NATIONALITY_FIELDS.map((f) => {
+            const hasValue = (value[f.name] ?? 0) > 0;
+            return (
+              <Grid key={f.name} size={{ xs: 6, sm: 6, md: 3 }}>
+                <Box
+                  sx={{
+                    p: { xs: 1, sm: 1.25 },
+                    borderRadius: 2,
+                    bgcolor: "background.paper",
+                    border: 1.5,
+                    borderColor: hasValue ? "primary.main" : "divider",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: hasValue ? "0 2px 4px rgba(11,77,139,0.12)" : "0 1px 2px rgba(0,0,0,0.04)",
+                    transition: "border-color 0.15s, box-shadow 0.15s",
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 700,
+                      color: hasValue ? "primary.dark" : "text.secondary",
+                      mb: 0.75,
+                      textAlign: "center",
+                      fontSize: { xs: "0.8rem", sm: "0.85rem" },
+                    }}
+                  >
+                    {f.label}
+                  </Typography>
+                  <NumberStepper value={value[f.name]} onChange={(n) => onSplit(f.name, n)} />
+                </Box>
+              </Grid>
+            );
+          })}
         </Grid>
         {!ok && total > 0 ? (
-          <Typography variant="caption" sx={{ display: "block", mt: 1, color: "warning.dark" }}>
+          <Typography variant="caption" sx={{ display: "block", mt: 1, color: "warning.dark", fontWeight: 600 }}>
             {byNationality < total
               ? `ยังขาดอีก ${total - byNationality} คน ให้ตรงกับจำนวนตามตำแหน่ง`
               : `เกิน ${byNationality - total} คน จากจำนวนตามตำแหน่ง`}

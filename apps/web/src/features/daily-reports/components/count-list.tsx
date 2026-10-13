@@ -76,7 +76,18 @@ export function CountList({
               aria-label={`ลด ${item.label}`}
               disabled={value <= 0}
               onClick={() => onChange(item.key, Math.max(0, value - 1))}
-              sx={{ border: 1, borderColor: "divider", width: 32, height: 32 }}
+              sx={{
+                border: 1,
+                borderColor: "divider",
+                width: { xs: 34, sm: 36 },
+                height: { xs: 34, sm: 36 },
+                minWidth: { xs: 34, sm: 36 },
+                flexShrink: 0,
+                borderRadius: 1.5,
+                bgcolor: "background.paper",
+                touchAction: "manipulation",
+                "&:active": { transform: "scale(0.95)" },
+              }}
             >
               <RemoveIcon fontSize="small" />
             </IconButton>
@@ -91,15 +102,44 @@ export function CountList({
               inputProps={{
                 inputMode: "numeric",
                 "aria-label": item.label,
-                style: { textAlign: "center", fontWeight: 700, padding: "4px 0" },
+                style: {
+                  textAlign: "center",
+                  fontWeight: 700,
+                  fontSize: "16px",
+                  padding: "4px 0",
+                },
               }}
-              sx={{ width: 56, border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "background.paper" }}
+              sx={{
+                width: { xs: 48, sm: 54 },
+                minWidth: 44,
+                height: { xs: 34, sm: 36 },
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 1.5,
+                bgcolor: "background.paper",
+                flexShrink: 0,
+                "&:focus-within": {
+                  borderColor: "primary.main",
+                  boxShadow: "0 0 0 2px rgba(25, 118, 210, 0.15)",
+                },
+              }}
             />
             <IconButton
               size="small"
               aria-label={`เพิ่ม ${item.label}`}
               onClick={() => onChange(item.key, Math.min(max, value + 1))}
-              sx={{ border: 1, borderColor: "divider", width: 32, height: 32 }}
+              sx={{
+                border: 1,
+                borderColor: "divider",
+                width: { xs: 34, sm: 36 },
+                height: { xs: 34, sm: 36 },
+                minWidth: { xs: 34, sm: 36 },
+                flexShrink: 0,
+                borderRadius: 1.5,
+                bgcolor: "background.paper",
+                touchAction: "manipulation",
+                "&:active": { transform: "scale(0.95)" },
+              }}
             >
               <AddIcon fontSize="small" />
             </IconButton>

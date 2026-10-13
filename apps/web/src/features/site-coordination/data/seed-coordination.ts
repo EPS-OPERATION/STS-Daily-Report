@@ -1,6 +1,7 @@
 import type { SiteCalloutMarker } from "../types/coordination.types.js";
 
-export const INITIAL_CALLOUT_MARKERS: SiteCalloutMarker[] = [
+// Sample pins (no date): "รีเซ็ตตัวอย่าง" places them on the day being viewed.
+export const INITIAL_CALLOUT_MARKERS: Omit<SiteCalloutMarker, "date">[] = [
   // 1. บริษัท อู่ไทสียา เอ็นจิเนียริ่ง (เหลือง, แดง, เขียว, น้ำเงิน ตามรูปจริง)
   {
     id: "callout-ume-1",

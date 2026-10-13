@@ -25,6 +25,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { ContractorBadge } from "./contractor-badge.js";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import { ALL_BUILDINGS, filterWorkDone } from "../utils/work-done.js";
 
 export interface WorkDoneItem {
   id: string;
@@ -48,6 +49,8 @@ interface WorkDoneSummaryTableProps {
   onSelectContractor: (c: string) => void;
   dateLabel: string;
   isRange: boolean;
+  /** Printed report (one sheet per day) for the rows currently shown; falls back to window.print(). */
+  onPrint?: (filters: { building: string; search: string }) => void;
 }
 
 export function WorkDoneSummaryTable({
@@ -57,30 +60,19 @@ export function WorkDoneSummaryTable({
   onSelectContractor,
   dateLabel,
   isRange,
+  onPrint,
 }: WorkDoneSummaryTableProps) {
   const [search, setSearch] = useState("");
-  const [buildingFilter, setBuildingFilter] = useState("All Buildings");
+  const [buildingFilter, setBuildingFilter] = useState(ALL_BUILDINGS);
 
   const buildings = useMemo(() => {
     return [...new Set(items.map((i) => i.buildingName))].filter(Boolean).sort();
   }, [items]);
 
-  const filteredItems = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return items.filter((item) => {
-      if (selectedContractor !== "All Contractors" && item.contractorName !== selectedContractor && item.contractorCode !== selectedContractor) {
-        return false;
-      }
-      if (buildingFilter !== "All Buildings" && item.buildingName !== buildingFilter) {
-        return false;
-      }
-      if (q) {
-        const text = `${item.workDescription} ${item.buildingName} ${item.buildingCode} ${item.contractorName} ${item.contractorCode}`.toLowerCase();
-        if (!text.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [items, selectedContractor, buildingFilter, search]);
+  const filteredItems = useMemo(
+    () => filterWorkDone(items, { contractor: selectedContractor, building: buildingFilter, search }),
+    [items, selectedContractor, buildingFilter, search],
+  );
 
   // Overall totals
   const totalHeadcount = useMemo(
@@ -130,7 +122,8 @@ export function WorkDoneSummaryTable({
   };
 
   const handlePrint = () => {
-    window.print();
+    if (onPrint) onPrint({ building: buildingFilter, search });
+    else window.print();
   };
 
   return (

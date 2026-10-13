@@ -1,4 +1,5 @@
 import AddIcon from "@mui/icons-material/Add";
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import HealthAndSafetyOutlinedIcon from "@mui/icons-material/HealthAndSafetyOutlined";
@@ -15,15 +16,24 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
-import { ContractorBadge, addDaysIso, contractorColorMap, mondayOf, todayIso } from "@/features/daily-reports/index.js";
-import { useCurrentProject } from "@/features/projects/index.js";
+import {
+  ContractorBadge,
+  ContractorFilterPopover,
+  addDaysIso,
+  contractorColorMap,
+  mondayOf,
+  todayIso,
+} from "@/features/daily-reports/index.js";
+import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 import {
   FindingDialog,
   FindingPie,
@@ -34,20 +44,39 @@ import {
   useSafetyStats,
   type SafetyFinding,
 } from "@/features/safety/index.js";
+import ThunderstormOutlinedIcon from "@mui/icons-material/ThunderstormOutlined";
 import { HttpError } from "@/services/http/client.js";
+import { WorkPermitsView } from "./work-permits-page.js";
+import { RainLogView } from "@/features/safety/index.js";
+import { CONTRACTOR_LEGEND, WORK_PERMITS } from "@/mock/work-permits.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Safety: EPS line walk entry + statistics from contractor reports + PDF export
-// (Issue Safety Line Walk table and Safety Weekly Report statistic).
+type SafetyTab = "safety" | "permits" | "rain";
+
+// Safety: EPS line walk entry + statistics from contractor reports + PDF export + Work Permits board + Rain delay log.
 export function SafetyPage() {
   const [params, setParams] = useSearchParams();
+  const rawTab = params.get("tab");
+  const tab: SafetyTab = rawTab === "permits" ? "permits" : rawTab === "rain" ? "rain" : "safety";
+
+  const setTab = (next: SafetyTab) => {
+    const p = new URLSearchParams(params);
+    if (next === "safety") {
+      p.delete("tab");
+    } else {
+      p.set("tab", next);
+    }
+    setParams(p, { replace: true });
+  };
+
   const monday = mondayOf(todayIso());
   const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : monday;
   const rawTo = ISO_DATE.test(params.get("to") ?? "") ? params.get("to")! : addDaysIso(monday, 6);
   const from = rawFrom <= rawTo ? rawFrom : rawTo;
   const to = rawFrom <= rawTo ? rawTo : rawFrom;
   const { projectId } = useCurrentProject();
+  const projectContractors = useProjectContractors(projectId).data?.data ?? [];
   const stats = useSafetyStats(projectId, from, to);
   const findings = useSafetyFindings(projectId, from, to);
   const remove = useDeleteFinding(projectId);
@@ -61,28 +90,129 @@ export function SafetyPage() {
   };
 
   const s = stats.data?.data;
-  const rows = findings.data?.data ?? [];
-  const colors = contractorColorMap(rows.map((r) => r.contractorCode ?? "ไม่ระบุ"));
+  const rows: SafetyFinding[] = findings.data?.data ?? [];
+
+  const contractorNames = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of projectContractors) if (c.code) m.set(c.code, c.name);
+    for (const leg of CONTRACTOR_LEGEND) if (!m.has(leg.code)) m.set(leg.code, leg.name);
+    for (const r of rows) if (r.contractorCode) m.set(r.contractorCode, r.contractorName || m.get(r.contractorCode) || "");
+    return m;
+  }, [projectContractors, rows]);
+
+  const allCodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) if (r.contractorCode) set.add(r.contractorCode);
+    if (tab === "permits") for (const p of WORK_PERMITS) set.add(p.contractor);
+    for (const c of projectContractors) if (c.code) set.add(c.code);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [rows, tab, projectContractors]);
+
+  const selectedCodes = useMemo<Set<string>>(() => {
+    const raw = params.get("contractors");
+    if (raw === null) return new Set(allCodes);
+    return new Set(raw.split(",").map((c) => c.trim()).filter((c) => allCodes.includes(c)));
+  }, [params, allCodes]);
+
+  const setContractors = (next: Set<string>) => {
+    const p = new URLSearchParams(params);
+    if (next.size === allCodes.length) p.delete("contractors");
+    else p.set("contractors", [...next].sort().join(","));
+    setParams(p, { replace: true });
+  };
+
+  const colors = useMemo(() => contractorColorMap(allCodes), [allCodes]);
+
+  const filterItems = useMemo(() => {
+    return allCodes.map((code: string) => {
+      const n =
+        tab === "permits"
+          ? WORK_PERMITS.filter((p) => p.contractor === code).length
+          : rows.filter((r) => r.contractorCode === code).length;
+      return {
+        code,
+        name: contractorNames.get(code),
+        color: colors.get(code) ?? "#999",
+        countLabel: tab === "permits" ? `${n} ใบ` : `${n} รายการ`,
+      };
+    });
+  }, [allCodes, tab, rows, contractorNames, colors]);
+
+  const visibleRows: SafetyFinding[] = useMemo(
+    () => rows.filter((r) => !r.contractorCode || selectedCodes.has(r.contractorCode)),
+    [rows, selectedCodes],
+  );
+
   const error = [stats.error, findings.error, remove.error].find((e) => e instanceof HttpError) as HttpError | undefined;
 
   return (
     <Box>
       <PageHeader
-        title="Safety"
-        subtitle="Line walk (EPS) · สถิติอุบัติเหตุจากรายงานผู้รับเหมา · Export รายงาน PDF"
+        title={tab === "permits" ? "Work Permits" : tab === "rain" ? "Rain & Delay Log" : "Safety"}
+        subtitle={
+          tab === "permits"
+            ? "High-risk permit register · ทะเบียนและสถิติใบอนุญาตทำงานความเสี่ยงสูง"
+            : tab === "rain"
+              ? "บันทึกเวลาฝนตกจริง · สถิติชั่วโมงสั่งหยุดงาน · หลักฐานประกอบการต่อรอง Delay (EOT Claim) กับ PM"
+              : "Line walk (EPS) · สถิติอุบัติเหตุจากรายงานผู้รับเหมา · Export รายงาน PDF"
+        }
         actions={
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-            <DateRangeFields from={from} to={to} maxDays={400} onChange={setRange} />
-            <Button
-              variant="outlined"
-              startIcon={<PictureAsPdfOutlinedIcon />}
-              onClick={() => window.open(`/safety/report?from=${from}&to=${to}`, "_blank", "noopener")}
-            >
-              Export PDF
-            </Button>
+            {(tab === "safety" || tab === "rain") && (
+              <DateRangeFields from={from} to={to} maxDays={400} onChange={setRange} />
+            )}
+            {allCodes.length > 0 && (
+              <ContractorFilterPopover
+                items={filterItems}
+                selectedCodes={selectedCodes}
+                onChange={setContractors}
+              />
+            )}
+            {tab === "safety" && (
+              <Button
+                variant="outlined"
+                startIcon={<PictureAsPdfOutlinedIcon />}
+                onClick={() => {
+                  const p = new URLSearchParams({ from, to });
+                  if (selectedCodes.size < allCodes.length) p.set("contractors", [...selectedCodes].join(","));
+                  window.open(`/safety/report?${p.toString()}`, "_blank", "noopener");
+                }}
+              >
+                Export PDF
+              </Button>
+            )}
           </Stack>
         }
       />
+
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={tab}
+        onChange={(_, v: SafetyTab | null) => v && setTab(v)}
+        aria-label="มุมมอง Safety & Work Permits"
+        sx={{ mb: 2.5, bgcolor: "background.paper" }}
+      >
+        <ToggleButton value="safety" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
+          <HealthAndSafetyOutlinedIcon fontSize="small" />
+          Safety Overview
+        </ToggleButton>
+        <ToggleButton value="permits" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
+          <AssignmentOutlinedIcon fontSize="small" />
+          Work Permits
+        </ToggleButton>
+        <ToggleButton value="rain" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
+          <ThunderstormOutlinedIcon fontSize="small" />
+          ฝนตก & สถิติ Delay
+        </ToggleButton>
+      </ToggleButtonGroup>
+
+      {tab === "permits" ? (
+        <WorkPermitsView selectedContractorCodes={selectedCodes} />
+      ) : tab === "rain" ? (
+        <RainLogView projectId={projectId ?? ""} from={from} to={to} />
+      ) : (
+        <>
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -135,14 +265,14 @@ export function SafetyPage() {
 
           <Panel
             title="Issue Safety Line Walk"
-            note={`${rows.length} รายการ · ${rows.filter((r) => r.status === "open").length} ยังไม่ปิด`}
+            note={`${visibleRows.length} รายการ · ${visibleRows.filter((r) => r.status === "open").length} ยังไม่ปิด`}
             action={
               <Button startIcon={<AddIcon />} onClick={() => setEditing("new")}>
                 บันทึก Line walk
               </Button>
             }
           >
-            {rows.length === 0 ? (
+            {visibleRows.length === 0 ? (
               <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
                 ยังไม่มี Line walk ในช่วงนี้
               </Typography>
@@ -159,7 +289,7 @@ export function SafetyPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {rows.map((r) => (
+                    {visibleRows.map((r) => (
                       <TableRow key={r.id} hover>
                         <TableCell>{r.itemNo}</TableCell>
                         <TableCell sx={{ maxWidth: 220 }}>{r.observation}</TableCell>
@@ -207,6 +337,8 @@ export function SafetyPage() {
       {editing && projectId ? (
         <FindingDialog projectId={projectId} finding={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
       ) : null}
+        </>
+      )}
     </Box>
   );
 }

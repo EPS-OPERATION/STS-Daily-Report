@@ -9,7 +9,6 @@ import type {
   PositionCode,
   Readiness,
   RequestStatus,
-  SiteEquipmentType,
   WeatherCondition,
   WorkloadLevel,
 } from "@sts/shared";
@@ -20,18 +19,29 @@ export type Shift = "morning" | "evening";
 // EPS review decision on a submitted report (backend: review_status check).
 export type ReviewStatus = "pending" | "approved" | "rejected";
 
+// Submission history row: one per contractor × day, including days with no report at all.
 export interface ReviewQueueRow {
-  id: string;
+  /** null when the contractor sent nothing that day. */
+  id: string | null;
+  hasReport: boolean;
   contractorId: string;
   contractorCode: string;
   contractorName: string;
   reportDate: string;
   morningStatus: ShiftStatus;
   eveningStatus: ShiftStatus;
+  /** Morning headcount (nationality split total). */
   totalHeadcount: number;
-  reviewStatus: ReviewStatus;
-  reviewNote: string | null;
-  reviewedAt: string | null;
+  eveningHeadcount: number;
+  morningSubmittedAt?: string | null;
+  morningUpdatedAt?: string | null;
+  eveningSubmittedAt?: string | null;
+  eveningUpdatedAt?: string | null;
+  updatedAt?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  workHours?: number | null;
+  otHours?: number | null;
 }
 
 export interface ReviewPayload {
@@ -101,6 +111,7 @@ export interface ReportEquipmentRequest {
   purpose: string | null;
   contractorId: string;
   contractorCode: string;
+  contractorName?: string;
 }
 
 export interface ReportPermit {
@@ -111,6 +122,10 @@ export interface ReportPermit {
   permitType: PermitType;
   otherLabel: string | null;
   workers: number;
+  /** Contractor-assessed high-risk job: task name + EPS supervisor (shown on the Safety page). */
+  highRisk: boolean;
+  taskName: string | null;
+  supervisorName: string | null;
 }
 
 export interface ReportPhoto {
@@ -135,6 +150,17 @@ export interface ReportRoadUsage {
   purpose: string;
   contractorId: string;
   contractorCode: string;
+  contractorName?: string;
+}
+
+// Tomorrow Forecast Activity (paper form R003): planned work for targetDate (= report date + 1).
+export interface ReportForecast {
+  id: string;
+  targetDate: string;
+  buildingId: string;
+  buildingCode: string;
+  buildingName: string;
+  description: string;
 }
 
 export interface ReportMaterial {
@@ -202,16 +228,20 @@ export interface DailyReport {
   eveningThaiFemale: number | null;
   eveningForeignMale: number | null;
   eveningForeignFemale: number | null;
-  equipment: { equipmentType: SiteEquipmentType; qty: number }[];
+  equipment: { equipmentType: string; qty: number }[];
   morningStatus: ShiftStatus;
   morningSubmittedAt: string | null;
+  morningUpdatedAt?: string | null;
   otHours: number | null;
   eveningStatus: ShiftStatus;
   eveningSubmittedAt: string | null;
+  eveningUpdatedAt?: string | null;
   reviewStatus: ReviewStatus;
   reviewNote: string | null;
   signatureName: string | null;
   signedAt: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   hasSignature: boolean;
   allocations: ReportAllocation[];
   /** Requests this report raised for `requestsForDate` (= reportDate + 1). */
@@ -221,6 +251,8 @@ export interface DailyReport {
   roadUsage: ReportRoadUsage[];
   /** Materials on site today (evening check-out). */
   materials: ReportMaterial[];
+  /** Tomorrow Forecast Activities raised in this report's afternoon (for requestsForDate). */
+  forecasts: ReportForecast[];
   requestsForDate: string;
   photos: ReportPhoto[];
   machineryConflicts: ReportMachineryConflict[];
@@ -264,7 +296,7 @@ export interface MorningPayload {
   weather: WeatherCondition;
   temperatureC?: number;
   humidityPct?: number;
-  equipment: { equipmentType: SiteEquipmentType; qty: number }[];
+  equipment: { equipmentType: string; qty: number }[];
   crews: (CrewPayload & {
     allocations: {
       buildingId: string;
@@ -296,12 +328,21 @@ export interface EveningPayload {
   crews: CrewPayload[];
   progress: { allocationId: string; actualPercent: number; countermeasure?: string }[];
   signatureName: string;
-  signatureData: string;
+  signatureData?: string;
   machinery: { buildingId: string; machineType: MachineType; unitTag?: string; startTime?: string; endTime?: string; purpose?: string }[];
-  equipmentRequests: { buildingId: string; equipmentType: SiteEquipmentType; qty: number; purpose?: string }[];
-  permits: { buildingId: string; permitType: PermitType; otherLabel?: string; workers: number }[];
+  equipmentRequests: { buildingId: string; equipmentType: string; qty: number; purpose?: string }[];
+  permits: {
+    buildingId: string;
+    permitType: PermitType;
+    otherLabel?: string;
+    workers: number;
+    highRisk?: boolean;
+    taskName?: string;
+    supervisorName?: string;
+  }[];
   roadUsage: { buildingId: string; roadLocation: string; startTime: string; endTime: string; purpose: string }[];
   materials: { name: string; qty: number; unit: string }[];
+  forecasts: { buildingId: string; description: string }[];
 }
 
 // ---- weekly summary ----
@@ -334,6 +375,7 @@ export interface WeeklyBooking {
   purpose: string | null;
   contractorId: string;
   contractorCode: string;
+  contractorName?: string;
   buildingId: string;
   buildingCode: string;
   buildingName: string;
@@ -443,6 +485,8 @@ export interface DailyRequests {
   machinery: WeeklyBooking[];
   equipmentRequests: ReportEquipmentRequest[];
   roads: (ReportRoadUsage & { conflict: boolean })[];
+  permits: (ReportPermit & { buildingName: string; contractorId: string; contractorCode: string; contractorName: string })[];
+  forecasts: (ReportForecast & { contractorId: string; contractorCode: string; contractorName: string })[];
 }
 
 // Everything the printed "Daily Request & Report" sheet needs (GET /daily-reports/:id/print).

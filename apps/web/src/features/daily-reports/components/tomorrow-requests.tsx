@@ -2,6 +2,7 @@ import AddIcon from "@mui/icons-material/Add";
 import AddRoadOutlinedIcon from "@mui/icons-material/AddRoadOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
@@ -22,7 +23,6 @@ import {
   timeWindowsOverlap,
   type MachineType,
   type PermitType,
-  type SiteEquipmentType,
 } from "@sts/shared";
 import { Controller, useFieldArray, useWatch, type Control } from "react-hook-form";
 import type { EveningFormValues } from "../schemas/daily-report.schema.js";
@@ -206,13 +206,24 @@ export function EquipmentRequests({ control, buildings }: { control: Control<Eve
                     name={`equipmentRequests.${i}.equipmentType`}
                     control={control}
                     render={({ field, fieldState }) => (
-                      <TextField select label="เครื่องมือ / อุปกรณ์" size="small" fullWidth {...field} error={Boolean(fieldState.error)} helperText={fieldState.error?.message}>
-                        {SITE_EQUIPMENT_TYPES.map((e) => (
-                          <MenuItem key={e} value={e}>
-                            {e}
-                          </MenuItem>
-                        ))}
-                      </TextField>
+                      <Autocomplete
+                        freeSolo
+                        options={[...SITE_EQUIPMENT_TYPES]}
+                        value={field.value}
+                        onChange={(_, v) => field.onChange(v ?? "")}
+                        onInputChange={(_, v) => field.onChange(v)}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="เครื่องมือ / อุปกรณ์ (พิมพ์เพิ่มเองได้)"
+                            size="small"
+                            fullWidth
+                            error={Boolean(fieldState.error)}
+                            helperText={fieldState.error?.message}
+                            slotProps={{ htmlInput: { maxLength: 120 } }}
+                          />
+                        )}
+                      />
                     )}
                   />
                 </Grid>
@@ -256,7 +267,7 @@ export function EquipmentRequests({ control, buildings }: { control: Control<Eve
         variant="outlined"
         fullWidth
         sx={{ mt: 1.5, borderStyle: "dashed" }}
-        onClick={() => rows.append({ equipmentType: "" as SiteEquipmentType, qty: 1, buildingId: "", purpose: "" })}
+        onClick={() => rows.append({ equipmentType: "", qty: 1, buildingId: "", purpose: "" })}
       >
         ขอเครื่องมือ / อุปกรณ์
       </Button>
@@ -414,7 +425,7 @@ export function PermitRequests({ control, buildings }: { control: Control<Evenin
               icon={<Icon style={{ fontSize: 16 }} />}
               label={p.label}
               variant="outlined"
-              onClick={() => rows.append({ permitType: p.code, otherLabel: "", buildingId: "", workers: 1 })}
+              onClick={() => rows.append({ permitType: p.code, otherLabel: "", buildingId: "", workers: 1, highRisk: false, taskName: "", supervisorName: "" })}
               sx={{ minHeight: 36 }}
             />
           );
@@ -441,10 +452,15 @@ function PermitRow({
   onRemove: () => void;
 }) {
   const type = useWatch({ control, name: `permits.${index}.permitType` }) as PermitType;
+  const highRisk = useWatch({ control, name: `permits.${index}.highRisk` });
+  const allPermits = useWatch({ control, name: "permits" });
+  // Same task name on several permits = one job on the Safety page (e.g. Lifting + Work at Height).
+  const taskOptions = [...new Set(allPermits.filter((p, i) => i !== index && p.highRisk && p.taskName.trim()).map((p) => p.taskName.trim()))];
+  const supervisorOptions = [...new Set(allPermits.filter((p, i) => i !== index && p.supervisorName.trim()).map((p) => p.supervisorName.trim()))];
   const meta = PERMIT_TYPES.find((p) => p.code === type);
   const Icon = PERMIT_ICONS[type] ?? PERMIT_ICONS.other;
   return (
-    <Card variant="outlined" sx={{ borderColor: "warning.main" }}>
+    <Card variant="outlined" sx={{ borderColor: highRisk ? "error.main" : "warning.main", borderWidth: highRisk ? 2 : 1 }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Stack spacing={1.5}>
           <Stack direction="row" alignItems="center" spacing={1}>
@@ -486,6 +502,70 @@ function PermitRow({
               )}
             />
           </Stack>
+          <Controller
+            name={`permits.${index}.highRisk`}
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} color="error" />}
+                label={
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    เป็นงานความเสี่ยงสูง (ต้องมีผู้ควบคุมงาน)
+                  </Typography>
+                }
+              />
+            )}
+          />
+          {highRisk ? (
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+              <Controller
+                name={`permits.${index}.taskName`}
+                control={control}
+                render={({ field, fieldState }) => (
+                  <Autocomplete
+                    freeSolo
+                    fullWidth
+                    options={taskOptions}
+                    inputValue={field.value}
+                    onInputChange={(_, v) => field.onChange(v)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="ชื่องานความเสี่ยงสูง"
+                        placeholder="เช่น ยกและงานสูงที่อาคาร Boiler"
+                        size="small"
+                        error={Boolean(fieldState.error)}
+                        helperText={fieldState.error?.message ?? "งานเดียวกันหลายใบอนุญาต ให้ใช้ชื่อเดียวกัน"}
+                      />
+                    )}
+                  />
+                )}
+              />
+              <Controller
+                name={`permits.${index}.supervisorName`}
+                control={control}
+                render={({ field, fieldState }) => (
+                  <Autocomplete
+                    freeSolo
+                    fullWidth
+                    options={supervisorOptions}
+                    inputValue={field.value}
+                    onInputChange={(_, v) => field.onChange(v)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="ผู้ควบคุมงาน (EPS)"
+                        placeholder="เช่น นายสุชิต"
+                        size="small"
+                        error={Boolean(fieldState.error)}
+                        helperText={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                )}
+              />
+            </Stack>
+          ) : null}
         </Stack>
       </CardContent>
     </Card>
@@ -537,5 +617,70 @@ function ClashNote({ severe, children }: { severe?: boolean; children: React.Rea
         {children}
       </Typography>
     </Stack>
+  );
+}
+
+// Tomorrow Forecast Activities (paper form R003 table): what the crew will work on tomorrow and where.
+export function ForecastActivities({ control, buildings }: { control: Control<EveningFormValues>; buildings: Building[] }) {
+  const rows = useFieldArray({ control, name: "forecasts" });
+  return (
+    <Box>
+      {rows.fields.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          ยังไม่มีแผนงาน — เพิ่มงานที่จะทำพรุ่งนี้และพื้นที่ (ไม่บังคับ)
+        </Typography>
+      ) : null}
+      <Stack spacing={1.5}>
+        {rows.fields.map((row, i) => (
+          <Card key={row.id} variant="outlined">
+            <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+              <Grid container spacing={1.5} alignItems="flex-start">
+                <Grid size={{ xs: 10, sm: 7 }}>
+                  <Controller
+                    name={`forecasts.${i}.description`}
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <TextField
+                        {...field}
+                        label={`รายการที่ ${i + 1} — รายละเอียดงาน`}
+                        placeholder="เช่น Scaffolding erection"
+                        size="small"
+                        fullWidth
+                        error={Boolean(fieldState.error)}
+                        helperText={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                </Grid>
+                <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }} order={{ sm: 3 }}>
+                  <IconButton aria-label={`ลบแผนงานรายการที่ ${i + 1}`} onClick={() => rows.remove(i)}>
+                    <DeleteOutlineOutlinedIcon />
+                  </IconButton>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }} order={{ sm: 2 }}>
+                  <Controller
+                    name={`forecasts.${i}.buildingId`}
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <BuildingSelect label="พื้นที่ (Area)" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+                    )}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        ))}
+      </Stack>
+      <Button
+        startIcon={<AddIcon />}
+        variant="outlined"
+        fullWidth
+        sx={{ mt: 1.5, borderStyle: "dashed" }}
+        disabled={rows.fields.length >= 20}
+        onClick={() => rows.append({ description: "", buildingId: "" })}
+      >
+        เพิ่มแผนงานพรุ่งนี้
+      </Button>
+    </Box>
   );
 }

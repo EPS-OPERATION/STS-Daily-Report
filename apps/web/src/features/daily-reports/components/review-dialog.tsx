@@ -14,21 +14,17 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { POSITIONS, WEATHER_CONDITIONS, isEpsStaff } from "@sts/shared";
+import { POSITIONS, WEATHER_CONDITIONS } from "@sts/shared";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { StatusChip } from "@/components/ui/status-chip.js";
-import { useMe } from "@/features/auth/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
-import { useReviewReport } from "../hooks/use-daily-report-mutations.js";
 import { useCurrentReport } from "../hooks/use-daily-report-queries.js";
 import type { DailyReport, ReviewQueueRow } from "../types/daily-report.types.js";
 import { formatThaiDate, timeWindowLabel } from "../utils/dates.js";
@@ -43,14 +39,10 @@ export function ReviewDialog({
   projectId?: string | null;
   onClose: () => void;
 }) {
-  const me = useMe();
-  const review = useReviewReport();
   const { projectId: contextProjectId } = useCurrentProject();
   const projectId = propProjectId ?? contextProjectId;
 
   const [tab, setTab] = useState(0);
-  const [note, setNote] = useState("");
-  const [noteError, setNoteError] = useState<string | null>(null);
 
   // Fetch real report from DB if available
   const reportQuery = useCurrentReport(
@@ -65,28 +57,10 @@ export function ReviewDialog({
   useEffect(() => {
     if (report) {
       setTab(0);
-      setNote(report.reviewNote ?? "");
-      setNoteError(null);
-      review.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report?.id]);
 
-  const isEps = isEpsStaff(me.data?.data.user.role);
-  const busy = review.isPending;
-
-  const decide = (decision: "approved" | "rejected") => {
-    if (!report || busy) return;
-    if (decision === "rejected" && !note.trim()) {
-      setNoteError("กรุณาระบุเหตุผลหรือสิ่งที่ต้องการให้ผู้รับเหมาแก้ไข");
-      return;
-    }
-    setNoteError(null);
-    review.mutate(
-      { reportId: report.id, payload: { decision, note: note.trim() ? note.trim() : undefined } },
-      { onSuccess: onClose },
-    );
-  };
 
   const weatherLabel = WEATHER_CONDITIONS.find((w) => w.code === data?.weather)?.label ?? data?.weather ?? "ปกติ";
   const positionLabel = (code: string) => POSITIONS.find((p) => p.code === code)?.labelTh ?? POSITIONS.find((p) => p.code === code)?.label ?? code;
@@ -113,21 +87,11 @@ export function ReviewDialog({
           <Stack direction="row" spacing={1}>
             <StatusChip
               status={report?.morningStatus ?? "draft"}
-              label={`เช้า: ${report?.morningStatus === "submitted" ? "ส่งแล้ว" : "รอส่ง"}`}
+              label={`Daily Report: ${report?.morningStatus === "submitted" ? "ส่งแล้ว" : "ยังไม่ส่ง"}`}
             />
             <StatusChip
               status={report?.eveningStatus ?? "draft"}
-              label={`บ่าย: ${report?.eveningStatus === "submitted" ? "ส่งแล้ว" : "รอส่ง"}`}
-            />
-            <StatusChip
-              status={report?.reviewStatus === "pending" ? "submitted" : report?.reviewStatus ?? "submitted"}
-              label={
-                report?.reviewStatus === "approved"
-                  ? "อนุมัติแล้ว"
-                  : report?.reviewStatus === "rejected"
-                    ? "ตีกลับแก้ไข"
-                    : "รอตรวจสอบ"
-              }
+              label={`Daily Request: ${report?.eveningStatus === "submitted" ? "ส่งแล้ว" : "ยังไม่ส่ง"}`}
             />
           </Stack>
         </Stack>
@@ -477,67 +441,19 @@ export function ReviewDialog({
               </Stack>
             )}
 
-            <Divider />
-
-            {/* EPS Review Decision Note Box */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                บันทึกการตรวจสอบของ EPS (Review Note)
-              </Typography>
-              {!isEps ? (
-                <Alert severity="info" sx={{ mb: 1.5 }}>
-                  เฉพาะเจ้าหน้าที่ EPS เท่านั้นที่สามารถอนุมัติหรือตีกลับรายงานได้
-                </Alert>
-              ) : null}
-              <TextField
-                label="ข้อคิดเห็น / คำสั่งแก้ไขเพิ่มเติม"
-                placeholder="ระบุสิ่งที่ต้องการให้ผู้รับเหมาแก้ไข (จำเป็นต้องระบุหากตีกลับรายงาน)…"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                error={Boolean(noteError)}
-                helperText={noteError ?? "ข้อความนี้จะแสดงให้ผู้รับเหมาเห็นในรายงาน"}
-                multiline
-                minRows={2}
-                fullWidth
-                disabled={!isEps || busy}
-              />
-              {review.isError ? (
-                <Alert severity="error" sx={{ mt: 1.5 }}>
-                  {review.error instanceof Error ? review.error.message : "การดำเนินการไม่สำเร็จ"}
-                </Alert>
-              ) : null}
-            </Box>
           </Stack>
         )}
       </DialogContent>
 
       <DialogActions sx={{ p: 2.5, pt: 1.5, borderTop: 1, borderColor: "divider" }}>
-        <Button onClick={onClose} disabled={busy}>
-          ปิด
-        </Button>
+        <Button onClick={onClose}>ปิด</Button>
         <Button
           variant="outlined"
           startIcon={<PictureAsPdfOutlinedIcon />}
-          disabled={!report}
-          onClick={() => report && window.open(`/daily-reports/${report.id}/print`, "_blank", "noopener")}
+          disabled={!report?.id}
+          onClick={() => report?.id && window.open(`/daily-reports/${report.id}/print`, "_blank", "noopener")}
         >
           Export PDF
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          onClick={() => decide("rejected")}
-          disabled={!report || !data || !isEps || busy}
-        >
-          ตีกลับแก้ไข (Reject)
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => decide("approved")}
-          disabled={!report || !data || !isEps || busy}
-        >
-          อนุมัติรายงาน (Approve)
         </Button>
       </DialogActions>
     </Dialog>

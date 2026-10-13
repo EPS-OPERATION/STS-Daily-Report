@@ -63,6 +63,7 @@ export type MachineType = (typeof MACHINE_TYPES)[number];
 
 // Machines / tools present on site today with a quantity (EPS form "Machine type + Qty").
 // Separate from MACHINE_TYPES: this counts equipment, bookings reserve a unit for a time window.
+// Suggestion list only — contractors may add custom names beyond this list (stored as free text).
 export const SITE_EQUIPMENT_TYPES = [
   "Welding Machine",
   "Hand Tool Equipment",

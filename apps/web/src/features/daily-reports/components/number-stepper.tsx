@@ -1,12 +1,12 @@
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import IconButton from "@mui/material/IconButton";
+import InputBase from "@mui/material/InputBase";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 
-interface NumberStepperProps {
-  label: string;
+export interface NumberStepperProps {
+  label?: string;
   value: number;
   onChange: (value: number) => void;
   min?: number;
@@ -17,7 +17,8 @@ interface NumberStepperProps {
   unit?: string;
 }
 
-// Touch-friendly integer input: big +/- targets, still typeable. Always emits a number (empty → min).
+// Touch-friendly integer/decimal input for field & mobile: comfortable +/- targets,
+// explicit 16px font to prevent mobile iOS zoom-in, resilient to small screen widths.
 export function NumberStepper({
   label,
   value,
@@ -32,21 +33,35 @@ export function NumberStepper({
   const clamp = (n: number) => Math.min(max, Math.max(min, n));
   return (
     <Stack spacing={0.5}>
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
+      {label ? (
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+          {label}
+        </Typography>
+      ) : null}
       <Stack direction="row" alignItems="center" spacing={0.5}>
         <IconButton
-          aria-label={`ลด ${label}`}
+          aria-label={label ? `ลด ${label}` : "ลด"}
           size="small"
           disabled={disabled || value <= min}
           onClick={() => onChange(clamp(value - step))}
-          sx={{ border: 1, borderColor: "divider", width: 36, height: 36 }}
+          sx={{
+            border: 1,
+            borderColor: "divider",
+            width: { xs: 36, sm: 38 },
+            height: { xs: 36, sm: 38 },
+            minWidth: { xs: 36, sm: 38 },
+            flexShrink: 0,
+            bgcolor: "background.paper",
+            borderRadius: 1.5,
+            touchAction: "manipulation",
+            "&:active": { transform: "scale(0.95)" },
+          }}
         >
           <RemoveIcon fontSize="small" />
         </IconButton>
-        <TextField
+        <InputBase
           value={Number.isFinite(value) ? value : ""}
+          placeholder={String(min)}
           onChange={(e) => {
             const raw = e.target.value.replace(/[^\d.]/g, "");
             const n = step % 1 === 0 ? Number.parseInt(raw, 10) : Number.parseFloat(raw);
@@ -54,28 +69,54 @@ export function NumberStepper({
           }}
           onFocus={(e) => e.target.select()}
           disabled={disabled}
-          error={Boolean(error)}
-          size="small"
-          slotProps={{
-            htmlInput: {
-              inputMode: step % 1 === 0 ? "numeric" : "decimal",
-              "aria-label": label,
-              style: { textAlign: "center", fontWeight: 700 },
+          inputProps={{
+            inputMode: step % 1 === 0 ? "numeric" : "decimal",
+            "aria-label": label ?? "number input",
+            style: {
+              textAlign: "center",
+              fontWeight: 700,
+              fontSize: "16px", // Prevents iOS Safari auto-zoom
+              padding: "4px 0",
             },
           }}
-          sx={{ width: 72 }}
+          sx={{
+            width: { xs: 48, sm: 54 },
+            minWidth: 44,
+            height: { xs: 36, sm: 38 },
+            border: 1,
+            borderColor: error ? "error.main" : "divider",
+            borderRadius: 1.5,
+            bgcolor: "background.paper",
+            flexShrink: 0,
+            transition: "border-color 0.15s, box-shadow 0.15s",
+            "&:focus-within": {
+              borderColor: "primary.main",
+              boxShadow: "0 0 0 2px rgba(25, 118, 210, 0.15)",
+            },
+          }}
         />
         <IconButton
-          aria-label={`เพิ่ม ${label}`}
+          aria-label={label ? `เพิ่ม ${label}` : "เพิ่ม"}
           size="small"
           disabled={disabled || value >= max}
           onClick={() => onChange(clamp(value + step))}
-          sx={{ border: 1, borderColor: "divider", width: 36, height: 36 }}
+          sx={{
+            border: 1,
+            borderColor: "divider",
+            width: { xs: 36, sm: 38 },
+            height: { xs: 36, sm: 38 },
+            minWidth: { xs: 36, sm: 38 },
+            flexShrink: 0,
+            bgcolor: "background.paper",
+            borderRadius: 1.5,
+            touchAction: "manipulation",
+            "&:active": { transform: "scale(0.95)" },
+          }}
         >
           <AddIcon fontSize="small" />
         </IconButton>
         {unit ? (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 0.25, fontWeight: 500, flexShrink: 0 }}>
             {unit}
           </Typography>
         ) : null}

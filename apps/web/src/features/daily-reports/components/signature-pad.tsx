@@ -11,10 +11,12 @@ export function SignaturePad({
   onChange,
   error,
   disabled,
+  hasExistingSignature,
 }: {
   onChange: (dataUrl: string | null) => void;
   error?: string;
   disabled?: boolean;
+  hasExistingSignature?: boolean;
 }) {
   const theme = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,9 +90,9 @@ export function SignaturePad({
           position: "relative",
           border: 1.5,
           borderStyle: "dashed",
-          borderColor: error ? "error.main" : signed ? "primary.main" : "divider",
+          borderColor: error ? "error.main" : signed ? "primary.main" : hasExistingSignature ? "info.main" : "divider",
           borderRadius: 2,
-          bgcolor: "grey.50",
+          bgcolor: hasExistingSignature && !signed ? "grey.100" : "grey.50",
           height: 140,
         }}
       >
@@ -106,18 +108,18 @@ export function SignaturePad({
         {!signed ? (
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}
+            color={hasExistingSignature ? "text.primary" : "text.secondary"}
+            sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none", fontWeight: hasExistingSignature ? 500 : 400 }}
           >
-            แตะหรือลากนิ้วเพื่อเซ็นชื่อ
+            {hasExistingSignature ? "✓ มีลายเซ็นเดิมแล้ว (แตะหรือลากนิ้วเพื่อเซ็นใหม่)" : "แตะหรือลากนิ้วเพื่อเซ็นชื่อ"}
           </Typography>
         ) : null}
       </Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="caption" color={error ? "error" : "text.secondary"}>
-          {error ?? "Prepared by Contractor"}
+        <Typography variant="caption" color={error ? "error" : hasExistingSignature && !signed ? "text.secondary" : "text.secondary"}>
+          {error ?? (hasExistingSignature && !signed ? "คงลายเซ็นเดิมไว้ (เซ็นใหม่เฉพาะเมื่อต้องการเปลี่ยน)" : "Prepared by Contractor")}
         </Typography>
-        <Button size="small" variant="text" onClick={clear} disabled={!signed || disabled}>
+        <Button size="small" variant="text" onClick={clear} disabled={(!signed && !hasExistingSignature) || disabled}>
           ล้างลายเซ็น
         </Button>
       </Stack>

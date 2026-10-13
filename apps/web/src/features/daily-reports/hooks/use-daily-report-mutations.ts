@@ -2,7 +2,7 @@ import type { InspectionResult, PhotoCategory, RequestStatus } from "@sts/shared
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { dailyReportApi } from "../api/daily-report.api.js";
 import { dailyReportKeys } from "../api/daily-report.keys.js";
-import type { EveningPayload, InspectionRequestFields, MorningPayload, ReviewPayload } from "../types/daily-report.types.js";
+import type { EveningPayload, InspectionRequestFields, MorningPayload } from "../types/daily-report.types.js";
 
 // Every write refreshes the current report and any open weekly summary.
 function useInvalidateReports() {
@@ -87,11 +87,4 @@ export function useTransitionRequest() {
   });
 }
 
-// EPS-only daily report review (approved, or rejected with a contractor note).
-export function useReviewReport() {
-  const invalidate = useInvalidateReports();
-  return useMutation({
-    mutationFn: (v: { reportId: string; payload: ReviewPayload }) => dailyReportApi.reviewReport(v.reportId, v.payload),
-    onSuccess: invalidate,
-  });
-}
+

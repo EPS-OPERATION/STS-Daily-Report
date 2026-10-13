@@ -1,9 +1,7 @@
 import ChevronLeftOutlinedIcon from "@mui/icons-material/ChevronLeftOutlined";
 import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
-import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
-import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -61,7 +59,7 @@ const GROUPS: NavGroup[] = [
       { to: "/daily-reports", label: "Daily Reports", icon: "dailyReports" },
       { to: "/today-requests", label: "Daily Request", icon: "tomorrow" },
       { to: "/site-coordination", label: "Map", icon: "sitePlan" },
-      { to: "/site-plan", label: "Site Plan (Option)", icon: "sitePlan" },
+      { to: "/site-plan", label: "Site Plan (Option)", icon: "sitePlan", roles: ["eps_admin"] },
     ],
   },
   {
@@ -69,10 +67,9 @@ const GROUPS: NavGroup[] = [
     roles: EPS_VIEWERS,
     items: [
       { to: "/manpower", label: "Manpower", icon: "manpower" },
-      { to: "/work-permits", label: "Work Permits", icon: "workPermits" },
       { to: "/qaqc", label: "QAQC", icon: "qaqc" },
-      { to: "/safety", label: "Safety", icon: "safety" },
-      { to: "/materials", label: "Materials (Option)", icon: "materials" },
+      { to: "/safety", label: "Safety & Permits", icon: "safety" },
+      { to: "/materials", label: "Materials (Option)", icon: "materials", roles: ["eps_admin"] },
     ],
   },
   {
@@ -361,11 +358,6 @@ export function AppLayout() {
               Search anything…
             </Button>
             <Box sx={{ flexGrow: 1 }} />
-            <IconButton aria-label="Notifications">
-              <Badge color="error" variant="dot">
-                <NotificationsNoneOutlinedIcon />
-              </Badge>
-            </IconButton>
             <UserMenu />
           </Toolbar>
         </Box>

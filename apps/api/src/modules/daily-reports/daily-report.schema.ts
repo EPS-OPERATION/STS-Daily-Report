@@ -6,7 +6,6 @@ import {
   PERMIT_TYPE_CODES,
   PHOTO_CATEGORIES,
   POSITION_CODES,
-  SITE_EQUIPMENT_TYPES,
   WEATHER_CODES,
 } from "@sts/shared";
 import { DATE_RE, TIME_RE } from "@/modules/site-activities/site-activity.schema.js";
@@ -69,10 +68,11 @@ export const morningBody = t.Object({
   humidityPct: t.Optional(t.Integer({ minimum: 0, maximum: 100 })),
   equipment: t.Array(
     t.Object({
-      equipmentType: t.Union(SITE_EQUIPMENT_TYPES.map((e) => t.Literal(e))),
+      // Free text: SITE_EQUIPMENT_TYPES is the suggestion list, contractors may add custom names.
+      equipmentType: t.String({ minLength: 1, maxLength: 120 }),
       qty: t.Integer({ minimum: 1, maximum: 500 }),
     }),
-    { maxItems: SITE_EQUIPMENT_TYPES.length },
+    { maxItems: 30 },
   ),
   crews: t.Array(
     t.Object({
@@ -115,8 +115,8 @@ export const eveningBody = t.Object({
     { maxItems: 16 },
   ),
   signatureName: t.String({ minLength: 1, maxLength: 120 }),
-  // PNG data URL from the signature pad; ~200 KB ceiling.
-  signatureData: t.String({ pattern: "^data:image/png;base64,", maxLength: 200_000 }),
+  // PNG data URL from the signature pad; ~200 KB ceiling. Optional when re-saving an already-signed report.
+  signatureData: t.Optional(t.String({ pattern: "^data:image/png;base64,", maxLength: 200_000 })),
   // Requests for tomorrow (reviewed at the 17:00 coordination meeting).
   machinery: t.Array(
     t.Object({
@@ -132,7 +132,8 @@ export const eveningBody = t.Object({
   equipmentRequests: t.Array(
     t.Object({
       buildingId: t.String({ format: "uuid" }),
-      equipmentType: t.Union(SITE_EQUIPMENT_TYPES.map((e) => t.Literal(e))),
+      // Free text (same suggestion list as morning equipment).
+      equipmentType: t.String({ minLength: 1, maxLength: 120 }),
       qty: t.Integer({ minimum: 1, maximum: 500 }),
       purpose: t.Optional(t.String({ maxLength: 300 })),
     }),
@@ -144,6 +145,9 @@ export const eveningBody = t.Object({
       permitType: t.Union(PERMIT_TYPE_CODES.map((p) => t.Literal(p))),
       otherLabel: t.Optional(t.String({ maxLength: 120 })),
       workers: t.Integer({ minimum: 1, maximum: 5000 }),
+      highRisk: t.Optional(t.Boolean()),
+      taskName: t.Optional(t.String({ maxLength: 120 })),
+      supervisorName: t.Optional(t.String({ maxLength: 120 })),
     }),
     { maxItems: 50 },
   ),
@@ -156,6 +160,16 @@ export const eveningBody = t.Object({
       purpose: t.String({ minLength: 1, maxLength: 300 }),
     }),
     { maxItems: 20 },
+  ),
+  // Tomorrow Forecast Activities (paper form R003).
+  forecasts: t.Optional(
+    t.Array(
+      t.Object({
+        buildingId: t.String({ format: "uuid" }),
+        description: t.String({ minLength: 1, maxLength: 300 }),
+      }),
+      { maxItems: 20 },
+    ),
   ),
   // Materials on site today (paper form "Add Material on site").
   materials: t.Array(

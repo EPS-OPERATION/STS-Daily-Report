@@ -16,11 +16,12 @@ import { DroneProgressPage } from "@/pages/drone-progress-page.js";
 import { ManpowerPage } from "@/pages/manpower-page.js";
 import { MaterialsPage } from "@/pages/materials-page.js";
 import { PlaceholderPage } from "@/pages/placeholder-page.js";
-import { WorkPermitsPage } from "@/pages/work-permits-page.js";
 import { QaqcBoardPage } from "@/pages/qaqc-board-page.js";
-import { DailyReportPrintPage } from "@/pages/daily-report-print-page.js";
+import { DailyReportPrintPage, DailyReportsBatchPrintPage } from "@/pages/daily-report-print-page.js";
 import { SafetyPage } from "@/pages/safety-page.js";
 import { SafetyReportPrintPage } from "@/pages/safety-report-page.js";
+import { SubmissionHistoryPrintPage } from "@/pages/submission-history-print-page.js";
+import { WorkDonePrintPage } from "@/pages/work-done-print-page.js";
 import { SitePlanPage } from "@/pages/site-plan-page.js";
 import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
 import { SiteCoordinationPage } from "@/pages/site-coordination-page.js";
@@ -46,7 +47,12 @@ export const router = createBrowserRouter([
     children: [
       {
         element: <RoleGuard allowedRoles={["eps_site", "eps_admin"]} redirectTo="/field" />,
-        children: [{ path: "safety/report", element: <SafetyReportPrintPage /> }],
+        children: [
+          { path: "safety/report", element: <SafetyReportPrintPage /> },
+          { path: "daily-reports/history/print", element: <SubmissionHistoryPrintPage /> },
+          { path: "daily-reports/work-done/print", element: <WorkDonePrintPage /> },
+          { path: "daily-reports/print", element: <DailyReportsBatchPrintPage /> },
+        ],
       },
       // Printable daily report: EPS (any report) or the owning contractor (checked by the API).
       { path: "daily-reports/:reportId/print", element: <DailyReportPrintPage /> },
@@ -71,27 +77,27 @@ export const router = createBrowserRouter([
             children: [
               { path: "daily-reports", element: <DailyReportsPage /> },
               { path: "site-coordination", element: <SiteCoordinationPage /> },
-              { path: "site-plan", element: <SitePlanPage /> },
-              { path: "site-plan/config", element: <SitePlanConfigPage /> },
               { path: "today-requests", element: <TodayRequestsPage /> },
               { path: "today-request", element: <Navigate to="/today-requests" replace /> },
               { path: "tomorrow", element: <Navigate to="/today-requests" replace /> },
               { path: "weekly-summary", element: <Navigate to="/today-requests" replace /> },
               {
-                // Contractor master data and user management are eps_admin-only.
+                // Contractor master data, user management, and optional modules are eps_admin-only.
                 element: <RoleGuard allowedRoles={["eps_admin"]} redirectTo="/" />,
                 children: [
                   { path: "contractors", element: <ContractorsPage /> },
                   { path: "admin/users", element: <AdminUsersPage /> },
+                  { path: "site-plan", element: <SitePlanPage /> },
+                  { path: "site-plan/config", element: <SitePlanConfigPage /> },
+                  { path: "materials", element: <MaterialsPage /> },
                 ],
               },
               // Dev-only geometry mapper: reachable by URL, never linked in navigation.
               { path: "dev/map-zones", element: <DevGeometryMapper /> },
               { path: "manpower", element: <ManpowerPage /> },
-              { path: "work-permits", element: <WorkPermitsPage /> },
+              { path: "work-permits", element: <Navigate to="/safety?tab=permits" replace /> },
               { path: "qaqc", element: <QaqcBoardPage /> },
               { path: "safety", element: <SafetyPage /> },
-              { path: "materials", element: <MaterialsPage /> },
               { path: "progress", element: <DroneProgressPage /> },
               {
                 path: "settings",

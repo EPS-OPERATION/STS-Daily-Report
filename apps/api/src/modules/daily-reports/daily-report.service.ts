@@ -5,7 +5,7 @@ import { getDb } from "@/db/client.js";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import type { AuthContext } from "@/auth/auth.types.js";
 import { listBuildings } from "@/modules/buildings/building.repository.js";
-import { getProjectById } from "@/modules/projects/project.repository.js";
+import { getProjectById, listProjectContractors } from "@/modules/projects/project.repository.js";
 import { isContractorInProject } from "@/modules/site-activities/site-activity.repository.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { getStorage } from "@/shared/storage/index.js";
@@ -31,6 +31,9 @@ import {
   listEquipmentRequests,
   listEquipmentRequestsInRange,
   listMaterials,
+  listForecasts,
+  listForecastsInRange,
+  listPermitDetailsInRange,
   listMaterialsLog,
   countMaterialsLog,
   summarizeMaterials,
@@ -132,7 +135,7 @@ async function reportDetail(reportId: string) {
   if (!report) throw new NotFoundError("Daily report not found", { reportId });
   // machinery / permits / roadUsage on a report are the requests it raised for the next day.
   const tomorrow = addDays(report.reportDate, 1);
-  const [positions, eveningPositions, crews, equipment, allocations, machinery, equipmentRequests, permits, roadUsage, photos, bookings, others, otherRoads, materials] =
+  const [positions, eveningPositions, crews, equipment, allocations, machinery, equipmentRequests, permits, roadUsage, photos, bookings, others, otherRoads, materials, forecasts] =
     await Promise.all([
       listPositions(db, reportId),
       listPositions(db, reportId, "evening"),
@@ -148,6 +151,7 @@ async function reportDetail(reportId: string) {
       listBookingsForTargetExcluding(db, report.projectId, tomorrow, reportId),
       listRoadUsageForTargetExcluding(db, report.projectId, tomorrow, reportId),
       listMaterials(db, reportId),
+      listForecasts(db, reportId),
     ]);
   const ownIds = new Set(bookings.map((b) => b.id));
   const conflicts = findMachineryConflicts([...bookings, ...others]).filter(
@@ -187,6 +191,7 @@ async function reportDetail(reportId: string) {
     permits,
     roadUsage,
     materials,
+    forecasts,
     requestsForDate: tomorrow,
     photos: photosWithUrls,
     roadConflicts: findRoadConflicts([...roadUsage, ...otherRoads])
@@ -313,10 +318,14 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
   }
   const seenEquipment = new Set<string>();
   for (const e of input.equipment) {
-    if (seenEquipment.has(e.equipmentType)) {
+    const name = e.equipmentType.trim();
+    if (!name) throw new ValidationError("Equipment name is required");
+    if (name.length > 120) throw new ValidationError("Equipment name is too long", { equipmentType: name });
+    const key = name.toLowerCase();
+    if (seenEquipment.has(key)) {
       throw new ValidationError("Each equipment type may appear only once", { equipmentType: e.equipmentType });
     }
-    seenEquipment.add(e.equipmentType);
+    seenEquipment.add(key);
   }
 
   const buildingIds = new Set((await listBuildings(db, projectId)).map((b) => b.id));
@@ -376,8 +385,12 @@ function validateTomorrow(
   equipment: EquipmentRequestInput[],
   permits: PermitInput[],
   roads: RoadUsageInput[],
+  forecasts: { buildingId: string; description: string }[],
 ) {
-  for (const b of [...machinery, ...equipment, ...permits, ...roads]) {
+  for (const f of forecasts) {
+    if (!f.description.trim()) throw new ValidationError("Describe each forecast activity");
+  }
+  for (const b of [...machinery, ...equipment, ...permits, ...roads, ...forecasts]) {
     if (!buildingIds.has(b.buildingId)) throw new ValidationError("Unknown building", { buildingId: b.buildingId });
   }
   for (const m of machinery) {
@@ -393,6 +406,9 @@ function validateTomorrow(
   }
   for (const p of permits) {
     if (p.permitType === "other" && !p.otherLabel?.trim()) throw new ValidationError("Describe the permit when type is Other");
+    if (p.highRisk && (!p.taskName?.trim() || !p.supervisorName?.trim())) {
+      throw new ValidationError("High-risk work needs a task name and an EPS supervisor", { permitType: p.permitType });
+    }
   }
   for (const r of roads) {
     if (!r.roadLocation.trim() || !r.purpose.trim()) throw new ValidationError("Road usage needs a location and a purpose");
@@ -409,6 +425,9 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
   }
   const report = await getReportByKey(db, projectId, input.contractorId, input.date);
   if (report?.eveningStatus === "submitted") assertEditable(input.date, "The evening report", report.id);
+  if (!report?.signatureData && !input.signatureData) {
+    throw new ValidationError("กรุณาลงนามยืนยันก่อนส่งรายงาน");
+  }
 
   if (input.accidentOccurred && !input.accidentNote?.trim()) {
     throw new ValidationError("Describe the accident when one occurred");
@@ -428,6 +447,7 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
     input.equipmentRequests,
     input.permits,
     input.roadUsage,
+    input.forecasts ?? [],
   );
   // Materials on site: one row per material + unit, positive quantity.
   const seenMaterials = new Set<string>();
@@ -495,25 +515,61 @@ export async function reviewReportService(auth: AuthContext, reportId: string, i
 
 // One row per contractor report for a date or date range. EPS sees every contractor (Image 2
 // approval table); a contractor user sees only their own companies.
+// Submission history: one row per contractor × day in the range — including days a contractor
+// sent nothing (hasReport=false), so EPS can see who has not reported. EPS sees every project
+// contractor; a contractor user sees only their own companies. No approval step.
 export async function listReviewQueueService(
   auth: AuthContext,
   projectId: string,
   range: { date?: string; from?: string; to?: string },
 ) {
   await assertProject(projectId);
-  if (isEpsStaff(auth.user.role)) {
-    const rows = await listReportsForReview(getDb(), projectId, range);
-    return rows.map(toReviewRow);
-  }
-  const memberships = await listActiveContractorsForUser(getDb(), auth.user.id, projectId);
-  if (memberships.length === 0) return [];
-  const rows = await listReportsForReview(
-    getDb(),
-    projectId,
-    range,
-    memberships.map((c) => c.id),
+  const from = range.from ?? range.date ?? range.to;
+  const to = range.to ?? range.date ?? range.from;
+  if (!from || !to) throw new ValidationError("Give date, or from and to");
+  const [start, end] = from <= to ? [from, to] : [to, from];
+  assertRange(start, end);
+
+  const db = getDb();
+  const companies = isEpsStaff(auth.user.role)
+    ? await listProjectContractors(db, projectId)
+    : await listActiveContractorsForUser(db, auth.user.id, projectId);
+  if (companies.length === 0) return [];
+  const reports = await listReportsForReview(db, projectId, { from: start, to: end }, isEpsStaff(auth.user.role) ? undefined : companies.map((c) => c.id));
+  const byKey = new Map(reports.map((r) => [`${r.contractorId}|${r.reportDate}`, r]));
+
+  const days: string[] = [];
+  for (let d = end; d >= start; d = addDays(d, -1)) days.push(d);
+  return days.flatMap((reportDate) =>
+    [...companies]
+      .sort((x, y) => x.code.localeCompare(y.code))
+      .map((c) => {
+        const r = byKey.get(`${c.id}|${reportDate}`);
+        return r
+          ? toReviewRow(r)
+          : {
+              id: null,
+              hasReport: false,
+              contractorId: c.id,
+              contractorCode: c.code,
+              contractorName: c.name,
+              reportDate,
+              morningStatus: "draft",
+              eveningStatus: "draft",
+              totalHeadcount: 0,
+              eveningHeadcount: 0,
+              morningSubmittedAt: null,
+              morningUpdatedAt: null,
+              eveningSubmittedAt: null,
+              eveningUpdatedAt: null,
+              updatedAt: null,
+              startTime: null,
+              endTime: null,
+              workHours: null,
+              otHours: null,
+            };
+      }),
   );
-  return rows.map(toReviewRow);
 }
 
 function toReviewRow(r: {
@@ -528,13 +584,41 @@ function toReviewRow(r: {
   thaiFemale: number;
   foreignMale: number;
   foreignFemale: number;
-  reviewStatus: string;
-  reviewNote: string | null;
-  reviewedAt: Date | null;
+  eveningThaiMale: number | null;
+  eveningThaiFemale: number | null;
+  eveningForeignMale: number | null;
+  eveningForeignFemale: number | null;
+  morningSubmittedAt?: Date | null;
+  morningUpdatedAt?: Date | null;
+  eveningSubmittedAt?: Date | null;
+  eveningUpdatedAt?: Date | null;
+  updatedAt?: Date | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  workHours?: number | null;
+  otHours?: number | null;
 }) {
   return {
-    ...r,
+    id: r.id as string | null,
+    hasReport: true,
+    contractorId: r.contractorId,
+    contractorCode: r.contractorCode,
+    contractorName: r.contractorName,
+    reportDate: r.reportDate,
+    morningStatus: r.morningStatus,
+    eveningStatus: r.eveningStatus,
     totalHeadcount: r.thaiMale + r.thaiFemale + r.foreignMale + r.foreignFemale,
+    eveningHeadcount: (r.eveningThaiMale ?? 0) + (r.eveningThaiFemale ?? 0) + (r.eveningForeignMale ?? 0) + (r.eveningForeignFemale ?? 0),
+    morningSubmittedAt: r.morningSubmittedAt ? r.morningSubmittedAt.toISOString() : null,
+    morningUpdatedAt: r.morningUpdatedAt ? r.morningUpdatedAt.toISOString() : null,
+    eveningSubmittedAt: r.eveningSubmittedAt ? r.eveningSubmittedAt.toISOString() : null,
+    eveningUpdatedAt: r.eveningUpdatedAt ? r.eveningUpdatedAt.toISOString() : null,
+    updatedAt: r.updatedAt ? r.updatedAt.toISOString() : null,
+    // Morning working window + evening OT (Work Done print header).
+    startTime: r.startTime ?? null,
+    endTime: r.endTime ?? null,
+    workHours: r.workHours ?? null,
+    otHours: r.otHours ?? null,
   };
 }
 
@@ -906,10 +990,12 @@ export async function dailyRequestsService(projectId: string, from: string, to: 
   const db = getDb();
   await assertProject(projectId);
   assertRange(from, to);
-  const [machinery, equipment, roads] = await Promise.all([
+  const [machinery, equipment, roads, permits, forecasts] = await Promise.all([
     listBookingsInRange(db, projectId, from, to),
     listEquipmentRequestsInRange(db, projectId, from, to),
     listRoadUsageInRange(db, projectId, from, to),
+    listPermitDetailsInRange(db, projectId, from, to),
+    listForecastsInRange(db, projectId, from, to),
   ]);
   const conflicts = findMachineryConflicts(machinery);
   const clash = new Map<string, "conflict" | "possible">();
@@ -921,6 +1007,8 @@ export async function dailyRequestsService(projectId: string, from: string, to: 
     machinery: machinery.map((m) => ({ ...m, conflict: clash.get(m.id) ?? null })),
     equipmentRequests: equipment,
     roads: roads.map((r) => ({ ...r, conflict: roadClash.has(r.id) })),
+    permits,
+    forecasts,
   };
 }
 

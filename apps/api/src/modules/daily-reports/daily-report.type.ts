@@ -5,7 +5,6 @@ import type {
   PermitType,
   PhotoCategory,
   PositionCode,
-  SiteEquipmentType,
   WeatherCondition,
 } from "@sts/shared";
 
@@ -32,7 +31,8 @@ export interface MachineryInput {
 
 export interface EquipmentRequestInput {
   buildingId: string;
-  equipmentType: SiteEquipmentType;
+  // Free text (SITE_EQUIPMENT_TYPES is the suggestion list only).
+  equipmentType: string;
   qty: number;
   purpose?: string;
 }
@@ -42,6 +42,10 @@ export interface PermitInput {
   permitType: PermitType;
   otherLabel?: string;
   workers: number;
+  /** Contractor's own assessment; when true taskName + supervisorName (EPS) are required. */
+  highRisk?: boolean;
+  taskName?: string;
+  supervisorName?: string;
 }
 
 // One discipline's crew: people by position plus the nationality/sex split of the same people.
@@ -68,7 +72,7 @@ export interface MorningInput {
   weather: WeatherCondition;
   temperatureC?: number;
   humidityPct?: number;
-  equipment: { equipmentType: SiteEquipmentType; qty: number }[];
+  equipment: { equipmentType: string; qty: number }[];
   // One crew per discipline that worked today (CE / ME / EE); the report is their sum.
   crews: MorningCrewInput[];
 }
@@ -106,12 +110,14 @@ export interface EveningInput {
   crews: CrewInput[];
   progress: EveningProgressInput[];
   signatureName: string;
-  signatureData: string;
+  signatureData?: string;
   machinery: MachineryInput[];
   equipmentRequests: EquipmentRequestInput[];
   permits: PermitInput[];
   roadUsage: RoadUsageInput[];
   materials: MaterialInput[];
+  // Tomorrow Forecast Activities: planned work for date + 1 (description + area).
+  forecasts?: { buildingId: string; description: string }[];
 }
 
 export interface PhotoUploadInput {
@@ -139,6 +145,7 @@ export interface BookingRow {
   purpose: string | null;
   contractorId: string;
   contractorCode: string;
+  contractorName?: string;
   buildingId: string;
   buildingCode: string;
   buildingName: string;
@@ -158,6 +165,7 @@ export interface RoadRow {
   purpose: string;
   contractorId: string;
   contractorCode: string;
+  contractorName?: string;
 }
 
 export interface MachineryConflict {

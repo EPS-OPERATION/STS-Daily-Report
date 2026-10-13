@@ -25,6 +25,7 @@ import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import {
   ContractorBadge,
+  ContractorFilterPopover,
   addDaysIso,
   contractorColorMap,
   formatThaiDate,
@@ -33,7 +34,7 @@ import {
   useInspectionRequests,
   type InspectionRequest,
 } from "@/features/daily-reports/index.js";
-import { useCurrentProject } from "@/features/projects/index.js";
+import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DAYS = 62;
@@ -62,6 +63,7 @@ export function QaqcBoardPage() {
   const tooLong = dayjs(to).diff(dayjs(from), "day") + 1 > MAX_DAYS;
 
   const { projectId } = useCurrentProject();
+  const projectContractors = useProjectContractors(projectId).data?.data ?? [];
   const scheduleQuery = useInspectionRequests(projectId, { from: today, to: tomorrow, by: "inspection" });
   const historyQuery = useInspectionRequests(tooLong ? null : projectId, { from, to, by: "inspection" });
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,41 +76,97 @@ export function QaqcBoardPage() {
   };
 
   const scheduleRows = scheduleQuery.data?.data ?? [];
-  const byTime = (a: InspectionRequest, b: InspectionRequest) => a.inspectionTime.localeCompare(b.inspectionTime);
-  const todayRequests = useMemo(
-    () => scheduleRows.filter((r) => r.inspectionDate === today).sort(byTime),
-    [scheduleRows, today],
-  );
-  const tomorrowRequests = useMemo(
-    () => scheduleRows.filter((r) => r.inspectionDate === tomorrow).sort(byTime),
-    [scheduleRows, tomorrow],
-  );
-
   const historyRows = historyQuery.data?.data ?? [];
 
+  const contractorNames = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of projectContractors) {
+      if (c.code) m.set(c.code, c.name);
+    }
+    for (const r of [...scheduleRows, ...historyRows]) {
+      if (r.contractorCode) m.set(r.contractorCode, r.contractorName || m.get(r.contractorCode) || "");
+    }
+    return m;
+  }, [projectContractors, scheduleRows, historyRows]);
+
+  const allCodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of [...scheduleRows, ...historyRows]) {
+      if (r.contractorCode) set.add(r.contractorCode);
+    }
+    const codes = set.size > 0 ? [...set] : projectContractors.map((c) => c.code);
+    return codes.sort((a, b) => a.localeCompare(b));
+  }, [scheduleRows, historyRows, projectContractors]);
+
+  const selectedCodes = useMemo<Set<string>>(() => {
+    const raw = params.get("contractors");
+    if (raw === null) return new Set(allCodes);
+    return new Set(raw.split(",").map((c) => c.trim()).filter((c) => allCodes.includes(c)));
+  }, [params, allCodes]);
+
+  const setContractors = (next: Set<string>) => {
+    const p = new URLSearchParams(params);
+    if (next.size === allCodes.length) p.delete("contractors");
+    else p.set("contractors", [...next].sort().join(","));
+    setParams(p, { replace: true });
+  };
+
+  const colors = useMemo(() => contractorColorMap(allCodes), [allCodes]);
+
+  const filterItems = useMemo(() => {
+    return allCodes.map((code) => {
+      const n = [...scheduleRows, ...historyRows].filter((r) => r.contractorCode === code).length;
+      return {
+        code,
+        name: contractorNames.get(code),
+        color: colors.get(code) ?? CHART_SERIES[0]!,
+        countLabel: `${n} คำขอ`,
+      };
+    });
+  }, [allCodes, scheduleRows, historyRows, contractorNames, colors]);
+
+  const visibleScheduleRows = useMemo(
+    () => scheduleRows.filter((r) => selectedCodes.has(r.contractorCode)),
+    [scheduleRows, selectedCodes],
+  );
+  const byTime = (a: InspectionRequest, b: InspectionRequest) => a.inspectionTime.localeCompare(b.inspectionTime);
+  const todayRequests = useMemo(
+    () => visibleScheduleRows.filter((r) => r.inspectionDate === today).sort(byTime),
+    [visibleScheduleRows, today],
+  );
+  const tomorrowRequests = useMemo(
+    () => visibleScheduleRows.filter((r) => r.inspectionDate === tomorrow).sort(byTime),
+    [visibleScheduleRows, tomorrow],
+  );
+
+  const visibleHistoryRows = useMemo(
+    () => historyRows.filter((r) => selectedCodes.has(r.contractorCode)),
+    [historyRows, selectedCodes],
+  );
+
   const contractorShares = useMemo<Share[]>(() => {
-    const list = tally(historyRows, (r) => r.contractorCode || "—", (r) => r.contractorName || r.contractorCode);
-    const colors = contractorColorMap(list.map((c) => c.code));
-    return list.map((c) => ({ ...c, color: colors.get(c.code) ?? CHART_SERIES[0]! }));
-  }, [historyRows]);
+    const list = tally(visibleHistoryRows, (r) => r.contractorCode || "—", (r) => r.contractorName || r.contractorCode);
+    const cColors = contractorColorMap(list.map((c) => c.code));
+    return list.map((c) => ({ ...c, color: cColors.get(c.code) ?? CHART_SERIES[0]! }));
+  }, [visibleHistoryRows]);
 
   const buildingShares = useMemo<Share[]>(
     () =>
-      tally(historyRows, (r) => r.buildingCode || "—", (r) => r.buildingName || "ไม่ระบุอาคาร").map((b, i) => ({
+      tally(visibleHistoryRows, (r) => r.buildingCode || "—", (r) => r.buildingName || "ไม่ระบุอาคาร").map((b, i) => ({
         ...b,
         color: CHART_SERIES[i % CHART_SERIES.length]!,
       })),
-    [historyRows],
+    [visibleHistoryRows],
   );
 
   const filteredHistory = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return historyRows;
-    return historyRows.filter((r) =>
+    if (!q) return visibleHistoryRows;
+    return visibleHistoryRows.filter((r) =>
       [r.contractorCode, r.contractorName, r.buildingCode, r.buildingName, r.workItem, r.drawingRef, inspectionTypeLabel(r.inspectionType)]
         .some((v) => v?.toLowerCase().includes(q)),
     );
-  }, [historyRows, searchQuery]);
+  }, [visibleHistoryRows, searchQuery]);
 
   const rangeLabel = from === to ? formatThaiDate(from) : `${formatThaiDate(from)} – ${formatThaiDate(to)}`;
 
@@ -117,7 +175,18 @@ export function QaqcBoardPage() {
       <PageHeader
         title="QAQC — RFI"
         subtitle="คำขอตรวจงาน (Request For Inspection) ที่ผู้รับเหมาส่งมาพร้อมรายงานช่วงบ่าย"
-        actions={<DateRangeFields from={from} to={to} maxDays={MAX_DAYS} onChange={setRange} />}
+        actions={
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <DateRangeFields from={from} to={to} maxDays={MAX_DAYS} onChange={setRange} />
+            {allCodes.length > 0 ? (
+              <ContractorFilterPopover
+                items={filterItems}
+                selectedCodes={selectedCodes}
+                onChange={setContractors}
+              />
+            ) : null}
+          </Stack>
+        }
       />
 
       {tooLong && (

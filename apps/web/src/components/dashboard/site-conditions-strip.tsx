@@ -6,6 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
+import { Link as RouterLink } from "react-router-dom";
 import { Weather3DIcon } from "./weather-3d-icons.js";
 
 // Compact map + weather for the PM dashboard (the full card lives in
@@ -117,10 +118,27 @@ export function SiteConditionsStrip() {
                 ลม {Math.round(now.wind_speed_10m)} กม./ชม. · ความชื้น {now.relative_humidity_2m}% · ฝน {now.precipitation} มม.
               </Typography>
               {rainy ? (
-                <Typography variant="caption" sx={{ color: "warning.light", fontWeight: 700 }}>
+                <Typography variant="caption" sx={{ color: "warning.light", fontWeight: 700, display: "block" }}>
                   ตรวจสอบเกณฑ์หยุดงานบนที่สูงและงานยก
                 </Typography>
               ) : null}
+              <Link
+                component={RouterLink}
+                to="/safety?tab=rain"
+                sx={{
+                  color: "rgba(255, 255, 255, 0.85)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  mt: 0.5,
+                  textDecoration: "underline",
+                  "&:hover": { color: "#FFFFFF" },
+                }}
+              >
+                🌧️ บันทึกฝนตกจริง / ต่อรอง Delay →
+              </Link>
             </Box>
             <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>
               {w.data!.daily.time.map((d, i) => {

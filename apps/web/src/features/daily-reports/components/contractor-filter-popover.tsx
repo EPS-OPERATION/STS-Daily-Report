@@ -20,6 +20,8 @@ export interface ContractorFilterItem {
   code: string;
   name?: string;
   manDays?: number;
+  /** Shown on the right instead of man-days (e.g. "12 รายการ"). */
+  countLabel?: string;
   color: string;
 }
 
@@ -255,6 +257,11 @@ export function ContractorFilterPopover({
                       {item.manDays.toLocaleString()} คน-วัน
                     </Typography>
                   )}
+                  {item.manDays === undefined && item.countLabel ? (
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", fontVariantNumeric: "tabular-nums", flexShrink: 0, ml: 1 }}>
+                      {item.countLabel}
+                    </Typography>
+                  ) : null}
                 </Box>
               );
             })

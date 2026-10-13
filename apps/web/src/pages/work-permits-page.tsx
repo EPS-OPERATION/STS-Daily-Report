@@ -32,6 +32,9 @@ import dayjs, { type Dayjs } from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { todayIso } from "@/features/daily-reports/index.js";
+import { useCurrentProject } from "@/features/projects/index.js";
+import { HighRiskTasks } from "@/features/safety/index.js";
 import {
   CONTRACTOR_LEGEND,
   PERMIT_BUILDINGS,
@@ -55,8 +58,15 @@ const TYPE_ICONS: Record<PermitTypeCode, typeof WhatshotOutlinedIcon> = {
 
 // EPS work-permit board (mock data — no permits API yet): type overview,
 // sub-contractor chart, document search, permit register, code legends.
-export function WorkPermitsPage() {
+export function WorkPermitsView({
+  hideHeader = true,
+  selectedContractorCodes,
+}: {
+  hideHeader?: boolean;
+  selectedContractorCodes?: Set<string>;
+} = {}) {
   const theme = useTheme();
+  const { projectId } = useCurrentProject();
   const [from, setFrom] = useState<Dayjs | null>(null);
   const [to, setTo] = useState<Dayjs | null>(null);
   const [month, setMonth] = useState("");
@@ -68,7 +78,7 @@ export function WorkPermitsPage() {
 
   useEffect(() => {
     setPage(0);
-  }, [from, to, month, type, building, contractor, rowsPerPage]);
+  }, [from, to, month, type, building, contractor, rowsPerPage, selectedContractorCodes]);
 
   const matchDate = (d: string) => {
     if (from && d < from.format("YYYY-MM-DD")) return false;
@@ -77,16 +87,29 @@ export function WorkPermitsPage() {
     return true;
   };
 
-  // Faceted counts: type cards ignore the type filter, chart ignores contractor.
+  const matchContractor = (c: string) => {
+    if (selectedContractorCodes && !selectedContractorCodes.has(c)) return false;
+    if (contractor && c !== contractor) return false;
+    return true;
+  };
+
+  // Faceted counts: type cards ignore the type filter, chart ignores contractor dropdown (but respects external filter).
   const forTypeCounts = useMemo(
-    () => WORK_PERMITS.filter((p) => matchDate(p.date) && (!building || p.building === building) && (!contractor || p.contractor === contractor)),
+    () => WORK_PERMITS.filter((p) => matchDate(p.date) && (!building || p.building === building) && matchContractor(p.contractor)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [from, to, month, building, contractor],
+    [from, to, month, building, contractor, selectedContractorCodes],
   );
   const forChart = useMemo(
-    () => WORK_PERMITS.filter((p) => matchDate(p.date) && (!type || p.type === type) && (!building || p.building === building)),
+    () =>
+      WORK_PERMITS.filter(
+        (p) =>
+          matchDate(p.date) &&
+          (!type || p.type === type) &&
+          (!building || p.building === building) &&
+          (!selectedContractorCodes || selectedContractorCodes.has(p.contractor)),
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [from, to, month, type, building],
+    [from, to, month, type, building, selectedContractorCodes],
   );
   const rows = useMemo(
     () =>
@@ -95,10 +118,10 @@ export function WorkPermitsPage() {
           matchDate(p.date) &&
           (!type || p.type === type) &&
           (!building || p.building === building) &&
-          (!contractor || p.contractor === contractor),
+          matchContractor(p.contractor),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [from, to, month, type, building, contractor],
+    [from, to, month, type, building, contractor, selectedContractorCodes],
   );
 
   const typeCounts = useMemo(() => {
@@ -124,12 +147,36 @@ export function WorkPermitsPage() {
 
   return (
     <Box>
-      <PageHeader title="Work Permit" subtitle="High-risk permit register · mock board until the permits module lands" />
+      {!hideHeader && (
+        <PageHeader title="Work Permit" subtitle="High-risk permit register · mock board until the permits module lands" />
+      )}
 
       <Box sx={{ bgcolor: "success.main", color: "#fff", borderRadius: 1, py: 1, mb: 2, textAlign: "center" }}>
         <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: 1 }}>
           WORK PERMIT
         </Typography>
+      </Box>
+
+      {/* High-Risk Tasks & Supervision panel moved to Work Permits with sample demonstration */}
+      <Box sx={{ mb: 2.5 }}>
+        <Card variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+          <Box sx={{ px: 2.5, py: 1.5, bgcolor: "grey.50", borderBottom: 1, borderColor: "divider" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              งานที่มีความเสี่ยงสูงและการควบคุม (High-Risk Tasks & Supervision)
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              จาก Work Permit ที่ผู้รับเหมาระบุว่าเป็นงานความเสี่ยงสูง (แจ้งล่วงหน้าในรายงานบ่ายของวันก่อน) พร้อมผู้ควบคุมงาน EPS
+            </Typography>
+          </Box>
+          <CardContent sx={{ p: 2 }}>
+            <HighRiskTasks
+              projectId={projectId}
+              from={from ? from.format("YYYY-MM-DD") : todayIso()}
+              to={to ? to.format("YYYY-MM-DD") : todayIso()}
+              selectedContractorCodes={selectedContractorCodes}
+            />
+          </CardContent>
+        </Card>
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -370,4 +417,8 @@ export function WorkPermitsPage() {
       </Grid>
     </Box>
   );
+}
+
+export function WorkPermitsPage() {
+  return <WorkPermitsView hideHeader={false} />;
 }

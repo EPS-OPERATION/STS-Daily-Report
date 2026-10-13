@@ -6,6 +6,9 @@ import ThunderstormOutlinedIcon from "@mui/icons-material/ThunderstormOutlined";
 import UmbrellaOutlinedIcon from "@mui/icons-material/UmbrellaOutlined";
 import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import PercentOutlinedIcon from "@mui/icons-material/PercentOutlined";
+import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -26,7 +29,6 @@ import {
   WEATHER_CONDITIONS,
   type Discipline,
   type PositionCode,
-  type SiteEquipmentType,
   type WeatherCondition,
 } from "@sts/shared";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
@@ -61,6 +63,8 @@ const WEATHER_ICONS: Record<WeatherCondition, ComponentType<SvgIconProps>> = {
   normal: FilterDramaOutlinedIcon,
 };
 
+// Fixed suggestion list (first 7 shown, rest behind "show more"). Contractors may
+// add custom names beyond this list — those ride the same record under their own key.
 const EQUIPMENT_ITEMS = SITE_EQUIPMENT_TYPES.map((e, i) => ({ key: e, label: e, primary: i < 7 }));
 
 const emptyCounts = <K extends string>(keys: readonly K[]) =>
@@ -118,7 +122,7 @@ function toDefaults(report: DailyReport | null): MorningFormValues {
     equipment: {
       ...emptyCounts(SITE_EQUIPMENT_TYPES),
       ...Object.fromEntries((report?.equipment ?? []).map((e) => [e.equipmentType, e.qty])),
-    } as Record<SiteEquipmentType, number>,
+    } as Record<string, number>,
     crews: { CE: crewDefaults(report, "CE"), ME: crewDefaults(report, "ME"), EE: crewDefaults(report, "EE") },
   };
 }
@@ -141,6 +145,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
     windSpeedKmh: number;
   } | null>(null);
   const [weatherAccepted, setWeatherAccepted] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -220,44 +225,55 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
   const crewReady = (d: Discipline) => crewTotals(crewValues[d]).ok && placementProblem(d) === null;
   const allReady = picked.length > 0 && picked.every(crewReady);
 
-  const onSubmit = handleSubmit((v) => {
-    submit.mutate(
-      {
-        date,
-        contractorId: contractor.id,
-        startTime: v.startTime,
-        endTime: v.endTime,
-        workHours: v.workHours,
-        weather: v.weather,
-        temperatureC: v.temperatureC ?? undefined,
-        humidityPct: v.humidityPct ?? undefined,
-        equipment: Object.entries(v.equipment)
-          .filter(([, n]) => n > 0)
-          .map(([equipmentType, qty]) => ({ equipmentType: equipmentType as SiteEquipmentType, qty })),
-        crews: DISCIPLINE_CODES.filter((d) => v.disciplines.includes(d)).map((d) => {
-          const c = v.crews[d];
-          return {
-            discipline: d,
-            positions: Object.entries(c.positions)
-              .filter(([, n]) => n > 0)
-              .map(([position, headcount]) => ({ position: position as PositionCode, headcount })),
-            thaiMale: c.thaiMale,
-            thaiFemale: c.thaiFemale,
-            foreignMale: c.foreignMale,
-            foreignFemale: c.foreignFemale,
-            allocations: c.allocations.map((a) => ({
-              buildingId: a.buildingId,
-              headcount: a.headcount,
-              workDescription: a.workDescription.trim(),
-              ...(a.timed ? { startTime: a.startTime, endTime: a.endTime } : {}),
-              ...(a.hasPlan ? { planPercent: a.planPercent } : {}),
-            })),
-          };
-        }),
-      },
-      { onSuccess: onSubmitted },
-    );
-  });
+  const onSubmit = handleSubmit(
+    (v) => {
+      setValidationError(null);
+      submit.mutate(
+        {
+          date,
+          contractorId: contractor.id,
+          startTime: v.startTime,
+          endTime: v.endTime,
+          workHours: v.workHours,
+          weather: v.weather,
+          temperatureC: v.temperatureC ?? undefined,
+          humidityPct: v.humidityPct ?? undefined,
+          equipment: Object.entries(v.equipment)
+            .filter(([, n]) => n > 0)
+            .map(([equipmentType, qty]) => ({ equipmentType: equipmentType.trim(), qty })),
+          crews: DISCIPLINE_CODES.filter((d) => v.disciplines.includes(d)).map((d) => {
+            const c = v.crews[d];
+            return {
+              discipline: d,
+              positions: Object.entries(c.positions)
+                .filter(([, n]) => n > 0)
+                .map(([position, headcount]) => ({ position: position as PositionCode, headcount })),
+              thaiMale: c.thaiMale,
+              thaiFemale: c.thaiFemale,
+              foreignMale: c.foreignMale,
+              foreignFemale: c.foreignFemale,
+              allocations: c.allocations.map((a) => ({
+                buildingId: a.buildingId,
+                headcount: a.headcount,
+                workDescription: a.workDescription.trim(),
+                ...(a.timed ? { startTime: a.startTime, endTime: a.endTime } : {}),
+                ...(a.hasPlan ? { planPercent: a.planPercent } : {}),
+              })),
+            };
+          }),
+        },
+        { onSuccess: onSubmitted },
+      );
+    },
+    (errors) => {
+      const errList = Object.keys(errors);
+      if (errList.length > 0) {
+        setValidationError("กรุณาตรวจสอบข้อมูลที่ยังไม่ครบถ้วนหรือไม่ถูกต้องก่อนส่ง");
+        const first = document.querySelector(`[name="${errList[0]}"]`);
+        first?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    },
+  );
 
   const serverError = submit.error instanceof HttpError ? submit.error : null;
   const canSubmit = allReady && !submit.isPending;
@@ -314,7 +330,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
           name="disciplines"
           control={control}
           render={({ field }) => (
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               {DISCIPLINES.map((d) => {
                 const on = field.value.includes(d.code);
                 return (
@@ -409,16 +425,18 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
                         flexDirection: "column",
                         gap: 0.25,
                         py: 1,
+                        px: { xs: 0.25, sm: 1 },
                         minWidth: 0,
                         borderWidth: on ? 2 : 1,
                         borderColor: on ? "warning.main" : "divider",
                         bgcolor: on ? "warning.light" : "background.paper",
                         color: on ? "warning.dark" : "text.secondary",
+                        touchAction: "manipulation",
                         "&:hover": { borderWidth: on ? 2 : 1 },
                       }}
                     >
-                      <Icon />
-                      <Typography variant="caption" sx={{ color: "inherit", lineHeight: 1.2 }}>
+                      <Icon sx={{ fontSize: { xs: 20, sm: 24 } }} />
+                      <Typography variant="caption" sx={{ color: "inherit", lineHeight: 1.2, fontSize: { xs: "0.68rem", sm: "0.75rem" } }}>
                         {w.label}
                       </Typography>
                     </Button>
@@ -472,18 +490,26 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         <MorningCrewSection key={d} index={3 + i} discipline={d} form={form} buildings={buildings} dayStart={dayStart} dayEnd={dayEnd} />
       ))}
 
-      <SectionCard index={3 + picked.length} title="เครื่องจักร / เครื่องมือในไซต์" subtitle="จำนวนที่นำเข้าไซต์วันนี้ (ไม่ต้องจอง)">
+      <SectionCard index={3 + picked.length} title="เครื่องจักร / เครื่องมือในไซต์" subtitle="จำนวนที่นำเข้าไซต์วันนี้ (ไม่ต้องจอง) — ไม่มีในรายการกดเพิ่มเองได้">
         <Controller
           name="equipment"
           control={control}
-          render={({ field }) => (
-            <CountList
-              items={EQUIPMENT_ITEMS}
-              values={field.value}
-              onChange={(key, n) => field.onChange({ ...field.value, [key]: n })}
-              unit="เครื่อง"
-              max={500}
-            />
+          render={({ field, fieldState }) => (
+            <Stack spacing={1.5}>
+              <CountList
+                items={EQUIPMENT_ITEMS}
+                values={field.value}
+                onChange={(key, n) => field.onChange({ ...field.value, [key]: n })}
+                unit="เครื่อง"
+                max={500}
+              />
+              <CustomEquipmentList values={field.value} onChange={field.onChange} />
+              {fieldState.error?.message ? (
+                <Typography variant="caption" color="error">
+                  {fieldState.error.message}
+                </Typography>
+              ) : null}
+            </Stack>
           )}
         />
       </SectionCard>
@@ -491,6 +517,12 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
       <SectionCard index={4 + picked.length} title="คำขอสำหรับวันนี้ (ส่งไว้เมื่อวานบ่าย)" subtitle="อ่านอย่างเดียว — ขอใหม่/แก้ไขได้ในรายงานบ่าย (แผนพรุ่งนี้)">
         <PlannedTodayChecklist planned={plannedToday} />
       </SectionCard>
+
+      {validationError ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {validationError}
+        </Alert>
+      ) : null}
 
       {serverError ? (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -540,6 +572,111 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
               : "บันทึก / ส่งรายงานเช้า"}
         </Button>
       </Box>
+    </Box>
+  );
+}
+
+// Machines beyond the fixed list: free-text name + count, stored under the same
+// equipment record keyed by name. Standard rows stay in CountList above.
+function CustomEquipmentList({
+  values,
+  onChange,
+}: {
+  values: Record<string, number>;
+  onChange: (next: Record<string, number>) => void;
+}) {
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const standard = new Set<string>(SITE_EQUIPMENT_TYPES);
+  const customKeys = Object.keys(values).filter((k) => !standard.has(k));
+
+  const add = () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("ระบุชื่อเครื่องจักร/อุปกรณ์");
+      return;
+    }
+    if (trimmed.length > 120) {
+      setError("ชื่อยาวเกินไป (สูงสุด 120 ตัวอักษร)");
+      return;
+    }
+    const lower = trimmed.toLowerCase();
+    if (SITE_EQUIPMENT_TYPES.some((s) => s.toLowerCase() === lower) || customKeys.some((k) => k.toLowerCase() === lower)) {
+      setError(`"${trimmed}" มีในรายการแล้ว — เพิ่มจำนวนที่รายการนั้นได้เลย`);
+      return;
+    }
+    if (Object.values(values).filter((n) => (n ?? 0) > 0).length >= 30) {
+      setError("ได้สูงสุด 30 รายการ");
+      return;
+    }
+    onChange({ ...values, [trimmed]: 1 });
+    setName("");
+    setError(null);
+  };
+
+  return (
+    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+      <Box sx={{ px: 1.5, pt: 1.25, pb: customKeys.length > 0 ? 0.5 : 1.25 }}>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+          Other (อื่นๆ)
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+          เช่น รถเครนเฉพาะทาง เครื่องปั่นไฟ — พิมพ์ชื่อแล้วกดเพิ่ม
+        </Typography>
+        <Stack direction="row" spacing={1} alignItems="flex-start">
+          <TextField
+            label="ชื่อเครื่องจักร/อุปกรณ์"
+            placeholder="เช่น เครื่องปั่นไฟ 100 kVA"
+            size="small"
+            fullWidth
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (error) setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                add();
+              }
+            }}
+            error={Boolean(error)}
+            helperText={error ?? undefined}
+            slotProps={{ htmlInput: { maxLength: 120 } }}
+          />
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={add} sx={{ flexShrink: 0, height: 40 }}>
+            เพิ่ม
+          </Button>
+        </Stack>
+      </Box>
+      {customKeys.map((key) => (
+        <Stack
+          key={key}
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          sx={{ px: 1.5, py: 0.75, borderTop: 1, borderColor: "divider", bgcolor: (values[key] ?? 0) > 0 ? "primary.light" : "background.paper" }}
+        >
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+              {key}
+            </Typography>
+          </Box>
+          <NumberStepper label={`จำนวน ${key}`} value={values[key] ?? 0} onChange={(n) => onChange({ ...values, [key]: n })} min={0} max={500} unit="เครื่อง" />
+          <IconButton
+            size="small"
+            aria-label={`ลบ ${key}`}
+            onClick={() => {
+              const next = { ...values };
+              delete next[key];
+              onChange(next);
+            }}
+            sx={{ border: 1, borderColor: "divider", width: 32, height: 32 }}
+          >
+            <DeleteOutlineOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      ))}
     </Box>
   );
 }
@@ -759,23 +896,61 @@ function ActivityRow({
               />
             ) : null}
           </Stack>
-          {/* Optional extras stay out of the way for contractors who do not need them. */}
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          {/* Optional extras: time window and plan % */}
+          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ pt: 0.5 }}>
             <Button
               size="small"
-              variant="text"
-              startIcon={timed ? undefined : <AddIcon />}
+              variant={timed ? "contained" : "outlined"}
+              color={timed ? "primary" : "inherit"}
+              startIcon={<ScheduleOutlinedIcon fontSize="small" sx={{ color: timed ? "#fff" : "primary.main" }} />}
+              endIcon={timed ? <CloseOutlinedIcon sx={{ fontSize: 16 }} /> : undefined}
               onClick={() => setValue(`${path}.timed`, !timed, { shouldDirty: true, shouldValidate: true })}
+              sx={{
+                borderRadius: 2,
+                px: 1.75,
+                py: 0.75,
+                fontWeight: 700,
+                fontSize: 13,
+                textTransform: "none",
+                bgcolor: timed ? "primary.main" : "#F8FAFC",
+                borderColor: timed ? "primary.main" : "#CBD5E1",
+                color: timed ? "#FFFFFF" : "text.primary",
+                boxShadow: timed ? "0 2px 4px rgba(11,77,139,0.2)" : "none",
+                "&:hover": {
+                  bgcolor: timed ? "primary.dark" : "#EFF6FF",
+                  borderColor: "primary.main",
+                  color: timed ? "#FFFFFF" : "primary.main",
+                },
+              }}
             >
-              {timed ? "ไม่ระบุเวลา (ทั้งวัน)" : "ระบุเวลา"}
+              {timed ? "ระบุเวลา (คลิกเพื่อยกเลิก)" : "+ ระบุเวลา"}
             </Button>
             <Button
               size="small"
-              variant="text"
-              startIcon={hasPlan ? undefined : <AddIcon />}
+              variant={hasPlan ? "contained" : "outlined"}
+              color={hasPlan ? "primary" : "inherit"}
+              startIcon={<PercentOutlinedIcon fontSize="small" sx={{ color: hasPlan ? "#fff" : "primary.main" }} />}
+              endIcon={hasPlan ? <CloseOutlinedIcon sx={{ fontSize: 16 }} /> : undefined}
               onClick={() => setValue(`${path}.hasPlan`, !hasPlan, { shouldDirty: true })}
+              sx={{
+                borderRadius: 2,
+                px: 1.75,
+                py: 0.75,
+                fontWeight: 700,
+                fontSize: 13,
+                textTransform: "none",
+                bgcolor: hasPlan ? "primary.main" : "#F8FAFC",
+                borderColor: hasPlan ? "primary.main" : "#CBD5E1",
+                color: hasPlan ? "#FFFFFF" : "text.primary",
+                boxShadow: hasPlan ? "0 2px 4px rgba(11,77,139,0.2)" : "none",
+                "&:hover": {
+                  bgcolor: hasPlan ? "primary.dark" : "#EFF6FF",
+                  borderColor: "primary.main",
+                  color: hasPlan ? "#FFFFFF" : "primary.main",
+                },
+              }}
             >
-              {hasPlan ? "ไม่ระบุแผน %" : "แผนงาน %"}
+              {hasPlan ? "แผนงาน % (คลิกเพื่อยกเลิก)" : "+ แผนงาน %"}
             </Button>
           </Stack>
         </Stack>

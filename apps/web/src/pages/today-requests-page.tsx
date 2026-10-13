@@ -2,6 +2,7 @@ import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import Link from "@mui/material/Link";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
@@ -15,24 +16,23 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
 import { useMemo, type ReactNode } from "react";
-import { PERMIT_TYPES } from "@sts/shared";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import {
   ContractorBadge,
-  TomorrowAgenda,
+  ContractorFilterPopover,
+  ForecastHistory,
+  contractorColorMap,
   addDaysIso,
+  formatThaiDate,
   inspectionTypeLabel,
-  sortAgenda,
   timeWindowLabel,
   todayIso,
   useInspectionRequests,
   useDailyRequests,
-  type AgendaRow,
 } from "@/features/daily-reports/index.js";
-import { useSiteDay } from "@/features/site-plan/index.js";
-import { useCurrentProject } from "@/features/projects/index.js";
+import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -41,139 +41,92 @@ type View = "requests" | "plan";
 
 // Daily Request: everything contractors asked for on the selected day or date range
 // (sent the evening before) — machines, equipment, road usage and QAQC inspections (RFI).
-// The second view is tomorrow's plan: the same requests plus planned work, as one agenda
-// for the 17:00 coordination meeting.
+// The second view is the Tomorrow Forecast Activities history (paper form R003) for the
+// same date range. Road bookings that clash between contractors are flagged red (warn only).
 export function TodayRequestsPage() {
   const [params, setParams] = useSearchParams();
   const view: View = params.get("view") === "plan" ? "plan" : "requests";
   // Range from the URL; an old ?date= link still works as a one-day range.
-  const single = ISO_DATE.test(params.get("date") ?? "") ? params.get("date")! : todayIso();
+  // Forecasts are about tomorrow, so that view opens on tomorrow when no range is given.
+  const fallback = view === "plan" ? addDaysIso(todayIso(), 1) : todayIso();
+  const single = ISO_DATE.test(params.get("date") ?? "") ? params.get("date")! : fallback;
   const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : single;
   const rawTo = ISO_DATE.test(params.get("to") ?? "") ? params.get("to")! : rawFrom;
   const from = rawFrom <= rawTo ? rawFrom : rawTo;
   const to = rawFrom <= rawTo ? rawTo : rawFrom;
   const isRange = from !== to;
   const { projectId } = useCurrentProject();
+  const projectContractors = useProjectContractors(projectId).data?.data ?? [];
   const week = useDailyRequests(projectId, from, to);
   const rfi = useInspectionRequests(projectId, { from, to, by: "inspection" });
 
-  // Tomorrow's plan is always "today + 1", independent of the date range above.
-  const tomorrow = addDaysIso(todayIso(), 1);
-  const planRequests = useDailyRequests(projectId, tomorrow, tomorrow);
-  const planInspections = useInspectionRequests(projectId, { from: tomorrow, to: tomorrow, by: "inspection" });
-  const planDay = useSiteDay(projectId, tomorrow, tomorrow);
-  const agenda: AgendaRow[] = useMemo(() => {
-    const rows: AgendaRow[] = [];
-    const req = planRequests.data?.data;
-    for (const m of req?.machinery ?? []) {
-      rows.push({
-        id: `machine-${m.id}`,
-        kind: "machine",
-        startTime: m.startTime ?? "",
-        timeLabel: timeWindowLabel(m.startTime, m.endTime),
-        contractorCode: m.contractorCode,
-        contractorName: null,
-        buildingCode: m.buildingCode,
-        buildingName: m.buildingName,
-        title: `${m.machineType}${m.unitTag ? ` (${m.unitTag})` : ""}`,
-        detail: m.purpose,
-        clash: m.conflict === "conflict",
-      });
-    }
-    for (const e of req?.equipmentRequests ?? []) {
-      rows.push({
-        id: `equipment-${e.id}`,
-        kind: "equipment",
-        startTime: "",
-        timeLabel: timeWindowLabel(null, null),
-        contractorCode: e.contractorCode,
-        contractorName: null,
-        buildingCode: e.buildingCode,
-        buildingName: e.buildingName,
-        title: `${e.equipmentType} ×${e.qty}`,
-        detail: e.purpose,
-        clash: false,
-      });
-    }
-    for (const r of req?.roads ?? []) {
-      rows.push({
-        id: `road-${r.id}`,
-        kind: "road",
-        startTime: r.startTime,
-        timeLabel: `${r.startTime}–${r.endTime}`,
-        contractorCode: r.contractorCode,
-        contractorName: null,
-        buildingCode: r.buildingCode,
-        buildingName: r.buildingName,
-        title: r.roadLocation,
-        detail: r.purpose,
-        clash: r.conflict,
-      });
-    }
-    for (const i of (planInspections.data?.data ?? []).filter((x) => x.status !== "draft")) {
-      rows.push({
-        id: `rfi-${i.id}`,
-        kind: "rfi",
-        startTime: i.inspectionTime,
-        timeLabel: i.inspectionTime,
-        contractorCode: i.contractorCode,
-        contractorName: i.contractorName,
-        buildingCode: i.buildingCode,
-        buildingName: i.buildingName,
-        title: i.inspectionType && i.inspectionType !== "other" ? `${inspectionTypeLabel(i.inspectionType)} · ${i.workItem}` : i.workItem,
-        detail: i.location,
-        clash: false,
-      });
-    }
-    for (const b of planDay.data?.data?.buildings ?? []) {
-      b.permits.forEach((p, idx) => {
-        const label = PERMIT_TYPES.find((t) => t.code === p.permitType)?.label ?? p.permitType;
-        rows.push({
-          id: `permit-${b.id}-${p.permitType}-${idx}`,
-          kind: "permit",
-          startTime: "",
-          timeLabel: timeWindowLabel(null, null),
-          contractorCode: null,
-          contractorName: null,
-          buildingCode: b.code,
-          buildingName: b.name,
-          title: label,
-          detail: `${p.workers} คน`,
-          clash: false,
-        });
-      });
-      b.activities.forEach((a, idx) => {
-        rows.push({
-          id: `work-${b.id}-${a.contractorCode}-${idx}`,
-          kind: "work",
-          startTime: "",
-          timeLabel: timeWindowLabel(null, null),
-          contractorCode: a.contractorCode,
-          contractorName: a.contractorName,
-          buildingCode: b.code,
-          buildingName: b.name,
-          title: a.workDescription,
-          detail: `${a.headcount} คน${a.startTime && a.endTime ? ` · ${a.startTime}–${a.endTime}` : ""}${a.planPercent === null ? "" : ` · แผน ${a.planPercent}%`}`,
-          clash: false,
-        });
-      });
-    }
-    return sortAgenda(rows);
-  }, [planRequests.data, planInspections.data, planDay.data]);
-  const planLoading = !planRequests.data || !planInspections.data || !planDay.data;
-  const planError = [planRequests.error, planInspections.error, planDay.error].find((e) => e instanceof HttpError) as
-    | HttpError
-    | undefined;
-
   const data = week.data?.data;
-  const machines = data?.machinery ?? [];
-  const equipment = data?.equipmentRequests ?? [];
-  const roads = data?.roads ?? [];
+  const allMachines = useMemo(() => data?.machinery ?? [], [data]);
+  const allEquipment = useMemo(() => data?.equipmentRequests ?? [], [data]);
+  const allRoads = useMemo(() => data?.roads ?? [], [data]);
+  const allForecasts = useMemo(() => data?.forecasts ?? [], [data]);
+  const allInspections = useMemo(() => (rfi.data?.data ?? []).filter((r) => r.status !== "draft"), [rfi.data]);
+
+  // Contractor filter (same popover as Manpower): everyone with a request or forecast in the range.
+  // ?contractors=A,B in the URL; absent = all. Road clashes stay flagged even when the other side is hidden.
+  const contractorNames = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of projectContractors) {
+      if (c.code) m.set(c.code, c.name);
+    }
+    for (const r of [...allMachines, ...allEquipment, ...allRoads, ...allForecasts, ...allInspections]) {
+      const name = "contractorName" in r && r.contractorName ? r.contractorName : undefined;
+      if (name || !m.has(r.contractorCode)) m.set(r.contractorCode, name ?? m.get(r.contractorCode) ?? "");
+    }
+    return m;
+  }, [projectContractors, allMachines, allEquipment, allRoads, allForecasts, allInspections]);
+
+  const activeCodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of [...allMachines, ...allEquipment, ...allRoads, ...allForecasts, ...allInspections]) {
+      set.add(r.contractorCode);
+    }
+    return set;
+  }, [allMachines, allEquipment, allRoads, allForecasts, allInspections]);
+
+  const allCodes = useMemo(() => {
+    const codes = activeCodes.size > 0 ? [...activeCodes] : projectContractors.map((c) => c.code);
+    return codes.sort((a, b) => a.localeCompare(b));
+  }, [activeCodes, projectContractors]);
+
+  const selectedCodes = useMemo<Set<string>>(() => {
+    const raw = params.get("contractors");
+    if (raw === null) return new Set(allCodes);
+    return new Set(raw.split(",").map((c) => c.trim()).filter((c) => allCodes.includes(c)));
+  }, [params, allCodes]);
+  const keep = (r: { contractorCode: string }) => selectedCodes.has(r.contractorCode);
+  const machines = allMachines.filter(keep);
+  const equipment = allEquipment.filter(keep);
+  const roads = allRoads.filter(keep);
   // In a range every row needs its date; one day stays uncluttered.
   const dayCol = (d: string) => (isRange ? [dayjs(d).format("ddd D MMM")] : []);
   const dayHead = isRange ? ["Date"] : [];
-  const inspections = (rfi.data?.data ?? []).filter((r) => r.status !== "draft");
+  const inspections = allInspections.filter(keep);
   const loadError = [week.error, rfi.error].find((e) => e instanceof HttpError) as HttpError | undefined;
+  const forecasts = allForecasts.filter(keep);
+
+  const colors = useMemo(() => contractorColorMap(allCodes), [allCodes]);
+  const filterItems = allCodes.map((code) => {
+    const n =
+      view === "plan"
+        ? allForecasts.filter((r) => r.contractorCode === code).length
+        : [...allMachines, ...allEquipment, ...allRoads, ...allInspections].filter((r) => r.contractorCode === code).length;
+    return { code, name: contractorNames.get(code), color: colors.get(code) ?? "#999", countLabel: `${n} รายการ` };
+  });
+  const setContractors = (next: Set<string>) => {
+    const p = new URLSearchParams(params);
+    if (next.size === allCodes.length) p.delete("contractors");
+    else p.set("contractors", [...next].sort().join(","));
+    setParams(p, { replace: true });
+  };
+  // Pairs of clashing road bookings (warn only — sorted out at the coordination meeting).
+  const clashingRoads = roads.filter((r) => r.conflict);
+  const rangeLabel = isRange ? `${formatThaiDate(from)} – ${formatThaiDate(to)}` : formatThaiDate(from);
 
   const setView = (next: View) => {
     const p = new URLSearchParams(params);
@@ -196,10 +149,15 @@ export function TodayRequestsPage() {
         title="Daily Request"
         subtitle={
           view === "plan"
-            ? "แผนงานและคำขอทั้งหมดของพรุ่งนี้ในที่เดียว — ใช้ในประชุมประสานงานประจำวัน"
+            ? "ประวัติแผนงานล่วงหน้าที่ผู้รับเหมาแจ้งไว้ (Tomorrow Forecast Activities) — เลือกช่วงวันที่ได้"
             : "คำขอประจำวันจากผู้รับเหมา (ส่งในรายงานบ่ายของวันก่อน) — เครื่องจักร อุปกรณ์ ถนน และ QAQC"
         }
-        actions={view === "requests" ? <DateRangeFields from={from} to={to} maxDays={62} onChange={setRange} /> : undefined}
+        actions={
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <DateRangeFields from={from} to={to} maxDays={62} onChange={setRange} />
+            {allCodes.length > 0 ? <ContractorFilterPopover items={filterItems} selectedCodes={selectedCodes} onChange={setContractors} /> : null}
+          </Stack>
+        }
       />
 
       <ToggleButtonGroup
@@ -213,25 +171,28 @@ export function TodayRequestsPage() {
         <ToggleButton value="requests" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
           <AssignmentOutlinedIcon fontSize="small" />
           คำขอประจำวัน
+          {clashingRoads.length > 0 ? (
+            <Chip size="small" color="error" label={`เส้นทางทับซ้อน ${clashingRoads.length}`} sx={{ height: 20, ml: 0.5 }} />
+          ) : null}
         </ToggleButton>
         <ToggleButton value="plan" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
           <EventNoteOutlinedIcon fontSize="small" />
-          แผนงานพรุ่งนี้{planLoading ? "" : ` (${agenda.length})`}
+          Tomorrow Forecast Activities{data ? ` (${forecasts.length})` : ""}
         </ToggleButton>
       </ToggleButtonGroup>
 
       {view === "plan" ? (
-        planError ? (
+        loadError ? (
           <Alert severity="error" sx={{ mb: 2 }}>
-            โหลดข้อมูลไม่สำเร็จ: {planError.message}
+            โหลดข้อมูลไม่สำเร็จ: {loadError.message}
           </Alert>
-        ) : planLoading ? (
+        ) : !data ? (
           <Stack spacing={2}>
             <Skeleton variant="rounded" height={120} />
             <Skeleton variant="rounded" height={240} />
           </Stack>
         ) : (
-          <TomorrowAgenda tomorrow={tomorrow} rows={agenda} />
+          <ForecastHistory rows={forecasts} rangeLabel={rangeLabel} fileTag={isRange ? `${from}_${to}` : from} />
         )
       ) : null}
 
@@ -248,6 +209,12 @@ export function TodayRequestsPage() {
         </Stack>
       ) : (
         <Stack spacing={3}>
+          {clashingRoads.length > 0 ? (
+            <Alert severity="error">
+              <b>มีการขอใช้เส้นทางทับซ้อนกัน {clashingRoads.length} รายการ</b> — ผู้รับเหมาต่างรายขอใช้ถนนเดียวกันในช่วงเวลาที่ทับกัน
+              ตรวจสอบในตาราง Road usage (แถวสีแดง) แล้วจัดคิวในที่ประชุมประสานงาน
+            </Alert>
+          ) : null}
           <Typography variant="body2" color="text.secondary">
             {machines.length} machine · {equipment.length} equipment · {roads.length} road · {inspections.length} RFI
           </Typography>
@@ -294,9 +261,13 @@ export function TodayRequestsPage() {
               head={[...dayHead, "Road / lane", "Time", "Contractor", "Next to", "วัตถุประสงค์"]}
               rows={roads.map((r) => ({
                 key: r.id,
+                tone: r.conflict ? ("error" as const) : undefined,
                 cells: [
                   ...dayCol(r.targetDate),
-                  <b key="r">{r.roadLocation}</b>,
+                  <Stack key="r" direction="row" spacing={0.75} alignItems="center">
+                    <b>{r.roadLocation}</b>
+                    {r.conflict ? <Chip size="small" color="error" label="ชนกัน" sx={{ height: 20 }} /> : null}
+                  </Stack>,
                   `${r.startTime}–${r.endTime}`,
                   <ContractorBadge key="c" code={r.contractorCode} />,
                   r.buildingName,

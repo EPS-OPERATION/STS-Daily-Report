@@ -6,7 +6,6 @@ import {
   PERMIT_TYPE_CODES,
   POSITION_CODES,
   READINESS_CODES,
-  SITE_EQUIPMENT_TYPES,
   WEATHER_CODES,
   allocationPeak,
   timeWindowsOverlap,
@@ -112,7 +111,8 @@ export const machinerySchema = z
   .refine((m) => m.allDay || m.startTime < m.endTime, { message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม", path: ["endTime"] });
 
 export const equipmentRequestSchema = z.object({
-  equipmentType: z.enum(asTuple(SITE_EQUIPMENT_TYPES), { errorMap: () => ({ message: "เลือกเครื่องมือ/อุปกรณ์" }) }),
+  // Free text: SITE_EQUIPMENT_TYPES is the suggestion list, contractors may type custom names.
+  equipmentType: z.string().trim().min(1, "ระบุเครื่องมือ/อุปกรณ์").max(120),
   qty: z.number().int().min(1, "อย่างน้อย 1").max(500),
   buildingId: z.string().min(1, "เลือกอาคาร"),
   purpose: z.string().trim().max(300).optional(),
@@ -124,11 +124,17 @@ export const permitSchema = z
     otherLabel: z.string().trim().max(120).optional(),
     buildingId: z.string().min(1, "เลือกอาคาร"),
     workers: z.number().int().min(1, "อย่างน้อย 1 คน").max(5000),
+    highRisk: z.boolean(),
+    taskName: z.string().trim().max(120),
+    supervisorName: z.string().trim().max(120),
   })
   .refine((p) => p.permitType !== "other" || Boolean(p.otherLabel), {
     message: "ระบุชื่องาน",
     path: ["otherLabel"],
-  });
+  })
+  // High-risk is the contractor's own call; once ticked, the task and its EPS supervisor are required.
+  .refine((p) => !p.highRisk || Boolean(p.taskName), { message: "ระบุชื่องานความเสี่ยงสูง", path: ["taskName"] })
+  .refine((p) => !p.highRisk || Boolean(p.supervisorName), { message: "ระบุผู้ควบคุมงาน (EPS)", path: ["supervisorName"] });
 
 const morningCrewSchema = z.object({ ...crewManpower, allocations: z.array(allocationSchema) });
 
@@ -142,12 +148,30 @@ export const morningSchema = z
     weather: z.enum(asTuple(WEATHER_CODES), { errorMap: () => ({ message: "เลือกสภาพอากาศ" }) }),
     temperatureC: z.number().min(-10).max(60).nullable(),
     humidityPct: z.number().int().min(0).max(100).nullable(),
-    equipment: z.record(z.enum(asTuple(SITE_EQUIPMENT_TYPES)), z.number().int().min(0).max(500)),
+    equipment: z.record(z.string(), count),
     crews: z.object({ CE: morningCrewSchema, ME: morningCrewSchema, EE: morningCrewSchema }),
   })
   .superRefine((v, ctx) => {
     if (v.startTime >= v.endTime) {
       ctx.addIssue({ code: "custom", path: ["endTime"], message: "เวลาออกงานต้องหลังเวลาเข้างาน" });
+    }
+    // Morning equipment: fixed list + contractor-added custom names. One row per
+    // name (case-insensitive), max 30 rows with qty > 0.
+    const used = Object.entries(v.equipment ?? {}).filter(([, n]) => (n ?? 0) > 0);
+    if (used.length > 30) {
+      ctx.addIssue({ code: "custom", path: ["equipment"], message: "เครื่องจักร/อุปกรณ์ได้สูงสุด 30 รายการ" });
+    }
+    const seen = new Set<string>();
+    for (const [name] of used) {
+      const key = name.trim().toLowerCase();
+      if (!key) {
+        ctx.addIssue({ code: "custom", path: ["equipment"], message: "ระบุชื่อเครื่องจักร/อุปกรณ์" });
+      } else if (key.length > 120) {
+        ctx.addIssue({ code: "custom", path: ["equipment"], message: "ชื่อเครื่องจักร/อุปกรณ์ยาวเกินไป" });
+      } else if (seen.has(key)) {
+        ctx.addIssue({ code: "custom", path: ["equipment"], message: `อุปกรณ์ "${name.trim()}" ซ้ำ` });
+      }
+      seen.add(key);
     }
     checkCrews(v.crews, v.disciplines, ctx);
     for (const d of v.disciplines) {
@@ -216,6 +240,15 @@ export const eveningSchema = z
     roadUsage: z.array(roadUsageSchema),
     // Materials on site today.
     materials: z.array(materialSchema).max(30),
+    // Tomorrow Forecast Activities (paper form R003): what + where.
+    forecasts: z
+      .array(
+        z.object({
+          description: z.string().trim().min(1, "ระบุรายละเอียดงาน").max(300),
+          buildingId: z.string().min(1, "เลือกพื้นที่ / อาคาร"),
+        }),
+      )
+      .max(20),
   })
   .superRefine((v, ctx) => {
     if (v.accidentOccurred === null) {
