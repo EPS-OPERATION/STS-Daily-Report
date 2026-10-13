@@ -1,11 +1,9 @@
-import { coordinationGeometryError, coordinationToday, COORDINATION_COLORS, COORDINATION_ICONS, type CoordinationIcon, type CoordinationInput, type CoordinationItem } from "@sts/shared";
+import { coordinationGeometryError, coordinationToday, COORDINATION_COLORS, COORDINATION_ICONS, isEpsStaff, type CoordinationIcon, type CoordinationInput, type CoordinationItem } from "@sts/shared";
 import AddOutlined from "@mui/icons-material/AddOutlined";
 import CheckOutlined from "@mui/icons-material/CheckOutlined";
-import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
+import FilterAltOffOutlined from "@mui/icons-material/FilterAltOffOutlined";
 import InfoOutlined from "@mui/icons-material/InfoOutlined";
-import PaletteOutlined from "@mui/icons-material/PaletteOutlined";
-import PentagonOutlined from "@mui/icons-material/PentagonOutlined";
-import TextFieldsOutlined from "@mui/icons-material/TextFieldsOutlined";
+import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -14,27 +12,41 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import MenuItem from "@mui/material/MenuItem";
+import InputAdornment from "@mui/material/InputAdornment";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Popover from "@mui/material/Popover";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import Paper from "@mui/material/Paper";
+import IconButton from "@mui/material/IconButton";
+import CloseOutlined from "@mui/icons-material/CloseOutlined";
+import ViewSidebarOutlined from "@mui/icons-material/ViewSidebarOutlined";
+import LockOutlined from "@mui/icons-material/LockOutlined";
+import PrintOutlined from "@mui/icons-material/PrintOutlined";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { useMe } from "@/features/auth/index.js";
+import { ContractorFilterPopover } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
-import { useCoordination, useCoordinationColor, useDeleteCoordination, useSaveCoordination } from "../hooks/use-coordination.js";
+import { useCoordination, useCoordinationColor, useDayLock, useDeleteCoordination, useSaveCoordination, useSaveDayNote } from "../hooks/use-coordination.js";
+import { DayLockBanner, DayLockStamp } from "./day-lock.js";
+import { DayNote } from "./day-note.js";
 import { coordinationFormSchema } from "../schemas/coordination.schema.js";
 import type { MapTool } from "./coordination-canvas.js";
-import { MachineGlyph } from "./machine-icon.js";
 import { CoordinationJobList } from "./coordination-job-list.js";
+import { CoordinationInspector } from "./coordination-inspector.js";
+import { TypePicker } from "./type-picker.js";
+import { DisplayOptions, TypeFilter, loadMapDisplay, saveMapDisplay, type MapDisplay } from "./map-filters.js";
 import { ICON_LABELS } from "../types/icon-labels.js";
 
 const CoordinationCanvas = lazy(() => import("./coordination-canvas.js").then((module) => ({ default: module.CoordinationCanvas })));
@@ -47,30 +59,24 @@ const inputOf = (item: CoordinationItem): CoordinationInput => ({
 // Auto-save editing: `working` is the item currently on the map (selected + editable).
 // `base` keeps the last persisted state so an invalid in-progress drawing can be reverted.
 interface Working { id: string; revision: number; base: CoordinationInput; input: CoordinationInput }
-// Shared type picker: icon grid used both by the "เพิ่ม" popover and the
-// advanced settings dialog (selected tile = preview of the current type).
-function TypePicker({ value, onPick }: { value?: CoordinationIcon; onPick: (icon: CoordinationIcon) => void }) {
-  return <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(72px, 1fr))", gap: 0.5 }}>
-    {COORDINATION_ICONS.map((icon) => {
-      const active = value === icon;
-      return <Button key={icon} variant="text" color="inherit" onClick={() => onPick(icon)}
-        sx={{ flexDirection: "column", gap: 0.5, py: 1, textTransform: "none", borderRadius: 1, bgcolor: active ? "action.selected" : "transparent" }}>
-        {icon === "text" ? <TextFieldsOutlined fontSize="small" /> : <MachineGlyph icon={icon} />}
-        <Typography variant="caption" noWrap color={active ? "text.primary" : "text.secondary"} sx={{ fontWeight: active ? 700 : 500 }}>{ICON_LABELS[icon]}</Typography>
-      </Button>;
-    })}
-  </Box>;
-}
 export function CoordinationWorkspace({ readOnly = false, compact = false }: { readOnly?: boolean; compact?: boolean }) {
   const { projectId, projects } = useCurrentProject();
+  const me = useMe();
   const [activeProject, setActiveProject] = useState(projectId);
   const [params, setParams] = useSearchParams();
   const date = params.get("mapDate") ?? coordinationToday();
-  const [filter, setFilter] = useState("all");
+  // EPS only (the API refuses others too); the report opens in a new tab and prints at once.
+  const canExport = !readOnly && !compact && Boolean(projectId) && isEpsStaff(me.data?.data.user.role);
+  const reportHref = `/site-coordination/report?${new URLSearchParams({ projectId: projectId ?? "", date, print: "1" })}`;
+  // Filters: contractors (null = all), work types, free-text search (title / note / code).
+  const [contractorIds, setContractorIds] = useState<Set<string> | null>(null);
+  const [types, setTypes] = useState<Set<CoordinationIcon>>(() => new Set(COORDINATION_ICONS));
+  const [search, setSearch] = useState("");
+  const [display, setDisplayState] = useState<MapDisplay>(loadMapDisplay);
+  const setDisplay = (next: MapDisplay) => { setDisplayState(next); saveMapDisplay(next); };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [working, setWorking] = useState<Working | null>(null);
   const [tool, setTool] = useState<MapTool>("move");
-  const [configOpen, setConfigOpen] = useState(false);
   const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null);
   const [textEditId, setTextEditId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -88,6 +94,17 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
   const save = useSaveCoordination(activeProject);
   const remove = useDeleteCoordination(activeProject);
   const changeColor = useCoordinationColor(activeProject);
+  const saveDayNote = useSaveDayNote(activeProject, date);
+  const dayLock = useDayLock(activeProject, date);
+  const [lockConfirm, setLockConfirm] = useState(false);
+  // Lock: finish any pending save, close the editor, then stamp the day.
+  const lockDay = async () => {
+    await flush(); selectItem(null); setTool("move");
+    try { await dayLock.mutateAsync(true); setLockConfirm(false); toast.success("ล็อกแผนวันนี้แล้ว"); } catch { toast.error("ล็อกแผนไม่สำเร็จ"); }
+  };
+  const unlockDay = async () => {
+    try { await dayLock.mutateAsync(false); toast.success("ปลดล็อกแล้ว — แก้ไขได้"); } catch { toast.error("ปลดล็อกไม่สำเร็จ"); }
+  };
   const data = query.data?.data;
   const selected = data?.items.find((v) => v.id === selectedId) ?? null;
   const company = data?.contractors.find((c) => c.id === (draft?.contractorId ?? selected?.contractorId));
@@ -95,8 +112,27 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
   const geometryError = draft ? coordinationGeometryError(draft.geometry) : null;
   const areaDirty = Boolean(working && (working.input.areaKind !== working.base.areaKind || JSON.stringify(working.input.geometry.points) !== JSON.stringify(working.base.geometry.points)));
   const busy = remove.isPending;
-  const items = data?.items.filter((item) => filter === "all" || item.contractorId === filter) ?? [];
-  const chipCompanies = data?.contractors.filter((c) => data.items.some((item) => item.contractorId === c.id) || filter === c.id || draft?.contractorId === c.id) ?? [];
+  const theme = useTheme();
+  const wide = useMediaQuery(theme.breakpoints.up("lg"));
+  // Back to a rectangle: the bounding box of the current corners.
+  const makeRectangle = () => {
+    const w = workingRef.current;
+    if (!w) return;
+    setTool("move");
+    if (w.input.areaKind === "rectangle") return;
+    const xs = w.input.geometry.points.map((p) => p.x), ys = w.input.geometry.points.map((p) => p.y);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    patchItem({ areaKind: "rectangle", geometry: { type: "polygon", points: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }] } });
+  };
+  const codeOf = (id: string) => data?.contractors.find((c) => c.id === id)?.code ?? "";
+  const q = search.trim().toLowerCase();
+  const items = data?.items.filter((item) =>
+    (!contractorIds || contractorIds.has(item.contractorId))
+    && types.has(item.icon)
+    && (!q || `${item.title} ${item.note ?? ""} ${codeOf(item.contractorId)}`.toLowerCase().includes(q))) ?? [];
+  const typeFiltered = types.size < COORDINATION_ICONS.length;
+  const isFiltered = Boolean(contractorIds) || typeFiltered || Boolean(q);
+  const clearFilters = () => { selectItem(null); setContractorIds(null); setTypes(new Set(COORDINATION_ICONS)); setSearch(""); };
   const updateWorking = (next: Working | null) => { workingRef.current = next; setWorking(next); };
   const finish = () => {
     const w = workingRef.current;
@@ -104,7 +140,6 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
     setTool("move");
   };
   const drawPolygon = () => {
-    setConfigOpen(false);
     // Keep the existing corners (rectangle corners become polygon points) so the
     // area is refined in place instead of being wiped; "วาดใหม่" clears inside the mode.
     if (workingRef.current?.input.areaKind !== "polygon") patchItem({ areaKind: "polygon" });
@@ -150,7 +185,8 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
       ? { id: item.id, revision: item.revision, base: inputOf(item), input: inputOf(item) } : null);
   };
   const createItem = async (icon: CoordinationInput["icon"]) => {
-    const contractorId = filter !== "all" && editableCompanies.some((c) => c.id === filter) ? filter : editableCompanies[0]?.id;
+    const only = contractorIds && contractorIds.size === 1 ? [...contractorIds][0] : null;
+    const contractorId = only && editableCompanies.some((c) => c.id === only) ? only : editableCompanies[0]?.id;
     if (!contractorId || creating || workingRef.current) return;
     setCreating(true);
     try {
@@ -184,7 +220,7 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
   };
   useEffect(() => {
     if (projectId === activeProject) return;
-    updateWorking(null); setSelectedId(null); setFilter("all"); setActiveProject(projectId);
+    updateWorking(null); setSelectedId(null); setContractorIds(null); setActiveProject(projectId);
   }, [projectId, activeProject]);
   useEffect(() => {
     if (!pending) return;
@@ -195,22 +231,62 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
   // Filters live in the PageHeader actions on full pages (same pattern as Manpower/Safety);
   // the compact dashboard keeps them on a slim row.
   const counter = <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>{pending ? "กำลังบันทึก… · " : ""}{projects.find((p) => p.id === activeProject)?.code} · {items.length} รายการ</Typography>;
-  const dateControl = <DatePicker
+  const goToDate = (next: string) => {
+    void flush(); updateWorking(null); setSelectedId(null); const p = new URLSearchParams(params); p.set("mapDate", next); setParams(p);
+  };
+  const today = coordinationToday();
+  const quickDays = [
+    { key: dayjs(today).subtract(1, "day").format("YYYY-MM-DD"), label: "เมื่อวาน" },
+    { key: today, label: "วันนี้" },
+    { key: dayjs(today).add(1, "day").format("YYYY-MM-DD"), label: "พรุ่งนี้" },
+  ];
+  const datePicker = <DatePicker
       label="วันที่ทำงาน"
       value={dayjs(date)}
-      onChange={(value) => {
-        if (!value || !value.isValid()) return;
-        const next = value.format("YYYY-MM-DD");
-        void flush(); updateWorking(null); setSelectedId(null); const p = new URLSearchParams(params); p.set("mapDate", next); setParams(p);
-      }}
+      onChange={(value) => { if (value && value.isValid()) goToDate(value.format("YYYY-MM-DD")); }}
       format="D MMM YYYY"
       disabled={busy}
-      slotProps={{ textField: { size: "small", sx: { width: 170 } } }}
+      slotProps={{ textField: { size: "small", sx: { width: 165 } } }}
     />;
-  const contractorControl = <TextField select label="ผู้รับเหมา" size="small" value={filter} sx={{ width: 240 }} onChange={(e) => { void flush(); updateWorking(null); setSelectedId(null); setFilter(e.target.value); }}>
-      <MenuItem value="all">ทุกบริษัท</MenuItem>{data?.contractors.map((c) => <MenuItem key={c.id} value={c.id}>{c.code} · {c.name}</MenuItem>)}
-    </TextField>;
+  const quickDayControl = <ToggleButtonGroup exclusive size="small" value={quickDays.some((d) => d.key === date) ? date : null} onChange={(_, v: string | null) => v && goToDate(v)}
+    sx={{ height: 40, "& .MuiToggleButton-root": { px: 1.5, textTransform: "none", fontWeight: 600, whiteSpace: "nowrap", flex: { xs: 1, sm: "none" } }, width: { xs: "100%", sm: "auto" } }}>
+    {quickDays.map((d) => <ToggleButton key={d.key} value={d.key}>{d.label}</ToggleButton>)}
+  </ToggleButtonGroup>;
+  const dateControl = datePicker;
+  // Same multi-select popover as Manpower / Daily Request (colour, search, select all, job count).
+  const allContractorCodes = data?.contractors.map((c) => c.code) ?? [];
+  const contractorControl = data ? <ContractorFilterPopover
+      size="medium"
+      items={data.contractors.map((c) => ({ code: c.code, name: c.name, color: c.color, countLabel: `${data.items.filter((v) => v.contractorId === c.id).length} งาน` }))}
+      selectedCodes={new Set(contractorIds ? data.contractors.filter((c) => contractorIds.has(c.id)).map((c) => c.code) : allContractorCodes)}
+      onChange={(codes) => {
+        void flush(); updateWorking(null); setSelectedId(null);
+        setContractorIds(codes.size === 0 || codes.size === allContractorCodes.length ? null : new Set(data.contractors.filter((c) => codes.has(c.code)).map((c) => c.id)));
+      }}
+    /> : null;
+  const typeCounts = new Map<CoordinationIcon, number>();
+  for (const item of data?.items ?? []) typeCounts.set(item.icon, (typeCounts.get(item.icon) ?? 0) + 1);
+  const typeControl = <TypeFilter selected={types} counts={typeCounts} onChange={(next) => { selectItem(null); setTypes(next); }} />;
+  const searchControl = <TextField size="small" placeholder="ค้นหางาน / หมายเหตุ" value={search} onChange={(e) => setSearch(e.target.value)} sx={{ width: { xs: "100%", sm: 220 } }}
+    slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchOutlined fontSize="small" /></InputAdornment> } }} />;
   const filterControls = <>{dateControl}{contractorControl}</>;
+  const inspector = selected ? <CoordinationInspector
+    item={selected}
+    draft={draft}
+    contractors={data?.contractors ?? []}
+    editableContractors={editableCompanies}
+    drawing={tool === "polygon"}
+    areaDirty={areaDirty}
+    geometryError={geometryError}
+    saving={pending || save.isPending}
+    onPatch={patchItem}
+    onDrawFree={drawPolygon}
+    onMakeRectangle={makeRectangle}
+    onResetArea={() => { const w = workingRef.current; if (w) patchItem({ areaKind: w.base.areaKind, geometry: w.base.geometry }); }}
+    onDelete={() => requestDelete(selected)}
+    onClose={() => selectItem(null)}
+    onEditColor={!readOnly && data?.canManageColors ? (c) => { changeColor.reset(); setColorTarget(c.id); setChosenColor(c.color); setColorRevision(c.revision); } : undefined}
+  /> : null;
   return <Box>
     {!compact && <PageHeader title="Map · ผังประสานงาน" subtitle="แผนรายวัน · สีบอกผู้รับเหมา · ไอคอน/ข้อความบอกประเภทงาน · พื้นที่แสดงขอบเขตใช้งาน" />}
     {compact && <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "center" }} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
@@ -220,86 +296,104 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
     {query.isError && <Alert severity="error" action={<Button color="inherit" onClick={() => void query.refetch()}>ลองใหม่</Button>} sx={{ mb: 2 }}>{query.error.message}</Alert>}
     {!data && !query.isError && <Skeleton variant="rounded" height={480} />}
     {data && <>
-      {chipCompanies.length > 0 && <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
-        {chipCompanies.map((c) => {
-          const active = filter === c.id;
-          return <Chip key={c.id} size="small" variant="outlined"
-            label={`${c.code} · ${data.items.filter((v) => v.contractorId === c.id).length}`}
-            icon={<Box component="span" sx={{ width: 9, height: 9, bgcolor: c.color, borderRadius: "50%" }} />}
-            onClick={() => { selectItem(null); setFilter(active ? "all" : c.id); }}
-            onDelete={!readOnly && data.canManageColors ? () => { changeColor.reset(); setColorTarget(c.id); setChosenColor(c.color); setColorRevision(c.revision); } : undefined}
-            deleteIcon={<PaletteOutlined aria-label={`ตั้งสี ${c.code}`} sx={{ fontSize: 15 }} />}
-            sx={{ borderColor: active ? c.color : "divider", bgcolor: active ? `${c.color}1F` : "transparent", fontWeight: active ? 700 : 500, "& .MuiChip-icon": { ml: 1, mr: -0.5 }, "& .MuiChip-deleteIcon": { ml: 0.25, mr: 0.75 } }} />;
-        })}
-      </Stack>}
-      {!readOnly && !editableCompanies.length && <Alert severity="info" sx={{ mb: 2 }}>บัญชีนี้ยังไม่ได้ผูกกับผู้รับเหมาในโครงการ จึงเพิ่มหรือแก้รายการงานไม่ได้</Alert>}
+      {!readOnly && !data.lock && !editableCompanies.length && <Alert severity="info" sx={{ mb: 2 }}>บัญชีนี้ยังไม่ได้ผูกกับผู้รับเหมาในโครงการ จึงเพิ่มหรือแก้รายการงานไม่ได้</Alert>}
       <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, overflow: "hidden", bgcolor: "background.paper", mb: compact ? 0 : 2 }}>
-        {!compact && <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center" sx={{ px: 1.5, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
-          {dateControl}
-          <Box sx={{ ml: "auto", display: { xs: "block", md: "none" } }}>{counter}</Box>
-          {contractorControl}
-          {!readOnly && <Button startIcon={<AddOutlined />} onClick={(e) => setAddAnchor(e.currentTarget)} disabled={!editableCompanies.length || creating || Boolean(draft)} sx={{ whiteSpace: "nowrap" }}>เพิ่ม</Button>}
-          <Box sx={{ ml: "auto", display: { xs: "none", md: "block" } }}>{counter}</Box>
+        {!compact && <Stack spacing={1.25} sx={{ px: 1.5, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            {datePicker}
+            {quickDayControl}
+            <Box sx={{ flex: 1 }} />
+            {!readOnly && <Button variant="contained" disableElevation startIcon={<AddOutlined />} onClick={(e) => setAddAnchor(e.currentTarget)} disabled={!editableCompanies.length || creating || Boolean(draft)}
+              sx={{ whiteSpace: "nowrap", height: 40, px: 2.25, width: { xs: "100%", sm: "auto" } }}>เพิ่มงาน</Button>}
+            {!readOnly && data.canLock && !data.lock && <Button variant="outlined" color="inherit" startIcon={<LockOutlined />} onClick={() => setLockConfirm(true)}
+              sx={{ whiteSpace: "nowrap", height: 40, width: { xs: "100%", sm: "auto" }, bgcolor: "background.paper" }}>ล็อกแผน</Button>}
+            {canExport && <Button variant="outlined" color="inherit" startIcon={<PrintOutlined />} href={reportHref} target="_blank" rel="noopener"
+              sx={{ whiteSpace: "nowrap", height: 40, width: { xs: "100%", sm: "auto" }, bgcolor: "background.paper" }}>รายงาน PDF</Button>}
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ "& > .MuiBadge-root, & > .MuiButton-root": { flex: { xs: "1 1 100%", sm: "none" } }, "& > .MuiBadge-root > .MuiButton-root": { width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "space-between", sm: "center" } } }}>
+            {contractorControl}
+            {typeControl}
+            {searchControl}
+            <Box sx={{ flex: 1, display: { xs: "none", sm: "block" } }} />
+            {counter}
+            <DisplayOptions value={display} onChange={setDisplay} />
+          </Stack>
         </Stack>}
-        <Box sx={{ position: "relative" }}>
+        {data.lock && <DayLockBanner lock={data.lock} canUnlock={!readOnly && data.canLock} busy={dayLock.isPending} onUnlock={() => void unlockDay()} />}
+        {!compact && isFiltered && <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: "action.hover" }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>กำลังกรอง · แสดง {items.length} จาก {data.items.length} งาน</Typography>
+          {contractorIds && <Chip size="small" label={`ผู้รับเหมา: ${data.contractors.filter((c) => contractorIds.has(c.id)).map((c) => c.code).join(", ")}`} onDelete={() => { selectItem(null); setContractorIds(null); }} />}
+          {typeFiltered && <Chip size="small" label={`ประเภท: ${types.size ? [...types].map((t) => ICON_LABELS[t]).join(", ") : "ไม่ได้เลือก"}`} onDelete={() => { selectItem(null); setTypes(new Set(COORDINATION_ICONS)); }} />}
+          {q && <Chip size="small" label={`ค้นหา: "${search.trim()}"`} onDelete={() => setSearch("")} />}
+          <Button size="small" startIcon={<FilterAltOffOutlined fontSize="small" />} onClick={clearFilters} sx={{ ml: "auto" }}>ล้างตัวกรอง</Button>
+        </Stack>}
+        {/* map + detail panel (beside the map on wide screens, below it otherwise) */}
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: !compact && (display.jobList || selected) ? "minmax(0, 1fr) 360px" : "1fr" } }}>
+        <Box sx={{ position: "relative", minWidth: 0 }}>
+          {data.lock && <DayLockStamp lock={data.lock} date={date} small={compact} />}
           <Suspense fallback={<Skeleton variant="rounded" height={compact ? 390 : 620} />}><CoordinationCanvas map={data.map} contractors={data.contractors} items={items} selectedId={selectedId} draft={draft} draftId={working?.id} tool={tool} compact={compact}
-            onSelect={selectItem} onChange={patchItem} onFinish={finish} onOpenSettings={() => { if (workingRef.current) setConfigOpen(true); }}
-            onDeselect={() => selectItem(null)} onDelete={() => { if (selected) requestDelete(selected); }} onEditArea={drawPolygon}
-            areaDirty={areaDirty} onResetArea={() => { const w = workingRef.current; if (w) patchItem({ areaKind: w.base.areaKind, geometry: w.base.geometry }); }}
-            textEditing={textEditId !== null && textEditId === working?.id} onEditText={() => { if (workingRef.current) setTextEditId(workingRef.current.id); }} /></Suspense>
-          {selected && !textEditId && (
-            <Box sx={{ position: "absolute", left: 8, bottom: 8, maxWidth: "min(360px, calc(100% - 16px))", px: 1.5, py: 1.25, bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderLeft: "4px solid", borderLeftColor: company?.color ?? "divider", borderRadius: 1, boxShadow: 2, zIndex: 2 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700 }}>{company?.code} · {company?.name}</Typography>
+            onSelect={selectItem} onChange={patchItem} onFinish={finish}
+            onDeselect={() => selectItem(null)}
+            textEditing={textEditId !== null && textEditId === working?.id} onEditText={() => { if (workingRef.current) setTextEditId(workingRef.current.id); }}
+            display={display} /></Suspense>
+          {/* Detail card for the clicked job (contractor · title · type · area · full note); on every map. */}
+          {(compact || display.detailCard) && selected && !textEditId && tool !== "polygon" && (
+            <Box sx={{ position: "absolute", left: 12, top: 44, width: "min(340px, calc(100% - 24px))", px: 1.75, py: 1.5, bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 2, boxShadow: "0 6px 20px rgba(15, 23, 42, 0.12)", zIndex: 2 }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
+                <Box component="span" sx={{ width: 10, height: 10, borderRadius: "3px", bgcolor: company?.color ?? "divider", flexShrink: 0 }} />
+                <Typography variant="caption" sx={{ fontWeight: 700 }}>{company?.code}</Typography>
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1, minWidth: 0 }}>{company?.name}</Typography>
+                <IconButton size="small" aria-label="ปิดรายละเอียด" onClick={() => selectItem(null)} sx={{ p: 0.25, mr: -0.75 }}><CloseOutlined sx={{ fontSize: 16 }} /></IconButton>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                {ICON_LABELS[(draft ?? selected).icon]} · {(draft ?? selected).areaKind === "polygon" ? `พื้นที่รูปทรงอิสระ ${(draft ?? selected).geometry.points.length} จุดมุม` : "พื้นที่สี่เหลี่ยม"}
+              </Typography>
               <Typography variant="body2" sx={{ fontWeight: 700 }}>{draft?.title ?? selected.title}</Typography>
               <Typography variant="body2" color={(draft?.note ?? selected.note) ? "text.primary" : "text.secondary"} sx={{ whiteSpace: "pre-line", mt: 0.25 }}>
                 {(draft?.note ?? selected.note) || "ไม่มีหมายเหตุ"}
               </Typography>
             </Box>
           )}
+          {!compact && !display.jobList && !selected && (
+            <Button size="small" variant="contained" disableElevation startIcon={<ViewSidebarOutlined sx={{ transform: "scaleX(-1)" }} />} onClick={() => setDisplay({ ...display, jobList: true })}
+              sx={{ position: "absolute", top: 44, right: 0, zIndex: 3, borderTopRightRadius: 0, borderBottomRightRadius: 0, textTransform: "none", whiteSpace: "nowrap", boxShadow: "0 4px 12px rgba(15, 23, 42, 0.18)" }}>
+              รายการงาน · {items.length}
+            </Button>
+          )}
           {!items.length && !draft && (
             <Stack direction="row" spacing={1} alignItems="center" sx={{ position: "absolute", top: 48, right: 8, maxWidth: "calc(100% - 16px)", px: 2, py: 1, bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 999, pointerEvents: "none" }}>
               <InfoOutlined sx={{ fontSize: 18, color: "info.main" }} />
               <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                ไม่มีรายการงาน{filter === "all" ? "" : "ของบริษัทที่เลือก"}ในวันที่ {dayjs(date).format("D MMM YYYY")}{!readOnly ? " — กด «เพิ่มรายการงาน» เพื่อเริ่มวางแผน" : ""}
+                ไม่มีรายการงาน{isFiltered ? "ที่ตรงกับตัวกรอง" : ""}ในวันที่ {dayjs(date).format("D MMM YYYY")}{!readOnly ? " — กด «เพิ่มรายการงาน» เพื่อเริ่มวางแผน" : ""}
               </Typography>
             </Stack>
           )}
         </Box>
+        {!compact && selected && wide ? <Box sx={{ borderLeft: "1px solid", borderColor: "divider", height: 652, minHeight: 0 }}>{inspector}</Box>
+          : !compact && display.jobList && <CoordinationJobList embedded items={items} contractors={data.contractors} selectedId={selectedId} onSelect={selectItem} onCollapse={() => setDisplay({ ...display, jobList: false })}
+            footer={<DayNote date={date} dayNote={data.dayNote} canEdit={!readOnly && data.canEditDayNote} onSave={(note) => saveDayNote.mutateAsync(note)} />} />}
+        </Box>
       </Box>
+      {!compact && selected && !wide && <Paper elevation={8} sx={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 1200, maxHeight: "48vh", display: "flex", flexDirection: "column", borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: "hidden" }}>
+        <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: "divider", mx: "auto", mt: 1 }} />
+        {inspector}
+      </Paper>}
       {compact && selected && <Typography variant="body2" sx={{ mt: 1 }}>{company?.code} · {selected.title}{selected.note ? ` — ${selected.note}` : ""}</Typography>}
-      {!compact && <CoordinationJobList items={items} contractors={data.contractors} selectedId={selectedId} onSelect={selectItem} />}
     </>}
     <Popover open={Boolean(addAnchor)} anchorEl={addAnchor} onClose={() => setAddAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "left" }} transformOrigin={{ vertical: "top", horizontal: "left" }} slotProps={{ paper: { sx: { p: 1, mt: 0.5 } } }}>
       <Box sx={{ p: 1 }}>
         <TypePicker onPick={(icon) => { setAddAnchor(null); void createItem(icon); }} />
       </Box>
     </Popover>
-    <Dialog open={configOpen && Boolean(draft)} onClose={() => setConfigOpen(false)} fullWidth maxWidth="sm">
-      <DialogTitle>ตั้งค่ารายการงาน</DialogTitle>
+    <Dialog open={lockConfirm} onClose={dayLock.isPending ? undefined : () => setLockConfirm(false)} fullWidth maxWidth="xs">
+      <DialogTitle>ล็อกแผนวันที่ {dayjs(date).format("D MMM YYYY")}?</DialogTitle>
       <DialogContent>
-        {draft && <Stack spacing={2} sx={{ pt: 1 }}>
-          <TextField autoFocus label="ชื่องาน" multiline maxRows={4} value={draft.title} onChange={(e) => patchItem({ title: e.target.value })}
-            error={!draft.title.trim()} helperText={!draft.title.trim() ? "ระบุชื่องาน" : undefined} />
-          <TextField label="หมายเหตุ / รายละเอียด" multiline minRows={2} maxRows={6} value={draft.note ?? ""} onChange={(e) => patchItem({ note: e.target.value.slice(0, 1000) })}
-            placeholder="เช่น ยก A Frame 09:00–12:00 · ปิดถนน R2 ชั่วคราว" helperText="ไม่แสดงบนผัง — ดูได้เมื่อคลิกรายการ และในรายการงานใต้ผัง" />
-          <TextField select label="ผู้รับเหมา" value={draft.contractorId} onChange={(e) => patchItem({ contractorId: e.target.value })}>
-            {editableCompanies.map((c) => <MenuItem key={c.id} value={c.id}>{c.code} · {c.name}</MenuItem>)}
-          </TextField>
-          <Stack spacing={0.5}>
-            <Typography variant="caption" color="text.secondary">ประเภท</Typography>
-            <TypePicker value={draft.icon} onPick={(icon) => patchItem({ icon })} />
-          </Stack>
-          <FormControlLabel control={<Switch checked={draft.linkArea !== false} onChange={(e) => patchItem({ linkArea: e.target.checked })} />} label="เชื่อมเส้นกลับกับพื้นที่" />
-          <Typography variant="body2" color={geometryError ? "warning.dark" : "text.secondary"}>{geometryError ?? `พื้นที่ ${draft.geometry.points.length} จุดมุม · ${company?.code ?? ""}`}</Typography>
-          {draft.areaKind === "polygon" && <Button variant="outlined" startIcon={<PentagonOutlined />} onClick={drawPolygon}>แก้ไขพื้นที่ (Polygon)</Button>}
-          <Typography variant="caption" color="text.secondary">แก้บนผังได้ทันที (ลาก / หมุน / วาดพื้นที่) — ทุกอย่างบันทึกอัตโนมัติ</Typography>
-        </Stack>}
+        <Typography variant="body2">หลังล็อก ทุกคน (รวมผู้รับเหมา) จะเพิ่ม ย้าย แก้ไข หรือลบงาน และแก้หมายเหตุประจำวันของวันนี้ไม่ได้ จนกว่า EPS จะกดปลดล็อก</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{data?.items.length ?? 0} งานบนผังวันนี้</Typography>
       </DialogContent>
-      <DialogActions sx={{ justifyContent: "space-between" }}>
-        {selected && !readOnly && data?.editableContractorIds.includes(selected.contractorId)
-          ? <Button color="error" startIcon={<DeleteOutlined />} onClick={() => { setConfigOpen(false); requestDelete(selected); }}>ลบรายการ</Button>
-          : <Box />}
-        <Button onClick={() => setConfigOpen(false)}>ปิด</Button>
+      <DialogActions>
+        <Button color="inherit" disabled={dayLock.isPending} onClick={() => setLockConfirm(false)}>ยกเลิก</Button>
+        <Button variant="contained" disableElevation startIcon={<LockOutlined />} disabled={dayLock.isPending} onClick={() => void lockDay()}>ล็อกแผน</Button>
       </DialogActions>
     </Dialog>
     <Dialog open={Boolean(deleteTarget)} onClose={remove.isPending ? undefined : () => setDeleteTarget(null)} fullWidth maxWidth="xs">

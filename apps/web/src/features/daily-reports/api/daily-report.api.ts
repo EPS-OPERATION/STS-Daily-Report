@@ -1,3 +1,4 @@
+import type { ReportRoadUsage } from "../types/daily-report.types.js";
 import type { InspectionResult, PhotoCategory, RequestStatus } from "@sts/shared";
 import { http } from "@/services/http/client.js";
 import type {
@@ -20,6 +21,9 @@ import type {
 } from "../types/daily-report.types.js";
 
 export const dailyReportApi = {
+  adjustRoadUsage(projectId: string, id: string, body: { startTime: string; endTime: string }): Promise<{ data: ReportRoadUsage }> {
+    return http.patch(`/projects/${projectId}/daily-reports/road-usage/${id}`, body);
+  },
   printReport(reportId: string): Promise<{ data: PrintReport }> {
     return http.get(`/daily-reports/${reportId}/print`);
   },

@@ -1,4 +1,4 @@
-import { and, asc, between, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
+import { and, asc, between, count, desc, eq, ilike, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import {
   buildings,
   contractors,
@@ -15,10 +15,12 @@ import {
   dailyReportRoadUsage,
   dailyReports,
   inspectionRequests,
+  users,
 } from "@/db/schema/index.js";
 import { DISCIPLINE_CODES, allocationDayShares } from "@sts/shared";
 import type { Db, QueryDb } from "@/db/client.js";
 import type { BookingRow, CrewInput, EveningInput, MorningInput, RoadRow } from "./daily-report.type.js";
+import { carryRoadAdjustments, type AdjustedRoadRequest } from "./daily-report.road.js";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -149,6 +151,8 @@ export async function listEquipmentRequestsInRange(db: Db, projectId: string, fr
     .orderBy(asc(dailyReportEquipmentRequests.targetDate), asc(dailyReportEquipmentRequests.equipmentType));
 }
 
+// startTime/endTime = what EPS settled (the contractor's request until EPS changes it). Conflicts, lists
+// and print read these; requested* keeps the contractor's own times for their form.
 const roadColumns = {
   id: dailyReportRoadUsage.id,
   targetDate: dailyReportRoadUsage.targetDate,
@@ -156,8 +160,13 @@ const roadColumns = {
   buildingCode: buildings.code,
   buildingName: buildings.name,
   roadLocation: dailyReportRoadUsage.roadLocation,
-  startTime: dailyReportRoadUsage.startTime,
-  endTime: dailyReportRoadUsage.endTime,
+  startTime: sql<string>`coalesce(${dailyReportRoadUsage.adjustedStartTime}, ${dailyReportRoadUsage.startTime})`,
+  endTime: sql<string>`coalesce(${dailyReportRoadUsage.adjustedEndTime}, ${dailyReportRoadUsage.endTime})`,
+  requestedStartTime: dailyReportRoadUsage.startTime,
+  requestedEndTime: dailyReportRoadUsage.endTime,
+  adjusted: sql<boolean>`${dailyReportRoadUsage.adjustedAt} is not null`,
+  adjustedAt: dailyReportRoadUsage.adjustedAt,
+  adjustedByName: sql<string | null>`coalesce(${users.displayName}, ${users.email})`,
   purpose: dailyReportRoadUsage.purpose,
   contractorId: dailyReports.contractorId,
   contractorCode: contractors.code,
@@ -170,7 +179,8 @@ function roadQuery(db: Db) {
     .from(dailyReportRoadUsage)
     .innerJoin(dailyReports, eq(dailyReportRoadUsage.reportId, dailyReports.id))
     .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
-    .innerJoin(buildings, eq(dailyReportRoadUsage.buildingId, buildings.id));
+    .innerJoin(buildings, eq(dailyReportRoadUsage.buildingId, buildings.id))
+    .leftJoin(users, eq(dailyReportRoadUsage.adjustedBy, users.id));
 }
 
 export async function listRoadUsage(db: Db, reportId: string): Promise<RoadRow[]> {
@@ -672,6 +682,8 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
     await tx.delete(dailyReportMachinery).where(eq(dailyReportMachinery.reportId, reportId));
     await tx.delete(dailyReportEquipmentRequests).where(eq(dailyReportEquipmentRequests.reportId, reportId));
     await tx.delete(dailyReportPermits).where(eq(dailyReportPermits.reportId, reportId));
+    // EPS time changes survive a re-sent report when the same request comes back unchanged (carryRoadAdjustments).
+    const carriedRoads = carryRoadAdjustments(await listAdjustedRoads(tx, reportId), input.roadUsage);
     await tx.delete(dailyReportRoadUsage).where(eq(dailyReportRoadUsage.reportId, reportId));
     await tx.delete(dailyReportMaterials).where(eq(dailyReportMaterials.reportId, reportId));
     await tx.delete(dailyReportForecasts).where(eq(dailyReportForecasts.reportId, reportId));
@@ -718,7 +730,7 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
     }
     if (input.roadUsage.length > 0) {
       await tx.insert(dailyReportRoadUsage).values(
-        input.roadUsage.map((r) => ({
+        input.roadUsage.map((r, i) => ({
           reportId,
           targetDate: tomorrow,
           buildingId: r.buildingId,
@@ -726,6 +738,7 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
           startTime: r.startTime,
           endTime: r.endTime,
           purpose: r.purpose.trim(),
+          ...(carriedRoads[i] ?? {}),
         })),
       );
     }
@@ -1034,4 +1047,43 @@ export async function listPermitDetailsInRange(db: Db, projectId: string, from: 
     .innerJoin(buildings, eq(dailyReportPermits.buildingId, buildings.id))
     .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReportPermits.targetDate, from, to)))
     .orderBy(asc(dailyReportPermits.targetDate), asc(contractors.code));
+}
+
+// EPS time change: only the adjusted window is written; the contractor's request stays in start/end.
+export async function getRoadUsageForProject(db: Db, projectId: string, id: string) {
+  const rows = await roadQuery(db).where(and(eq(dailyReportRoadUsage.id, id), eq(dailyReports.projectId, projectId))).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function setRoadAdjustment(db: Db, id: string, value: { startTime: string; endTime: string; byId: string; at: Date } | null) {
+  await db
+    .update(dailyReportRoadUsage)
+    .set(
+      value
+        ? { adjustedStartTime: value.startTime, adjustedEndTime: value.endTime, adjustedBy: value.byId, adjustedAt: value.at }
+        : { adjustedStartTime: null, adjustedEndTime: null, adjustedBy: null, adjustedAt: null },
+    )
+    .where(eq(dailyReportRoadUsage.id, id));
+}
+
+// EPS changes already on this report, read before a re-sent report replaces its road rows.
+export async function listAdjustedRoads(db: QueryDb, reportId: string): Promise<AdjustedRoadRequest[]> {
+  const rows = await db
+    .select({
+      buildingId: dailyReportRoadUsage.buildingId,
+      roadLocation: dailyReportRoadUsage.roadLocation,
+      startTime: dailyReportRoadUsage.startTime,
+      endTime: dailyReportRoadUsage.endTime,
+      adjustedStartTime: dailyReportRoadUsage.adjustedStartTime,
+      adjustedEndTime: dailyReportRoadUsage.adjustedEndTime,
+      adjustedBy: dailyReportRoadUsage.adjustedBy,
+      adjustedAt: dailyReportRoadUsage.adjustedAt,
+    })
+    .from(dailyReportRoadUsage)
+    .where(and(eq(dailyReportRoadUsage.reportId, reportId), isNotNull(dailyReportRoadUsage.adjustedAt)));
+  return rows.flatMap((r) =>
+    r.adjustedStartTime && r.adjustedEndTime && r.adjustedAt
+      ? [{ ...r, adjustedStartTime: r.adjustedStartTime, adjustedEndTime: r.adjustedEndTime, adjustedAt: r.adjustedAt }]
+      : [],
+  );
 }

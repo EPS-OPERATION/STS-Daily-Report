@@ -12,6 +12,7 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
+import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -41,6 +42,11 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
     );
   }, [rows, contractor, search]);
   const filtered = contractor !== "all" || search.trim() !== "";
+  // Long plans page through the rows; the filters above still apply to all of them.
+  const [page, setPage] = useState(0);
+  const [perPage, setPerPage] = useState(25);
+  const current = Math.min(page, Math.max(0, Math.ceil(visible.length / perPage) - 1));
+  const pageRows = visible.slice(current * perPage, (current + 1) * perPage);
 
   const exportCsv = () => {
     const head = ["Date", "Contractor", "Description", "Area"];
@@ -147,7 +153,7 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
               </TableRow>
             </TableHead>
             <TableBody>
-              {visible.map((r) => (
+              {pageRows.map((r) => (
                 <TableRow key={r.id} hover>
                   <TableCell sx={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{formatThaiDate(r.targetDate)}</TableCell>
                   <TableCell>
@@ -178,6 +184,21 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
         </TableContainer>
       )}
 
+      {visible.length > 0 ? (
+        <TablePagination
+          component="div"
+          count={visible.length}
+          page={current}
+          onPageChange={(_, p) => setPage(p)}
+          rowsPerPage={perPage}
+          onRowsPerPageChange={(e) => {
+            setPerPage(Number(e.target.value));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[25, 50, 100]}
+          labelRowsPerPage="แถวต่อหน้า"
+        />
+      ) : null}
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 2.5, py: 1.5, borderTop: 1, borderColor: "divider" }}>
         {filtered ? `แสดง ${visible.length} จาก ${rows.length} รายการ` : `${rows.length} รายการ`}
       </Typography>

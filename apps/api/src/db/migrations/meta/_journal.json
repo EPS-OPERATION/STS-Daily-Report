@@ -169,6 +169,27 @@
       "when": 1791890419424,
       "tag": "0023_uneven_shocker",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791897182771,
+      "tag": "0024_messy_argent",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791897903925,
+      "tag": "0025_light_exodus",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791903182251,
+      "tag": "0026_unknown_wiccan",
+      "breakpoints": true
     }
   ]
 }

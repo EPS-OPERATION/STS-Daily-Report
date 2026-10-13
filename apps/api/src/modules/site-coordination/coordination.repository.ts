@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { CoordinationInput } from "@sts/shared";
 import type { QueryDb } from "@/db/client.js";
-import { contractors, coordinationColors, coordinationItems, coordinationMaps, projectContractors } from "@/db/schema/index.js";
+import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItems, coordinationMaps, projectContractors, users } from "@/db/schema/index.js";
 
 export async function getMap(db: QueryDb, projectId: string, lock = false) {
   const query = db.select().from(coordinationMaps).where(eq(coordinationMaps.projectId, projectId)).limit(1);
@@ -43,4 +43,29 @@ export async function deleteItem(db: QueryDb, projectId: string, id: string, rev
   const rows = await db.delete(coordinationItems).where(and(eq(coordinationItems.projectId, projectId), eq(coordinationItems.id, id), eq(coordinationItems.revision, revision)))
     .returning({ id: coordinationItems.id });
   return rows.length === 1;
+}
+export async function getDayNote(db: QueryDb, projectId: string, workDate: string) {
+  const rows = await db.select({ note: coordinationDayNotes.note, updatedAt: coordinationDayNotes.updatedAt, updatedByName: users.displayName, updatedByEmail: users.email })
+    .from(coordinationDayNotes).leftJoin(users, eq(coordinationDayNotes.updatedBy, users.id))
+    .where(and(eq(coordinationDayNotes.projectId, projectId), eq(coordinationDayNotes.workDate, workDate))).limit(1);
+  return rows[0] ?? null;
+}
+export async function upsertDayNote(db: QueryDb, projectId: string, workDate: string, note: string, userId: string) {
+  await db.insert(coordinationDayNotes).values({ projectId, workDate, note, updatedBy: userId })
+    .onConflictDoUpdate({ target: [coordinationDayNotes.projectId, coordinationDayNotes.workDate], set: { note, updatedBy: userId, updatedAt: sql`now()` } });
+}
+export async function deleteDayNote(db: QueryDb, projectId: string, workDate: string) {
+  await db.delete(coordinationDayNotes).where(and(eq(coordinationDayNotes.projectId, projectId), eq(coordinationDayNotes.workDate, workDate)));
+}
+export async function getDayLock(db: QueryDb, projectId: string, workDate: string) {
+  const rows = await db.select({ lockedAt: coordinationDayLocks.lockedAt, lockedByName: users.displayName, lockedByEmail: users.email })
+    .from(coordinationDayLocks).leftJoin(users, eq(coordinationDayLocks.lockedBy, users.id))
+    .where(and(eq(coordinationDayLocks.projectId, projectId), eq(coordinationDayLocks.workDate, workDate))).limit(1);
+  return rows[0] ?? null;
+}
+export async function insertDayLock(db: QueryDb, projectId: string, workDate: string, userId: string) {
+  await db.insert(coordinationDayLocks).values({ projectId, workDate, lockedBy: userId }).onConflictDoNothing();
+}
+export async function deleteDayLock(db: QueryDb, projectId: string, workDate: string) {
+  await db.delete(coordinationDayLocks).where(and(eq(coordinationDayLocks.projectId, projectId), eq(coordinationDayLocks.workDate, workDate)));
 }

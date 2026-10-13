@@ -18,4 +18,5 @@ const fields = {
 };
 export const createBody = t.Object(fields, { additionalProperties: false });
 export const updateBody = t.Object({ ...fields, revision: t.Integer({ minimum: 1 }) }, { additionalProperties: false });
+export const dayNoteBody = t.Object({ note: t.String({ maxLength: 2000 }) }, { additionalProperties: false });
 export const colorBody = t.Object({ color: t.String({ pattern: "^#[0-9A-Fa-f]{6}$" }), revision: t.Integer({ minimum: 1 }) });

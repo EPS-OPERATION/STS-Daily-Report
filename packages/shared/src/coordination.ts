@@ -17,10 +17,26 @@ export interface CoordinationItem extends CoordinationInput {
 export interface CoordinationContractor {
   id: string; code: string; name: string; color: string; revision: number;
 }
+/** One shared note for the whole map on a work date (EPS writes, everyone reads). */
+export interface CoordinationDayNote {
+  note: string; updatedAt: string; updatedByName: string | null;
+}
+/** EPS stamp: the day's map is final — nobody can change jobs or the day note until EPS unlocks it. */
+export interface CoordinationDayLock {
+  lockedAt: string; lockedByName: string | null;
+}
 export interface CoordinationData {
   map: { id: string; projectId: string; imagePath: string; width: number; height: number };
   contractors: CoordinationContractor[]; items: CoordinationItem[];
   editableContractorIds: string[]; canManageColors: boolean;
+  dayNote: CoordinationDayNote | null; canEditDayNote: boolean;
+  lock: CoordinationDayLock | null; canLock: boolean;
+}
+/** Printable day report (EPS only): the drawing with every job of the day and the day note. */
+export interface CoordinationReport {
+  projectName: string; date: string; generatedAt: string; generatedByName: string | null;
+  map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[];
+  dayNote: CoordinationDayNote | null;
 }
 // Separate from chart colours: every contractor remains individually identifiable.
 export const COORDINATION_COLORS = [

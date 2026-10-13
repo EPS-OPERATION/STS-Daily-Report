@@ -3,7 +3,7 @@ import { findRoadConflicts } from "../src/modules/daily-reports/daily-report.con
 import type { RoadRow } from "../src/modules/daily-reports/daily-report.type.js";
 
 const road = (id: string, contractorId: string, roadLocation: string, startTime: string, endTime: string, targetDate = "2026-10-02"): RoadRow => ({
-  id, targetDate, buildingId: "b", buildingCode: "B", buildingName: "B", roadLocation, startTime, endTime, purpose: "x", contractorId, contractorCode: contractorId,
+  id, targetDate, buildingId: "b", buildingCode: "B", buildingName: "B", roadLocation, startTime, endTime, requestedStartTime: startTime, requestedEndTime: endTime, adjusted: false, adjustedAt: null, adjustedByName: null, purpose: "x", contractorId, contractorCode: contractorId,
 });
 
 describe("road usage clash", () => {

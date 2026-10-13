@@ -35,8 +35,11 @@ import {
   weeklySummaryQuery,
   manpowerTrendQuery,
   dateRangeQuery,
+  roadAdjustBody,
+  roadUsageParams,
   siteDayQuery,
 } from "./daily-report.schema.js";
+import { adjustRoadUsageService } from "./daily-report.service.js";
 
 export const dailyReportRoutes = new Elysia()
   // Aggregated, contractor-level data only (no signatures/photos) — open read like other summaries.
@@ -103,6 +106,11 @@ export const dailyReportRoutes = new Elysia()
     "/projects/:projectId/daily-reports/evening",
     async ({ params, body, auth }) => ok(await submitEveningService(auth, params.projectId, body)),
     { params: projectIdParams, body: eveningBody },
+  )
+  .patch(
+    "/projects/:projectId/daily-reports/road-usage/:id",
+    async ({ params, body, auth }) => ok(await adjustRoadUsageService(auth, params.projectId, params.id, body)),
+    { params: roadUsageParams, body: roadAdjustBody },
   )
   .post(
     "/projects/:projectId/daily-reports/draft",

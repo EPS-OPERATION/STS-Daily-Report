@@ -12,6 +12,7 @@ import { getStorage } from "@/shared/storage/index.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { listRequests } from "@/modules/inspection-requests/inspection-request.repository.js";
 import { findMachineryConflicts, findRoadConflicts } from "./daily-report.conflicts.js";
+import { getRoadUsageForProject, setRoadAdjustment } from "./daily-report.repository.js";
 import {
   countPhotos,
   deletePhoto,
@@ -1058,3 +1059,23 @@ export async function printReportService(auth: AuthContext, reportId: string) {
 }
 
 export type PrintReport = Awaited<ReturnType<typeof printReportService>>;
+
+// EPS only: settle a road booking on another time. The request stays on the row; the adjusted window is what
+// conflicts, lists and print use. Setting the request's own times again clears the change.
+export async function adjustRoadUsageService(auth: AuthContext, projectId: string, id: string, input: { startTime: string; endTime: string }) {
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can change road usage times");
+  await assertProject(projectId);
+  if (input.startTime >= input.endTime) throw new ValidationError("End time must be after start time", { startTime: input.startTime });
+  const db = getDb();
+  const row = await getRoadUsageForProject(db, projectId, id);
+  if (!row) throw new NotFoundError("Road usage booking not found", { id });
+  const unchanged = input.startTime === row.requestedStartTime && input.endTime === row.requestedEndTime;
+  await setRoadAdjustment(
+    db,
+    id,
+    unchanged ? null : { startTime: input.startTime, endTime: input.endTime, byId: auth.user.id, at: new Date() },
+  );
+  const updated = await getRoadUsageForProject(db, projectId, id);
+  if (!updated) throw new NotFoundError("Road usage booking not found", { id });
+  return updated;
+}

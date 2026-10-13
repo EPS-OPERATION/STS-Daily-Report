@@ -200,6 +200,50 @@ export function timeWindowsOverlap(aStart: string, aEnd: string, bStart: string,
   return timeToMinutes(aStart) < timeToMinutes(bEnd) && timeToMinutes(bStart) < timeToMinutes(aEnd);
 }
 
+export function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+// Road names are free text: "Road R2" and " road  r2 " name the same road.
+export function normalizeRoadName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export interface RoadBooking {
+  id: string;
+  contractorId: string;
+  startTime: string;
+  endTime: string;
+}
+
+// Pairs of bookings on one road by different contractors whose windows overlap, the rule behind the
+// server's clash flag. start/end is the shared window: the time the two actually collide.
+export function roadClashPairs(bookings: RoadBooking[]): { a: string; b: string; start: string; end: string }[] {
+  const pairs: { a: string; b: string; start: string; end: string }[] = [];
+  bookings.forEach((x, i) => {
+    for (const y of bookings.slice(i + 1)) {
+      if (x.contractorId === y.contractorId || !timeWindowsOverlap(x.startTime, x.endTime, y.startTime, y.endTime)) continue;
+      pairs.push({
+        a: x.id,
+        b: y.id,
+        start: minutesToTime(Math.max(timeToMinutes(x.startTime), timeToMinutes(y.startTime))),
+        end: minutesToTime(Math.min(timeToMinutes(x.endTime), timeToMinutes(y.endTime))),
+      });
+    }
+  });
+  return pairs;
+}
+
+export type RoadBadge = "clash" | "edited" | "still_clash" | "none";
+
+// The badge: a clash with another contractor, and/or an EPS time change.
+export function roadBadgeState(clash: boolean, adjusted: boolean): RoadBadge {
+  if (clash) return adjusted ? "still_clash" : "clash";
+  return adjusted ? "edited" : "none";
+}
+
 // NMH (Number of Man-Hours) for one report = headcount × (normal hours + OT).
 export function manHours(headcount: number, workHours: number | null, otHours: number | null): number {
   return headcount * ((workHours ?? 0) + (otHours ?? 0));

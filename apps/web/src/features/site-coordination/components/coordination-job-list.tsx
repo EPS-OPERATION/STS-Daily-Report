@@ -1,8 +1,13 @@
 import type { CoordinationContractor, CoordinationItem } from "@sts/shared";
 import TextFieldsOutlined from "@mui/icons-material/TextFieldsOutlined";
+import ChevronRightOutlined from "@mui/icons-material/ChevronRightOutlined";
+import ExpandLessOutlined from "@mui/icons-material/ExpandLessOutlined";
 import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import type { ReactNode } from "react";
 import { ICON_LABELS } from "../types/icon-labels.js";
 import { MachineGlyph } from "./machine-icon.js";
 
@@ -13,25 +18,50 @@ export function CoordinationJobList({
   contractors,
   selectedId,
   onSelect,
+  embedded = false,
+  onCollapse,
+  footer,
 }: {
+  /** Inside the map card: no own border; a right-hand panel the height of the map on wide screens. */
+  embedded?: boolean;
   items: CoordinationItem[];
   contractors: CoordinationContractor[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Folds the panel away (the map shows a tab to bring it back). */
+  onCollapse?: () => void;
+  /** Pinned under the scrolling list (the day note). */
+  footer?: ReactNode;
 }) {
   const byId = new Map(contractors.map((c) => [c.id, c]));
   const rows = [...items].sort((a, b) => (byId.get(a.contractorId)?.code ?? "").localeCompare(byId.get(b.contractorId)?.code ?? ""));
-  if (!rows.length) return null;
+  const frame = embedded
+    ? { borderTop: { xs: "1px solid", lg: "none" }, borderLeft: { lg: "1px solid" }, borderColor: "divider", height: { lg: 652 }, display: "flex", flexDirection: "column" as const, minHeight: 0 }
+    : { border: "1px solid", borderColor: "divider", borderRadius: 1 };
   return (
-    <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "background.paper" }}>
-      <Stack direction="row" alignItems="baseline" spacing={1} sx={{ px: 1.5, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
+    <Box sx={{ bgcolor: "background.paper", ...frame }}>
+      <Stack direction="row" alignItems="baseline" spacing={1} sx={{ px: 1.5, py: 1.25, borderBottom: "1px solid", borderColor: "divider", position: "sticky", top: 0, bgcolor: "background.paper", zIndex: 1 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
           รายการงานบนผัง
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
           {rows.length} รายการ · คลิกเพื่อดูบนผัง
         </Typography>
+        {onCollapse ? (
+          <Tooltip title="ซ่อนรายการงาน">
+            <IconButton size="small" aria-label="ซ่อนรายการงาน" onClick={onCollapse} sx={{ alignSelf: "center", my: -0.5 }}>
+              <ChevronRightOutlined fontSize="small" sx={{ display: { xs: "none", lg: "block" } }} />
+              <ExpandLessOutlined fontSize="small" sx={{ display: { xs: "block", lg: "none" } }} />
+            </IconButton>
+          </Tooltip>
+        ) : null}
       </Stack>
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+      {!rows.length ? (
+        <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 2 }}>
+          ไม่มีงานที่ตรงกับตัวกรอง
+        </Typography>
+      ) : null}
       {rows.map((item, i) => {
         const c = byId.get(item.contractorId);
         const color = c?.color ?? "#64748B";
@@ -49,14 +79,14 @@ export function CoordinationJobList({
               cursor: "pointer",
               borderTop: i ? "1px solid" : "none",
               borderColor: "divider",
-              borderLeft: "3px solid",
-              borderLeftColor: active ? color : "transparent",
               bgcolor: active ? `${color}14` : "transparent",
+              boxShadow: active ? `inset 0 0 0 1px ${color}66` : "none",
+              transition: "background-color 120ms ease-out",
               "&:hover": { bgcolor: `${color}0F` },
             }}
           >
             <Box sx={{ width: 32, flexShrink: 0, display: "flex", justifyContent: "center", pt: 0.25 }}>
-              {item.icon === "text" ? <TextFieldsOutlined fontSize="small" /> : <MachineGlyph icon={item.icon} />}
+              {item.icon === "text" ? <TextFieldsOutlined fontSize="small" sx={{ color }} /> : <MachineGlyph icon={item.icon} color={color} />}
             </Box>
             <Box sx={{ minWidth: 0, flex: 1 }}>
               <Stack direction="row" spacing={0.75} alignItems="center">
@@ -80,6 +110,8 @@ export function CoordinationJobList({
           </Stack>
         );
       })}
+      </Box>
+      {footer}
     </Box>
   );
 }

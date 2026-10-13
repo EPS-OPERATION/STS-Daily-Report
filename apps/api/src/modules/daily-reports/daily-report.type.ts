@@ -160,8 +160,14 @@ export interface RoadRow {
   buildingCode: string;
   buildingName: string;
   roadLocation: string;
+  // startTime/endTime: what EPS settled (the request until EPS changes it). requested*: the contractor's own times.
   startTime: string;
   endTime: string;
+  requestedStartTime: string;
+  requestedEndTime: string;
+  adjusted: boolean;
+  adjustedAt: Date | null;
+  adjustedByName: string | null;
   purpose: string;
   contractorId: string;
   contractorCode: string;

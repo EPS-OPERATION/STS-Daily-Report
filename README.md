@@ -240,6 +240,7 @@ Legacy browser-only callouts are not imported, cleared or treated as real daily 
 API under `/api/v1` (all require a session and project/ownership checks):
 
 - `GET /projects/:projectId/coordination?date=YYYY-MM-DD` → `{data:{map, contractors, items, editableContractorIds, canManageColors}}`
+- `GET /projects/:projectId/coordination/report?date=YYYY-MM-DD` → `{data:{projectName, date, generatedAt, generatedByName, map, contractors, items, dayNote}}`, EPS-only (contractors get 403)
 - `POST /projects/:projectId/coordination/items` → new work item, 201
 - `PATCH /projects/:projectId/coordination/items/:id` → complete work fields plus `revision`
 - `DELETE /projects/:projectId/coordination/items/:id?revision=N` → 204
@@ -249,6 +250,8 @@ Work fields: `contractorId`, `workDate`, `title`, `icon`, normalized `x`/`y`, `r
 (`rectangle`/`polygon`), and `geometry:{type:"polygon",points:[{x,y},...]}`. Drawing identity/date are
 checked on edit; empty/degenerate/crossed polygons and non-rectangular rectangle corners are rejected.
 Colours are hex RGB. Geometry is stored as application data, not a serialized Konva Stage.
+
+EPS day report: `/site-coordination/report?projectId=&date=&print=1` is an EPS-only route outside the app shell; the map toolbar's `รายงาน PDF` button opens it in a new tab. Sheet 1 is the drawing read-only, framed to contain every job and printed from a 3× snapshot of the Konva stage, with a header (project, date) and a count/printed-by footer. Sheet 2 is the day note, the contractor key with job counts, and the job table (#, contractor, title, type, note) whose header repeats on each page. `print=1` opens the print dialog once the map is drawn; choose Save as PDF (A4 landscape, 10mm margins come from `@page`). No PDF library is used because browsers shape Thai text correctly. Verified in Chromium only; the sheets are fixed 277mm wide, so on a phone the report scrolls sideways.
 
 Local verification: `bun typecheck`, `bun test`, `bun run build`, and
 `bun --env-file=.env apps/api/scripts/verify-coordination.ts` with the API on 3000 and PostgreSQL on 5432.

@@ -25,6 +25,7 @@ import { WorkDonePrintPage } from "@/pages/work-done-print-page.js";
 import { SitePlanPage } from "@/pages/site-plan-page.js";
 import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
 import { SiteCoordinationPage } from "@/pages/site-coordination-page.js";
+import { SiteCoordinationReportPage } from "@/pages/site-coordination-report-page.js";
 import { ContractorCoordinationPage } from "@/pages/contractor-coordination-page.js";
 import { TodayRequestsPage } from "@/pages/today-requests-page.js";
 
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
           { path: "daily-reports/history/print", element: <SubmissionHistoryPrintPage /> },
           { path: "daily-reports/work-done/print", element: <WorkDonePrintPage /> },
           { path: "daily-reports/print", element: <DailyReportsBatchPrintPage /> },
+          { path: "site-coordination/report", element: <SiteCoordinationReportPage /> },
         ],
       },
       // Printable daily report: EPS (any report) or the owning contractor (checked by the API).

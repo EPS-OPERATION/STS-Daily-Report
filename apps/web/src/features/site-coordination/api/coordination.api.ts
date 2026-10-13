@@ -1,8 +1,11 @@
-import type { CoordinationData, CoordinationInput, CoordinationItem } from "@sts/shared";
+import type { CoordinationData, CoordinationDayLock, CoordinationDayNote, CoordinationInput, CoordinationItem, CoordinationReport } from "@sts/shared";
 import { http } from "@/services/http/client.js";
 export const coordinationApi = {
   get(projectId: string, date: string): Promise<{ data: CoordinationData }> {
     return http.get(`/projects/${projectId}/coordination?${new URLSearchParams({ date })}`);
+  },
+  report(projectId: string, date: string): Promise<{ data: CoordinationReport }> {
+    return http.get(`/projects/${projectId}/coordination/report?${new URLSearchParams({ date })}`);
   },
   create(projectId: string, input: CoordinationInput): Promise<{ data: CoordinationItem }> {
     return http.post(`/projects/${projectId}/coordination/items`, input);
@@ -12,6 +15,13 @@ export const coordinationApi = {
   },
   remove(projectId: string, id: string, revision: number): Promise<void> {
     return http.delete(`/projects/${projectId}/coordination/items/${id}?revision=${revision}`);
+  },
+  dayNote(projectId: string, date: string, note: string): Promise<{ data: CoordinationDayNote | null }> {
+    return http.put(`/projects/${projectId}/coordination/day-note?${new URLSearchParams({ date })}`, { note });
+  },
+  lock(projectId: string, date: string, locked: boolean): Promise<{ data: CoordinationDayLock | null }> {
+    const url = `/projects/${projectId}/coordination/lock?${new URLSearchParams({ date })}`;
+    return locked ? http.put(url, {}) : http.delete(url);
   },
   color(projectId: string, contractorId: string, color: string, revision: number) {
     return http.patch(`/projects/${projectId}/coordination/contractors/${contractorId}`, { color, revision });

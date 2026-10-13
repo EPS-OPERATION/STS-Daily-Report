@@ -1,10 +1,10 @@
-import { COORDINATION_COLORS, coordinationDateValid, coordinationGeometryError, coordinationRectangleValid, isEpsStaff, type CoordinationInput } from "@sts/shared";
+import { COORDINATION_COLORS, coordinationDateValid, coordinationGeometryError, coordinationRectangleValid, isEpsStaff, type CoordinationInput, type CoordinationReport } from "@sts/shared";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import type { AuthContext } from "@/auth/auth.types.js";
 import { getDb } from "@/db/client.js";
 import { getProjectById } from "@/modules/projects/project.repository.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
-import { deleteItem, getItem, getMap, insertColor, insertItem, listCoordinationContractors, listItems, updateColor, updateItem } from "./coordination.repository.js";
+import { deleteDayLock, deleteDayNote, deleteItem, getDayLock, getDayNote, getItem, getMap, insertDayLock, insertColor, insertItem, listCoordinationContractors, listItems, updateColor, updateItem, upsertDayNote } from "./coordination.repository.js";
 
 async function access(auth: AuthContext, projectId: string, contractorId?: string) {
   if (!await getProjectById(getDb(), projectId)) throw new NotFoundError("Project not found");
@@ -26,6 +26,12 @@ function clean(input: CoordinationInput): CoordinationInput {
   }
   return { ...input, title, rotation: ((input.rotation % 360) + 360) % 360, linkArea: input.linkArea !== false, note: input.note?.trim() || null };
 }
+const lockDto = (row: NonNullable<Awaited<ReturnType<typeof getDayLock>>>) =>
+  ({ lockedAt: row.lockedAt.toISOString(), lockedByName: row.lockedByName ?? row.lockedByEmail ?? null });
+// Every write to a locked day is refused — EPS included (unlock first).
+async function assertUnlocked(projectId: string, workDate: string) {
+  if (await getDayLock(getDb(), projectId, workDate)) throw new ConflictError("This day's map is locked by EPS. Unlock it before making changes.");
+}
 function dto(row: Awaited<ReturnType<typeof insertItem>>) {
   return { ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
 }
@@ -36,7 +42,7 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
   const db = getDb();
   const map = await getMap(db, projectId);
   if (!map) throw new NotFoundError("This project has no coordination drawing configured");
-  const [initialCompanies, items] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date)]);
+  const [initialCompanies, items, dayNote, lock] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), getDayNote(db, projectId, date), getDayLock(db, projectId, date)]);
   const missingColors = initialCompanies.some((company) => !company.color);
   // Assign missing project colours once under the map lock. Normal polling is read-only.
   if (missingColors) await db.transaction(async (tx) => {
@@ -54,9 +60,26 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
   return {
     map: { id: map.id, projectId, imagePath: map.imagePath, width: map.width, height: map.height },
     contractors: companies.map((c) => ({ ...c, color: c.color!, revision: c.revision! })),
-    items: items.map(dto), editableContractorIds: isEpsStaff(auth.user.role) ? companies.map((c) => c.id) : memberships.map((m) => m.id),
+    items: items.map(dto), editableContractorIds: lock ? [] : isEpsStaff(auth.user.role) ? companies.map((c) => c.id) : memberships.map((m) => m.id),
     canManageColors: isEpsStaff(auth.user.role),
+    dayNote: dayNote ? { note: dayNote.note, updatedAt: dayNote.updatedAt.toISOString(), updatedByName: dayNote.updatedByName ?? dayNote.updatedByEmail ?? null } : null,
+    canEditDayNote: !lock && isEpsStaff(auth.user.role),
+    lock: lock ? lockDto(lock) : null,
+    canLock: isEpsStaff(auth.user.role),
   };
+}
+// Day note: EPS only; an empty note removes it.
+export async function saveDayNoteService(auth: AuthContext, projectId: string, date: string, raw: string) {
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can write the day note");
+  await access(auth, projectId);
+  if (!coordinationDateValid(date)) throw new ValidationError("Invalid work date");
+  await assertUnlocked(projectId, date);
+  const note = raw.trim();
+  const db = getDb();
+  if (!note) { await deleteDayNote(db, projectId, date); return null; }
+  await upsertDayNote(db, projectId, date, note, auth.user.id);
+  const row = await getDayNote(db, projectId, date);
+  return row ? { note: row.note, updatedAt: row.updatedAt.toISOString(), updatedByName: row.updatedByName ?? row.updatedByEmail ?? null } : null;
 }
 export async function saveCoordinationService(auth: AuthContext, projectId: string, raw: CoordinationInput, id?: string, revision?: number) {
   const input = clean(raw);
@@ -67,9 +90,10 @@ export async function saveCoordinationService(auth: AuthContext, projectId: stri
   if (input.areaKind === "rectangle" && !coordinationRectangleValid(input.geometry.points, map.width, map.height)) throw new ValidationError("Rectangle corners must form a rectangle");
   const companies = await listCoordinationContractors(db, projectId);
   if (!companies.some((c) => c.id === input.contractorId)) throw new ValidationError("Contractor is not assigned to this project");
-  if (!id) return dto(await insertItem(db, projectId, map.id, input, auth.user.id));
+  if (!id) { await assertUnlocked(projectId, input.workDate); return dto(await insertItem(db, projectId, map.id, input, auth.user.id)); }
   const current = await getItem(db, projectId, id);
   if (!current) throw new NotFoundError("Work item not found");
+  await assertUnlocked(projectId, current.workDate);
   await access(auth, projectId, current.contractorId);
   if (input.workDate !== current.workDate) throw new ValidationError("Edit the work on its original date");
   const row = await updateItem(db, projectId, id, input, revision!, auth.user.id);
@@ -80,6 +104,7 @@ export async function deleteCoordinationService(auth: AuthContext, projectId: st
   const row = await getItem(getDb(), projectId, id);
   if (!row) throw new NotFoundError("Work item not found");
   await access(auth, projectId, row.contractorId);
+  await assertUnlocked(projectId, row.workDate);
   if (!await deleteItem(getDb(), projectId, id, revision)) throw new ConflictError("This work item was changed by another user. Reload before deleting.");
 }
 export async function coordinationColorService(auth: AuthContext, projectId: string, contractorId: string, color: string, revision: number) {
@@ -88,4 +113,30 @@ export async function coordinationColorService(auth: AuthContext, projectId: str
   const result = await updateColor(getDb(), projectId, contractorId, color.toUpperCase(), revision);
   if (!result) throw new ConflictError("The contractor colour changed. Reload and try again.");
   return { contractorId, color: result.color, revision: result.revision };
+}
+// EPS stamp / unstamp a day's map.
+export async function setDayLockService(auth: AuthContext, projectId: string, date: string, locked: boolean) {
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can lock or unlock the day's map");
+  await access(auth, projectId);
+  if (!coordinationDateValid(date)) throw new ValidationError("Invalid work date");
+  const db = getDb();
+  if (locked) await insertDayLock(db, projectId, date, auth.user.id);
+  else await deleteDayLock(db, projectId, date);
+  const row = await getDayLock(db, projectId, date);
+  return row ? lockDto(row) : null;
+}
+// Printable day report (EPS only): the drawing with every job and the day note.
+export async function coordinationReportService(auth: AuthContext, projectId: string, date: string): Promise<CoordinationReport> {
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can export the day's map report");
+  const [data, project] = await Promise.all([coordinationService(auth, projectId, date), getProjectById(getDb(), projectId)]);
+  return {
+    projectName: project?.name ?? "",
+    date,
+    generatedAt: new Date().toISOString(),
+    generatedByName: auth.user.displayName ?? auth.user.email,
+    map: data.map,
+    contractors: data.contractors,
+    items: data.items,
+    dayNote: data.dayNote,
+  };
 }

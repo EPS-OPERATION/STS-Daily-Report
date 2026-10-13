@@ -354,10 +354,20 @@ export const dailyReportRoadUsage = pgTable(
     startTime: text("start_time").notNull(),
     endTime: text("end_time").notNull(),
     purpose: text("purpose").notNull(),
+    // EPS time change. start/end stay the contractor's request; adjusted_* is set together or not at all.
+    adjustedStartTime: text("adjusted_start_time"),
+    adjustedEndTime: text("adjusted_end_time"),
+    adjustedBy: uuid("adjusted_by").references(() => users.id, { onDelete: "set null" }),
+    adjustedAt: timestamp("adjusted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check("daily_report_road_usage_window_check", sql`${t.startTime} < ${t.endTime}`),
+    check(
+      "daily_report_road_usage_adjusted_check",
+      sql`(${t.adjustedAt} IS NULL AND ${t.adjustedStartTime} IS NULL AND ${t.adjustedEndTime} IS NULL)
+        OR (${t.adjustedAt} IS NOT NULL AND ${t.adjustedStartTime} < ${t.adjustedEndTime})`,
+    ),
     index("daily_report_road_usage_report_idx").on(t.reportId),
     index("daily_report_road_usage_target_idx").on(t.targetDate),
   ],

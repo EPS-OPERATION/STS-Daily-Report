@@ -145,8 +145,15 @@ export interface ReportRoadUsage {
   buildingCode: string;
   buildingName: string;
   roadLocation: string;
+  /** What EPS settled (the contractor's request until EPS changes it). */
   startTime: string;
   endTime: string;
+  /** The contractor's own request. */
+  requestedStartTime: string;
+  requestedEndTime: string;
+  adjusted: boolean;
+  adjustedAt: string | null;
+  adjustedByName: string | null;
   purpose: string;
   contractorId: string;
   contractorCode: string;

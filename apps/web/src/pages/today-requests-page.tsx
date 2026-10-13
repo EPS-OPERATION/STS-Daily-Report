@@ -1,8 +1,12 @@
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
+import ChevronLeftOutlinedIcon from "@mui/icons-material/ChevronLeftOutlined";
+import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
 import Link from "@mui/material/Link";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
@@ -15,7 +19,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
@@ -30,9 +34,16 @@ import {
   timeWindowLabel,
   todayIso,
   useInspectionRequests,
+  RoadStatusChip,
+  RoadTimeDialog,
+  RoadTimelines,
+  useAdjustRoadUsage,
   useDailyRequests,
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
+import { useMe } from "@/features/auth/index.js";
+import { isEpsStaff, normalizeRoadName } from "@sts/shared";
+import { toast } from "sonner";
 import { HttpError } from "@/services/http/client.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -66,6 +77,11 @@ export function TodayRequestsPage() {
   const allRoads = useMemo(() => data?.roads ?? [], [data]);
   const allForecasts = useMemo(() => data?.forecasts ?? [], [data]);
   const allInspections = useMemo(() => (rfi.data?.data ?? []).filter((r) => r.status !== "draft"), [rfi.data]);
+  const me = useMe();
+  const canEdit = isEpsStaff(me.data?.data.user.role);
+  const adjustRoad = useAdjustRoadUsage(projectId);
+  // EPS only: the booking whose time is being settled.
+  const [editing, setEditing] = useState<(typeof allRoads)[number] | null>(null);
 
   // Contractor filter (same popover as Manpower): everyone with a request or forecast in the range.
   // ?contractors=A,B in the URL; absent = all. Road clashes stay flagged even when the other side is hidden.
@@ -104,11 +120,48 @@ export function TodayRequestsPage() {
   const equipment = allEquipment.filter(keep);
   const roads = allRoads.filter(keep);
   // In a range every row needs its date; one day stays uncluttered.
-  const dayCol = (d: string) => (isRange ? [dayjs(d).format("ddd D MMM")] : []);
-  const dayHead = isRange ? ["Date"] : [];
+  const dayCol = (_d: string): ReactNode[] => [];
+  const dayHead: string[] = [];
   const inspections = allInspections.filter(keep);
   const loadError = [week.error, rfi.error].find((e) => e instanceof HttpError) as HttpError | undefined;
   const forecasts = allForecasts.filter(keep);
+  // A range (up to 62 days) is shown as an overview of its days; one day is opened in detail (?day=YYYY-MM-DD).
+  const [clashOnly, setClashOnly] = useState(false);
+  const dayRows = useMemo(() => {
+    const byDay = new Map<string, { date: string; machines: number; equipment: number; roads: number; clashes: number; rfi: number }>();
+    const at = (date: string) => {
+      const found = byDay.get(date) ?? { date, machines: 0, equipment: 0, roads: 0, clashes: 0, rfi: 0 };
+      byDay.set(date, found);
+      return found;
+    };
+    for (const m of machines) at(m.targetDate).machines += 1;
+    for (const e of equipment) at(e.targetDate).equipment += 1;
+    for (const r of roads) {
+      const day = at(r.targetDate);
+      day.roads += 1;
+      if (r.conflict) day.clashes += 1;
+    }
+    for (const i of inspections) at(i.inspectionDate).rfi += 1;
+    return [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date));
+  }, [machines, equipment, roads, inspections]);
+  const shownDays = clashOnly ? dayRows.filter((d) => d.clashes > 0) : dayRows;
+  const requestedDay = params.get("day");
+  const selectedDay =
+    shownDays.find((d) => d.date === requestedDay)?.date ??
+    shownDays.find((d) => d.clashes > 0)?.date ??
+    shownDays[0]?.date ??
+    from;
+  const dayIndex = shownDays.findIndex((d) => d.date === selectedDay);
+  const setDay = (date: string) => {
+    const p = new URLSearchParams(params);
+    p.set("day", date);
+    setParams(p, { replace: true });
+  };
+  const dayMachines = isRange ? machines.filter((m) => m.targetDate === selectedDay) : machines;
+  const dayEquipment = isRange ? equipment.filter((e) => e.targetDate === selectedDay) : equipment;
+  const dayRoads = isRange ? roads.filter((r) => r.targetDate === selectedDay) : roads;
+  const dayInspections = isRange ? inspections.filter((i) => i.inspectionDate === selectedDay) : inspections;
+  const dayAllRoads = isRange ? allRoads.filter((r) => r.targetDate === selectedDay) : allRoads;
 
   const colors = useMemo(() => contractorColorMap(allCodes), [allCodes]);
   const filterItems = allCodes.map((code) => {
@@ -212,18 +265,90 @@ export function TodayRequestsPage() {
           {clashingRoads.length > 0 ? (
             <Alert severity="error">
               <b>มีการขอใช้เส้นทางทับซ้อนกัน {clashingRoads.length} รายการ</b> — ผู้รับเหมาต่างรายขอใช้ถนนเดียวกันในช่วงเวลาที่ทับกัน
-              ตรวจสอบในตาราง Road usage (แถวสีแดง) แล้วจัดคิวในที่ประชุมประสานงาน
+              ตรวจสอบในตาราง Road usage (แถวสีแดง) แล้วปรับเวลาจากปุ่มแก้เวลา หรือจัดคิวในที่ประชุมประสานงาน
             </Alert>
           ) : null}
           <Typography variant="body2" color="text.secondary">
             {machines.length} machine · {equipment.length} equipment · {roads.length} road · {inspections.length} RFI
           </Typography>
+          {isRange ? (
+            <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 1.5, py: 1, borderBottom: 1, borderColor: "divider" }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>ภาพรวมรายวัน</Typography>
+                <Typography variant="caption" color="text.secondary">{dayRows.length} วันที่มีคำขอ</Typography>
+                <Box sx={{ flex: 1 }} />
+                <Chip
+                  size="small"
+                  color={clashOnly ? "error" : "default"}
+                  variant={clashOnly ? "filled" : "outlined"}
+                  label="เฉพาะวันที่ชนกัน"
+                  onClick={() => setClashOnly((v) => !v)}
+                />
+              </Stack>
+              {shownDays.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 2 }}>ไม่มีคำขอในช่วงนี้</Typography>
+              ) : (
+                <Table size="small" aria-label="ภาพรวมรายวัน">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>วันที่</TableCell>
+                      <TableCell align="right">เครื่องจักร</TableCell>
+                      <TableCell align="right">เครื่องมือ</TableCell>
+                      <TableCell align="right">ถนน</TableCell>
+                      <TableCell align="right">ชนกัน</TableCell>
+                      <TableCell align="right">RFI</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {shownDays.map((d) => (
+                      <TableRow
+                        key={d.date}
+                        hover
+                        selected={d.date === selectedDay}
+                        tabIndex={0}
+                        aria-current={d.date === selectedDay ? "true" : undefined}
+                        onClick={() => setDay(d.date)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") setDay(d.date);
+                        }}
+                        sx={{ cursor: "pointer", fontVariantNumeric: "tabular-nums" }}
+                      >
+                        <TableCell>{dayjs(d.date).format("ddd D MMM")}</TableCell>
+                        <TableCell align="right">{d.machines}</TableCell>
+                        <TableCell align="right">{d.equipment}</TableCell>
+                        <TableCell align="right">{d.roads}</TableCell>
+                        <TableCell align="right">
+                          {d.clashes > 0 ? <Chip size="small" color="error" label={d.clashes} sx={{ height: 20 }} /> : "—"}
+                        </TableCell>
+                        <TableCell align="right">{d.rfi}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Box>
+          ) : null}
+          {isRange && shownDays.length > 0 ? (
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <IconButton aria-label="วันก่อนหน้า" disabled={dayIndex <= 0} onClick={() => setDay(shownDays[dayIndex - 1]!.date)}>
+                <ChevronLeftOutlinedIcon />
+              </IconButton>
+              <Typography variant="h4">{formatThaiDate(selectedDay)}</Typography>
+              <IconButton
+                aria-label="วันถัดไป"
+                disabled={dayIndex < 0 || dayIndex >= shownDays.length - 1}
+                onClick={() => setDay(shownDays[dayIndex + 1]!.date)}
+              >
+                <ChevronRightOutlinedIcon />
+              </IconButton>
+            </Stack>
+          ) : null}
 
           <Section title="Machine request">
             <SimpleTable
               empty="ไม่มีการจองเครื่องจักร"
               head={[...dayHead, "Machine", "Building", "Contractor", "Time", "วัตถุประสงค์"]}
-              rows={machines.map((m) => ({
+              rows={dayMachines.map((m) => ({
                 key: m.id,
                 cells: [
                   ...dayCol(m.targetDate),
@@ -241,7 +366,7 @@ export function TodayRequestsPage() {
             <SimpleTable
               empty="ไม่มีการขอเครื่องมือ/อุปกรณ์"
               head={[...dayHead, "Equipment", "Qty", "Building", "Contractor", "วัตถุประสงค์"]}
-              rows={equipment.map((e) => ({
+              rows={dayEquipment.map((e) => ({
                 key: e.id,
                 cells: [
                   ...dayCol(e.targetDate),
@@ -256,24 +381,74 @@ export function TodayRequestsPage() {
           </Section>
 
           <Section title="Road usage">
+            <RoadTimelines
+              allRoads={dayAllRoads}
+              visibleIds={new Set(dayRoads.map((r) => r.id))}
+              canEdit={canEdit}
+              onEdit={setEditing}
+            />
             <SimpleTable
               empty="ไม่มีการขอใช้/ปิดถนน"
-              head={[...dayHead, "Road / lane", "Time", "Contractor", "Next to", "วัตถุประสงค์"]}
-              rows={roads.map((r) => ({
+              head={[...dayHead, "Road / lane", "Time", "Contractor", "Next to", "วัตถุประสงค์", ...(canEdit ? [""] : [])]}
+              rows={dayRoads.map((r) => ({
                 key: r.id,
                 tone: r.conflict ? ("error" as const) : undefined,
                 cells: [
                   ...dayCol(r.targetDate),
-                  <Stack key="r" direction="row" spacing={0.75} alignItems="center">
+                  <Stack key="r" direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
                     <b>{r.roadLocation}</b>
-                    {r.conflict ? <Chip size="small" color="error" label="ชนกัน" sx={{ height: 20 }} /> : null}
+                    <RoadStatusChip clash={r.conflict} adjusted={r.adjusted} />
                   </Stack>,
-                  `${r.startTime}–${r.endTime}`,
+                  r.adjusted ? (
+                    <span key="t" style={{ fontVariantNumeric: "tabular-nums" }}>
+                      <s>{r.requestedStartTime}–{r.requestedEndTime}</s> <b>{r.startTime}–{r.endTime}</b>
+                    </span>
+                  ) : (
+                    `${r.startTime}–${r.endTime}`
+                  ),
                   <ContractorBadge key="c" code={r.contractorCode} />,
                   r.buildingName,
                   r.purpose,
+                  ...(canEdit
+                    ? [
+                        <IconButton key="e" size="small" aria-label={`แก้เวลา ${r.contractorCode} ${r.roadLocation}`} onClick={() => setEditing(r)}>
+                          <EditOutlinedIcon fontSize="small" />
+                        </IconButton>,
+                      ]
+                    : []),
                 ],
               }))}
+            />
+            <RoadTimeDialog
+              key={editing?.id ?? "none"}
+              road={editing}
+              bookings={
+                editing
+                  ? allRoads.filter(
+                      (r) => r.targetDate === editing.targetDate && normalizeRoadName(r.roadLocation) === normalizeRoadName(editing.roadLocation),
+                    )
+                  : []
+              }
+              saving={adjustRoad.isPending}
+              error={adjustRoad.isError ? (adjustRoad.error instanceof HttpError ? adjustRoad.error.message : "บันทึกเวลาไม่สำเร็จ") : null}
+              onClose={() => {
+                setEditing(null);
+                adjustRoad.reset();
+              }}
+              onSave={(startTime, endTime) => {
+                if (!editing) return;
+                adjustRoad.mutate(
+                  { id: editing.id, startTime, endTime },
+                  { onSuccess: () => { toast.success("บันทึกเวลาแล้ว"); setEditing(null); } },
+                );
+              }}
+              onRestore={() => {
+                if (!editing) return;
+                adjustRoad.mutate(
+                  { id: editing.id, startTime: editing.requestedStartTime, endTime: editing.requestedEndTime },
+                  { onSuccess: () => { toast.success("คืนเวลาที่ขอแล้ว"); setEditing(null); } },
+                );
+              }}
             />
           </Section>
 
@@ -288,7 +463,7 @@ export function TodayRequestsPage() {
             <SimpleTable
               empty="ไม่มีคำขอตรวจ"
               head={[...dayHead, "Type", "Time", "Contractor", "Work item", "Building"]}
-              rows={inspections.map((r) => ({
+              rows={dayInspections.map((r) => ({
                 key: r.id,
                 cells: [
                   ...dayCol(r.inspectionDate),

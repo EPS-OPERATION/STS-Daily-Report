@@ -52,3 +52,7 @@ export {
 } from "./utils/submission.js";
 export { compressImage, type CompressOptions } from "./utils/image-compression.js";
 export { ContractorFilterPopover, type ContractorFilterItem } from "./components/contractor-filter-popover.js";
+export { RoadStatusChip } from "./components/road-status-chip.js";
+export { RoadTimeDialog } from "./components/road-time-dialog.js";
+export { RoadTimelines } from "./components/road-timeline.js";
+export { useAdjustRoadUsage } from "./hooks/use-road-usage.js";

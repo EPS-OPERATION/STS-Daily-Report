@@ -205,3 +205,7 @@ export const manpowerTrendQuery = t.Object({
   until: isoDate,
   weeks: t.Optional(t.Numeric({ minimum: 2, maximum: 52 })),
 });
+
+// EPS settles a road booking's time (the service checks the role).
+export const roadUsageParams = t.Object({ projectId: t.String({ format: "uuid" }), id: t.String({ format: "uuid" }) });
+export const roadAdjustBody = t.Object({ startTime: hhmm, endTime: hhmm }, { additionalProperties: false });

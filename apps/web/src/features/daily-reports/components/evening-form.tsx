@@ -114,11 +114,12 @@ export function EveningForm({
         taskName: p.taskName ?? "",
         supervisorName: p.supervisorName ?? "",
       })),
+      // The contractor's own times. EPS changes stay on the server and carry over when this is re-sent.
       roadUsage: (report?.roadUsage ?? []).map((r) => ({
         roadLocation: r.roadLocation,
         buildingId: r.buildingId,
-        startTime: r.startTime,
-        endTime: r.endTime,
+        startTime: r.requestedStartTime,
+        endTime: r.requestedEndTime,
         purpose: r.purpose,
       })),
       materials: (report?.materials ?? []).map((m) => ({
@@ -423,6 +424,11 @@ export function EveningForm({
         <EquipmentRequests control={control} buildings={buildings} />
         <Divider sx={{ my: 2.5 }} />
         <SubHeading>ขอใช้ / ปิดถนน (Road Usage)</SubHeading>
+        {(report?.roadUsage ?? []).some((r) => r.adjusted) ? (
+          <Alert severity="info" sx={{ mb: 1.5 }}>
+            EPS ปรับเวลาถนนบางรายการแล้ว ฟอร์มนี้แสดงเวลาที่คุณขอไว้ เมื่อส่งซ้ำ ระบบจะคงเวลาที่ EPS ปรับไว้
+          </Alert>
+        ) : null}
         <RoadUsageRequests control={control} buildings={buildings} ctx={ctx} />
         <Divider sx={{ my: 2.5 }} />
         <SubHeading>ใบอนุญาตงานเสี่ยง (Work Permits)</SubHeading>

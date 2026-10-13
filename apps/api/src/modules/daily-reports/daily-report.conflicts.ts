@@ -1,4 +1,4 @@
-import { timeWindowsOverlap } from "@sts/shared";
+import { normalizeRoadName, timeWindowsOverlap } from "@sts/shared";
 import type { BookingRow, MachineryConflict, RoadRow } from "./daily-report.type.js";
 
 // Machinery conflict detection stays disabled per business requirement.
@@ -8,7 +8,7 @@ export function findMachineryConflicts(_rows: BookingRow[]): MachineryConflict[]
 
 // Same road on the same day — name compared ignoring case and spacing — booked by two different
 // contractors at overlapping times. One contractor's own back-to-back bookings are not a clash.
-const roadKey = (r: RoadRow) => `${r.targetDate}|${r.roadLocation.trim().toLowerCase().replace(/\s+/g, " ")}`;
+const roadKey = (r: RoadRow) => `${r.targetDate}|${normalizeRoadName(r.roadLocation)}`;
 
 export function findRoadConflicts(rows: RoadRow[]): Array<{ targetDate: string; roadLocation: string; ids: [string, string] }> {
   const out: Array<{ targetDate: string; roadLocation: string; ids: [string, string] }> = [];
