@@ -1,0 +1,1 @@
+ALTER TABLE "coordination_items" ADD COLUMN "link_area" boolean DEFAULT true NOT NULL;

@@ -108,48 +108,40 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
     ...g,
     items: g.items.filter((item) => !item.roles || item.roles.includes(role)),
   }));
+  const { projectId, projects } = useCurrentProject();
+  const project = projects.find((p) => p.id === projectId);
+  const myContractor = me.data?.data.contractors[0];
+  // Quiet context line: which project (EPS staff) or which company (contractor) this session reports for.
+  const contextLabel = isContractor
+    ? (myContractor ? `${myContractor.code} · ${myContractor.name}` : "ยังไม่ผูกผู้รับเหมา")
+    : (project ? `${project.code} · ${project.name}` : "STS Project");
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
-      <Box sx={{ px: 2.5, py: 2.5 }}>
-        <Stack direction="row" spacing={1.5} alignItems="center">
+      <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 1.5 }}>
+        <Box
+          component={NavLink}
+          to="/"
+          onClick={onNavigate}
+          aria-label="STS Platform — home"
+          title="STS Platform — home"
+          sx={{
+            display: "block",
+            width: "fit-content",
+            mx: collapsed ? "auto" : 0,
+            borderRadius: 1.5,
+            textDecoration: "none",
+            transition: "opacity 0.15s",
+            "&:hover": { opacity: 0.85 },
+          }}
+        >
           <Box
-            sx={{
-              width: 38,
-              height: 38,
-              borderRadius: 2,
-              bgcolor: "#FFFFFF",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              p: 0.5,
-              flexShrink: 0,
-              boxShadow: "0 2px 4px rgba(0,0,0,0.12)",
-            }}
-          >
-            <Box
-              component="img"
-              src="/brand/logo-eps.png"
-              alt="EPS"
-              sx={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-              }}
-            />
-          </Box>
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, display: collapsed ? "none" : "block" }}>
-              STS Platform
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: isContractor ? "#60A5FA" : "#9DB4CC", fontWeight: isContractor ? 600 : 400, fontSize: 12, whiteSpace: "nowrap", display: collapsed ? "none" : "block" }}
-            >
-              {isContractor ? "Contractor Field" : "Construction Operations"}
-            </Typography>
-          </Box>
-        </Stack>
+            component="img"
+            src={collapsed ? "/brand/logo-eps-mark-on-dark.png" : "/brand/logo-eps-on-dark.png"}
+            alt="EPS — STS Platform"
+            sx={collapsed ? { width: 40, height: "auto", display: "block" } : { height: 32, width: "auto", display: "block" }}
+          />
+        </Box>
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
       <Box className="sts-navy-scroll" sx={{ flexGrow: 1, overflowY: "auto", px: 1.5, py: 1 }}>
@@ -222,20 +214,23 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
         ))}
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
-      <Box sx={{ p: collapsed ? 1.5 : 2 }}>
-        <Box sx={{ borderRadius: 2, bgcolor: "rgba(255,255,255,0.06)", p: 1.5, textAlign: "center" }}>
-          <Typography variant="body2" sx={{ fontWeight: 600, display: collapsed ? "none" : "block" }}>
-            {isContractor ? (me.data?.data.contractors[0]?.name ?? "Contractor Field") : "Biomass Power Plant"}
-          </Typography>
-          <Typography variant="caption" sx={{ color: "#9DB4CC", display: collapsed ? "none" : "block" }}>
-            {isContractor ? "STS Daily Field" : "STS Project"}
-          </Typography>
-          {collapsed && (
-            <Typography variant="caption" sx={{ color: "#FFFFFF", fontWeight: 700 }}>
-              {isContractor ? "FIELD" : "STS"}
+      <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 1.75 }}>
+        {collapsed ? (
+          <Tooltip title={contextLabel} placement="right" arrow>
+            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "success.main", mx: "auto" }} />
+          </Tooltip>
+        ) : (
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", minWidth: 0 }}>
+            <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "success.main", flexShrink: 0 }} />
+            <Typography
+              variant="body2"
+              title={contextLabel}
+              sx={{ color: "#9DB4CC", fontSize: 12.5, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+            >
+              {contextLabel}
             </Typography>
-          )}
-        </Box>
+          </Stack>
+        )}
       </Box>
 
     </Box>
@@ -246,8 +241,18 @@ export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const { projectId, setProjectId, projects, loading: projectsLoading } = useCurrentProject();
+  const me = useMe();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const desktop = useMediaQuery("(min-width:900px)");
+
+  // Show the project switcher only when there is an actual choice: contractors see the
+  // projects they are linked to (memberships), EPS staff see all projects. One project → hidden.
+  const role = me.data?.data.user.role ?? "contractor";
+  const membershipProjectIds = new Set((me.data?.data.contractors ?? []).map((c) => c.projectId));
+  const projectOptions = role === "contractor"
+    ? projects.filter((p) => membershipProjectIds.has(p.id))
+    : projects;
+  const showProjectSelect = !projectsLoading && projectOptions.length > 1;
 
   useCommandPaletteShortcut(paletteOpen, setPaletteOpen);
 
@@ -313,49 +318,50 @@ export function AppLayout() {
                 <MenuOutlinedIcon />
               )}
             </IconButton>
-            <FormControl size="small" sx={{ minWidth: { xs: 150, sm: 230 } }}>
-              <Select
-                value={projectId ?? ""}
-                onChange={(e) => setProjectId(e.target.value)}
-                aria-label="Select project"
-                disabled={projectsLoading || projects.length === 0}
-                displayEmpty
-                sx={{ fontWeight: 600 }}
-              >
-                {projectsLoading && (
-                  <MenuItem value="" disabled>
-                    Loading projects…
-                  </MenuItem>
-                )}
-                {projects.map((p) => (
-                  <MenuItem key={p.id} value={p.id}>
-                    {p.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {showProjectSelect ? (
+              <FormControl size="small" sx={{ minWidth: { xs: 150, sm: 230 } }}>
+                <Select
+                  value={projectId ?? ""}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  aria-label="Select project"
+                  disabled={projectsLoading || projectOptions.length === 0}
+                  displayEmpty
+                  sx={{ fontWeight: 600 }}
+                >
+                  {projectOptions.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>
+                      {p.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            ) : null}
             <Button
-              variant="outlined"
-              color="inherit"
-              size="small"
               onClick={() => setPaletteOpen(true)}
-              startIcon={<SearchOutlinedIcon fontSize="small" />}
-              endIcon={<PaletteShortcutHint />}
+              aria-keyshortcuts="Control+K Meta+K"
               sx={{
                 width: 240,
                 height: 40,
+                px: 1.5,
                 justifyContent: "flex-start",
-                gap: 1,
-                fontWeight: 400,
-                fontSize: 13,
-                whiteSpace: "nowrap",
-                color: "text.secondary",
+                bgcolor: "background.paper",
+                border: "1px solid",
                 borderColor: "divider",
-                display: { xs: "none", sm: "inline-flex" },
+                borderRadius: 1,
+                color: "text.disabled",
+                fontSize: 14,
+                fontWeight: 400,
                 textTransform: "none",
+                whiteSpace: "nowrap",
+                display: { xs: "none", sm: "inline-flex" },
+                "&:hover": { bgcolor: "grey.50", borderColor: "grey.400" },
               }}
             >
-              Search anything…
+              <SearchOutlinedIcon sx={{ fontSize: 19, mr: 1 }} />
+              <Box component="span" sx={{ flexGrow: 1, textAlign: "left" }}>
+                Search anything…
+              </Box>
+              <PaletteShortcutHint />
             </Button>
             <Box sx={{ flexGrow: 1 }} />
             <UserMenu />

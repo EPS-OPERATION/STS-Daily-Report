@@ -26,6 +26,20 @@ async function parseBody(res: Response): Promise<unknown> {
   }
 }
 
+// Infrastructure failures (bad gateway, wrong base URL, offline) come back without
+// the app error envelope; keep the user-facing text meaningful instead of raw status.
+const FALLBACK_MESSAGE: Record<number, string> = {
+  400: "Invalid request. Please check the entered data.",
+  401: "Invalid email, username or password.",
+  403: "You are not allowed to do this.",
+  404: "The requested service is unavailable. Please try again.",
+  429: "Too many attempts. Please try again later.",
+  500: "Server error. Please try again.",
+  502: "Server error. Please try again.",
+  503: "Service is temporarily unavailable. Please try again.",
+  504: "Service is temporarily unavailable. Please try again.",
+};
+
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${config.apiUrl}${path}`, {
     credentials: "include",
@@ -39,7 +53,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     throw new HttpError(
       res.status,
       shape?.error?.code ?? "UNKNOWN_ERROR",
-      shape?.error?.message ?? `Request failed (${res.status})`,
+      shape?.error?.message ?? FALLBACK_MESSAGE[res.status] ?? `Request failed (${res.status})`,
       shape?.error?.details,
     );
   }

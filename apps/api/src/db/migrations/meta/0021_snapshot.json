@@ -1,6 +1,6 @@
 {
-  "id": "e0b82194-b78b-410a-9c45-f411d06d84ab",
-  "prevId": "1619a8d4-a34e-4770-9c11-4ae65012fd5b",
+  "id": "538eff95-8f80-4858-90f0-55df40b6da5e",
+  "prevId": "7958c3d8-5a46-4024-a65c-d190f233c0d7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2081,122 +2081,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.daily_report_forecasts": {
-      "name": "daily_report_forecasts",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "report_id": {
-          "name": "report_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_date": {
-          "name": "target_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "building_id": {
-          "name": "building_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "daily_report_forecasts_report_idx": {
-          "name": "daily_report_forecasts_report_idx",
-          "columns": [
-            {
-              "expression": "report_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "daily_report_forecasts_target_idx": {
-          "name": "daily_report_forecasts_target_idx",
-          "columns": [
-            {
-              "expression": "target_date",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "daily_report_forecasts_report_id_daily_reports_id_fk": {
-          "name": "daily_report_forecasts_report_id_daily_reports_id_fk",
-          "tableFrom": "daily_report_forecasts",
-          "tableTo": "daily_reports",
-          "columnsFrom": [
-            "report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "daily_report_forecasts_building_id_buildings_id_fk": {
-          "name": "daily_report_forecasts_building_id_buildings_id_fk",
-          "tableFrom": "daily_report_forecasts",
-          "tableTo": "buildings",
-          "columnsFrom": [
-            "building_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.daily_report_machinery": {
       "name": "daily_report_machinery",
       "schema": "",
@@ -2471,25 +2355,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
-        },
-        "high_risk": {
-          "name": "high_risk",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "task_name": {
-          "name": "task_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "supervisor_name": {
-          "name": "supervisor_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -3040,12 +2905,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "morning_updated_at": {
-          "name": "morning_updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "evening_thai_male": {
           "name": "evening_thai_male",
           "type": "integer",
@@ -3110,12 +2969,6 @@
         "evening_submitted_by": {
           "name": "evening_submitted_by",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "evening_updated_at": {
-          "name": "evening_updated_at",
-          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -3802,6 +3655,379 @@
         "safety_findings_type_check": {
           "name": "safety_findings_type_check",
           "value": "\"safety_findings\".\"finding_type\" IN ('unsafe_act', 'unsafe_condition')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.coordination_colors": {
+      "name": "coordination_colors",
+      "schema": "",
+      "columns": {
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contractor_id": {
+          "name": "contractor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "coordination_colors_project_id_contractor_id_project_contractors_project_id_contractor_id_fk": {
+          "name": "coordination_colors_project_id_contractor_id_project_contractors_project_id_contractor_id_fk",
+          "tableFrom": "coordination_colors",
+          "tableTo": "project_contractors",
+          "columnsFrom": [
+            "project_id",
+            "contractor_id"
+          ],
+          "columnsTo": [
+            "project_id",
+            "contractor_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "coordination_colors_project_id_contractor_id_pk": {
+          "name": "coordination_colors_project_id_contractor_id_pk",
+          "columns": [
+            "project_id",
+            "contractor_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "coordination_colors_hex_check": {
+          "name": "coordination_colors_hex_check",
+          "value": "\"coordination_colors\".\"color\" ~ '^#[0-9A-Fa-f]{6}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.coordination_items": {
+      "name": "coordination_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "map_id": {
+          "name": "map_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contractor_id": {
+          "name": "contractor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "work_date": {
+          "name": "work_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "icon": {
+          "name": "icon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "x": {
+          "name": "x",
+          "type": "numeric(9, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "y": {
+          "name": "y",
+          "type": "numeric(9, 8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rotation": {
+          "name": "rotation",
+          "type": "numeric(7, 3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "area_kind": {
+          "name": "area_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "geometry": {
+          "name": "geometry",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "link_area": {
+          "name": "link_area",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "coordination_items_project_date_idx": {
+          "name": "coordination_items_project_date_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "work_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "coordination_items_map_id_coordination_maps_id_fk": {
+          "name": "coordination_items_map_id_coordination_maps_id_fk",
+          "tableFrom": "coordination_items",
+          "tableTo": "coordination_maps",
+          "columnsFrom": [
+            "map_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "coordination_items_created_by_users_id_fk": {
+          "name": "coordination_items_created_by_users_id_fk",
+          "tableFrom": "coordination_items",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "coordination_items_updated_by_users_id_fk": {
+          "name": "coordination_items_updated_by_users_id_fk",
+          "tableFrom": "coordination_items",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "coordination_items_project_id_contractor_id_project_contractors_project_id_contractor_id_fk": {
+          "name": "coordination_items_project_id_contractor_id_project_contractors_project_id_contractor_id_fk",
+          "tableFrom": "coordination_items",
+          "tableTo": "project_contractors",
+          "columnsFrom": [
+            "project_id",
+            "contractor_id"
+          ],
+          "columnsTo": [
+            "project_id",
+            "contractor_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "coordination_items_xy_check": {
+          "name": "coordination_items_xy_check",
+          "value": "\"coordination_items\".\"x\" BETWEEN 0 AND 1 AND \"coordination_items\".\"y\" BETWEEN 0 AND 1"
+        },
+        "coordination_items_revision_check": {
+          "name": "coordination_items_revision_check",
+          "value": "\"coordination_items\".\"revision\" > 0"
+        },
+        "coordination_items_icon_check": {
+          "name": "coordination_items_icon_check",
+          "value": "\"coordination_items\".\"icon\" IN ('crane','machinery','truck','weld','pipe','box','pin','text')"
+        },
+        "coordination_items_area_kind_check": {
+          "name": "coordination_items_area_kind_check",
+          "value": "\"coordination_items\".\"area_kind\" IN ('rectangle','polygon')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.coordination_maps": {
+      "name": "coordination_maps",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "image_path": {
+          "name": "image_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "coordination_maps_project_id_projects_id_fk": {
+          "name": "coordination_maps_project_id_projects_id_fk",
+          "tableFrom": "coordination_maps",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "coordination_maps_project_id_unique": {
+          "name": "coordination_maps_project_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "project_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "coordination_maps_dimensions_check": {
+          "name": "coordination_maps_dimensions_check",
+          "value": "\"coordination_maps\".\"width\" > 0 AND \"coordination_maps\".\"height\" > 0"
         }
       },
       "isRLSEnabled": false
