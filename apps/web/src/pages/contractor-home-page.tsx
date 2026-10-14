@@ -1,5 +1,6 @@
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
@@ -17,17 +18,19 @@ import IconButton from "@mui/material/IconButton";
 import Skeleton from "@mui/material/Skeleton";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
+import Pagination from "@mui/material/Pagination";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
 import { canEditReport } from "@sts/shared";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
-import { Link as RouterLink, useLocation } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { FieldBottomNav } from "@/components/field/field-bottom-nav.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import { useAuthConfig, useMe } from "@/features/auth/index.js";
 import {
+  CopySourceButton,
   addDaysIso,
   formatThaiDate,
   todayIso,
@@ -41,6 +44,7 @@ import { HttpError } from "@/services/http/client.js";
 import { UnlinkedCompany } from "@/features/auth/components/unlinked-company.js";
 
 const HISTORY_DAYS = 14;
+const HISTORY_PAGE = 5;
 
 // Mobile-first field home. Answers "what do I still have to send today?" and lets the
 // contractor reopen a recent report — edits stay open until 12:00 the day after.
@@ -82,7 +86,13 @@ export function ContractorHomePage() {
     [history.data, contractorId],
   );
 
+  // History pages; back to a valid page when the list gets shorter (e.g. switching contractor).
+  const historyPages = Math.max(1, Math.ceil(rows.length / HISTORY_PAGE));
+  const [pageState, setHistoryPage] = useState(1);
+  const historyPage = Math.min(pageState, historyPages);
+
   const location = useLocation();
+  const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>((location.state as { toast?: string } | null)?.toast ?? null);
 
   useEffect(() => {
@@ -174,6 +184,19 @@ export function ContractorHomePage() {
                 tone={morningDone ? "success" : "warning"}
                 title="Daily Report"
                 caption={formatShiftStatus(report?.morningSubmittedAt, report?.morningUpdatedAt, "ยังไม่ส่ง · รายงานเช้า กำลังคน และแผนงาน")}
+                below={
+                  // Not sent yet: start from the latest morning report instead of typing it again.
+                  !morningDone ? (
+                    <Box sx={{ mt: 1 }}>
+                      <CopySourceButton
+                        projectId={projectId}
+                        contractorId={contractorId}
+                        date={today}
+                        onPick={(day) => navigate(`${reportLink(today, "morning")}&copy=${day}`)}
+                      />
+                    </Box>
+                  ) : null
+                }
                 action={
                   <Button
                     component={RouterLink}
@@ -253,7 +276,7 @@ export function ContractorHomePage() {
           </Stack>
         ) : (
           <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }} aria-label="ประวัติรายงาน">
-            {rows.map((r) => (
+            {rows.slice((historyPage - 1) * HISTORY_PAGE, historyPage * HISTORY_PAGE).map((r) => (
               <HistoryRow
                 key={`${r.contractorId}-${r.reportDate}`}
                 row={r}
@@ -264,6 +287,28 @@ export function ContractorHomePage() {
             ))}
           </Box>
         )}
+        {rows.length > HISTORY_PAGE ? (
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            spacing={1}
+            sx={{ px: 2.5, py: 1.25, borderTop: 1, borderColor: "divider" }}
+          >
+            <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: "tabular-nums" }}>
+              {(historyPage - 1) * HISTORY_PAGE + 1}–{Math.min(historyPage * HISTORY_PAGE, rows.length)} จาก {rows.length} วัน
+            </Typography>
+            <Pagination
+              size="small"
+              shape="rounded"
+              color="primary"
+              count={historyPages}
+              page={historyPage}
+              onChange={(_, p) => setHistoryPage(p)}
+              aria-label="หน้าประวัติรายงาน"
+            />
+          </Stack>
+        ) : null}
       </Card>
 
       <FieldBottomNav />
@@ -287,12 +332,15 @@ function TaskRow({
   tone,
   title,
   caption,
+  below,
   action,
 }: {
   icon: ComponentType<SvgIconProps>;
   tone: "success" | "warning" | "info";
   title: string;
   caption: string;
+  /** Optional secondary action under the caption (keeps the row wide on phones). */
+  below?: ReactNode;
   action?: ReactNode;
 }) {
   return (
@@ -305,6 +353,7 @@ function TaskRow({
         <Typography variant="caption" color="text.secondary">
           {caption}
         </Typography>
+        {below ? <Box>{below}</Box> : null}
       </Box>
       {action}
     </Stack>
@@ -361,8 +410,19 @@ function HistoryRow({
               }
             />
           </Stack>
+          {/* The 12:00 rule only reaches today and yesterday (trial mode leaves older days editable). */}
+          {editable && anySent && relative ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+              แก้ไขได้{until} น.
+            </Typography>
+          ) : !editable && anySent && relative ? (
+            // Only worth saying where the window just closed; the section subtitle states the rule.
+            <Typography variant="caption" color="text.disabled" sx={{ display: "block", mt: 0.75 }}>
+              ปิดแก้ไขแล้ว
+            </Typography>
+          ) : null}
         </Box>
-        <Stack alignItems="flex-end" spacing={0.25} sx={{ flexShrink: 0 }}>
+        <Stack alignItems="flex-end" sx={{ flexShrink: 0 }}>
           <Stack direction="row" spacing={0.5} alignItems="center">
             {evening && row.id ? (
               <Tooltip title="Export PDF">
@@ -385,16 +445,6 @@ function HistoryRow({
               {editable ? (anySent ? "แก้ไข" : "ส่ง") : "ดู"}
             </Button>
           </Stack>
-          {editable && anySent ? (
-            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
-              {until}
-            </Typography>
-          ) : !editable && anySent && relative ? (
-            // Only worth saying where the window just closed; the section subtitle states the rule.
-            <Typography variant="caption" color="text.disabled" sx={{ whiteSpace: "nowrap" }}>
-              ปิดแก้ไขแล้ว
-            </Typography>
-          ) : null}
         </Stack>
       </Stack>
     </Box>

@@ -7,7 +7,7 @@ import UmbrellaOutlinedIcon from "@mui/icons-material/UmbrellaOutlined";
 import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
+
 import PercentOutlinedIcon from "@mui/icons-material/PercentOutlined";
 import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
 import Alert from "@mui/material/Alert";
@@ -37,7 +37,7 @@ import {
   type WeatherCondition,
 } from "@sts/shared";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType, type FormEvent } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { StandardItemsPanel, type StandardItem } from "@/features/report-standard-items/index.js";
@@ -46,12 +46,14 @@ import { useSubmitMorning } from "../hooks/use-daily-report-mutations.js";
 import { morningSchema, placementStatus, type ActivityValues, type MorningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, DailyReport, PlannedToday, ReportContractor } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
+import { COPY_LOOKBACK_DAYS, CopySourceButton } from "./copy-source-button.js";
 import { CountList } from "./count-list.js";
 import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
 import { PlannedTodayChecklist } from "./planned-today.js";
 import { SectionCard } from "./section-card.js";
-import { addDaysIso, formatThaiDate } from "../utils/dates.js";
+import { formatThaiDate } from "../utils/dates.js";
+import { firstSection, scrollToSection, sectionTitle, type SectionMap } from "../utils/form-sections.js";
 
 interface MorningFormProps {
   projectId: string;
@@ -61,6 +63,9 @@ interface MorningFormProps {
   report: DailyReport | null;
   plannedToday: PlannedToday;
   onSubmitted: () => void;
+  /** Opened from the home page copy button: copy this sent morning report once on open. */
+  autoCopyFrom?: string;
+  onAutoCopyStarted?: () => void;
 }
 
 const WEATHER_ICONS: Record<WeatherCondition, ComponentType<SvgIconProps>> = {
@@ -136,7 +141,7 @@ function toDefaults(report: DailyReport | null): MorningFormValues {
   };
 }
 
-export function MorningForm({ projectId, date, contractor, buildings, report, plannedToday, onSubmitted }: MorningFormProps) {
+export function MorningForm({ projectId, date, contractor, buildings, report, plannedToday, onSubmitted, autoCopyFrom, onAutoCopyStarted }: MorningFormProps) {
   const submit = useSubmitMorning(projectId);
   const form = useForm<MorningFormValues>({
     resolver: zodResolver(morningSchema),
@@ -218,14 +223,12 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
     };
   }, []);
 
-  // Newest morning report sent in the last 7 days, yesterday first.
-  const latestMorningReport = async () => {
-    const days = Array.from({ length: 7 }, (_, i) => addDaysIso(date, -(i + 1)));
-    const found = await Promise.all(
-      days.map((d) => dailyReportApi.current(projectId, d, contractor.id).then((r) => r.data.report).catch(() => null)),
-    );
-    return found.find((r) => r?.morningStatus === "submitted") ?? null;
-  };
+  // The sent morning report of the day the contractor picked (null if it is gone or not sent).
+  const morningReportOf = (day: string) =>
+    dailyReportApi
+      .current(projectId, day, contractor.id)
+      .then((r) => (r.data.report?.morningStatus === "submitted" ? r.data.report : null))
+      .catch(() => null);
 
   const hasEntries = (v: MorningFormValues) =>
     Object.values(v.equipment).some((n) => n > 0) ||
@@ -252,13 +255,13 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
     setConfirmCopy(null);
   };
 
-  const startCopy = async () => {
+  const startCopy = async (day: string) => {
     setCopying(true);
     setCopyNotice(null);
-    const source = await latestMorningReport();
+    const source = await morningReportOf(day);
     setCopying(false);
     if (!source) {
-      setCopyNotice("ไม่พบรายงานเช้าย้อนหลัง 7 วัน — กรอกเองได้ตามปกติ");
+      setCopyNotice(`โหลดรายงานเช้าวันที่ ${formatThaiDate(day)} ไม่ได้ — กรอกเองได้ตามปกติ`);
       return;
     }
     if (hasEntries(getValues())) setConfirmCopy(source);
@@ -269,6 +272,16 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
     if (copied) reset(copied.snapshot, { keepDefaultValues: true });
     setCopied(null);
   };
+
+  // Once per open, even when React runs effects twice in development.
+  const autoCopied = useRef(false);
+  useEffect(() => {
+    if (!autoCopyFrom || autoCopied.current) return;
+    autoCopied.current = true;
+    onAutoCopyStarted?.();
+    void startCopy(autoCopyFrom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleApplyWeather = () => {
     if (!siteWeather) return;
@@ -289,7 +302,6 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
   const placementProblem = (d: Discipline) =>
     placementStatus(crewValues[d].allocations ?? [], dayStart, dayEnd, crewTotals(crewValues[d]).total).over;
   const crewReady = (d: Discipline) => crewTotals(crewValues[d]).ok && placementProblem(d) === null;
-  const allReady = picked.length > 0 && picked.every(crewReady);
 
   const onSubmit = handleSubmit(
     (v) => {
@@ -332,21 +344,61 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
       );
     },
     (errors) => {
-      const errList = Object.keys(errors);
-      if (errList.length > 0) {
-        setValidationError("กรุณาตรวจสอบข้อมูลที่ยังไม่ครบถ้วนหรือไม่ถูกต้องก่อนส่ง");
-        const first = document.querySelector(`[name="${errList[0]}"]`);
-        first?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+      // A crew error is reported per discipline so the jump lands on that discipline's section.
+      const keys = Object.keys(errors).flatMap((k) =>
+        k === "crews" ? Object.keys(errors.crews ?? {}).map((d) => `crews.${d}`) : [k],
+      );
+      goTo(firstSection(keys, sections()));
     },
   );
 
+  // Sections in screen order with the fields each one holds.
+  const sections = (): SectionMap => [
+    ["sec-general", ["startTime", "endTime", "workHours", "disciplines"]],
+    ["sec-weather", ["weather", "temperatureC", "humidityPct"]],
+    ...picked.map((d) => [`sec-crew-${d}`, [`crews.${d}`]] as const),
+    ["sec-equipment", ["equipment"]],
+  ];
+
+  const goTo = (id: string | null) => {
+    if (!id) {
+      setValidationError("กรุณาตรวจสอบข้อมูลที่ยังไม่ครบถ้วนหรือไม่ถูกต้องก่อนส่ง");
+      return;
+    }
+    setValidationError(`ยังกรอกไม่ครบ: ${sectionTitle(id)} — เลื่อนไปที่หัวข้อนั้นแล้ว`);
+    scrollToSection(id);
+  };
+
+  // Checks the zod schema does not cover (pick a discipline, headcount split, placement) come first.
+  const submitOrShowMissing = (e: FormEvent<HTMLFormElement>) => {
+    if (picked.length === 0) {
+      e.preventDefault();
+      goTo("sec-general");
+      return;
+    }
+    const notReady = picked.filter((d) => !crewReady(d));
+    if (notReady.length === 0) {
+      void onSubmit(e);
+      return;
+    }
+    // Validate the rest too, then go to whichever problem is highest on the screen.
+    e.preventDefault();
+    void form.trigger().then(() => {
+      const errors = form.formState.errors;
+      const keys = [
+        ...Object.keys(errors).flatMap((k) => (k === "crews" ? Object.keys(errors.crews ?? {}).map((d) => `crews.${d}`) : [k])),
+        ...notReady.map((d) => `crews.${d}`),
+      ];
+      goTo(firstSection(keys, sections()));
+    });
+  };
+
   const serverError = submit.error instanceof HttpError ? submit.error : null;
-  const canSubmit = allReady && !submit.isPending;
+  const canSubmit = !submit.isPending;
   const syncHours = () => setValue("workHours", hoursBetween(getValues("startTime"), getValues("endTime")));
 
   return (
-    <Box component="form" onSubmit={onSubmit} noValidate>
+    <Box component="form" onSubmit={submitOrShowMissing} noValidate>
       {report?.morningStatus === "submitted" ? (
         <Alert severity="info" sx={{ mb: 2 }}>
           ส่งรายงานเช้าแล้ว — แก้ไขและส่งใหม่ได้ถึง 12:00 น. ของวันถัดไป
@@ -361,17 +413,17 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         sx={{ mb: 2, p: 1.5, border: 1, borderColor: "divider", borderRadius: 2 }}
       >
         <Typography variant="body2" color="text.secondary">
-          คัดลอกคน งาน และเครื่องจักรจากเมื่อวาน — ถ้าไม่มี ใช้รายงานล่าสุดภายใน 7 วัน แก้ไขได้ก่อนส่ง
+          ใช้คน งาน และเครื่องจักรจากรายงานเช้าที่ส่งแล้ว (ย้อนหลัง {COPY_LOOKBACK_DAYS} วัน) — แก้ไขได้ก่อนส่ง
         </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<ContentCopyOutlinedIcon />}
-          onClick={startCopy}
-          disabled={copying || submit.isPending}
-          sx={{ flexShrink: 0, textTransform: "none", fontWeight: 600 }}
-        >
-          {copying ? "กำลังค้นหา…" : "คัดลอกจากเมื่อวาน"}
-        </Button>
+        <Box sx={{ flexShrink: 0 }}>
+          <CopySourceButton
+            projectId={projectId}
+            contractorId={contractor.id}
+            date={date}
+            disabled={copying || submit.isPending}
+            onPick={(day) => void startCopy(day)}
+          />
+        </Box>
       </Stack>
       {copyNotice ? (
         <Alert severity="info" sx={{ mb: 2 }} onClose={() => setCopyNotice(null)}>
@@ -408,8 +460,8 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         </DialogActions>
       </Dialog>
 
-      <SectionCard index={1} title="ข้อมูลทั่วไป" subtitle="เวลาทำงานใช้คำนวณชั่วโมงแรงงาน (NMH)">
-        <Grid container spacing={1.5}>
+      <SectionCard id="sec-general" index={1} title="ข้อมูลทั่วไป" subtitle="เวลาทำงานใช้คำนวณชั่วโมงแรงงาน (NMH)">
+        <Grid container spacing={1.5} alignItems="flex-end">
           {(["startTime", "endTime"] as const).map((k) => (
             <Grid key={k} size={{ xs: 6, sm: 4 }}>
               <Controller
@@ -475,7 +527,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         ) : null}
       </SectionCard>
 
-      <SectionCard index={2} title="สภาพอากาศ" subtitle="ใช้เทียบกฎหยุดงาน (ฝน/ลมแรง) และอธิบายผลงานที่ต่ำกว่าแผน">
+      <SectionCard id="sec-weather" index={2} title="สภาพอากาศ" subtitle="ใช้เทียบกฎหยุดงาน (ฝน/ลมแรง) และอธิบายผลงานที่ต่ำกว่าแผน">
         {/* Weather Auto-fetch Suggestion Banner */}
         {siteWeather && (
           <Box
@@ -621,7 +673,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         />
       ))}
 
-      <SectionCard index={3 + picked.length} title="เครื่องจักร / เครื่องมือในไซต์" subtitle="จำนวนที่นำเข้าไซต์วันนี้ (ไม่ต้องจอง) — ไม่มีในรายการกดเพิ่มเองได้">
+      <SectionCard id="sec-equipment" index={3 + picked.length} title="เครื่องจักร / เครื่องมือในไซต์" subtitle="จำนวนที่นำเข้าไซต์วันนี้ (ไม่ต้องจอง) — ไม่มีในรายการกดเพิ่มเองได้">
         <Controller
           name="equipment"
           control={control}
@@ -691,8 +743,8 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         }}
       >
         {picked.length === 0 ? (
-          <Alert severity="warning" sx={{ mb: 1, py: 0 }}>
-            ยังไม่ได้เลือกประเภทงาน — ปุ่มส่งถูกล็อก
+          <Alert severity="warning" sx={{ mb: 1, py: 0 }} action={<GoToButton onClick={() => scrollToSection("sec-general")} />}>
+            ยังไม่ได้เลือกประเภทงาน
           </Alert>
         ) : null}
         {picked
@@ -700,14 +752,13 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
           .map((d) => {
             const t = crewTotals(crewValues[d]);
             return (
-              <Alert key={d} severity="warning" sx={{ mb: 1, py: 0 }}>
+              <Alert key={d} severity="warning" sx={{ mb: 1, py: 0 }} action={<GoToButton onClick={() => scrollToSection(`sec-crew-${d}`)} />}>
                 {disciplineLabel(d)}:{" "}
                 {t.total === 0
                   ? "ยังไม่ได้กรอกจำนวนคน"
                   : !t.ok
                     ? `สัญชาติ/เพศ ${t.byNationality} คน ไม่ตรงกับตามตำแหน่ง ${t.total} คน`
-                    : placementProblem(d)}{" "}
-                — ปุ่มส่งถูกล็อก
+                    : placementProblem(d)}
               </Alert>
             );
           })}
@@ -720,6 +771,15 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         </Button>
       </Box>
     </Box>
+  );
+}
+
+// Small "go there" action on the footer warnings.
+function GoToButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button color="inherit" size="small" onClick={onClick} sx={{ py: 0, whiteSpace: "nowrap" }}>
+      ไปที่หัวข้อ
+    </Button>
   );
 }
 
@@ -891,6 +951,7 @@ function MorningCrewSection({
 
   return (
     <SectionCard
+      id={`sec-crew-${discipline}`}
       index={index}
       title={`${disciplineLabel(discipline)} — ผู้ปฏิบัติงานและ Today Activity`}
       subtitle="จำนวนคนเข้างานวันนี้แยกตามตำแหน่ง แล้วลงรายละเอียดงานว่าทำที่ไหน กี่คน"

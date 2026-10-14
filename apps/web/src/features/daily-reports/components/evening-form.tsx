@@ -24,7 +24,7 @@ import {
   type PositionCode,
 } from "@sts/shared";
 import MenuItem from "@mui/material/MenuItem";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormReturn } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
@@ -32,6 +32,7 @@ import { useWeeklySummary } from "../hooks/use-daily-report-queries.js";
 import { eveningSchema, type EveningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { addDaysIso, formatThaiDate, mondayOf } from "../utils/dates.js";
+import { firstSection, scrollToSection, sectionTitle, type SectionMap } from "../utils/form-sections.js";
 import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
 import { RequestSection } from "./request-section.js";
@@ -62,6 +63,16 @@ function crewDefaults(report: DailyReport | null, d: Discipline): EveningCrew {
 
 // Evening check-out. Independent of the morning shift: without a morning report there
 // is simply no plan to report actuals against. Also where tomorrow's requests are made.
+// Sections in screen order with the fields each one holds (first one with an error gets the scroll).
+const SECTIONS: SectionMap = [
+  ["sec-safety", ["accidentOccurred", "accidentNote", "accidentCategory"]],
+  ["sec-ot", ["otHours"]],
+  ["sec-crew", ["disciplines", "crews"]],
+  ["sec-progress", ["progress"]],
+  ["sec-tomorrow", ["forecasts", "machinery", "equipmentRequests", "permits", "roadUsage", "materials"]],
+  ["sec-sign", ["signatureName", "signatureData"]],
+];
+
 export function EveningForm({
   projectId,
   date,
@@ -227,20 +238,33 @@ export function EveningForm({
       { onSuccess: onSubmitted },
     );
   },
-  (errors) => {
-    const errList = Object.keys(errors);
-    if (errList.length > 0) {
+  (errors) => goTo(firstSection(Object.keys(errors), SECTIONS)));
+
+  const goTo = (id: string | null) => {
+    if (!id) {
       setValidationError("กรุณาตรวจสอบข้อมูลที่ยังไม่ครบถ้วนหรือไม่ถูกต้องก่อนส่ง");
-      const first = document.querySelector(`[name="${errList[0]}"]`);
-      first?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
     }
-  });
+    setValidationError(`ยังกรอกไม่ครบ: ${sectionTitle(id)} — เลื่อนไปที่หัวข้อนั้นแล้ว`);
+    scrollToSection(id);
+  };
+
+  // The afternoon crew check is outside the schema, so it runs before validation.
+  const submitOrShowMissing = (e: FormEvent<HTMLFormElement>) => {
+    if (crewsOk) {
+      void onSubmit(e);
+      return;
+    }
+    // Validate the rest too, then go to whichever problem is highest on the screen.
+    e.preventDefault();
+    void form.trigger().then(() => goTo(firstSection([...Object.keys(form.formState.errors), "crews"], SECTIONS)));
+  };
 
   const serverError = submit.error instanceof HttpError ? submit.error : null;
 
   return (
-    <Box component="form" onSubmit={onSubmit} noValidate>
-      <SectionCard index={1} tone="navy" title="ความปลอดภัย" subtitle="ใช้นับวันปลอดอุบัติเหตุ">
+    <Box component="form" onSubmit={submitOrShowMissing} noValidate>
+      <SectionCard id="sec-safety" index={1} tone="navy" title="ความปลอดภัย" subtitle="ใช้นับวันปลอดอุบัติเหตุ">
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
           <HealthAndSafetyOutlinedIcon color="success" />
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -320,7 +344,7 @@ export function EveningForm({
         ) : null}
       </SectionCard>
 
-      <SectionCard index={2} tone="navy" title="ชั่วโมงทำงานล่วงเวลา (OT)" subtitle="ต่อคน (ชม.) — ใช้คำนวณ NMH">
+      <SectionCard id="sec-ot" index={2} tone="navy" title="ชั่วโมงทำงานล่วงเวลา (OT)" subtitle="ต่อคน (ชม.) — ใช้คำนวณ NMH">
         <Controller
           name="otHours"
           control={control}
@@ -339,6 +363,7 @@ export function EveningForm({
       </SectionCard>
 
       <SectionCard
+        id="sec-crew"
         index={3}
         tone="navy"
         title="ผู้ปฏิบัติงานช่วงบ่าย (ตามตำแหน่ง)"
@@ -385,7 +410,7 @@ export function EveningForm({
         </Stack>
       </SectionCard>
 
-      <SectionCard index={4} tone="navy" title="ผลงานจริงรายอาคาร (Status % vs Plan %)" subtitle="ดึงแผนจากรายงานเช้า">
+      <SectionCard id="sec-progress" index={4} tone="navy" title="ผลงานจริงรายอาคาร (Status % vs Plan %)" subtitle="ดึงแผนจากรายงานเช้า">
         {allocations.length === 0 ? (
           <Alert severity="info">
             ไม่มีแผนจากรายงานเช้า — ส่งรายงานบ่ายได้ตามปกติ (ถ้าต้องการบันทึกผลงานรายอาคาร ให้กรอกรายงานเช้าก่อน)
@@ -400,6 +425,7 @@ export function EveningForm({
       </SectionCard>
 
       <SectionCard
+        id="sec-tomorrow"
         index={5}
         tone="navy"
         title="คำขอและแผนงานสำหรับวันพรุ่งนี้ (Tomorrow's Requests)"
@@ -437,7 +463,7 @@ export function EveningForm({
 
       {/* Materials on site — future feature, hidden for now (schema/API/material-inputs kept). */}
 
-      <SectionCard index={6} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
+      <SectionCard id="sec-sign" index={6} tone="navy" title="ลงนามยืนยัน (Digital Signature)">
         <Stack spacing={1.5}>
           <Controller
             name="signatureName"
@@ -486,7 +512,7 @@ export function EveningForm({
           py: 1.5,
         }}
       >
-        <Button type="submit" size="large" fullWidth disabled={submit.isPending || !crewsOk} sx={{ bgcolor: "navy.main" }}>
+        <Button type="submit" size="large" fullWidth disabled={submit.isPending} sx={{ bgcolor: "navy.main" }}>
           {submit.isPending ? "กำลังส่ง…" : report?.eveningStatus === "submitted" ? "บันทึกการแก้ไขรายงานบ่าย" : "ส่งรายงานบ่าย (Check-out)"}
         </Button>
       </Box>
