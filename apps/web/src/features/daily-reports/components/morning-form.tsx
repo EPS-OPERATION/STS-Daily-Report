@@ -7,6 +7,7 @@ import UmbrellaOutlinedIcon from "@mui/icons-material/UmbrellaOutlined";
 import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import PercentOutlinedIcon from "@mui/icons-material/PercentOutlined";
 import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
 import Alert from "@mui/material/Alert";
@@ -15,6 +16,10 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
@@ -35,6 +40,8 @@ import type { SvgIconProps } from "@mui/material/SvgIcon";
 import { useEffect, useState, type ComponentType } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
+import { StandardItemsPanel, type StandardItem } from "@/features/report-standard-items/index.js";
+import { dailyReportApi } from "../api/daily-report.api.js";
 import { useSubmitMorning } from "../hooks/use-daily-report-mutations.js";
 import { morningSchema, placementStatus, type ActivityValues, type MorningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, DailyReport, PlannedToday, ReportContractor } from "../types/daily-report.types.js";
@@ -44,6 +51,7 @@ import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
 import { PlannedTodayChecklist } from "./planned-today.js";
 import { SectionCard } from "./section-card.js";
+import { addDaysIso, formatThaiDate } from "../utils/dates.js";
 
 interface MorningFormProps {
   projectId: string;
@@ -83,7 +91,7 @@ function hoursBetween(start: string, end: string): number {
 
 type CrewValues = MorningFormValues["crews"][Discipline];
 
-function crewDefaults(report: DailyReport | null, d: Discipline): CrewValues {
+function crewDefaults(report: DailyReport | null, d: Discipline, copied = false): CrewValues {
   const crew = report?.crews.find((c) => c.shift === "morning" && c.discipline === d);
   return {
     positions: {
@@ -100,11 +108,12 @@ function crewDefaults(report: DailyReport | null, d: Discipline): CrewValues {
         buildingId: a.buildingId,
         headcount: a.headcount,
         workDescription: a.workDescription,
-        timed: Boolean(a.startTime && a.endTime),
-        startTime: a.startTime ?? "08:00",
-        endTime: a.endTime ?? "12:00",
-        hasPlan: a.planPercent !== null,
-        planPercent: a.planPercent ?? 0,
+        // A copy keeps who works where; times and plan % are set again for today.
+        timed: !copied && Boolean(a.startTime && a.endTime),
+        startTime: (!copied && a.startTime) || "08:00",
+        endTime: (!copied && a.endTime) || "12:00",
+        hasPlan: !copied && a.planPercent !== null,
+        planPercent: copied ? 0 : (a.planPercent ?? 0),
       })),
   };
 }
@@ -134,7 +143,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
     defaultValues: toDefaults(report),
     mode: "onTouched",
   });
-  const { control, handleSubmit, formState, setValue, getValues } = form;
+  const { control, handleSubmit, formState, setValue, getValues, reset } = form;
 
   // Auto-fetch site weather for Thung Song (TMD / Open-Meteo station at site coordinates)
   const [siteWeather, setSiteWeather] = useState<{
@@ -146,6 +155,11 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
   } | null>(null);
   const [weatherAccepted, setWeatherAccepted] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  // Copy from the latest morning report: `copied` keeps the form as it was, for undo.
+  const [copying, setCopying] = useState(false);
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  const [copied, setCopied] = useState<{ date: string; snapshot: MorningFormValues } | null>(null);
+  const [confirmCopy, setConfirmCopy] = useState<DailyReport | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -203,6 +217,58 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
       cancelled = true;
     };
   }, []);
+
+  // Newest morning report sent in the last 7 days, yesterday first.
+  const latestMorningReport = async () => {
+    const days = Array.from({ length: 7 }, (_, i) => addDaysIso(date, -(i + 1)));
+    const found = await Promise.all(
+      days.map((d) => dailyReportApi.current(projectId, d, contractor.id).then((r) => r.data.report).catch(() => null)),
+    );
+    return found.find((r) => r?.morningStatus === "submitted") ?? null;
+  };
+
+  const hasEntries = (v: MorningFormValues) =>
+    Object.values(v.equipment).some((n) => n > 0) ||
+    DISCIPLINE_CODES.some((d) => crewTotals(v.crews[d]).total > 0 || v.crews[d].allocations.some((a) => a.buildingId || a.workDescription.trim()));
+
+  // Copies people (positions and nationality), work items and machines. Times, plan %, weather and hours stay for today.
+  const applyCopy = (source: DailyReport) => {
+    const snapshot = structuredClone(getValues());
+    const sourceDisciplines = DISCIPLINE_CODES.filter((d) => source.crews.some((c) => c.shift === "morning" && c.discipline === d));
+    setValue("disciplines", sourceDisciplines, { shouldDirty: true });
+    for (const d of sourceDisciplines) {
+      const c = crewDefaults(source, d, true);
+      setValue(`crews.${d}.positions`, c.positions, { shouldDirty: true });
+      setValue(`crews.${d}.thaiMale`, c.thaiMale, { shouldDirty: true });
+      setValue(`crews.${d}.thaiFemale`, c.thaiFemale, { shouldDirty: true });
+      setValue(`crews.${d}.foreignMale`, c.foreignMale, { shouldDirty: true });
+      setValue(`crews.${d}.foreignFemale`, c.foreignFemale, { shouldDirty: true });
+      setValue(`crews.${d}.allocations`, c.allocations, { shouldDirty: true });
+    }
+    const equipment = { ...emptyCounts(SITE_EQUIPMENT_TYPES), ...Object.fromEntries(source.equipment.map((e) => [e.equipmentType, e.qty])) };
+    setValue("equipment", equipment as Record<string, number>, { shouldDirty: true });
+    setCopied({ date: source.reportDate, snapshot });
+    setCopyNotice(null);
+    setConfirmCopy(null);
+  };
+
+  const startCopy = async () => {
+    setCopying(true);
+    setCopyNotice(null);
+    const source = await latestMorningReport();
+    setCopying(false);
+    if (!source) {
+      setCopyNotice("ไม่พบรายงานเช้าย้อนหลัง 7 วัน — กรอกเองได้ตามปกติ");
+      return;
+    }
+    if (hasEntries(getValues())) setConfirmCopy(source);
+    else applyCopy(source);
+  };
+
+  const undoCopy = () => {
+    if (copied) reset(copied.snapshot, { keepDefaultValues: true });
+    setCopied(null);
+  };
 
   const handleApplyWeather = () => {
     if (!siteWeather) return;
@@ -286,6 +352,61 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
           ส่งรายงานเช้าแล้ว — แก้ไขและส่งใหม่ได้ถึง 12:00 น. ของวันถัดไป
         </Alert>
       ) : null}
+
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        alignItems={{ sm: "center" }}
+        justifyContent="space-between"
+        spacing={1.25}
+        sx={{ mb: 2, p: 1.5, border: 1, borderColor: "divider", borderRadius: 2 }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          คัดลอกคน งาน และเครื่องจักรจากเมื่อวาน — ถ้าไม่มี ใช้รายงานล่าสุดภายใน 7 วัน แก้ไขได้ก่อนส่ง
+        </Typography>
+        <Button
+          variant="outlined"
+          startIcon={<ContentCopyOutlinedIcon />}
+          onClick={startCopy}
+          disabled={copying || submit.isPending}
+          sx={{ flexShrink: 0, textTransform: "none", fontWeight: 600 }}
+        >
+          {copying ? "กำลังค้นหา…" : "คัดลอกจากเมื่อวาน"}
+        </Button>
+      </Stack>
+      {copyNotice ? (
+        <Alert severity="info" sx={{ mb: 2 }} onClose={() => setCopyNotice(null)}>
+          {copyNotice}
+        </Alert>
+      ) : null}
+      {copied ? (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="primary" size="small" onClick={undoCopy}>
+              ย้อนกลับ
+            </Button>
+          }
+        >
+          คัดลอกจากรายงานวันที่ {formatThaiDate(copied.date)} แล้ว — ตรวจสอบจำนวนคนและงานก่อนส่ง
+        </Alert>
+      ) : null}
+      <Dialog open={Boolean(confirmCopy)} onClose={() => setConfirmCopy(null)} fullWidth maxWidth="xs">
+        <DialogTitle>แทนที่ข้อมูลที่กรอกไว้วันนี้?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            คน งาน และเครื่องจักรที่กรอกไว้จะถูกแทนที่ด้วยข้อมูลจากวันที่ {confirmCopy ? formatThaiDate(confirmCopy.reportDate) : ""}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setConfirmCopy(null)}>
+            ยกเลิก
+          </Button>
+          <Button variant="contained" disableElevation onClick={() => confirmCopy && applyCopy(confirmCopy)}>
+            คัดลอกและแทนที่
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <SectionCard index={1} title="ข้อมูลทั่วไป" subtitle="เวลาทำงานใช้คำนวณชั่วโมงแรงงาน (NMH)">
         <Grid container spacing={1.5}>
@@ -487,7 +608,17 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         </Alert>
       ) : null}
       {picked.map((d, i) => (
-        <MorningCrewSection key={d} index={3 + i} discipline={d} form={form} buildings={buildings} dayStart={dayStart} dayEnd={dayEnd} />
+        <MorningCrewSection
+          key={d}
+          index={3 + i}
+          discipline={d}
+          form={form}
+          buildings={buildings}
+          dayStart={dayStart}
+          dayEnd={dayEnd}
+          projectId={projectId}
+          contractorId={contractor.id}
+        />
       ))}
 
       <SectionCard index={3 + picked.length} title="เครื่องจักร / เครื่องมือในไซต์" subtitle="จำนวนที่นำเข้าไซต์วันนี้ (ไม่ต้องจอง) — ไม่มีในรายการกดเพิ่มเองได้">
@@ -504,6 +635,22 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
                 max={500}
               />
               <CustomEquipmentList values={field.value} onChange={field.onChange} />
+              <StandardItemsPanel
+                kind="equipment"
+                projectId={projectId}
+                contractorId={contractor.id}
+                buildings={buildings}
+                onApply={(items) => {
+                  const next = { ...getValues("equipment") };
+                  for (const i of items) next[i.label] = Math.max(next[i.label] ?? 0, i.defaultCount);
+                  setValue("equipment", next, { shouldDirty: true });
+                }}
+                onSaveFromForm={() =>
+                  Object.entries(getValues("equipment"))
+                    .filter(([, n]) => n > 0)
+                    .map(([label, n]) => ({ kind: "equipment" as const, label, defaultCount: n }))
+                }
+              />
               {fieldState.error?.message ? (
                 <Typography variant="caption" color="error">
                   {fieldState.error.message}
@@ -698,6 +845,13 @@ const newActivity = (headcount: number): ActivityValues => ({
   planPercent: 0,
 });
 
+// A saved work item becomes one Today Activity row: where, what and how many. Times and plan % are set per day.
+const activityFromStandard = (i: StandardItem): ActivityValues => ({
+  ...newActivity(i.defaultCount),
+  buildingId: i.buildingId ?? "",
+  workDescription: i.label,
+});
+
 // One discipline's morning form: who works (by position + nationality/sex) and Today Activity —
 // which building, what work, how many people, optionally when and with a plan %.
 function MorningCrewSection({
@@ -707,6 +861,8 @@ function MorningCrewSection({
   buildings,
   dayStart,
   dayEnd,
+  projectId,
+  contractorId,
 }: {
   index: number;
   discipline: Discipline;
@@ -714,6 +870,8 @@ function MorningCrewSection({
   buildings: Building[];
   dayStart: string;
   dayEnd: string;
+  projectId: string;
+  contractorId: string;
 }) {
   const { control, setValue, getValues, formState } = form;
   const activities = useFieldArray({ control, name: `crews.${discipline}.allocations` });
@@ -795,6 +953,22 @@ function MorningCrewSection({
           {listError}
         </Typography>
       ) : null}
+      <StandardItemsPanel
+        kind="activity"
+        projectId={projectId}
+        contractorId={contractorId}
+        buildings={buildings}
+        onApply={(items) => {
+          const have = new Set(rows.map((r) => `${r.buildingId}|${r.workDescription.trim().toLowerCase()}`));
+          const fresh = items.filter((i) => i.buildingId && !have.has(`${i.buildingId}|${i.label.trim().toLowerCase()}`));
+          activities.append(fresh.map(activityFromStandard));
+        }}
+        onSaveFromForm={() =>
+          rows
+            .filter((r) => r.buildingId && r.workDescription.trim())
+            .map((r) => ({ kind: "activity" as const, label: r.workDescription.trim(), buildingId: r.buildingId, defaultCount: r.headcount }))
+        }
+      />
     </SectionCard>
   );
 }

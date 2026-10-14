@@ -290,3 +290,11 @@ export function editDeadline(reportDate: string): Date {
 export function canEditReport(reportDate: string, now: Date = new Date()): boolean {
   return now.getTime() < editDeadline(reportDate).getTime();
 }
+
+// Entries a contractor saves once and picks again (report-standard-items module). Same key = same entry.
+export const STANDARD_ITEM_KINDS = ["activity", "equipment", "permit"] as const;
+export type StandardItemKind = (typeof STANDARD_ITEM_KINDS)[number];
+
+export function standardItemKey(i: { kind: StandardItemKind; buildingId: string | null; permitType: string | null; label: string }): string {
+  return [i.kind, i.buildingId ?? "", i.permitType ?? "", i.label.trim().toLowerCase()].join("|");
+}

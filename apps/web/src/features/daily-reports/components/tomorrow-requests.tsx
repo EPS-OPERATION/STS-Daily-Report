@@ -29,7 +29,8 @@ import type { EveningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, WeeklySummary } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
 import { NumberStepper } from "./number-stepper.js";
-import { PERMIT_ICONS } from "./permit-meta.js";
+import { StandardItemsPanel, type StandardItem } from "@/features/report-standard-items/index.js";
+import { PERMIT_ICONS, permitLabel } from "./permit-meta.js";
 
 const ROAD_PURPOSES = ["Crane outrigger setup", "Concrete mixer staging", "Material delivery", "Heavy equipment move"];
 
@@ -401,8 +402,30 @@ function RoadRow({
   );
 }
 
-export function PermitRequests({ control, buildings }: { control: Control<EveningFormValues>; buildings: Building[] }) {
+// A saved permit becomes one request row. A custom ("other") permit keeps its name in otherLabel.
+const permitFromStandard = (i: StandardItem) => ({
+  permitType: i.permitType ?? "other",
+  otherLabel: i.permitType === "other" ? i.label : "",
+  buildingId: i.buildingId ?? "",
+  workers: i.defaultCount,
+  highRisk: i.highRisk,
+  taskName: i.taskName,
+  supervisorName: i.supervisorName,
+});
+
+export function PermitRequests({
+  control,
+  buildings,
+  projectId,
+  contractorId,
+}: {
+  control: Control<EveningFormValues>;
+  buildings: Building[];
+  projectId: string;
+  contractorId: string;
+}) {
   const rows = useFieldArray({ control, name: "permits" });
+  const permits = useWatch({ control, name: "permits" });
   return (
     <Box>
       <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1.5 }}>
@@ -420,6 +443,27 @@ export function PermitRequests({ control, buildings }: { control: Control<Evenin
           );
         })}
       </Stack>
+      <StandardItemsPanel
+        kind="permit"
+        projectId={projectId}
+        contractorId={contractorId}
+        buildings={buildings}
+        onApply={(items) => items.forEach((i) => rows.append(permitFromStandard(i)))}
+        onSaveFromForm={() =>
+          permits
+            .filter((p) => p.buildingId && (p.permitType !== "other" || (p.otherLabel ?? "").trim()))
+            .map((p) => ({
+              kind: "permit" as const,
+              label: p.permitType === "other" ? (p.otherLabel ?? "").trim() : permitLabel(p.permitType),
+              buildingId: p.buildingId,
+              defaultCount: p.workers,
+              permitType: p.permitType,
+              highRisk: p.highRisk,
+              taskName: p.taskName.trim(),
+              supervisorName: p.supervisorName.trim(),
+            }))
+        }
+      />
       <Stack spacing={1.5}>
         {rows.fields.map((row, i) => (
           <PermitRow key={row.id} index={i} control={control} buildings={buildings} onRemove={() => rows.remove(i)} />

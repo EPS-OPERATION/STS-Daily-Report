@@ -432,7 +432,7 @@ export function EveningForm({
         <RoadUsageRequests control={control} buildings={buildings} ctx={ctx} />
         <Divider sx={{ my: 2.5 }} />
         <SubHeading>ใบอนุญาตงานเสี่ยง (Work Permits)</SubHeading>
-        <PermitRequests control={control} buildings={buildings} />
+        <PermitRequests control={control} buildings={buildings} projectId={projectId} contractorId={contractor.id} />
       </SectionCard>
 
       {/* Materials on site — future feature, hidden for now (schema/API/material-inputs kept). */}
