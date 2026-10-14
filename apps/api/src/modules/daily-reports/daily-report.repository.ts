@@ -179,7 +179,7 @@ function roadQuery(db: Db) {
     .from(dailyReportRoadUsage)
     .innerJoin(dailyReports, eq(dailyReportRoadUsage.reportId, dailyReports.id))
     .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
-    .innerJoin(buildings, eq(dailyReportRoadUsage.buildingId, buildings.id))
+    .leftJoin(buildings, eq(dailyReportRoadUsage.buildingId, buildings.id))
     .leftJoin(users, eq(dailyReportRoadUsage.adjustedBy, users.id));
 }
 
@@ -733,7 +733,7 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
         input.roadUsage.map((r, i) => ({
           reportId,
           targetDate: tomorrow,
-          buildingId: r.buildingId,
+          buildingId: r.buildingId || null,
           roadLocation: r.roadLocation.trim(),
           startTime: r.startTime,
           endTime: r.endTime,

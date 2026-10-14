@@ -153,7 +153,7 @@ export const eveningBody = t.Object({
   ),
   roadUsage: t.Array(
     t.Object({
-      buildingId: t.String({ format: "uuid" }),
+      buildingId: t.Optional(t.Nullable(t.String())),
       roadLocation: t.String({ minLength: 1, maxLength: 120 }),
       startTime: hhmm,
       endTime: hhmm,

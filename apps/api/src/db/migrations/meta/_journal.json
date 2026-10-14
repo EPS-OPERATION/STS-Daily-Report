@@ -190,6 +190,13 @@
       "when": 1791903182251,
       "tag": "0026_unknown_wiccan",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791953066828,
+      "tag": "0027_giant_major_mapleleaf",
+      "breakpoints": true
     }
   ]
 }

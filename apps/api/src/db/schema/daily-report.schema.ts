@@ -348,7 +348,6 @@ export const dailyReportRoadUsage = pgTable(
       .references(() => dailyReports.id, { onDelete: "cascade" }),
     targetDate: date("target_date").notNull(),
     buildingId: uuid("building_id")
-      .notNull()
       .references(() => buildings.id, { onDelete: "restrict" }),
     roadLocation: text("road_location").notNull(),
     startTime: text("start_time").notNull(),

@@ -277,7 +277,7 @@ export function EquipmentRequests({ control, buildings }: { control: Control<Eve
 
 export function RoadUsageRequests({
   control,
-  buildings,
+  buildings: _buildings,
   ctx,
 }: {
   control: Control<EveningFormValues>;
@@ -294,7 +294,7 @@ export function RoadUsageRequests({
           </Typography>
         ) : null}
         {rows.fields.map((row, i) => (
-          <RoadRow key={row.id} index={i} control={control} buildings={buildings} ctx={ctx} onRemove={() => rows.remove(i)} />
+          <RoadRow key={row.id} index={i} control={control} ctx={ctx} onRemove={() => rows.remove(i)} />
         ))}
       </Stack>
       <Button
@@ -313,13 +313,11 @@ export function RoadUsageRequests({
 function RoadRow({
   index,
   control,
-  buildings,
   ctx,
   onRemove,
 }: {
   index: number;
   control: Control<EveningFormValues>;
-  buildings: Building[];
   ctx: TomorrowContext;
   onRemove: () => void;
 }) {
@@ -338,7 +336,7 @@ function RoadRow({
     <Card variant="outlined" sx={{ borderColor: clashes.length ? "error.main" : "divider" }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Grid container spacing={1.5}>
-          <Grid size={{ xs: 10, sm: 6 }}>
+          <Grid size={{ xs: 10, sm: 11 }}>
             <Controller
               name={`roadUsage.${index}.roadLocation`}
               control={control}
@@ -361,21 +359,12 @@ function RoadRow({
               ))}
             </datalist>
           </Grid>
-          <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }} order={{ sm: 3 }}>
+          <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }}>
             <IconButton aria-label="ลบคำขอใช้ถนน" onClick={onRemove}>
               <DeleteOutlineOutlinedIcon />
             </IconButton>
           </Grid>
-          <Grid size={{ xs: 12, sm: 5 }} order={{ sm: 2 }}>
-            <Controller
-              name={`roadUsage.${index}.buildingId`}
-              control={control}
-              render={({ field, fieldState }) => (
-                <BuildingSelect label="อาคารที่อยู่ติด" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
-              )}
-            />
-          </Grid>
-          <Grid size={12} order={{ sm: 4 }}>
+          <Grid size={12}>
             <Controller
               name={`roadUsage.${index}.purpose`}
               control={control}

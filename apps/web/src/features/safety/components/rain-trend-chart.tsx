@@ -39,12 +39,6 @@ export function RainTrendChart({ stats, height = 300 }: RainTrendChartProps) {
             label: "ชั่วโมงหยุดงาน (ชม.)",
             width: 48,
           },
-          {
-            id: "rainfall",
-            label: "ปริมาณฝน (มม.)",
-            width: 48,
-            position: "right",
-          },
         ]}
         series={[
           {
@@ -53,13 +47,6 @@ export function RainTrendChart({ stats, height = 300 }: RainTrendChartProps) {
             color: "#DC2626", // Red for work stoppage impact
             data: data.map((d) => d.stoppageHours),
             yAxisId: "hours",
-          },
-          {
-            id: "rainMm",
-            label: "ปริมาณน้ำฝน (มม.)",
-            color: "#0284C7", // Sky blue for rain
-            data: data.map((d) => d.rainfallMm),
-            yAxisId: "rainfall",
           },
         ]}
         slotProps={{

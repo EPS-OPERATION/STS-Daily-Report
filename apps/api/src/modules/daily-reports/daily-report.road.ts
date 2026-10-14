@@ -2,7 +2,7 @@ import { normalizeRoadName } from "@sts/shared";
 
 // A road booking as the contractor sent it. The signature ties an EPS time change to that request.
 export interface RoadRequest {
-  buildingId: string;
+  buildingId?: string | null;
   roadLocation: string;
   startTime: string;
   endTime: string;
@@ -18,7 +18,7 @@ export interface RoadAdjustment {
 export type AdjustedRoadRequest = RoadRequest & RoadAdjustment;
 
 export function roadSignature(r: RoadRequest): string {
-  return [r.buildingId, normalizeRoadName(r.roadLocation), r.startTime, r.endTime].join("|");
+  return [r.buildingId ?? "", normalizeRoadName(r.roadLocation), r.startTime, r.endTime].join("|");
 }
 
 // A contractor re-sends the whole evening report and its road rows are replaced. An EPS time change

@@ -391,8 +391,13 @@ function validateTomorrow(
   for (const f of forecasts) {
     if (!f.description.trim()) throw new ValidationError("Describe each forecast activity");
   }
-  for (const b of [...machinery, ...equipment, ...permits, ...roads, ...forecasts]) {
+  for (const b of [...machinery, ...equipment, ...permits, ...forecasts]) {
     if (!buildingIds.has(b.buildingId)) throw new ValidationError("Unknown building", { buildingId: b.buildingId });
+  }
+  for (const r of roads) {
+    if (r.buildingId && !buildingIds.has(r.buildingId)) {
+      throw new ValidationError("Unknown building", { buildingId: r.buildingId });
+    }
   }
   for (const m of machinery) {
     if (Boolean(m.startTime) !== Boolean(m.endTime)) {

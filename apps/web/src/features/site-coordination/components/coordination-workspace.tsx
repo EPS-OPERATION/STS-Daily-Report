@@ -27,6 +27,7 @@ import CloseOutlined from "@mui/icons-material/CloseOutlined";
 import ViewSidebarOutlined from "@mui/icons-material/ViewSidebarOutlined";
 import LockOutlined from "@mui/icons-material/LockOutlined";
 import PrintOutlined from "@mui/icons-material/PrintOutlined";
+import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
@@ -264,6 +265,20 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
         setContractorIds(codes.size === 0 || codes.size === allContractorCodes.length ? null : new Set(data.contractors.filter((c) => codes.has(c.code)).map((c) => c.id)));
       }}
     /> : null;
+  // Contractor logins can narrow the map to the companies they belong to in the open project (same filter state as the popover).
+  const myCompanyIds = (me.data?.data.contractors ?? []).filter((c) => c.projectId === projectId).map((c) => c.id);
+  const mineActive = contractorIds !== null && myCompanyIds.length > 0 && contractorIds.size === myCompanyIds.length && myCompanyIds.every((id) => contractorIds.has(id));
+  const myCodes = data?.contractors.filter((c) => myCompanyIds.includes(c.id)).map((c) => c.code) ?? [];
+  const mineControl = !readOnly && !compact && !isEpsStaff(me.data?.data.user.role) && myCompanyIds.length > 0 && data ? <Button
+      variant={mineActive ? "contained" : "outlined"}
+      color={mineActive ? "primary" : "inherit"}
+      disableElevation
+      aria-pressed={mineActive}
+      startIcon={<PersonOutlined />}
+      onClick={() => { void flush(); updateWorking(null); setSelectedId(null); setContractorIds(mineActive ? null : new Set(myCompanyIds)); }}
+      sx={{ whiteSpace: "nowrap", height: 40, bgcolor: mineActive ? undefined : "background.paper" }}>
+      เฉพาะงานของฉัน{myCodes.length > 3 ? ` · ${myCodes.length} บริษัท` : myCodes.length ? ` · ${myCodes.join(", ")}` : ""}
+    </Button> : null;
   const typeCounts = new Map<CoordinationIcon, number>();
   for (const item of data?.items ?? []) typeCounts.set(item.icon, (typeCounts.get(item.icon) ?? 0) + 1);
   const typeControl = <TypeFilter selected={types} counts={typeCounts} onChange={(next) => { selectItem(null); setTypes(next); }} />;
@@ -311,6 +326,7 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
               sx={{ whiteSpace: "nowrap", height: 40, width: { xs: "100%", sm: "auto" }, bgcolor: "background.paper" }}>รายงาน PDF</Button>}
           </Stack>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ "& > .MuiBadge-root, & > .MuiButton-root": { flex: { xs: "1 1 100%", sm: "none" } }, "& > .MuiBadge-root > .MuiButton-root": { width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "space-between", sm: "center" } } }}>
+            {mineControl}
             {contractorControl}
             {typeControl}
             {searchControl}

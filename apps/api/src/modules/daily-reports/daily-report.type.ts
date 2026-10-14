@@ -78,7 +78,7 @@ export interface MorningInput {
 }
 
 export interface RoadUsageInput {
-  buildingId: string;
+  buildingId?: string | null;
   roadLocation: string;
   startTime: string;
   endTime: string;
@@ -156,9 +156,9 @@ export type ConflictSeverity = "conflict" | "possible";
 export interface RoadRow {
   id: string;
   targetDate: string;
-  buildingId: string;
-  buildingCode: string;
-  buildingName: string;
+  buildingId: string | null;
+  buildingCode: string | null;
+  buildingName: string | null;
   roadLocation: string;
   // startTime/endTime: what EPS settled (the request until EPS changes it). requested*: the contractor's own times.
   startTime: string;

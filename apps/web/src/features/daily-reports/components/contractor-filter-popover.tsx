@@ -15,6 +15,7 @@ import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import type { SxProps, Theme } from "@mui/material/styles";
 
 export interface ContractorFilterItem {
   code: string;
@@ -29,12 +30,16 @@ interface ContractorFilterPopoverProps {
   items: ContractorFilterItem[];
   selectedCodes: Set<string>;
   onChange: (next: Set<string>) => void;
+  size?: "small" | "medium";
+  sx?: SxProps<Theme>;
 }
 
 export function ContractorFilterPopover({
   items,
   selectedCodes,
   onChange,
+  size = "small",
+  sx,
 }: ContractorFilterPopoverProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const [search, setSearch] = useState("");
@@ -99,7 +104,7 @@ export function ContractorFilterPopover({
     <>
       <Badge color="primary" variant="dot" invisible={!isFiltered}>
         <Button
-          size="small"
+          size={size}
           variant={isFiltered ? "contained" : "outlined"}
           color={isFiltered ? "primary" : "inherit"}
           onClick={handleOpen}
@@ -107,10 +112,14 @@ export function ContractorFilterPopover({
           endIcon={<ArrowDropDownOutlinedIcon />}
           sx={{
             minWidth: 150,
+            height: size === "medium" ? 40 : undefined,
+            fontSize: size === "medium" ? "0.875rem" : undefined,
+            whiteSpace: "nowrap",
             textTransform: "none",
             borderColor: isFiltered ? undefined : "divider",
             bgcolor: isFiltered ? undefined : "background.paper",
             fontWeight: 600,
+            ...sx,
           }}
         >
           {buttonLabel}

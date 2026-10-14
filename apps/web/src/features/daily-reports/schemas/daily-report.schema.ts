@@ -200,7 +200,7 @@ export type MorningFormValues = z.infer<typeof morningSchema>;
 export const roadUsageSchema = z
   .object({
     roadLocation: z.string().trim().min(1, "ระบุถนน/ช่องทาง").max(120),
-    buildingId: z.string().min(1, "เลือกอาคาร"),
+    buildingId: z.string().optional().default(""),
     startTime: hhmm,
     endTime: hhmm,
     purpose: z.string().trim().min(1, "ระบุวัตถุประสงค์").max(300),

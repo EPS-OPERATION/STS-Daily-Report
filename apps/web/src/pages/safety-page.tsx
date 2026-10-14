@@ -203,7 +203,7 @@ export function SafetyPage() {
         </ToggleButton>
         <ToggleButton value="rain" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
           <ThunderstormOutlinedIcon fontSize="small" />
-          ฝนตก & สถิติ Delay
+          สถิติฝนตก
         </ToggleButton>
       </ToggleButtonGroup>
 
@@ -214,129 +214,129 @@ export function SafetyPage() {
       ) : (
         <>
 
-      {error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error.message}
-        </Alert>
-      ) : null}
+          {error ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error.message}
+            </Alert>
+          ) : null}
 
-      {!s ? (
-        <Skeleton variant="rounded" height={420} />
-      ) : (
-        <Stack spacing={2.5}>
-          {/* tiles (deck "SAFETY PERFORMANCE") */}
-          <Grid container spacing={1.5}>
-            <Tile label="อุบัติเหตุ" value={s.tiles.accidents} unit="ครั้ง" alert={s.tiles.accidents > 0} />
-            <Tile label="LTI" value={s.tiles.lti} unit="ครั้ง" alert={s.tiles.lti > 0} />
-            <Tile label="Near Miss" value={s.tiles.nearMiss} unit="รายการ" />
-            <Tile label="ตรวจความปลอดภัย" value={s.tiles.inspections} unit="ครั้ง" />
-            <Tile
-              label="ข้อประเด็นแก้ไข"
-              value={s.tiles.closedPct === null ? "—" : `${s.tiles.closedPct}%`}
-              unit={`(${s.tiles.closed}/${s.tiles.inspections})`}
-            />
-            <Tile label="อุบัติเหตุเป็นศูนย์" value={s.daysWithoutAccident} unit="วัน" good icon={<HealthAndSafetyOutlinedIcon />} />
-          </Grid>
+          {!s ? (
+            <Skeleton variant="rounded" height={420} />
+          ) : (
+            <Stack spacing={2.5}>
+              {/* tiles (deck "SAFETY PERFORMANCE") */}
+              <Grid container spacing={1.5}>
+                <Tile label="อุบัติเหตุ" value={s.tiles.accidents} unit="ครั้ง" alert={s.tiles.accidents > 0} />
+                <Tile label="LTI" value={s.tiles.lti} unit="ครั้ง" alert={s.tiles.lti > 0} />
+                <Tile label="Near Miss" value={s.tiles.nearMiss} unit="รายการ" />
+                <Tile label="ตรวจความปลอดภัย" value={s.tiles.inspections} unit="ครั้ง" />
+                <Tile
+                  label="ข้อประเด็นแก้ไข"
+                  value={s.tiles.closedPct === null ? "—" : `${s.tiles.closedPct}%`}
+                  unit={`(${s.tiles.closed}/${s.tiles.inspections})`}
+                />
+                <Tile label="อุบัติเหตุเป็นศูนย์" value={s.daysWithoutAccident} unit="วัน" good icon={<HealthAndSafetyOutlinedIcon />} />
+              </Grid>
 
-          <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12, lg: 6 }}>
-              <Panel title="STATISTIC" note="จากรายงานบ่ายของผู้รับเหมา (ประเภทเหตุการณ์) + ชั่วโมงทำงาน">
-                <StatisticTable stats={s} compact />
-              </Panel>
-            </Grid>
-            <Grid size={{ xs: 12, lg: 6 }}>
-              <Panel title={`แนวโน้มความปลอดภัย (รายเดือน ${s.to.slice(0, 4)})`} note="Near miss จากผู้รับเหมา · Safety inspection = Line walk ของ EPS">
-                <MonthlyTrendChart stats={s} height={300} />
-              </Panel>
-            </Grid>
-            <Grid size={12}>
-              <Panel title="Finding for line walk" note="แยกตามผู้รับเหมาในช่วงที่เลือก">
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <FindingPie title="Unsafe Action" summary={s.unsafeAct} colors={colors} />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <FindingPie title="Unsafe Condition" summary={s.unsafeCondition} colors={colors} />
-                  </Grid>
+              <Grid container spacing={2.5}>
+                <Grid size={{ xs: 12, lg: 6 }}>
+                  <Panel title="STATISTIC" note="จากรายงานบ่ายของผู้รับเหมา (ประเภทเหตุการณ์) + ชั่วโมงทำงาน">
+                    <StatisticTable stats={s} compact />
+                  </Panel>
                 </Grid>
+                <Grid size={{ xs: 12, lg: 6 }}>
+                  <Panel title={`แนวโน้มความปลอดภัย (รายเดือน ${s.to.slice(0, 4)})`} note="Near miss จากผู้รับเหมา · Safety inspection = Line walk ของ EPS">
+                    <MonthlyTrendChart stats={s} height={300} />
+                  </Panel>
+                </Grid>
+                <Grid size={12}>
+                  <Panel title="Finding for line walk" note="แยกตามผู้รับเหมาในช่วงที่เลือก">
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <FindingPie title="Unsafe Action" summary={s.unsafeAct} colors={colors} />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <FindingPie title="Unsafe Condition" summary={s.unsafeCondition} colors={colors} />
+                      </Grid>
+                    </Grid>
+                  </Panel>
+                </Grid>
+              </Grid>
+
+              <Panel
+                title="Issue Safety Line Walk"
+                note={`${visibleRows.length} รายการ · ${visibleRows.filter((r) => r.status === "open").length} ยังไม่ปิด`}
+                action={
+                  <Button startIcon={<AddIcon />} onClick={() => setEditing("new")}>
+                    บันทึก Line walk
+                  </Button>
+                }
+              >
+                {visibleRows.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
+                    ยังไม่มี Line walk ในช่วงนี้
+                  </Typography>
+                ) : (
+                  <Box sx={{ overflowX: "auto" }}>
+                    <Table size="small" sx={{ minWidth: 1100, "& td": { verticalAlign: "top" } }}>
+                      <TableHead>
+                        <TableRow>
+                          {["#", "Observations Identified", "Location", "Action to be taken", "Responsible", "Inspection", "Expect complete", "Finding", "Status", "Close", "Type", ""].map((h) => (
+                            <TableCell key={h} sx={{ fontWeight: 700, bgcolor: "grey.50" }}>
+                              {h}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {visibleRows.map((r) => (
+                          <TableRow key={r.id} hover>
+                            <TableCell>{r.itemNo}</TableCell>
+                            <TableCell sx={{ maxWidth: 220 }}>{r.observation}</TableCell>
+                            <TableCell>
+                              {r.buildingCode ?? "—"}
+                              {r.locationDetail ? <Typography variant="caption" sx={{ display: "block" }}>{r.locationDetail}</Typography> : null}
+                            </TableCell>
+                            <TableCell sx={{ maxWidth: 220 }}>{r.actionToBeTaken}</TableCell>
+                            <TableCell>{r.contractorCode ? <ContractorBadge code={r.contractorCode} title={r.contractorName ?? undefined} /> : "—"}</TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>{dayjs(r.inspectionDate).format("D/MMM/YY")}</TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>{r.expectedCompleteDate ? dayjs(r.expectedCompleteDate).format("D/MMM/YY") : "—"}</TableCell>
+                            <TableCell>
+                              <Thumb src={r.findingPhotoUrl} />
+                            </TableCell>
+                            <TableCell>
+                              {r.status === "done" ? <StatusChip status="completed" label="DONE" /> : <StatusChip status="attention" label="OPEN" />}
+                            </TableCell>
+                            <TableCell>
+                              <Thumb src={r.closePhotoUrl} />
+                            </TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>{r.findingType === "unsafe_act" ? "Unsafe Act." : "Unsafe con."}</TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>
+                              <IconButton size="small" aria-label="แก้ไข" onClick={() => setEditing(r)}>
+                                <EditOutlinedIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                aria-label="ลบ"
+                                disabled={remove.isPending}
+                                onClick={() => window.confirm(`ลบ item ${r.itemNo}?`) && remove.mutate(r.id)}
+                              >
+                                <DeleteOutlineOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                )}
               </Panel>
-            </Grid>
-          </Grid>
+            </Stack>
+          )}
 
-          <Panel
-            title="Issue Safety Line Walk"
-            note={`${visibleRows.length} รายการ · ${visibleRows.filter((r) => r.status === "open").length} ยังไม่ปิด`}
-            action={
-              <Button startIcon={<AddIcon />} onClick={() => setEditing("new")}>
-                บันทึก Line walk
-              </Button>
-            }
-          >
-            {visibleRows.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
-                ยังไม่มี Line walk ในช่วงนี้
-              </Typography>
-            ) : (
-              <Box sx={{ overflowX: "auto" }}>
-                <Table size="small" sx={{ minWidth: 1100, "& td": { verticalAlign: "top" } }}>
-                  <TableHead>
-                    <TableRow>
-                      {["#", "Observations Identified", "Location", "Action to be taken", "Responsible", "Inspection", "Expect complete", "Finding", "Status", "Close", "Type", ""].map((h) => (
-                        <TableCell key={h} sx={{ fontWeight: 700, bgcolor: "grey.50" }}>
-                          {h}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {visibleRows.map((r) => (
-                      <TableRow key={r.id} hover>
-                        <TableCell>{r.itemNo}</TableCell>
-                        <TableCell sx={{ maxWidth: 220 }}>{r.observation}</TableCell>
-                        <TableCell>
-                          {r.buildingCode ?? "—"}
-                          {r.locationDetail ? <Typography variant="caption" sx={{ display: "block" }}>{r.locationDetail}</Typography> : null}
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 220 }}>{r.actionToBeTaken}</TableCell>
-                        <TableCell>{r.contractorCode ? <ContractorBadge code={r.contractorCode} title={r.contractorName ?? undefined} /> : "—"}</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>{dayjs(r.inspectionDate).format("D/MMM/YY")}</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>{r.expectedCompleteDate ? dayjs(r.expectedCompleteDate).format("D/MMM/YY") : "—"}</TableCell>
-                        <TableCell>
-                          <Thumb src={r.findingPhotoUrl} />
-                        </TableCell>
-                        <TableCell>
-                          {r.status === "done" ? <StatusChip status="completed" label="DONE" /> : <StatusChip status="attention" label="OPEN" />}
-                        </TableCell>
-                        <TableCell>
-                          <Thumb src={r.closePhotoUrl} />
-                        </TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>{r.findingType === "unsafe_act" ? "Unsafe Act." : "Unsafe con."}</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>
-                          <IconButton size="small" aria-label="แก้ไข" onClick={() => setEditing(r)}>
-                            <EditOutlinedIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            aria-label="ลบ"
-                            disabled={remove.isPending}
-                            onClick={() => window.confirm(`ลบ item ${r.itemNo}?`) && remove.mutate(r.id)}
-                          >
-                            <DeleteOutlineOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
-            )}
-          </Panel>
-        </Stack>
-      )}
-
-      {editing && projectId ? (
-        <FindingDialog projectId={projectId} finding={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
-      ) : null}
+          {editing && projectId ? (
+            <FindingDialog projectId={projectId} finding={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
+          ) : null}
         </>
       )}
     </Box>

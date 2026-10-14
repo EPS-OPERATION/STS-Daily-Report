@@ -117,7 +117,7 @@ export function EveningForm({
       // The contractor's own times. EPS changes stay on the server and carry over when this is re-sent.
       roadUsage: (report?.roadUsage ?? []).map((r) => ({
         roadLocation: r.roadLocation,
-        buildingId: r.buildingId,
+        buildingId: r.buildingId ?? "",
         startTime: r.requestedStartTime,
         endTime: r.requestedEndTime,
         purpose: r.purpose,
@@ -211,7 +211,7 @@ export function EveningForm({
           supervisorName: p.highRisk ? p.supervisorName.trim() : undefined,
         })),
         roadUsage: v.roadUsage.map((r) => ({
-          buildingId: r.buildingId,
+          buildingId: r.buildingId || undefined,
           roadLocation: r.roadLocation.trim(),
           startTime: r.startTime,
           endTime: r.endTime,

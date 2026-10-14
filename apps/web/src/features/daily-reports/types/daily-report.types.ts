@@ -141,9 +141,9 @@ export interface ReportPhoto {
 export interface ReportRoadUsage {
   id: string;
   targetDate: string;
-  buildingId: string;
-  buildingCode: string;
-  buildingName: string;
+  buildingId: string | null;
+  buildingCode: string | null;
+  buildingName: string | null;
   roadLocation: string;
   /** What EPS settled (the contractor's request until EPS changes it). */
   startTime: string;
@@ -347,7 +347,7 @@ export interface EveningPayload {
     taskName?: string;
     supervisorName?: string;
   }[];
-  roadUsage: { buildingId: string; roadLocation: string; startTime: string; endTime: string; purpose: string }[];
+  roadUsage: { buildingId?: string | null; roadLocation: string; startTime: string; endTime: string; purpose: string }[];
   materials: { name: string; qty: number; unit: string }[];
   forecasts: { buildingId: string; description: string }[];
 }

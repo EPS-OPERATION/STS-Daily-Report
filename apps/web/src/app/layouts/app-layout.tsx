@@ -118,7 +118,19 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
-      <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 1.5 }}>
+      <Box
+        sx={{
+          height: 64,
+          px: collapsed ? 1.5 : 2.5,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: collapsed ? "center" : "flex-start",
+          bgcolor: "#FFFFFF",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          boxSizing: "border-box",
+        }}
+      >
         <Box
           component={NavLink}
           to="/"
@@ -126,10 +138,8 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
           aria-label="STS Platform — home"
           title="STS Platform — home"
           sx={{
-            display: "block",
-            width: "fit-content",
-            mx: collapsed ? "auto" : 0,
-            borderRadius: 1.5,
+            display: "inline-flex",
+            alignItems: "center",
             textDecoration: "none",
             transition: "opacity 0.15s",
             "&:hover": { opacity: 0.85 },
@@ -137,13 +147,12 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
         >
           <Box
             component="img"
-            src={collapsed ? "/brand/logo-eps-mark-on-dark.png" : "/brand/logo-eps-on-dark.png"}
+            src={collapsed ? "/brand/logo-eps-mark-white.png" : "/brand/logo-eps-white.png"}
             alt="EPS — STS Platform"
-            sx={collapsed ? { width: 40, height: "auto", display: "block" } : { height: 32, width: "auto", display: "block" }}
+            sx={collapsed ? { width: 36, height: 36, display: "block" } : { height: 32, width: "auto", display: "block" }}
           />
         </Box>
       </Box>
-      <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
       <Box className="sts-navy-scroll" sx={{ flexGrow: 1, overflowY: "auto", px: 1.5, py: 1 }}>
         {visibleGroups.map((group) => (
           <Box key={group.title} sx={{ mb: 1.5 }}>
