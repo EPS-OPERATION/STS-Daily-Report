@@ -1,4 +1,4 @@
-import AddIcon from "@mui/icons-material/Add";
+import AddIcon from "@mui/icons-material/AddOutlined";
 import CloudQueueOutlinedIcon from "@mui/icons-material/CloudQueueOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
@@ -21,6 +21,9 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
+import { KpiCard } from "@/components/ui/kpi-card.js";
 import { formatThaiDate } from "@/features/daily-reports/index.js";
 import { useRainLogs } from "../hooks/use-rain-logs.js";
 import type { RainIntensity, RainLogEntry } from "../types/rain-log.types.js";
@@ -51,29 +54,7 @@ function KpiTile({
 }) {
   return (
     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-      <Card variant="outlined" sx={{ height: "100%", bgcolor: alert ? "error.50" : "background.paper" }}>
-        <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-              {label}
-            </Typography>
-            {icon}
-          </Stack>
-          <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ mt: 1 }}>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: alert ? "error.main" : "text.primary" }}>
-              {value}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {unit}
-            </Typography>
-          </Stack>
-          {sub ? (
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-              {sub}
-            </Typography>
-          ) : null}
-        </CardContent>
-      </Card>
+      <KpiCard label={label} value={String(value)} unit={unit} sub={sub} subTone={alert ? "error" : "muted"} icon={icon} />
     </Grid>
   );
 }
@@ -92,6 +73,7 @@ export function RainLogView({ projectId, from, to }: RainLogViewProps) {
   );
 
   const [dialogEntry, setDialogEntry] = useState<RainLogEntry | "new" | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RainLogEntry | null>(null);
 
   const equivalentWorkDays = (stats.totalStoppageHours / 8).toFixed(1);
 
@@ -126,7 +108,7 @@ export function RainLogView({ projectId, from, to }: RainLogViewProps) {
           onClick={() => setDialogEntry("new")}
           sx={{ fontWeight: 700, textTransform: "none", flexShrink: 0 }}
         >
-          บันทึกเวลาฝนตกจริง
+          Log actual rain time
         </Button>
       </Box>
 
@@ -196,18 +178,19 @@ export function RainLogView({ projectId, from, to }: RainLogViewProps) {
             </Box>
             <Button
               variant="outlined"
-              size="small"
               startIcon={<AddIcon />}
               onClick={() => setDialogEntry("new")}
             >
-              เพิ่มบันทึก
+              Add record
             </Button>
           </Stack>
 
           {logs.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
-              ไม่มีประวัติฝนตกในช่วงเวลานี้ — กด &ldquo;บันทึกเวลาฝนตกจริง&rdquo; เพื่อเพิ่มข้อมูล
-            </Typography>
+            <EmptySection
+              icon={<ThunderstormOutlinedIcon />}
+              title="ไม่มีประวัติฝนตกในช่วงเวลานี้"
+              description="กด “Log actual rain time” เพื่อเพิ่มข้อมูล"
+            />
           ) : (
             <Box sx={{ overflowX: "auto" }}>
               <Table size="small" sx={{ minWidth: 900 }}>
@@ -277,20 +260,16 @@ export function RainLogView({ projectId, from, to }: RainLogViewProps) {
                           </Typography>
                         </TableCell>
                         <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                          <Tooltip title="แก้ไข">
+                          <Tooltip title="Edit">
                             <IconButton size="small" onClick={() => setDialogEntry(item)}>
                               <EditOutlinedIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="ลบ">
+                          <Tooltip title="Delete">
                             <IconButton
                               size="small"
                               color="error"
-                              onClick={() => {
-                                if (window.confirm("ยืนยันการลบบันทึกประวัติฝนตกนี้?")) {
-                                  deleteRainLog(item.id);
-                                }
-                              }}
+                              onClick={() => setDeleteTarget(item)}
                             >
                               <DeleteOutlineOutlinedIcon fontSize="small" />
                             </IconButton>
@@ -318,6 +297,16 @@ export function RainLogView({ projectId, from, to }: RainLogViewProps) {
           } else {
             addRainLog(data);
           }
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete rain record?"
+        description="บันทึกประวัติฝนตกนี้จะถูกลบ"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) deleteRainLog(deleteTarget.id);
+          setDeleteTarget(null);
         }}
       />
     </Stack>

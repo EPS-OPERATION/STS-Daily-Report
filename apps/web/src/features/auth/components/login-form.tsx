@@ -35,7 +35,7 @@ export function LoginForm() {
         helperText={errors.identifier?.message}
       />
       <TextField label="Password" type="password" autoComplete="current-password" {...register("password")} error={Boolean(errors.password)} helperText={errors.password?.message} />
-      <Button type="submit" size="large" disabled={isSubmitting || mutation.isPending} fullWidth>
+      <Button type="submit" disabled={isSubmitting || mutation.isPending} fullWidth>
         {mutation.isPending ? "Signing in…" : "Sign in"}
       </Button>
     </Stack>

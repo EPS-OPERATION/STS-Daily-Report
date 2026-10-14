@@ -8,6 +8,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { useCreateContractor } from "../hooks/use-create-contractor.js";
 import { contractorFormSchema, type ContractorFormValues } from "../schemas/contractor.schema.js";
 
@@ -22,6 +23,7 @@ export function ContractorDialog({ open, onClose }: { open: boolean; onClose: ()
 
   const onSubmit = handleSubmit(async (values) => {
     await mutation.mutateAsync(values);
+    toast.success("เพิ่มผู้รับเหมาแล้ว");
     reset();
     onClose();
   });

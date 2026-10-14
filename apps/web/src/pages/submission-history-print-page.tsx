@@ -21,7 +21,8 @@ import {
 import { useCurrentProject } from "@/features/projects/index.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const BLUE = "#dbe9f6";
+import { PRINT_BLUE } from "@/components/print/print-tokens.js";
+const BLUE = PRINT_BLUE;
 
 // Printable Submission History (A4 portrait): the rows the /daily-reports history table shows for the
 // same range + filter chip + contractor + search, with the four count boxes on top. Opens the print
@@ -106,7 +107,7 @@ export function SubmissionHistoryPrintPage() {
       `}</style>
 
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-        <Button onClick={() => window.print()}>พิมพ์ / บันทึกเป็น PDF</Button>
+        <Button onClick={() => window.print()}>Print / Save as PDF</Button>
         <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
           ในหน้าต่างพิมพ์ เลือก "Save as PDF" / "บันทึกเป็น PDF"
         </Typography>
@@ -119,7 +120,7 @@ export function SubmissionHistoryPrintPage() {
             <img src="/brand/logo-eps.png" alt="EPS" style={{ position: "absolute", width: 213, height: 213, left: -25, top: -88 }} />
           </div>
           <Box sx={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>ประวัติการส่งรายงานประจำวัน (Submission History)</div>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>ประวัติการส่งรายงานประจำวัน (Submission History)</div>
             <div>
               {projectName ? `${projectName} · ` : ""}
               {rangeLabel}

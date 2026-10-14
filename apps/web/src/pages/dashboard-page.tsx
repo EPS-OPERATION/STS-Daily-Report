@@ -1,4 +1,4 @@
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForwardOutlined";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
 import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
@@ -26,8 +26,8 @@ import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import Skeleton from "@mui/material/Skeleton";
 import { KpiCard } from "@/components/ui/kpi-card.js";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { QueryError } from "@/components/ui/query-error.js";
 import { SiteConditionsStrip } from "@/components/dashboard/site-conditions-strip.js";
-import { KPI_BY_RANGE } from "@/mock/site-data.js";
 import { CoordinationWorkspace } from "@/features/site-coordination/index.js";
 import {
   ContractorFilterPopover,
@@ -36,16 +36,17 @@ import {
   todayIso,
   useDailyRequests,
   useInspectionRequests,
+  useManpowerSummary,
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 
 type Range = "today" | "week" | "month";
 
 const HIGHLIGHT_TONE = {
-  error: { bg: "#FDECEC", fg: "#DC2626", icon: ErrorOutlineIcon },
-  info: { bg: "#E8F1FE", fg: "#2787FF", icon: InfoOutlinedIcon },
-  warning: { bg: "#FEF3E2", fg: "#B45309", icon: WarningAmberOutlinedIcon },
-  success: { bg: "#E7F6EC", fg: "#16A34A", icon: InfoOutlinedIcon },
+  error: { bg: "error.light", fg: "error.main", icon: ErrorOutlineIcon },
+  info: { bg: "info.light", fg: "info.main", icon: InfoOutlinedIcon },
+  warning: { bg: "warning.light", fg: "warning.dark", icon: WarningAmberOutlinedIcon },
+  success: { bg: "success.light", fg: "success.main", icon: InfoOutlinedIcon },
 } as const;
 
 const PERMIT_LABEL: Record<string, string> = {
@@ -65,11 +66,9 @@ export function DashboardPage() {
   const [from, setFrom] = useState<Dayjs | null>(dayjs());
   const [to, setTo] = useState<Dayjs | null>(dayjs());
 
-  // Mock KPIs only exist per bucket — the picked range selects the closest one.
   const valid = Boolean(from && to && !to!.isBefore(from!, "day"));
   const days = valid ? to!.diff(from!, "day") : 0;
   const bucket: Range = days === 0 ? "today" : days < 8 ? "week" : "month";
-  const kpi = KPI_BY_RANGE[bucket];
 
   const [params, setParams] = useSearchParams();
   const { projectId } = useCurrentProject();
@@ -80,12 +79,27 @@ export function DashboardPage() {
   const rfiRows = (rfi.data?.data ?? []).filter((r) => r.status !== "draft");
   const dailyReqs = useDailyRequests(projectId, today, today);
   const reqData = dailyReqs.data?.data;
+  // The API may omit empty buckets — normalise so iteration is always safe.
+  const reqRoads = reqData?.roads ?? [];
+  const reqPermits = reqData?.permits ?? [];
+  const reqMachinery = reqData?.machinery ?? [];
+  const reqForecasts = reqData?.forecasts ?? [];
+
+  // KPI cards for the picked range (real data, not the today-only request feed above).
+  const fromIso = valid ? from!.format("YYYY-MM-DD") : today;
+  const toIso = valid ? to!.format("YYYY-MM-DD") : today;
+  const manpower = useManpowerSummary(projectId, fromIso, toIso);
+  const rangeRequests = useDailyRequests(projectId, fromIso, toIso);
+  const manpowerTotals = manpower.data?.data.totals;
+  const contractorCount = manpower.data?.data.contractors.length ?? 0;
+  const rangePermits = rangeRequests.data?.data.permits ?? [];
+  const highRiskPermits = rangePermits.filter((p) => p.highRisk).length;
 
   const contractorNames = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of projectContractors) if (c.code) m.set(c.code, c.name);
     if (reqData) {
-      for (const r of [...reqData.roads, ...reqData.permits, ...reqData.machinery, ...reqData.forecasts]) {
+      for (const r of [...reqRoads, ...reqPermits, ...reqMachinery, ...reqForecasts]) {
         if ("contractorCode" in r && r.contractorCode) {
           m.set(r.contractorCode, ("contractorName" in r && r.contractorName ? r.contractorName : undefined) || m.get(r.contractorCode) || "");
         }
@@ -100,7 +114,7 @@ export function DashboardPage() {
   const allCodes = useMemo(() => {
     const set = new Set<string>();
     if (reqData) {
-      for (const r of [...reqData.roads, ...reqData.permits, ...reqData.machinery, ...reqData.forecasts]) {
+      for (const r of [...reqRoads, ...reqPermits, ...reqMachinery, ...reqForecasts]) {
         if ("contractorCode" in r && r.contractorCode) set.add(r.contractorCode);
       }
     }
@@ -130,7 +144,7 @@ export function DashboardPage() {
     return allCodes.map((code) => {
       let n = 0;
       if (reqData) {
-        n += [...reqData.roads, ...reqData.permits, ...reqData.machinery, ...reqData.forecasts].filter((r) => r.contractorCode === code).length;
+        n += [...reqRoads, ...reqPermits, ...reqMachinery, ...reqForecasts].filter((r) => r.contractorCode === code).length;
       }
       n += rfiRows.filter((r) => r.contractorCode === code).length;
       return {
@@ -156,7 +170,7 @@ export function DashboardPage() {
     }[] = [];
 
     // 1. Road clashes (High priority error)
-    reqData.roads
+    reqRoads
       .filter((r) => r.conflict && selectedCodes.has(r.contractorCode))
       .forEach((r) => {
         items.push({
@@ -168,7 +182,7 @@ export function DashboardPage() {
       });
 
     // 2. High-risk permits
-    reqData.permits
+    reqPermits
       .filter((p) => selectedCodes.has(p.contractorCode))
       .forEach((p) => {
         items.push({
@@ -180,7 +194,7 @@ export function DashboardPage() {
       });
 
     // 3. Machinery bookings
-    reqData.machinery
+    reqMachinery
       .filter((m) => selectedCodes.has(m.contractorCode))
       .forEach((m) => {
         items.push({
@@ -208,7 +222,7 @@ export function DashboardPage() {
       });
 
     // 5. Normal road usage
-    reqData.roads
+    reqRoads
       .filter((r) => !r.conflict && selectedCodes.has(r.contractorCode))
       .forEach((r) => {
         items.push({
@@ -220,7 +234,7 @@ export function DashboardPage() {
       });
 
     // 6. Forecast Activities
-    reqData.forecasts
+    reqForecasts
       .filter((f) => selectedCodes.has(f.contractorCode))
       .forEach((f) => {
         items.push({
@@ -278,10 +292,9 @@ export function DashboardPage() {
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard
             label="Manpower"
-            value={String(kpi.manpower.value)}
-            sub={kpi.manpower.delta}
-            subTone="success"
-            trend="up"
+            value={manpower.isLoading ? "–" : String(manpowerTotals?.manDays ?? 0)}
+            unit="man-days"
+            sub={manpower.isLoading ? "" : `${(manpowerTotals?.manHours ?? 0).toLocaleString()} man-hours`}
             icon={<EngineeringOutlinedIcon />}
             iconBg={theme.palette.info.light}
             iconFg={theme.palette.info.dark}
@@ -291,8 +304,8 @@ export function DashboardPage() {
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard
             label="Contractors"
-            value={String(kpi.contractors.value)}
-            sub={kpi.contractors.sub}
+            value={manpower.isLoading ? "–" : String(contractorCount)}
+            sub={`${manpowerTotals?.reportedDays ?? 0} days reported`}
             icon={<BusinessOutlinedIcon />}
             iconBg={theme.palette.success.light}
             iconFg={theme.palette.success.dark}
@@ -302,9 +315,9 @@ export function DashboardPage() {
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard
             label="Work Permits"
-            value={String(kpi.permits.value)}
-            sub={kpi.permits.sub}
-            subTone="error"
+            value={rangeRequests.isLoading ? "–" : String(rangePermits.length)}
+            sub={highRiskPermits ? `${highRiskPermits} high risk` : "no high-risk permits"}
+            subTone={highRiskPermits ? "error" : "muted"}
             icon={<AssignmentOutlinedIcon />}
             iconBg={theme.palette.error.light}
             iconFg={theme.palette.error.dark}
@@ -329,6 +342,13 @@ export function DashboardPage() {
       <Box sx={{ mb: 3 }}>
         <SiteConditionsStrip />
       </Box>
+
+      {(rfi.isError || dailyReqs.isError || manpower.isError || rangeRequests.isError) && (
+        <QueryError
+          error={(rfi.error ?? dailyReqs.error ?? manpower.error ?? rangeRequests.error) as Error}
+          onRetry={() => { void rfi.refetch(); void dailyReqs.refetch(); void manpower.refetch(); void rangeRequests.refetch(); }}
+        />
+      )}
 
       <Grid container spacing={2.5}>
 
@@ -356,7 +376,7 @@ export function DashboardPage() {
                   </Typography>
                 </Box>
                 <Link component={RouterLink} to="/today-requests" underline="hover" fontSize={13}>
-                  ดูทั้งหมด ({dynamicHighlights.length})
+                  View all ({dynamicHighlights.length})
                 </Link>
               </Stack>
 
@@ -377,7 +397,6 @@ export function DashboardPage() {
                   <Button
                     component={RouterLink}
                     to="/today-requests"
-                    size="small"
                     variant="outlined"
                   >
                     เปิดดู Daily Request

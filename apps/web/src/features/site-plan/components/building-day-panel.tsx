@@ -1,4 +1,5 @@
-import CloseIcon from "@mui/icons-material/Close";
+import CloseIcon from "@mui/icons-material/CloseOutlined";
+import InboxOutlined from "@mui/icons-material/InboxOutlined";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
@@ -44,7 +45,7 @@ export function BuildingDayPanel({
             {from === to ? formatThaiDate(from) : `${formatThaiDate(from)} – ${formatThaiDate(to)}`}
           </Typography>
         </Box>
-        <IconButton aria-label="ปิด" onClick={onClose} size="small">
+        <IconButton aria-label="Close" onClick={onClose} size="small">
           <CloseIcon fontSize="small" />
         </IconButton>
       </Stack>
@@ -83,7 +84,7 @@ export function BuildingDayPanel({
 
       <Block title="Machine request">
         {building.machinery.length === 0 ? (
-          <Empty text="—" />
+          <Empty text="ไม่มีคำขอจองเครื่องจักร" />
         ) : (
           building.machinery.map((m) => (
             <Line key={m.id} code={m.contractorCode}>
@@ -98,7 +99,7 @@ export function BuildingDayPanel({
 
       <Block title="Equipment request">
         {building.equipment.length === 0 ? (
-          <Empty text="—" />
+          <Empty text="ไม่มีคำขอเครื่องมือ/อุปกรณ์" />
         ) : (
           building.equipment.map((e) => (
             <Line key={e.id} code={e.contractorCode}>
@@ -112,7 +113,7 @@ export function BuildingDayPanel({
 
       <Block title="Road usage">
         {building.roads.length === 0 ? (
-          <Empty text="—" />
+          <Empty text="ไม่มีการขอใช้ถนน" />
         ) : (
           building.roads.map((r) => (
             <Line key={r.id} code={r.contractorCode}>
@@ -125,7 +126,7 @@ export function BuildingDayPanel({
 
       <Block title="Work permit (PTW)">
         {building.permits.length === 0 ? (
-          <Empty text="—" />
+          <Empty text="ไม่มีการขอใบอนุญาตทำงาน" />
         ) : (
           <Typography variant="body2">{building.permits.map((p) => `${permitLabel(p.permitType)} ${p.workers} คน`).join(" · ")}</Typography>
         )}
@@ -133,7 +134,7 @@ export function BuildingDayPanel({
 
       <Block title="QAQC (RFI)" last>
         {building.inspections.length === 0 ? (
-          <Empty text="—" />
+          <Empty text="ไม่มีคำขอตรวจ QAQC" />
         ) : (
           building.inspections.map((r) => (
             <Stack key={r.id} direction="row" spacing={1} alignItems="center">
@@ -188,8 +189,13 @@ function Line({ code, alert, children }: { code: string; alert?: boolean; childr
 
 function Empty({ text }: { text: string }) {
   return (
-    <Typography variant="body2" color="text.secondary">
-      {text}
-    </Typography>
+    <Box sx={{ py: 1.5, px: 1.5, textAlign: "center", border: "1px dashed", borderColor: "divider", borderRadius: 2, bgcolor: "grey.50" }}>
+      <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="center">
+        <InboxOutlined sx={{ fontSize: 16, color: "text.disabled" }} />
+        <Typography variant="caption" color="text.secondary">
+          {text}
+        </Typography>
+      </Stack>
+    </Box>
   );
 }

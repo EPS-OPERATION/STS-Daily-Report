@@ -14,7 +14,7 @@ export function NotFoundPage() {
         title="Page not found"
         description="This address doesn't match anything — check for a typo, or pick a page from the menu."
         action={
-          <Button component={RouterLink} to="/" variant="contained" size="small">
+          <Button component={RouterLink} to="/" variant="contained">
             Back to dashboard
           </Button>
         }

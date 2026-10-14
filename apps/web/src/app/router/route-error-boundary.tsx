@@ -35,10 +35,10 @@ export function RouteErrorBoundary() {
         description={description}
         action={
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "center" }}>
-            <Button variant="contained" size="small" onClick={() => navigate(0)}>
+            <Button variant="contained" onClick={() => navigate(0)}>
               Try again
             </Button>
-            <Button component={RouterLink} to="/" variant="outlined" size="small">
+            <Button component={RouterLink} to="/" variant="outlined">
               Back to dashboard
             </Button>
           </Box>

@@ -1,4 +1,4 @@
-import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -10,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import type { PermitType } from "@sts/shared";
 import dayjs from "dayjs";
 import { useMemo } from "react";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import { ContractorBadge, PERMIT_ICONS, permitLabel, useDailyRequests } from "@/features/daily-reports/index.js";
 
 export interface HighRiskTask {
@@ -22,59 +23,7 @@ export interface HighRiskTask {
   permitTypes: PermitType[];
   buildings: string[];
   workers: number;
-  isSample?: boolean;
 }
-
-export const SAMPLE_HIGH_RISK_TASKS: HighRiskTask[] = [
-  {
-    key: "sample-1",
-    date: dayjs().format("YYYY-MM-DD"),
-    contractorCode: "LS",
-    contractorName: "LTab Site",
-    taskName: "งานยกติดตั้งโครงสร้างเหล็ก Main Boiler Unit 1",
-    supervisors: ["คุณสมชาย (EPS QA/QC)"],
-    permitTypes: ["lifting", "height", "hot_work"],
-    buildings: ["Boiler Building (A01)"],
-    workers: 12,
-    isSample: true,
-  },
-  {
-    key: "sample-2",
-    date: dayjs().format("YYYY-MM-DD"),
-    contractorCode: "FS",
-    contractorName: "Fast Steel",
-    taskName: "งานเชื่อมต่อท่อส่งไอน้ำแรงดันสูง High-Pressure Steam Piping",
-    supervisors: ["คุณวิชัย (EPS Safety)"],
-    permitTypes: ["hot_work", "confined_space"],
-    buildings: ["Turbine Hall (B02)"],
-    workers: 8,
-    isSample: true,
-  },
-  {
-    key: "sample-3",
-    date: dayjs().format("YYYY-MM-DD"),
-    contractorCode: "SZ",
-    contractorName: "Szone",
-    taskName: "งานขุดลึกวางแนวท่อระบายความร้อน Cooling Water Discharge Line",
-    supervisors: ["คุณอนุสรณ์ (EPS Civil)"],
-    permitTypes: ["other"],
-    buildings: ["Cooling Tower (C03)"],
-    workers: 6,
-    isSample: true,
-  },
-  {
-    key: "sample-4",
-    date: dayjs().format("YYYY-MM-DD"),
-    contractorCode: "ZE",
-    contractorName: "Zhongtian",
-    taskName: "งานติดตั้งหม้อแปลงไฟฟ้าแรงสูง Substation 22kV",
-    supervisors: ["คุณธวัชชัย (EPS Electrical)"],
-    permitTypes: ["live_electrical", "height"],
-    buildings: ["Switchyard & Substation (E05)"],
-    workers: 5,
-    isSample: true,
-  },
-];
 
 // "งานที่มีความเสี่ยงสูงและการควบคุม": permits the contractor marked high-risk in the afternoon
 // report (for the next working day), one card per contractor × day × task name — several permits
@@ -84,13 +33,11 @@ export function HighRiskTasks({
   from,
   to,
   selectedContractorCodes,
-  showSampleWhenEmpty = true,
 }: {
   projectId: string | null;
   from: string;
   to: string;
   selectedContractorCodes?: Set<string>;
-  showSampleWhenEmpty?: boolean;
 }) {
   const query = useDailyRequests(projectId, from, to);
 
@@ -128,42 +75,21 @@ export function HighRiskTasks({
     return [...days];
   }, [query.data, selectedContractorCodes]);
 
-  const hasRealTasks = realTasksByDate.length > 0;
-
-  const sampleTasksByDate = useMemo(() => {
-    if (hasRealTasks || !showSampleWhenEmpty) return [];
-    const filtered = SAMPLE_HIGH_RISK_TASKS.filter(
-      (t) => !selectedContractorCodes || selectedContractorCodes.has(t.contractorCode),
-    );
-    if (filtered.length === 0) return [];
-    return [[from, filtered]] as [string, HighRiskTask[]][];
-  }, [hasRealTasks, showSampleWhenEmpty, selectedContractorCodes, from]);
-
-  const byDate = hasRealTasks ? realTasksByDate : sampleTasksByDate;
-  const isShowingSample = !hasRealTasks && sampleTasksByDate.length > 0;
+  const byDate = realTasksByDate;
 
   if (query.isError) return <Alert severity="error">โหลดงานความเสี่ยงสูงไม่สำเร็จ</Alert>;
-  if (!query.data && !isShowingSample) return <Skeleton variant="rounded" height={120} />;
+  if (!query.data) return <Skeleton variant="rounded" height={120} />;
   if (byDate.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        ไม่มีงานที่ผู้รับเหมาแจ้งว่าเป็นงานความเสี่ยงสูงในช่วงนี้
-      </Typography>
-    );
+    return <EmptySection dense icon={<WarningAmberRoundedIcon />} title="ไม่มีงานที่ผู้รับเหมาแจ้งว่าเป็นงานความเสี่ยงสูงในช่วงนี้" description="งานจะขึ้นที่นี่เมื่อผู้รับเหมาติ๊ก High-risk ในใบขออนุญาตของรายงานบ่าย" />;
   }
 
   const multiDay = byDate.length > 1 || from !== to;
   return (
     <Stack spacing={2}>
-      {isShowingSample && (
-        <Alert severity="info" sx={{ py: 0.5, px: 2, borderRadius: 2, fontSize: 13 }}>
-          <b>ตัวอย่างงานความเสี่ยงสูง (Sample Demonstration)</b>: ยังไม่มีรายงานงานความเสี่ยงสูงจากหน้างานจริงในช่วงนี้ — ระบบแสดงตัวอย่างบัตรควบคุมงานความเสี่ยงสูงและผู้ควบคุมงานฝ่าย EPS เพื่อเป็นแนวทาง
-        </Alert>
-      )}
       {byDate.map(([date, tasks]) => (
         <Box key={date}>
-          {multiDay && !isShowingSample ? (
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+          {multiDay ? (
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
               {dayjs(date).format("ddd D MMM YYYY")} · {tasks.length} งาน
             </Typography>
           ) : null}
@@ -196,11 +122,8 @@ function TaskCard({ task }: { task: HighRiskTask }) {
         gap: 1,
       }}
     >
-      {/* header: sample badge + warning icons per permit type */}
-      <Stack direction="row" spacing={0.75} alignItems="center" justifyContent={task.isSample ? "space-between" : "center"}>
-        {task.isSample ? (
-          <Chip size="small" label="ตัวอย่าง (Sample)" color="warning" sx={{ height: 20, fontSize: 10, fontWeight: 700 }} />
-        ) : null}
+      {/* header: warning icons per permit type */}
+      <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="center">
         <Stack direction="row" spacing={0.75} justifyContent="center">
           {task.permitTypes.map((p) => {
             const Icon = PERMIT_ICONS[p];
@@ -215,7 +138,7 @@ function TaskCard({ task }: { task: HighRiskTask }) {
           })}
         </Stack>
       </Stack>
-      <Typography sx={{ fontWeight: 800, fontSize: 17, textAlign: "center", lineHeight: 1.3 }}>{task.taskName}</Typography>
+      <Typography sx={{ fontWeight: 700, fontSize: 17, textAlign: "center", lineHeight: 1.3 }}>{task.taskName}</Typography>
       <Box sx={{ alignSelf: "center", px: 1.25, py: 0.4, borderRadius: 1, bgcolor: "#F3E3C8", textAlign: "center" }}>
         <Typography variant="caption" sx={{ fontWeight: 700 }}>
           ผู้ควบคุม (EPS) : {task.supervisors.join(", ") || "—"}

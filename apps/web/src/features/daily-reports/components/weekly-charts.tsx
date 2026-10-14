@@ -61,7 +61,7 @@ function CustomStackedBarTooltip(props: ChartsTooltipProps) {
                 <Typography
                   component="caption"
                   sx={{
-                    fontWeight: 800,
+                    fontWeight: 700,
                     textAlign: "left",
                     px: 1,
                     pt: 0.5,
@@ -102,12 +102,12 @@ function CustomStackedBarTooltip(props: ChartsTooltipProps) {
 
                 {/* Total Row */}
                 <ChartsTooltipRow sx={{ borderTop: "1.5px solid rgba(0,0,0,0.1)", mt: 0.5 }}>
-                  <ChartsTooltipCell component="th" sx={{ pt: 0.75, pb: 0.5, fontWeight: 800, color: "text.primary" }}>
+                  <ChartsTooltipCell component="th" sx={{ pt: 0.75, pb: 0.5, fontWeight: 700, color: "text.primary" }}>
                     รวม
                   </ChartsTooltipCell>
                   <ChartsTooltipCell
                     component="td"
-                    sx={{ textAlign: "right", pt: 0.75, pb: 0.5, fontWeight: 800, color: "primary.main" }}
+                    sx={{ textAlign: "right", pt: 0.75, pb: 0.5, fontWeight: 700, color: "primary.main" }}
                   >
                     {total.toLocaleString()} คน
                   </ChartsTooltipCell>
@@ -159,7 +159,7 @@ export function ManDayByContractorChart({
         </Typography>
         <Chip
           size="small"
-          label="ทั้งหมด"
+          label="All"
           variant={hidden.size === 0 ? "filled" : "outlined"}
           color={hidden.size === 0 ? "primary" : "default"}
           onClick={() => setHidden(new Set())}
@@ -371,42 +371,3 @@ export function ManpowerByBuildingChart({
   );
 }
 
-// Man-days in the range, one bar per contractor (value on top) — PM view on the dashboard.
-export function ManDayPerContractorChart({
-  contractors,
-  colors,
-}: {
-  contractors: ManpowerSummary["contractors"];
-  colors: Map<string, string>;
-}) {
-  if (contractors.length === 0) return <Empty text="No morning reports in this range" />;
-  const rows = [...contractors].sort((a, b) => a.contractorCode.localeCompare(b.contractorCode));
-  const codes = rows.map((r) => r.contractorCode);
-  return (
-    <BarChart
-      height={300}
-      borderRadius={4}
-      hideLegend
-      margin={{ top: 24 }}
-      xAxis={[
-        {
-          scaleType: "band",
-          data: codes,
-          categoryGapRatio: 0.5,
-          colorMap: { type: "ordinal", values: codes, colors: codes.map((c) => colors.get(c) ?? CHART_OTHER) },
-        },
-      ]}
-      yAxis={[{ label: "Man-days", width: 56 }]}
-      series={[
-        {
-          id: "manDays",
-          label: "Man-days",
-          data: rows.map((r) => r.manDays),
-          barLabel: (item) => (item.value ? item.value.toLocaleString() : null),
-          barLabelPlacement: "outside",
-          valueFormatter: (v: number | null) => (v === null ? null : `${v.toLocaleString()} man-days`),
-        },
-      ]}
-    />
-  );
-}

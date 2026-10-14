@@ -49,8 +49,11 @@ export const components: Components<Omit<Theme, "components">> = {
     styleOverrides: {
       root: { borderRadius: 6, fontWeight: 600 },
       sizeMedium: { minHeight: 40 },
-      sizeLarge: { minHeight: 44 },
     },
+  },
+  // Small toggles sit in toolbars next to 40px date fields and buttons; keep them the same height.
+  MuiToggleButton: {
+    styleOverrides: { sizeSmall: { minHeight: 40 } },
   },
   MuiIconButton: {
     styleOverrides: { root: { borderRadius: 8 } },

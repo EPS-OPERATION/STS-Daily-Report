@@ -1,21 +1,15 @@
 import ConstructionOutlinedIcon from "@mui/icons-material/ConstructionOutlined";
-import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
-import ElectricBoltOutlinedIcon from "@mui/icons-material/ElectricBoltOutlined";
-import GridOnOutlinedIcon from "@mui/icons-material/GridOnOutlined";
-import HardwareOutlinedIcon from "@mui/icons-material/HardwareOutlined";
-import HeightOutlinedIcon from "@mui/icons-material/HeightOutlined";
-import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
-import WhatshotOutlinedIcon from "@mui/icons-material/WhatshotOutlined";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
 import FormControl from "@mui/material/FormControl";
 import Grid from "@mui/material/Grid";
-import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -23,69 +17,59 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
-import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { BarChart } from "@mui/x-charts/BarChart";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { PERMIT_TYPES, type PermitType } from "@sts/shared";
 import dayjs, { type Dayjs } from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
-import { todayIso } from "@/features/daily-reports/index.js";
-import { useCurrentProject } from "@/features/projects/index.js";
+import { QueryError } from "@/components/ui/query-error.js";
+import { PERMIT_ICONS, permitLabel, useDailyRequests } from "@/features/daily-reports/index.js";
+import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 import { HighRiskTasks } from "@/features/safety/index.js";
-import {
-  CONTRACTOR_LEGEND,
-  PERMIT_BUILDINGS,
-  PERMIT_CODE_LEGEND,
-  PERMIT_CONTRACTORS,
-  PERMIT_MONTHS,
-  PERMIT_TYPES,
-  WORK_PERMITS,
-  type PermitTypeCode,
-} from "@/mock/work-permits.js";
 
-const TYPE_ICONS: Record<PermitTypeCode, typeof WhatshotOutlinedIcon> = {
-  HWSTS: WhatshotOutlinedIcon,
-  WHSTS: HeightOutlinedIcon,
-  LTSTS: ConstructionOutlinedIcon,
-  EXSTS: HardwareOutlinedIcon,
-  SCFSTS: GridOnOutlinedIcon,
-  CFSTS: MeetingRoomOutlinedIcon,
-  EESTS: ElectricBoltOutlinedIcon,
-};
-
-// EPS work-permit board (mock data — no permits API yet): type overview,
-// sub-contractor chart, document search, permit register, code legends.
+// EPS work-permit board, derived from the permits contractors request in the
+// afternoon daily report (target date = the day the permit is used).
 export function WorkPermitsView({
   hideHeader = true,
   selectedContractorCodes,
+  defaultFrom,
+  defaultTo,
 }: {
   hideHeader?: boolean;
   selectedContractorCodes?: Set<string>;
+  defaultFrom?: string;
+  defaultTo?: string;
 } = {}) {
   const theme = useTheme();
   const { projectId } = useCurrentProject();
-  const [from, setFrom] = useState<Dayjs | null>(null);
-  const [to, setTo] = useState<Dayjs | null>(null);
-  const [month, setMonth] = useState("");
-  const [type, setType] = useState<PermitTypeCode | "">("");
+  const [from, setFrom] = useState<Dayjs | null>(dayjs(defaultFrom ?? dayjs().startOf("month")));
+  const [to, setTo] = useState<Dayjs | null>(dayjs(defaultTo ?? dayjs()));
+  const [type, setType] = useState<PermitType | "">("");
   const [building, setBuilding] = useState("");
   const [contractor, setContractor] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  const fromIso = (from ?? dayjs(defaultFrom ?? dayjs().startOf("month"))).format("YYYY-MM-DD");
+  const toIso = (to ?? dayjs(defaultTo ?? dayjs())).format("YYYY-MM-DD");
+  const query = useDailyRequests(projectId, fromIso, toIso);
+  const permits = useMemo(() => query.data?.data.permits ?? [], [query.data]);
+  const contractorList = useProjectContractors(projectId).data?.data ?? [];
+
+  const namesByCode = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of contractorList) m.set(c.code, c.name);
+    for (const p of permits) m.set(p.contractorCode, p.contractorName || m.get(p.contractorCode) || "");
+    return m;
+  }, [contractorList, permits]);
+
   useEffect(() => {
     setPage(0);
-  }, [from, to, month, type, building, contractor, rowsPerPage, selectedContractorCodes]);
-
-  const matchDate = (d: string) => {
-    if (from && d < from.format("YYYY-MM-DD")) return false;
-    if (to && d > to.format("YYYY-MM-DD")) return false;
-    if (month && !d.startsWith(month)) return false;
-    return true;
-  };
+  }, [fromIso, toIso, type, building, contractor, rowsPerPage, selectedContractorCodes]);
 
   const matchContractor = (c: string) => {
     if (selectedContractorCodes && !selectedContractorCodes.has(c)) return false;
@@ -93,53 +77,51 @@ export function WorkPermitsView({
     return true;
   };
 
-  // Faceted counts: type cards ignore the type filter, chart ignores contractor dropdown (but respects external filter).
+  // Faceted counts: type cards ignore the type filter; the chart ignores the contractor dropdown
+  // (but respects the external contractor filter).
   const forTypeCounts = useMemo(
-    () => WORK_PERMITS.filter((p) => matchDate(p.date) && (!building || p.building === building) && matchContractor(p.contractor)),
+    () => permits.filter((p) => (!building || p.buildingName === building) && matchContractor(p.contractorCode)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [from, to, month, building, contractor, selectedContractorCodes],
+    [permits, building, contractor, selectedContractorCodes],
   );
   const forChart = useMemo(
     () =>
-      WORK_PERMITS.filter(
-        (p) =>
-          matchDate(p.date) &&
-          (!type || p.type === type) &&
-          (!building || p.building === building) &&
-          (!selectedContractorCodes || selectedContractorCodes.has(p.contractor)),
+      permits.filter(
+        (p) => (!type || p.permitType === type) && (!building || p.buildingName === building) && matchContractor(p.contractorCode),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [from, to, month, type, building, selectedContractorCodes],
+    [permits, type, building, contractor, selectedContractorCodes],
   );
   const rows = useMemo(
-    () =>
-      WORK_PERMITS.filter(
-        (p) =>
-          matchDate(p.date) &&
-          (!type || p.type === type) &&
-          (!building || p.building === building) &&
-          matchContractor(p.contractor),
-      ),
+    () => permits.filter((p) => (!type || p.permitType === type) && (!building || p.buildingName === building) && matchContractor(p.contractorCode)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [from, to, month, type, building, contractor, selectedContractorCodes],
+    [permits, type, building, contractor, selectedContractorCodes],
   );
 
   const typeCounts = useMemo(() => {
-    const m = new Map<PermitTypeCode, number>();
-    for (const p of forTypeCounts) m.set(p.type, (m.get(p.type) ?? 0) + 1);
+    const m = new Map<PermitType, number>();
+    for (const p of forTypeCounts) m.set(p.permitType, (m.get(p.permitType) ?? 0) + 1);
     return m;
   }, [forTypeCounts]);
 
   const chartData = useMemo(() => {
     const m = new Map<string, number>();
-    for (const p of forChart) m.set(p.contractor, (m.get(p.contractor) ?? 0) + 1);
+    for (const p of forChart) m.set(p.contractorCode, (m.get(p.contractorCode) ?? 0) + 1);
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [forChart]);
 
+  const buildingOptions = useMemo(
+    () => [...new Set(permits.map((p) => p.buildingName).filter(Boolean))].sort(),
+    [permits],
+  );
+  const contractorOptions = useMemo(
+    () => [...new Set(permits.map((p) => p.contractorCode))].sort(),
+    [permits],
+  );
+
   const clearAll = () => {
-    setFrom(null);
-    setTo(null);
-    setMonth("");
+    setFrom(dayjs(defaultFrom ?? dayjs().startOf("month")));
+    setTo(dayjs(defaultTo ?? dayjs()));
     setType("");
     setBuilding("");
     setContractor("");
@@ -148,7 +130,7 @@ export function WorkPermitsView({
   return (
     <Box>
       {!hideHeader && (
-        <PageHeader title="Work Permit" subtitle="High-risk permit register · mock board until the permits module lands" />
+        <PageHeader title="Work Permit" subtitle="Permit register from contractor afternoon reports" />
       )}
 
       <Box sx={{ bgcolor: "success.main", color: "#fff", borderRadius: 1, py: 1, mb: 2, textAlign: "center" }}>
@@ -157,27 +139,23 @@ export function WorkPermitsView({
         </Typography>
       </Box>
 
-      {/* High-Risk Tasks & Supervision panel moved to Work Permits with sample demonstration */}
       <Box sx={{ mb: 2.5 }}>
         <Card variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
           <Box sx={{ px: 2.5, py: 1.5, bgcolor: "grey.50", borderBottom: 1, borderColor: "divider" }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              งานที่มีความเสี่ยงสูงและการควบคุม (High-Risk Tasks & Supervision)
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              งานที่มีความเสี่ยงสูงและการควบคุม (High-Risk Tasks &amp; Supervision)
             </Typography>
             <Typography variant="caption" color="text.secondary">
               จาก Work Permit ที่ผู้รับเหมาระบุว่าเป็นงานความเสี่ยงสูง (แจ้งล่วงหน้าในรายงานบ่ายของวันก่อน) พร้อมผู้ควบคุมงาน EPS
             </Typography>
           </Box>
           <CardContent sx={{ p: 2 }}>
-            <HighRiskTasks
-              projectId={projectId}
-              from={from ? from.format("YYYY-MM-DD") : todayIso()}
-              to={to ? to.format("YYYY-MM-DD") : todayIso()}
-              selectedContractorCodes={selectedContractorCodes}
-            />
+            <HighRiskTasks projectId={projectId} from={fromIso} to={toIso} selectedContractorCodes={selectedContractorCodes} />
           </CardContent>
         </Card>
       </Box>
+
+      {query.isError && <QueryError error={query.error as Error} onRetry={() => void query.refetch()} />}
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 12, lg: 2.5 }}>
@@ -216,13 +194,13 @@ export function WorkPermitsView({
                 Total Work Permit
               </Typography>
               <Typography variant="h4" sx={{ fontWeight: 700, color: "info.dark" }}>
-                {rows.length}
+                {query.isLoading ? "–" : rows.length}
               </Typography>
             </CardContent>
           </Card>
           <Grid container spacing={1.5}>
             {PERMIT_TYPES.map((t) => {
-              const Icon = TYPE_ICONS[t.code];
+              const Icon = PERMIT_ICONS[t.code];
               const n = typeCounts.get(t.code) ?? 0;
               const active = type === t.code;
               return (
@@ -266,19 +244,8 @@ export function WorkPermitsView({
                 <DatePicker label="From" value={from} onChange={setFrom} slotProps={{ textField: { size: "small", fullWidth: true } }} />
                 <DatePicker label="To" value={to} onChange={setTo} slotProps={{ textField: { size: "small", fullWidth: true } }} />
                 <FormControl fullWidth size="small">
-                  <InputLabel id="wp-month">Month</InputLabel>
-                  <Select labelId="wp-month" label="Month" value={month} onChange={(e) => setMonth(e.target.value)}>
-                    <MenuItem value="">All months</MenuItem>
-                    {PERMIT_MONTHS.map((m) => (
-                      <MenuItem key={m} value={m}>
-                        {dayjs(`${m}-01`).format("MMMM YYYY")}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl fullWidth size="small">
                   <InputLabel id="wp-type">Type of Work</InputLabel>
-                  <Select labelId="wp-type" label="Type of Work" value={type} onChange={(e) => setType(e.target.value as PermitTypeCode | "")}>
+                  <Select labelId="wp-type" label="Type of Work" value={type} onChange={(e) => setType(e.target.value as PermitType | "")}>
                     <MenuItem value="">All types</MenuItem>
                     {PERMIT_TYPES.map((t) => (
                       <MenuItem key={t.code} value={t.code}>
@@ -291,7 +258,7 @@ export function WorkPermitsView({
                   <InputLabel id="wp-building">Building</InputLabel>
                   <Select labelId="wp-building" label="Building" value={building} onChange={(e) => setBuilding(e.target.value)}>
                     <MenuItem value="">All buildings</MenuItem>
-                    {PERMIT_BUILDINGS.map((b) => (
+                    {buildingOptions.map((b) => (
                       <MenuItem key={b} value={b}>
                         {b}
                       </MenuItem>
@@ -302,14 +269,14 @@ export function WorkPermitsView({
                   <InputLabel id="wp-contractor">Sub Contractor</InputLabel>
                   <Select labelId="wp-contractor" label="Sub Contractor" value={contractor} onChange={(e) => setContractor(e.target.value)}>
                     <MenuItem value="">All contractors</MenuItem>
-                    {PERMIT_CONTRACTORS.map((c) => (
+                    {contractorOptions.map((c) => (
                       <MenuItem key={c} value={c}>
-                        {c}
+                        {c} · {namesByCode.get(c) ?? ""}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                <Button variant="outlined" size="small" onClick={clearAll}>
+                <Button variant="outlined" onClick={clearAll}>
                   Clear filters
                 </Button>
               </Stack>
@@ -320,63 +287,57 @@ export function WorkPermitsView({
 
       <Card sx={{ mb: 2 }}>
         <Box sx={{ overflowX: "auto" }}>
-          <Table size="small" aria-label="Work permit register">
-            <TableHead>
-              <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Expire</TableCell>
-                <TableCell>Sub Contractor</TableCell>
-                <TableCell>Permit No.</TableCell>
-                <TableCell>Type of Work</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell>Building</TableCell>
-                <TableCell>Contractor Signed</TableCell>
-                <TableCell>EPS Signed</TableCell>
-                <TableCell>Remarks</TableCell>
-                <TableCell>Download</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((p) => (
-                <TableRow key={p.id} hover>
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>{p.date}</TableCell>
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>{p.expire}</TableCell>
-                  <TableCell>{p.contractor}</TableCell>
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>{p.permitNo}</TableCell>
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>{p.typeLabel}</TableCell>
-                  <TableCell title={p.description} sx={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {p.description}
-                  </TableCell>
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>{p.building}</TableCell>
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>{p.contractorSigned}</TableCell>
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>{p.epsSigned}</TableCell>
-                  <TableCell>—</TableCell>
-                  <TableCell>
-                    <Tooltip title="Document download comes with the permits module">
-                      <span>
-                        <IconButton size="small" disabled aria-label={`Download ${p.permitNo}`}>
-                          <DownloadOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </TableCell>
+          {query.isLoading ? (
+            <Box sx={{ p: 2 }}>
+              <Skeleton variant="rounded" height={160} />
+            </Box>
+          ) : (
+            <Table size="small" aria-label="Work permit register">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Sub Contractor</TableCell>
+                  <TableCell>Type of Work</TableCell>
+                  <TableCell>Description</TableCell>
+                  <TableCell>Building</TableCell>
+                  <TableCell align="right">Workers</TableCell>
+                  <TableCell>High risk</TableCell>
+                  <TableCell>EPS Supervisor</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((p) => (
+                  <TableRow key={p.id} hover>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{dayjs(p.targetDate).format("D MMM YYYY")}</TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{p.contractorCode} · {p.contractorName}</TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{p.permitType === "other" ? p.otherLabel || permitLabel("other") : permitLabel(p.permitType)}</TableCell>
+                    <TableCell title={p.taskName ?? ""} sx={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.taskName || "—"}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{p.buildingName || p.buildingCode}</TableCell>
+                    <TableCell align="right">{p.workers}</TableCell>
+                    <TableCell>
+                      {p.highRisk ? <Chip size="small" color="warning" label="High risk" sx={{ height: 22 }} /> : "—"}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{p.supervisorName || "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Box>
-        {rows.length === 0 ? (
+        {!query.isLoading && rows.length === 0 ? (
           <EmptyState
             icon={<ConstructionOutlinedIcon />}
             title="No permits match"
-            description="Loosen the filters to see the register again."
+            description="Permits come from contractor afternoon reports. Loosen the filters or widen the date range."
             action={
-              <Button variant="outlined" size="small" onClick={clearAll}>
+              <Button variant="outlined" onClick={clearAll}>
                 Clear filters
               </Button>
             }
           />
-        ) : (
+        ) : !query.isLoading ? (
           <TablePagination
             component="div"
             count={rows.length}
@@ -386,7 +347,7 @@ export function WorkPermitsView({
             onPageChange={(_, v) => setPage(v)}
             onRowsPerPageChange={(e) => setRowsPerPage(Number(e.target.value))}
           />
-        )}
+        ) : null}
       </Card>
 
       <Grid container spacing={2}>
@@ -397,7 +358,9 @@ export function WorkPermitsView({
                 Sub Contractor
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {CONTRACTOR_LEGEND.map((c) => `${c.code}: ${c.name}`).join(" · ")}
+                {contractorList.length === 0
+                  ? "—"
+                  : contractorList.map((c) => `${c.code}: ${c.name}`).join(" · ")}
               </Typography>
             </CardContent>
           </Card>
@@ -406,10 +369,10 @@ export function WorkPermitsView({
           <Card>
             <CardContent sx={{ p: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Remarks
+                Permit types
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {PERMIT_CODE_LEGEND.map((c) => `${c.code}: ${c.meaning}`).join(" · ")}
+                {PERMIT_TYPES.map((t) => `${t.label}: ${t.labelTh}`).join(" · ")}
               </Typography>
             </CardContent>
           </Card>

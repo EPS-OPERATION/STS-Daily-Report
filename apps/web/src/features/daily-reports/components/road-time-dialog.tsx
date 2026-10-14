@@ -77,7 +77,7 @@ export function RoadTimeDialog({
           </Stack>
 
           <Stack direction="row" spacing={1.5}>
-            <TextField select size="small" label="เริ่ม" value={start} onChange={(e) => setStart(e.target.value)} fullWidth error={!valid}>
+            <TextField select size="small" label="Start" value={start} onChange={(e) => setStart(e.target.value)} fullWidth error={!valid}>
               {options.map((t) => (
                 <MenuItem key={t} value={t} sx={{ fontVariantNumeric: "tabular-nums" }}>{t}</MenuItem>
               ))}
@@ -85,7 +85,7 @@ export function RoadTimeDialog({
             <TextField
               select
               size="small"
-              label="สิ้นสุด"
+              label="End"
               value={end}
               onChange={(e) => setEnd(e.target.value)}
               fullWidth
@@ -128,9 +128,9 @@ export function RoadTimeDialog({
           คืนเวลาที่ขอ
         </Button>
         <Stack direction="row" spacing={1}>
-          <Button color="inherit" disabled={saving} onClick={onClose}>ยกเลิก</Button>
+          <Button color="inherit" disabled={saving} onClick={onClose}>Cancel</Button>
           <Button variant="contained" disableElevation disabled={!valid || unchanged || saving} onClick={() => onSave(start, end)}>
-            บันทึกเวลา
+            Save time
           </Button>
         </Stack>
       </DialogActions>

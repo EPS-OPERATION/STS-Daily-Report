@@ -14,6 +14,9 @@ export const typography: TypographyVariantsOptions = {
   h6: { fontSize: 16, fontWeight: 600, lineHeight: 1.4 },
   body1: { fontSize: 16, fontWeight: 400, lineHeight: 1.6 },
   body2: { fontSize: 15, fontWeight: 400, lineHeight: 1.55 },
+  subtitle1: { fontSize: 15, fontWeight: 500, lineHeight: 1.5 },
+  subtitle2: { fontSize: 14, fontWeight: 600, lineHeight: 1.5 },
   caption: { fontSize: 15, fontWeight: 400, lineHeight: 1.5 },
+  overline: { fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", lineHeight: 1.5, textTransform: "uppercase" as const },
   button: { fontSize: 15, fontWeight: 600, textTransform: "none" as const },
 };

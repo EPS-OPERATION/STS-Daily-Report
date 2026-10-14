@@ -14,6 +14,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { QueryError } from "@/components/ui/query-error.js";
 import { useContractors } from "@/features/contractors/index.js";
 import {
   ContractorFilterPopover,
@@ -194,25 +195,25 @@ export function ManpowerPage() {
         actions={
           <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
             <DatePicker
-              label="ตั้งแต่"
+              label="From"
               value={dayjs(from)}
               onChange={(v) => v?.isValid() && setRange(v.format("YYYY-MM-DD"), to)}
               format="D MMM YYYY"
               slotProps={{ textField: { size: "small", sx: { width: 155 } } }}
             />
             <DatePicker
-              label="ถึง"
+              label="To"
               value={dayjs(to)}
               minDate={dayjs(from)}
               onChange={(v) => v?.isValid() && setRange(from, v.format("YYYY-MM-DD"))}
               format="D MMM YYYY"
               slotProps={{ textField: { size: "small", sx: { width: 155 } } }}
             />
-            <Button size="small" variant="outlined" onClick={thisWeek}>
-              สัปดาห์นี้
+            <Button variant="outlined" onClick={thisWeek}>
+              This week
             </Button>
-            <Button size="small" variant="outlined" onClick={thisMonth}>
-              เดือนนี้
+            <Button variant="outlined" onClick={thisMonth}>
+              This month
             </Button>
             {allCodes.length > 0 && (
               <ContractorFilterPopover
@@ -231,9 +232,7 @@ export function ManpowerPage() {
         </Alert>
       ) : null}
       {error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          โหลดข้อมูลไม่สำเร็จ: {error.message}
-        </Alert>
+        <QueryError error={error} onRetry={() => void summary.refetch()} />
       ) : null}
 
       {/* Active Filter Bar (shown when filtering is applied) */}
@@ -273,7 +272,7 @@ export function ManpowerPage() {
               />
             ))}
           </Stack>
-          <Button size="small" variant="text" onClick={selectAllContractors} sx={{ fontWeight: 600 }}>
+          <Button variant="text" onClick={selectAllContractors} sx={{ fontWeight: 600 }}>
             แสดงทั้งหมด ({allCodes.length})
           </Button>
         </Paper>
@@ -284,8 +283,8 @@ export function ManpowerPage() {
         <Alert
           severity="info"
           action={
-            <Button color="inherit" size="small" onClick={selectAllContractors}>
-              เลือกทั้งหมด
+            <Button color="inherit" onClick={selectAllContractors}>
+              Select all
             </Button>
           }
           sx={{ mb: 2 }}

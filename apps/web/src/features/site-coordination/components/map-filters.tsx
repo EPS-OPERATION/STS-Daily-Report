@@ -1,19 +1,16 @@
 import { COORDINATION_ICONS, type CoordinationIcon } from "@sts/shared";
-import ArrowDropDownOutlined from "@mui/icons-material/ArrowDropDownOutlined";
 import CategoryOutlined from "@mui/icons-material/CategoryOutlined";
 import TextFieldsOutlined from "@mui/icons-material/TextFieldsOutlined";
 import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
-import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Checkbox from "@mui/material/Checkbox";
 import Divider from "@mui/material/Divider";
 import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import Typography from "@mui/material/Typography";
-import { alpha } from "@mui/material/styles";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
+import { FilterButton, MultiSelectFilter, type FilterOption } from "@/components/ui/filter-popover.js";
 import { ICON_LABELS } from "../types/icon-labels.js";
 import { MachineGlyph } from "./machine-icon.js";
 
@@ -50,40 +47,14 @@ export function saveMapDisplay(display: MapDisplay) {
 }
 
 const DISPLAY_OPTIONS: { key: keyof MapDisplay; label: string; hint: string; group: "map" | "detail" }[] = [
-  { key: "areas", label: "พื้นที่ทำงาน", hint: "กรอบสีขอบเขตที่ใช้", group: "map" },
-  { key: "labels", label: "ชื่องานใต้ไอคอน", hint: "ข้อความสั้นบนผัง", group: "map" },
-  { key: "notes", label: "หมายเหตุใต้ชื่องาน", hint: "บรรทัดเล็กสีจาง สูงสุด 2 บรรทัด", group: "map" },
-  { key: "links", label: "เส้นเชื่อมไอคอน–พื้นที่", hint: "เส้นประจากหมุดถึงขอบพื้นที่", group: "map" },
-  { key: "chips", label: "ป้ายรหัสผู้รับเหมา", hint: "ป้ายกลางพื้นที่ เช่น LCE", group: "map" },
-  { key: "detailCard", label: "การ์ดรายละเอียดบนผัง", hint: "ผรม · ชื่องาน · ประเภท · หมายเหตุ เมื่อคลิกงาน", group: "detail" },
-  { key: "jobList", label: "แผงรายการงาน + หมายเหตุ", hint: "แสดงเมื่อยังไม่ได้เลือกงาน (เลือกงานแล้วจะเป็นแผงแก้ไข)", group: "detail" },
+  { key: "areas", label: "Work areas", hint: "กรอบสีขอบเขตที่ใช้", group: "map" },
+  { key: "labels", label: "Item labels", hint: "ข้อความสั้นบนผัง", group: "map" },
+  { key: "notes", label: "Notes under labels", hint: "บรรทัดเล็กสีจาง สูงสุด 2 บรรทัด", group: "map" },
+  { key: "links", label: "Icon–area links", hint: "เส้นประจากหมุดถึงขอบพื้นที่", group: "map" },
+  { key: "chips", label: "Contractor code tags", hint: "ป้ายกลางพื้นที่ เช่น LCE", group: "map" },
+  { key: "detailCard", label: "Detail card on map", hint: "ผรม · ชื่องาน · ประเภท · หมายเหตุ เมื่อคลิกงาน", group: "detail" },
+  { key: "jobList", label: "Item list + notes", hint: "แสดงเมื่อยังไม่ได้เลือกงาน (เลือกงานแล้วจะเป็นแผงแก้ไข)", group: "detail" },
 ];
-
-// Toolbar trigger in the same shape as the contractor filter popover button.
-function FilterButton({ icon, label, active, count, onClick }: { icon: ReactNode; label: string; active: boolean; count?: number; onClick: (el: HTMLElement) => void }) {
-  return (
-    <Badge color="primary" badgeContent={count} invisible={!count} overlap="rectangular">
-      <Button
-        variant="outlined"
-        color={active ? "primary" : "inherit"}
-        startIcon={icon}
-        endIcon={<ArrowDropDownOutlined />}
-        onClick={(e) => onClick(e.currentTarget)}
-        sx={{
-          height: 40,
-          whiteSpace: "nowrap",
-          textTransform: "none",
-          fontWeight: active ? 700 : 500,
-          borderColor: active ? "primary.main" : "divider",
-          bgcolor: (t) => (active ? alpha(t.palette.primary.main, 0.06) : t.palette.background.paper),
-          color: active ? "primary.main" : "text.primary",
-        }}
-      >
-        {label}
-      </Button>
-    </Badge>
-  );
-}
 
 // Work-type filter: one row per icon type with its glyph and how many jobs of that type are on the day.
 export function TypeFilter({
@@ -95,67 +66,36 @@ export function TypeFilter({
   counts: Map<CoordinationIcon, number>;
   onChange: (next: Set<CoordinationIcon>) => void;
 }) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const all = selected.size === COORDINATION_ICONS.length;
-  const toggle = (icon: CoordinationIcon) => {
-    const next = new Set(selected);
-    if (next.has(icon)) next.delete(icon);
-    else next.add(icon);
-    onChange(next);
-  };
-  return (
-    <>
-      <FilterButton
-        icon={<CategoryOutlined fontSize="small" />}
-        label={all ? "ประเภทงาน: ทั้งหมด" : `ประเภทงาน: ${selected.size}`}
-        active={!all}
-        onClick={setAnchor}
-      />
-      <Popover
-        open={Boolean(anchor)}
-        anchorEl={anchor}
-        onClose={() => setAnchor(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-        transformOrigin={{ vertical: "top", horizontal: "left" }}
-        slotProps={{ paper: { sx: { mt: 0.75, width: 280, borderRadius: 2 } } }}
-      >
-        <Stack direction="row" alignItems="center" sx={{ px: 1.5, py: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }}>
-            ประเภทงาน
-          </Typography>
-          <Button size="small" onClick={() => onChange(new Set(all ? [] : COORDINATION_ICONS))}>
-            {all ? "ล้าง" : "ทั้งหมด"}
-          </Button>
-        </Stack>
-        <Divider />
-        <Box sx={{ py: 0.5 }}>
-          {COORDINATION_ICONS.map((icon) => {
-            const n = counts.get(icon) ?? 0;
-            return (
-              <Stack
-                key={icon}
-                direction="row"
-                alignItems="center"
-                spacing={1}
-                onClick={() => toggle(icon)}
-                sx={{ px: 1, py: 0.25, cursor: "pointer", "&:hover": { bgcolor: "action.hover" }, opacity: n ? 1 : 0.55 }}
-              >
-                <Checkbox size="small" checked={selected.has(icon)} tabIndex={-1} sx={{ p: 0.5 }} />
-                <Box sx={{ width: 28, display: "flex", justifyContent: "center" }}>
-                  {icon === "text" ? <TextFieldsOutlined fontSize="small" /> : <MachineGlyph icon={icon} />}
-                </Box>
-                <Typography variant="body2" sx={{ flex: 1 }}>
-                  {ICON_LABELS[icon]}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: "tabular-nums" }}>
-                  {n} งาน
-                </Typography>
-              </Stack>
-            );
-          })}
+
+  const options: FilterOption[] = COORDINATION_ICONS.map((icon) => {
+    const n = counts.get(icon) ?? 0;
+    return {
+      value: icon,
+      label: ICON_LABELS[icon],
+      leading: (
+        <Box sx={{ width: 24, display: "flex", justifyContent: "center", color: "text.secondary" }}>
+          {icon === "text" ? <TextFieldsOutlined fontSize="small" /> : <MachineGlyph icon={icon} />}
         </Box>
-      </Popover>
-    </>
+      ),
+      count: `${n} งาน`,
+      dim: n === 0,
+    };
+  });
+
+  const selectedValues = useMemo(() => new Set<string>(selected), [selected]);
+
+  return (
+    <MultiSelectFilter
+      icon={<CategoryOutlined fontSize="small" />}
+      buttonLabel={all ? "ประเภทงาน: ทั้งหมด" : `ประเภทงาน: ${selected.size}/${COORDINATION_ICONS.length}`}
+      filteredCount={all ? undefined : selected.size}
+      options={options}
+      selected={selectedValues}
+      onChange={(next) => onChange(new Set([...next] as CoordinationIcon[]))}
+      doneLabel="ตกลง"
+      align="left"
+    />
   );
 }
 
@@ -191,7 +131,7 @@ export function DisplayOptions({ value, onChange }: { value: MapDisplay; onChang
   );
   return (
     <>
-      <FilterButton icon={<VisibilityOutlined fontSize="small" />} label="การแสดงผล" active={hidden > 0} count={hidden} onClick={setAnchor} />
+      <FilterButton icon={<VisibilityOutlined fontSize="small" />} label="Display" active={hidden > 0} count={hidden} onClick={setAnchor} />
       <Popover
         open={Boolean(anchor)}
         anchorEl={anchor}
@@ -205,7 +145,7 @@ export function DisplayOptions({ value, onChange }: { value: MapDisplay; onChang
         {section("detail", "รายละเอียด")}
         <Divider />
         <Stack direction="row" justifyContent="flex-end" sx={{ px: 1, py: 0.75 }}>
-          <Button size="small" onClick={() => onChange(DEFAULT_MAP_DISPLAY)}>
+          <Button onClick={() => onChange(DEFAULT_MAP_DISPLAY)}>
             คืนค่าเริ่มต้น
           </Button>
         </Stack>

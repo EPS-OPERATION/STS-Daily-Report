@@ -10,7 +10,6 @@ export const dailyReportKeys = {
     [...dailyReportKeys.requestLists(), projectId, filters] as const,
   positionMix: (projectId: string, from: string, to: string) => [...dailyReportKeys.weeklies(), "positions", projectId, from, to] as const,
   manpower: (projectId: string, from: string, to: string) => [...dailyReportKeys.weeklies(), "manpower", projectId, from, to] as const,
-  trend: (projectId: string, until: string, weeks: number) => [...dailyReportKeys.weeklies(), "trend", projectId, until, weeks] as const,
   dailyRequests: (projectId: string, from: string, to: string) => [...dailyReportKeys.requestLists(), "daily", projectId, from, to] as const,
   weeklies: () => [...dailyReportKeys.all, "weekly"] as const,
   weekly: (projectId: string, weekStart: string) => [...dailyReportKeys.weeklies(), projectId, weekStart] as const,

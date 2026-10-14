@@ -1,8 +1,13 @@
 import type { UserRole } from "@sts/shared";
 import type { NavigateFunction } from "react-router-dom";
 import { navigationIcons } from "@/app/icons/navigation-icons.js";
-import { CONTRACTOR_OPTIONS, ZONES } from "@/mock/site-data.js";
 import type { Command } from "./command.types.js";
+
+// Real entities from the API (project contractors + WBS zones), passed in by the palette.
+export interface PaletteEntities {
+  contractors: { code: string; name: string }[];
+  zones: { code: string; name: string }[];
+}
 
 interface NavDef {
   id: string;
@@ -37,9 +42,12 @@ const ACTIONS: Omit<NavDef, "iconKey">[] = [
   { id: "act-upload-photo", label: "Upload Site Photo", to: "/field", description: "Contractor quick photo upload", keywords: ["upload", "photo", "camera", "picture"] },
 ];
 
-// Static command set. Entity entries come from local mock data today;
-// later this is where an async source (debounced TanStack Query against
-export function buildCommands(navigate: NavigateFunction, role: UserRole = "contractor"): Command[] {
+// Static command set + entity entries (contractors, zones) from the API.
+export function buildCommands(
+  navigate: NavigateFunction,
+  role: UserRole = "contractor",
+  entities?: PaletteEntities,
+): Command[] {
   const go = (to: string) => () => navigate(to);
   // eps_site has no user/contractor administration: drop those destinations from the palette.
   const isAdmin = role === "eps_admin";
@@ -105,7 +113,10 @@ export function buildCommands(navigate: NavigateFunction, role: UserRole = "cont
     action: go(n.to),
   }));
 
-  const actionCmds: Command[] = (isAdmin ? ACTIONS : ACTIONS.filter((a) => a.id !== "act-add-contractor")).map((a) => ({
+  // /field* and the site-plan zones are contractor/admin-only routes; EPS site users
+  // must never get a command that silently redirects them away.
+  const contractorOnlyActions = new Set(["act-new-report", "act-upload-photo"]);
+  const actionCmds: Command[] = ACTIONS.filter((a) => !contractorOnlyActions.has(a.id) && (isAdmin || a.id !== "act-add-contractor")).map((a) => ({
     id: a.id,
     label: a.label,
     description: a.description,
@@ -115,25 +126,25 @@ export function buildCommands(navigate: NavigateFunction, role: UserRole = "cont
     action: go(a.to),
   }));
 
-  const contractorCmds: Command[] = isAdmin ? CONTRACTOR_OPTIONS.map((name) => ({
-    id: `contractor-${name}`,
-    label: name,
-    description: "Contractor · STS Project",
+  const contractorCmds: Command[] = isAdmin ? (entities?.contractors ?? []).map((c) => ({
+    id: `contractor-${c.code}`,
+    label: `${c.code} · ${c.name}`,
+    description: "Contractor",
     group: "contractors",
-    keywords: [name.toLowerCase(), "contractor", "company", "abc"],
+    keywords: [c.code.toLowerCase(), c.name.toLowerCase(), "contractor", "company"],
     icon: navigationIcons.contractors,
     action: go("/contractors"),
   })) : [];
 
-  const zoneCmds: Command[] = ZONES.map((z) => ({
-    id: `zone-${z.id}`,
-    label: `Zone ${z.no} — ${z.name}`,
-    description: `${z.today.length} activities today · STS Project`,
+  const zoneCmds: Command[] = isAdmin ? (entities?.zones ?? []).map((z) => ({
+    id: `zone-${z.code}`,
+    label: `Zone ${z.code}${z.name ? ` — ${z.name}` : ""}`,
+    description: "WBS zone",
     group: "zones",
-    keywords: [`zone ${z.no}`, z.name.toLowerCase(), z.short.toLowerCase(), "zone", "wbs", "map"],
+    keywords: [`zone ${z.code}`, z.name.toLowerCase(), "zone", "wbs", "map"],
     icon: navigationIcons.sitePlan,
     action: go("/site-plan"),
-  }));
+  })) : [];
 
   return [...navigateCmds, ...actionCmds, ...contractorCmds, ...zoneCmds];
 }

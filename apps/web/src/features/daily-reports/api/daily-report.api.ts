@@ -15,7 +15,6 @@ import type {
   ReviewQueueRow,
   WeeklySummary,
   PositionMixRow,
-  ManpowerTrendPoint,
   ManpowerSummary,
   DailyRequests,
 } from "../types/daily-report.types.js";
@@ -102,9 +101,6 @@ export const dailyReportApi = {
   },
   manpowerSummary(projectId: string, from: string, to: string): Promise<{ data: ManpowerSummary }> {
     return http.get(`/projects/${projectId}/manpower-summary?from=${from}&to=${to}`);
-  },
-  manpowerTrend(projectId: string, until: string, weeks: number): Promise<{ data: ManpowerTrendPoint[] }> {
-    return http.get(`/projects/${projectId}/manpower-trend?until=${until}&weeks=${weeks}`);
   },
   dailyRequests(projectId: string, from: string, to: string): Promise<{ data: DailyRequests }> {
     return http.get(`/projects/${projectId}/daily-requests?from=${from}&to=${to}`);

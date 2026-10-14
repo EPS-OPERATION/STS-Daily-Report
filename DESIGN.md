@@ -2,207 +2,298 @@
 name: EPS Daily Report
 description: A utilitarian site-reporting tool for construction foremen and admins, built for legibility over decoration.
 colors:
-  pure-white: "oklch(1 0 0)"
-  warm-ivory: "oklch(0.965 0.01 130)"
-  warm-ivory-deep: "oklch(0.935 0.014 130)"
-  charcoal-ink: "oklch(0.25 0.032 130)"
-  dust-gray: "oklch(0.5 0.022 130)"
-  hairline: "oklch(0.875 0.012 130)"
-  moss-olive: "oklch(0.48 0.15 132)"
-  moss-olive-deep: "oklch(0.415 0.148 132)"
-  baked-ember: "oklch(0.6 0.145 48)"
-  alert-red: "oklch(0.55 0.19 25)"
-  caution-amber-bg: "oklch(0.94 0.06 90)"
-  caution-amber-ink: "oklch(0.4 0.08 75)"
-  field-green: "oklch(0.5 0.15 145)"
+  primary: "#0B4D8B"
+  primary-dark: "#083761"
+  primary-light: "#EAF3FC"
+  navy: "#123E6B"
+  navy-dark: "#0A2547"
+  surface: "#FFFFFF"
+  page: "#F6F7F9"
+  ink: "#18212F"
+  ink-muted: "#667085"
+  ink-disabled: "#98A2B3"
+  hairline: "#E4E7EC"
+  info: "#2787FF"
+  success: "#16A34A"
+  warning: "#F59E0B"
+  error: "#DC2626"
+  print-header-tint: "#DBE9F6"
 typography:
-  title:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif"
-    fontSize: "1.5rem"
+  stack: "Inter, Sarabun, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif"
+  page-title:
+    fontSize: "1.75rem"
     fontWeight: 700
     lineHeight: 1.25
-    letterSpacing: "-0.02em"
-  headline:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif"
+  section-title:
     fontSize: "1.125rem"
     fontWeight: 700
     lineHeight: 1.3
   body:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
-    lineHeight: 1.55
+    lineHeight: 1.6
   label:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: 1.5
+  caption:
+    fontSize: "0.9375rem"
+    fontWeight: 400
+    lineHeight: 1.5
+  metric:
+    fontSize: "1.875rem"
+    fontWeight: 700
+    lineHeight: 1.2
 rounded:
-  sm: "6px"
-  default: "8px"
-  md: "12px"
-  lg: "16px"
-  full: "9999px"
+  button: "6px"
+  input: "8px"
+  card: "10px"
+  dialog: "12px"
+  pill: "999px"
 components:
   button-primary:
-    backgroundColor: "{colors.moss-olive}"
-    textColor: "{colors.pure-white}"
-    rounded: "{rounded.md}"
+    backgroundColor: "{colors.primary}"
+    textColor: "#FFFFFF"
+    rounded: "{rounded.button}"
     padding: "8px 16px"
-  button-primary-hover:
-    backgroundColor: "{colors.moss-olive-deep}"
   button-secondary:
-    backgroundColor: "{colors.warm-ivory}"
-    textColor: "{colors.charcoal-ink}"
-    rounded: "{rounded.md}"
+    backgroundColor: "#FFFFFF"
+    textColor: "{colors.primary}"
+    border: "1px solid {colors.hairline}"
+    rounded: "{rounded.button}"
     padding: "8px 16px"
   button-danger:
-    backgroundColor: "{colors.alert-red}"
-    textColor: "{colors.pure-white}"
-    rounded: "{rounded.md}"
-    padding: "8px 16px"
-  button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.charcoal-ink}"
-    rounded: "{rounded.md}"
+    backgroundColor: "{colors.error}"
+    textColor: "#FFFFFF"
+    rounded: "{rounded.button}"
     padding: "8px 16px"
   input-default:
-    backgroundColor: "{colors.pure-white}"
-    textColor: "{colors.charcoal-ink}"
-    rounded: "{rounded.md}"
+    backgroundColor: "#FFFFFF"
+    textColor: "{colors.ink}"
+    border: "1px solid {colors.hairline}"
+    rounded: "{rounded.input}"
     padding: "8px 12px"
+  card:
+    backgroundColor: "{colors.surface}"
+    border: "1px solid {colors.hairline}"
+    rounded: "{rounded.card}"
+    padding: "16px–20px"
   badge:
-    backgroundColor: "{colors.warm-ivory-deep}"
-    textColor: "{colors.charcoal-ink}"
-    rounded: "{rounded.full}"
+    backgroundColor: "{colors.page}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.pill}"
     padding: "4px 10px"
 ---
 
 # Design System: EPS Daily Report
 
+> Source of truth = the code. If this file and `apps/web/src/app/theme/*` disagree, the code
+> wins and this file gets fixed in the same commit. Tokens below mirror
+> `palette.ts` / `typography.ts` / `components.ts`.
+
 ## Overview
 
-**Creative North Star: "The Site Foreman's Clipboard"**
+**Creative North Star: "The Site Foreman's Clipboard".**
 
-This is a tool for someone standing in direct midday sun with dusty gloves, filling in numbers before the next task starts. Every decision follows from that scene: high-contrast solid fills over subtlety, 44px minimum tap targets, one accent color spent sparingly so it still means something when it appears. The palette reads as construction-site material — sun-bleached ivory ground, moss-olive as the working brand color, baked-ember held in reserve for the moments that need to be noticed (priority, warnings, the rare accent action). Nothing here is decorative; every color, weight, and radius exists to make a number or a status legible fast, not to look impressive.
+This is used by someone standing in direct sun with dusty gloves, and by an EPS engineer
+scanning a week of numbers before a meeting. Every decision follows from those two scenes:
+high contrast over subtlety, structure carried by borders and surface steps rather than
+shadows, one working colour (navy blue) spent deliberately, and numbers that are readable
+at arm's length. Nothing is decorative; every colour, weight and radius exists to make a
+number or a status legible fast.
 
-The system is restrained on purpose. A pure-white background carries almost the whole UI; moss-olive is the only color allowed to represent "brand" or a primary action; baked-ember is reserved for `HIGH`-priority and secondary-accent moments so it stays rare enough to still function as a flag. Nothing in the interface is imported from a generic SaaS-dashboard vocabulary — no gradients, no glassmorphism, no soft drop shadows layered on every card.
+**Key characteristics**
 
-**Key Characteristics:**
-- Flat by default — borders and tonal surface steps carry structure, not shadows
-- One accent color (baked-ember), spent deliberately and rarely
-- Solid-fill semantic pills (priority/status) — meaning from color, never from stripes or gradients
-- 44px minimum touch targets throughout, including secondary/ghost actions
-- Radius caps at 12px (`rounded-md`); full-round is reserved for pills only
+- Flat by default — 1px `divider` borders and surface steps carry structure.
+- Shadows only on genuinely floating surfaces: dialog, drawer, menu, popover, tooltip, toast.
+- Status never relies on colour alone — icon + label + tone (see `StatusChip`).
+- Controls speak English; explanations speak Thai (see Language).
+- Minimum 40px controls (`sizeMedium` 40, `sizeLarge` 44); form fields default to `size="small"`.
 
 ## Colors
 
-The palette is a narrow, warm-neutral construction-site ground with one working brand color and one rationed accent — nothing decorative is allowed in.
+All colour comes from `apps/web/src/app/theme/palette.ts` via MUI tokens. Components must use
+theme tokens — never hex/rgb literals. The only sanctioned literal colours are:
 
-### Primary
-- **Moss Olive** (`oklch(0.48 0.15 132)`): the brand color and the only color used for primary actions (buttons, active nav state, focus rings, text selection). Its darker step, **Moss Olive Deep** (`oklch(0.415 0.148 132)`), is the hover/active state — there is no separate lighter tint.
+1. artwork inside a single component file (weather icons, the coordinate canvas),
+2. the standalone print surface (see Print), where values mirror the tokens above 1:1.
 
-### Secondary
-- **Baked Ember** (`oklch(0.6 0.145 48)`): the sole accent, used only for `HIGH`-priority pills, `DELAYED`-status pills, and the rare secondary-accent moment. **The One Accent Rule.** Baked Ember never appears as a primary action color or a decorative flourish — it exists to be noticed exactly because it's rare.
+- **Primary `#0B4D8B`** — brand and the only primary-action colour (buttons, active states,
+  focus rings). `dark #083761` for hover/pressed, `light #EAF3FC` for selected surfaces.
+- **Navy `#123E6B` / `navy.dark #0A2547`** — the sidebar chrome and hero cards (field, home).
+  `navy.dark` text on light backgrounds is allowed for headings on hero surfaces.
+- **Info `#2787FF`** — informational accents, the sidebar active bar, map selection.
+- **Semantic**: success `#16A34A`, warning `#F59E0B` (dark `#B45309` for text), error `#DC2626`.
+  Warning-as-text always uses `warning.dark`; fills use `warning.main`.
+- **Grey scale 50–900** — from `F9FAFB` (subtle fills) to `101828` (tooltip background).
+- **Text**: `#18212F` primary, `#667085` secondary, `#98A2B3` disabled. `divider #E4E7EC`.
+- **Charts** use `chart-palette.ts` only (fixed series, `CHART_OTHER` for the tail).
 
-### Neutral
-- **Pure White** (`oklch(1 0 0)`): the page background (`--bg`) and the text color painted on every saturated fill (`on-primary`, `on-accent`, `on-danger`, `on-success` all resolve to this same value).
-- **Warm Ivory** (`oklch(0.965 0.01 130)`): the surface tone for cards, sidebars, and secondary buttons — one step off pure white, never a separate gray family.
-- **Warm Ivory Deep** (`oklch(0.935 0.014 130)`): a second surface step for hover states and nested containers (badges, `NOT_STARTED` pills).
-- **Charcoal Ink** (`oklch(0.25 0.032 130)`): primary text color. Warm-tinted near-black, not a pure `#000`.
-- **Dust Gray** (`oklch(0.5 0.022 130)`): secondary/muted text — hints, timestamps, placeholder copy.
-- **Hairline** (`oklch(0.875 0.012 130)`): the single border color used for every divider, card outline, and input stroke in the system.
+**Rules**
 
-### Status colors
-- **Alert Red** (`oklch(0.55 0.19 25)`): errors, destructive actions, `BLOCKED` status.
-- **Caution Amber** (bg `oklch(0.94 0.06 90)` / ink `oklch(0.4 0.08 75)`): warning banners and `IN_PROGRESS` status — a pale tinted background paired with a dark ink, not a solid fill.
-- **Field Green** (`oklch(0.5 0.15 145)`): success states and `COMPLETED` status. Distinct hue from Moss Olive — success is never confused with "brand."
-
-### Named Rules
-**The One Accent Rule.** Baked Ember is the only saturated color besides the semantic status set. It marks `HIGH` priority and nothing else is allowed to borrow it for emphasis.
+- No raw hex in components. If a one-off colour feels necessary, add a token instead.
+- Contractor identity colours (`COORDINATION_COLORS`, chip dots) are data, not theme — stored
+  per contractor and always paired with the contractor code, never colour-only.
 
 ## Typography
 
-**Body Font:** Inter (with `ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif` fallback)
+**One family: Inter** (with Sarabun for Thai glyph coverage). Hierarchy comes from size and
+weight only. Weight scale is 400 / 600 / 700 — nothing heavier.
 
-**Character:** One typeface, all weights. Hierarchy comes from size and weight (400/600/700), never from a second family — there is no separate display face because this system has no marketing surface to carry one.
+| Role | Variant | Size / weight | Use |
+|---|---|---|---|
+| Page title | `h3` | 28 / 700 | `PageHeader` only |
+| Section/card title | `h5` | 18 / 600 | panel, card and section headers |
+| Dialog/sub-section title | `h6` | 16 / 600 | nested blocks, dialog titles |
+| Body | `body1` | 16 / 400 | running text, form values |
+| Dense body | `body2` | 15 / 400 | lists, table cells |
+| Small label | `subtitle1` | 15 / 500 | metadata lines |
+| Label | `subtitle2` | 14 / 600 | field labels, nav items, chips |
+| Caption | `caption` | 15 / 400 | hints, timestamps, helper text |
+| Overline | `overline` | 12 / 700 caps | group eyebrows |
+| Metric | `metric` | 30 / 700 | KPI values (`KpiCard`), nothing else |
 
-### Hierarchy
-- **Title** (700, 1.5rem / 24px, line-height 1.25, letter-spacing -0.02em): page headers (`PageHeader`'s `<h1>`). `text-wrap: balance` applied globally to h1–h3.
-- **Headline** (700, 1.125rem / 18px, line-height 1.3): section headings within a page.
-- **Body** (400, 1rem / 16px, line-height 1.55): all running text and form values. Paragraphs cap at 70ch (`text-wrap: pretty`).
-- **Label** (600, 0.875rem / 14px): form field labels, sidebar nav items.
-- **Micro-label** (700, 0.75rem / 12px, tracking-wide): priority/status pill text — the smallest text in the system, always bold to stay legible at that size.
+**Rules**
 
-### Named Rules
-**The One Voice Rule.** There is exactly one typeface. Weight and size carry the entire hierarchy — never reach for a second font family to create emphasis.
+- Numbers that are the point use `metric` (KPI) or `h5`-with-tabular-nums (inline figures).
+  Never `fontWeight: 800` — the scale stops at 700.
+- `text.secondary` for supporting copy, `text.disabled` only for disabled state.
 
-## Layout
+## Layout & spacing
 
-The shell is a fixed 1152px (`max-w-6xl`) centered container with a 16px (`px-4`) gutter, used consistently from the sticky header down through page content — this is the system's one container width; nothing wider or narrower appears except the login screen's intentionally narrow 448px (`max-w-md`) centered card.
+- Content area: `AppLayout` `<main>` padding `{ xs: 2, md: 3 }`, background `page #F6F7F9`.
+  Field surfaces additionally cap width (`480/960` home, `520/760` report) — those caps are part
+  of the field design, not drift.
+- Spacing scale is MUI's 8px grid only: `0.5 / 1 / 1.5 / 2 / 2.5 / 3` (4…24px) plus `py: 10`
+  for standalone full-page states in print surfaces. No 1.25 / 2.25 / 0.75 containers; use the
+  nearest step.
+- Page rhythm: `PageHeader` `mb: 3`; blocks under it stack at `spacing={2.5}`; alerts `mb: 2`.
+- Card interior padding: `p: 2` for dense cards (dialogs, tables, nav lists), `p: 2.5` for
+  content cards (dashboard, forms, summaries), `p: 1.5` only for compact toolbars.
 
-Desktop (`lg:` and up) runs a persistent left sidebar (240px, `w-60`, sticky below the header) alongside the content column; below `lg`, the sidebar collapses into a slide-down mobile nav triggered from a hamburger button in the header. The header itself is a 64px (`h-16`) sticky bar pinned to the top of the viewport (`z-sticky`).
+## Elevation & depth
 
-Spacing follows Tailwind's default scale with no project-specific overrides: card interior padding is consistently `p-5` (20px), form field groups use `gap-1.5`–`gap-3` (6–12px) depending on density, and the main content column carries `py-6 pb-16` to keep the bottom of a page clear of the fixed viewport edge on mobile.
+Flat by default. Structure = 1px `divider` border + surface step (`page` → `surface`).
+Shadows exist only on floating layers and come from the theme (no hand-written `boxShadow`):
 
-## Elevation & Depth
+- Dialog paper: radius 12, `0 12px 32px rgba(16,24,40,0.18)`
+- Drawer: matching softer shadow; Menu/Popover: 10px radius + border + soft shadow
+- Tooltip: ink `#101828`; Toaster (sonner) bottom-right.
 
-Flat by default. Structure comes from the `hairline` border and the two-step `warm-ivory` / `warm-ivory-deep` surface tones, not from shadows — most cards, panels, and the `EmptyState` component are a flat bordered box on the white background.
-
-### Shadow Vocabulary
-- **Lifted card** (`box-shadow: var(--tw-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))` — Tailwind's `shadow-sm`): reserved specifically for the overview dashboard's summary/stat cards, to lift them slightly above the otherwise-flat page. Not used on ordinary content cards, forms, or panels.
-
-### Named Rules
-**The Flat-By-Default Rule.** Shadows are not a general card treatment. `shadow-sm` is reserved for the small set of dashboard summary cards that need to read as "lifted" above the page; every other container (forms, list items, empty states, the admin panels) stays flat with a `hairline` border.
+**Rule**: an ordinary card, panel or form never gets a shadow. If something must stand out,
+raise its border colour or step the surface, don't add shadow.
 
 ## Shapes
 
-**The 12px Ceiling Rule.** `rounded-md` (12px) is the standard radius for every substantial container: buttons, inputs, cards, panels, the `EmptyState` box. `rounded-full` is reserved exclusively for pills and badges — priority/status pills, the neutral `Badge`, and the mobile menu toggle's circular hit area. No container in the system exceeds 12px except by drift (see Don'ts) — there is no default use of the theme's 16px (`rounded-lg`) or unrounded corners for standard surfaces.
+**The radius ladder** — one value per class of surface, from the theme (`shape.borderRadius: 8`):
+
+- `6px` — buttons, chips (`MuiButton`, `MuiChip`)
+- `8px` — inputs, icon buttons, alert boxes, skeleton rounded
+- `10px` — cards, papers, menus, popovers, data grid
+- `12px` — dialogs
+- `999px` — pills and avatar-ish full-round elements only
+
+No `borderRadius: 1.5` / `2.5` / `"8px"` strings / side-specific 16px one-offs. Fractions of
+the theme multiplier are drift; round to the ladder.
 
 ## Components
 
-Buttons, inputs, and pills share one vocabulary: sturdy and legible. Large, high-contrast, solid-fill hit targets — nothing here is meant to feel light or decorative, because the person using it may be reading it in direct sun with dusty gloves.
+### Headers
+
+- Every routed app page starts with `PageHeader` (title `h3`, optional Thai subtitle,
+  optional actions). Field surfaces use their navy hero card instead — that is the sanctioned
+  second header family, and only for `/field*`.
+- Filters live in `PageHeader` actions: `DateRangeFields` + `ContractorFilterPopover` (+ page
+  view toggles). Pages that embed a table inside a card may keep their filters inside that card.
 
 ### Buttons
-- **Shape:** `rounded-md` (12px), same radius family as every other container.
-- **Primary:** solid Moss Olive fill, white text, `min-h-[44px]` (default size) or `min-h-[36px]` (`sm` size). Hover/active both step to Moss Olive Deep.
-- **Secondary:** `warm-ivory` fill with a `hairline` border — used for the less-emphasized action in a pair (e.g. "cancel" next to "save").
-- **Danger:** solid Alert Red fill, white text — destructive actions only.
-- **Ghost:** transparent, ink text, `warm-ivory` on hover — used for low-emphasis inline actions (sign out, switch role).
-- **Loading state:** a spinning `border-2 border-current border-t-transparent` ring replaces no content — it appears inline before the label, and the button disables itself (`aria-busy`) rather than swapping its label to "Loading…".
-- **Disabled:** drops to `warm-ivory-deep` background with `dust-gray` text (primary variant) or reduced opacity (danger variant) — never fully hidden, so a disabled action stays legible as "not available right now."
 
-### Inputs / Fields
-- **Style:** `hairline` stroke, white background, `rounded-md`, `min-h-[44px]`, shared identically across text input, textarea, and select — one `inputBase` string, not three separate visual languages.
-- **Focus:** the browser's native `:focus-visible` ring, recolored to Moss Olive with a 2px offset — no custom glow or border-shift trick.
-- **Error:** the border switches to Alert Red (`aria-invalid=true`) and a `role="alert"` message renders below in Alert Red text; the `Field` wrapper shows hint text only when there's no error, never both at once.
-- **Disabled:** `warm-ivory` background, `dust-gray` text, `cursor-not-allowed`.
+- Theme default is `contained` (primary). Secondary action in a pair = `variant="outlined"`
+  (or `color="inherit"` + `variant="outlined"` for neutral cancel). Text buttons only for
+  inline/table actions. Danger = `color="error"` contained.
+- Sizes: default (40px) for page actions, `size="small"` for in-card/in-table/toolbar actions.
+  Full-width `size="large"` only for the field forms' sticky submit.
+- Button labels are English and imperative ("Add", "Save", "Cancel", "Delete").
 
-### Pills (Priority / Status)
-- **Style:** `rounded-full`, bold 12px micro-label text, solid semantic fill — `CRITICAL`/`BLOCKED` in Alert Red, `HIGH`/`DELAYED` in Baked Ember, `COMPLETED` in Field Green, `IN_PROGRESS` in the two-tone Caution Amber, `NOT_STARTED`/`LOW` as a neutral outlined `warm-ivory` pill.
-- **Rule:** meaning comes from the fill color alone — never a side stripe, icon, or gradient standing in for status.
+### Forms
 
-### Cards / Containers
-- **Corner Style:** `rounded-md` (12px).
-- **Background:** `warm-ivory` on the white page background — the one-step surface contrast is what reads as "a card," not a border-plus-shadow combination.
-- **Shadow Strategy:** flat by default; see Elevation & Depth for the dashboard-summary-card exception.
-- **Border:** `hairline`, 1px, on essentially every card and panel.
-- **Internal Padding:** `p-5` (20px) is the standard; the `EmptyState` component follows the same recipe with a centered icon badge above its copy.
+- `TextField` defaults to `size="small" fullWidth`. Validation via RHF helperText; form-level
+  problems via one `Alert severity="warning"` above the submit bar; server errors via
+  `Alert severity="error"`. Custom controls render their error as caption text in
+  `theme.palette.error.main` under the control.
+- Sticky submit bar for long forms (`position: sticky; bottom`, border-top, same padding as
+  content). Dialogs submit from right-aligned `DialogActions`: Cancel (outlined/inherit) then
+  the confirm (contained; `color="error"` for destructive).
+
+### Tables
+
+- Server-paginated registries use MUI X `DataGrid` (admin/users, contractors) — theme already
+  disables column menus/resize; do not repeat those props.
+- Report-style tables use MUI `Table size="small"`. A standalone table wraps in `TableCard`
+  (card + `TableContainer` + optional header row). A table already inside a `Card` keeps that
+  card; do not nest cards. No bare bordered boxes.
+- Empty table body = one centered `body2` `text.secondary` row with `py: 2`.
+
+### Feedback (decided)
+
+| Situation | Pattern |
+|---|---|
+| Transient success/failure of an action (save, delete, lock, colour) | `toast` (sonner) — bottom-right, Thai message |
+| Contextual, persistent problem (query failed, form invalid, permission) | inline `Alert` on the surface |
+| Destructive action | `ConfirmDialog` (MUI dialog, danger button) — never `window.confirm`, never silent |
+| Query error on a page | `QueryError` block: `Alert severity="error"` + "Retry" button |
+
+Silent success is not a pattern: if an action changed data, say so with a toast.
+
+### Loading & empty states
+
+- Block loading = `Skeleton variant="rounded"` at the block's real height.
+- Refetch on data-heavy pages = thin `LinearProgress` pinned at `top: 64` (sub-1s, no skeleton
+  swap). Print surfaces may use `CircularProgress` while preparing the document.
+- Empty state = `EmptyState` card for page/section-level blanks; single caption row inside
+  tables. Same icon family (Outlined), one Thai sentence + one action when actionable.
+
+### Icons
+
+- `@mui/icons-material` **Outlined** variants only, imported by path
+  (`@mui/icons-material/SearchOutlined`). No filled/base variants in UI chrome, no Rounded.
+- Exception: illustrative SVGs (weather artwork, logo, Konva map glyphs).
+
+### Print surfaces
+
+Standalone pages keep their own CSS (A4/A3 sheet layout is not app layout), but must share:
+the EPS logo asset, header tint `#DBE9F6`, border `#222`, and one `no-print` toolbar pattern.
+Brand colours in print mirror the palette (`primary` for rules/accents).
 
 ### Navigation
-- **Style:** the sticky header carries the wordmark/logo, project name, and session controls; the left sidebar (desktop) or slide-down panel (mobile) lists the same nav items either way. Active state is a solid Moss Olive pill behind the item (not just a text color change); inactive items are ink-on-transparent with a `warm-ivory` hover. Role-gating happens by filtering the nav list itself (e.g. the Master Data link only renders for `head_office_admin`) rather than rendering a disabled link.
+
+- Sidebar navy with info-accent active bar; collapsible; mobile = temporary drawer.
+- Field bottom nav: Home / Report / Plan(/field/coordination) / More (opens the drawer).
+- Command palette (Ctrl/Cmd+K) lists only destinations the current role can actually open.
+
+## Language
+
+- **Controls in English**: buttons, tabs, chips-as-actions, field labels, date range labels,
+  table headers, dialog actions, page titles.
+- **Explanations in Thai**: subtitles, helper text, hints, empty/error copy, toasts, callouts.
+- Data values keep their source language (Thai contractor names, Thai work descriptions).
 
 ## Do's and Don'ts
 
-### Do:
-- **Do** use `rounded-md` (12px) for every new container, button, or input — it's the system's one ceiling.
-- **Do** keep tap targets at `min-h-[44px]` for anything a user taps or clicks as a primary action; `sm` (36px) is the only sanctioned exception, for secondary/inline controls.
-- **Do** spend Baked Ember rarely — it should never cover more area on a screen than a pill or a small icon badge.
-- **Do** use the `warm-ivory` / `warm-ivory-deep` two-step surface system for layering, not a gray scale or new tint.
-- **Do** respect `prefers-reduced-motion` — the global stylesheet already collapses all animation/transition durations to near-zero; new motion must not bypass it.
+**Do**
 
-### Don't:
-- **Don't** introduce a shadow on an ordinary card, panel, or form. `shadow-sm` is reserved for the dashboard's summary-card set only.
-- **Don't** reach for a second typeface or a "display" font — this system carries its entire hierarchy in Inter's weight and size steps.
-- **Don't** use raw Tailwind palette classes (`bg-amber-500/10`, `text-blue-700`, `border-purple-500/20`, `text-amber-900`, etc.) for color. Every color in this system routes through the OKLCH custom properties in `globals.css` and their Tailwind aliases (`bg-primary`, `text-danger`, `border-line`, …). **Known drift to clean up:** the role badges in `app-shell.tsx` (`getRoleBadge`) and several panels in `admin/page.tsx` currently use raw Tailwind amber/blue/purple classes — these predate this document and should be migrated to token-based equivalents (e.g. a new semantic role-badge token set) rather than treated as precedent for new work.
-- **Don't** use `rounded-lg` (16px) for standard panels. `admin/page.tsx`'s panel containers currently do this — inconsistent with the 12px ceiling used everywhere else — and should migrate to `rounded-md` rather than be copied forward.
+- Do route every colour, radius and font through the theme; add a token instead of a literal.
+- Do reuse: `PageHeader`, `DateRangeFields`, `ContractorFilterPopover`, `KpiCard`, `EmptyState`,
+  `StatusChip`, `QueryError`, `ConfirmDialog`, `TableCard`, `Panel`.
+- Do keep status = icon + label + tone; colour alone is never the message.
+- Do verify with `bun typecheck`, web build, and a look at the page on desktop + phone width.
+
+**Don't**
+
+- Don't hand-write `boxShadow`, `zIndex` beyond the documented sticky/progress/toast ladder,
+  or `borderRadius` fractions — use the ladder.
+- Don't use filled icons, `fontWeight: 800`, or `window.confirm`.
+- Don't leave success silent, errors invisible (every query needs an error branch), or
+  destructive actions unconfirmed.
+- Don't ship a page whose filters/header/table pattern differs from this document — fix the
+  page, or fix the document in the same change.

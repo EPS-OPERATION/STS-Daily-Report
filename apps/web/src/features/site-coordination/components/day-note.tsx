@@ -59,7 +59,7 @@ export function DayNote({
           บันทึกการประชุม
         </Typography>
         {canEdit && !editing ? (
-          <Button size="small" startIcon={<EditOutlined fontSize="small" />} onClick={open} sx={{ textTransform: "none", whiteSpace: "nowrap" }}>
+          <Button startIcon={<EditOutlined fontSize="small" />} onClick={open} sx={{ textTransform: "none", whiteSpace: "nowrap" }}>
             {dayNote ? "แก้ไข" : "บันทึก"}
           </Button>
         ) : null}
@@ -89,10 +89,10 @@ export function DayNote({
             </Typography>
           ) : null}
           <Stack direction="row" spacing={1} justifyContent="flex-end">
-            <Button size="small" color="inherit" disabled={saving} onClick={() => setEditing(false)} sx={{ textTransform: "none" }}>
-              ยกเลิก
+            <Button color="inherit" disabled={saving} onClick={() => setEditing(false)} sx={{ textTransform: "none" }}>
+              Cancel
             </Button>
-            <Button size="small" variant="contained" disableElevation disabled={saving} onClick={() => void save()} sx={{ textTransform: "none" }}>
+            <Button variant="contained" disableElevation disabled={saving} onClick={() => void save()} sx={{ textTransform: "none" }}>
               {saving ? "กำลังบันทึก…" : "บันทึก"}
             </Button>
           </Stack>

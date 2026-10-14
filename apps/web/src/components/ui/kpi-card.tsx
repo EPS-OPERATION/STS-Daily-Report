@@ -13,12 +13,14 @@ export interface KpiCardProps {
   label: string;
   value: string;
   unit?: string;
-  sub: string;
+  /** Optional supporting line (delta, context). */
+  sub?: string;
   subTone?: "success" | "error" | "muted";
   trend?: "up" | "down";
-  icon: ReactNode;
-  iconBg: string;
-  iconFg: string;
+  /** Optional leading icon badge — omit for bare number tiles. */
+  icon?: ReactNode;
+  iconBg?: string;
+  iconFg?: string;
   /** Optional page link — the whole card becomes clickable. */
   to?: string;
 }
@@ -54,21 +56,23 @@ export function KpiCard({
       >
       <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
         <Stack direction="row" spacing={1.25} alignItems="center">
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              backgroundColor: iconBg,
-              color: iconFg,
-              flexShrink: 0,
-            }}
-          >
-            {icon}
-          </span>
+          {icon ? (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                backgroundColor: iconBg,
+                color: iconFg,
+                flexShrink: 0,
+              }}
+            >
+              {icon}
+            </span>
+          ) : null}
           <Typography
             variant="caption"
             color="text.secondary"
@@ -92,7 +96,7 @@ export function KpiCard({
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5, minHeight: 20 }}>
           {trend ? <TrendIcon sx={{ fontSize: 14, color: subColor }} aria-hidden="true" /> : null}
           <Typography variant="body2" sx={{ color: subColor, whiteSpace: "nowrap" }}>
-            {sub}
+            {sub ?? ""}
           </Typography>
         </Stack>
       </CardContent>
