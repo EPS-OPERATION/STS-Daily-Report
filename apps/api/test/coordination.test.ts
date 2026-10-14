@@ -8,7 +8,8 @@ describe("Coordination geometry and calendar semantics", () => {
     expect(coordinationGeometryError(polygon([[0.1, 0.1], [0.5, 0.5], [0.1, 0.5], [0.5, 0.1]]))).not.toBeNull();
     expect(coordinationGeometryError(polygon([[0.1, 0.1], [0.1, 0.1], [0.5, 0.5]]))).not.toBeNull();
     expect(coordinationGeometryError(polygon([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]]))).not.toBeNull();
-    expect(coordinationGeometryError(polygon([[0.1, 0.1], [1.1, 0.1], [0.1, 0.5]]))).not.toBeNull();
+    expect(coordinationGeometryError(polygon([[0.1, 0.1], [1.1, 0.1], [0.1, 0.5]]))).toBeNull(); // inside the 15% margin
+    expect(coordinationGeometryError(polygon([[0.1, 0.1], [1.2, 0.1], [0.1, 0.5]]))).not.toBeNull(); // past the margin
   });
   it("validates a rotated rectangle in image pixel space, not stretched normalized space", () => {
     const width = 6542, height = 4951;

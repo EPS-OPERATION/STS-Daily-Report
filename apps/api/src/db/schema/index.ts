@@ -12,3 +12,4 @@ export * from "./building.schema.js";
 export * from "./daily-report.schema.js";
 export * from "./safety.schema.js";
 export * from "./coordination.schema.js";
+export * from "./drone.schema.js";
