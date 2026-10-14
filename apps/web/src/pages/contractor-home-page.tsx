@@ -15,7 +15,6 @@ import CardContent from "@mui/material/CardContent";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import Skeleton from "@mui/material/Skeleton";
-import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -23,8 +22,9 @@ import type { SvgIconProps } from "@mui/material/SvgIcon";
 import { canEditReport } from "@sts/shared";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
-import { Link as RouterLink, useLocation } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 import { FieldBottomNav } from "@/components/field/field-bottom-nav.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import { useAuthConfig, useMe } from "@/features/auth/index.js";
 import {
@@ -82,17 +82,6 @@ export function ContractorHomePage() {
     [history.data, contractorId],
   );
 
-  const location = useLocation();
-  const [toast, setToast] = useState<string | null>((location.state as { toast?: string } | null)?.toast ?? null);
-
-  useEffect(() => {
-    const state = location.state as { toast?: string } | null;
-    if (state?.toast) {
-      setToast(state.toast);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
-
   const reportLink = (date: string, shift?: "morning" | "evening") =>
     `/field/report?date=${date}${contractorId ? `&contractor=${contractorId}` : ""}${shift ? `&shift=${shift}` : ""}`;
   const isEditable = (date: string) => allowResubmit || canEditReport(date, now);
@@ -128,13 +117,13 @@ export function ContractorHomePage() {
         <CardContent sx={{ p: 2.5, color: "common.white" }}>
           <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
             <Box>
-              <Typography variant="caption" sx={{ color: "#9DB4CC", fontVariantNumeric: "tabular-nums" }}>
+              <Typography variant="caption" sx={{ color: "common.white", opacity: 0.7, fontVariantNumeric: "tabular-nums" }}>
                 {dayjs(now).format("HH:mm")} · {formatThaiDate(today)}
               </Typography>
               <Typography variant="h4" sx={{ color: "common.white" }}>
                 {greeting}
               </Typography>
-              <Typography variant="body2" sx={{ color: "#C9D6E3" }}>
+              <Typography variant="body2" sx={{ color: "common.white", opacity: 0.85 }}>
                 {project?.name ?? "STS Project"}
                 {contractor ? ` · ${contractor.code}` : ""}
               </Typography>
@@ -178,7 +167,6 @@ export function ContractorHomePage() {
                   <Button
                     component={RouterLink}
                     to={reportLink(today, "morning")}
-                    size="small"
                     variant={morningDone ? "outlined" : "contained"}
                   >
                     {morningDone ? (isEditable(today) ? "แก้ไข" : "ดู") : "ส่ง"}
@@ -194,7 +182,6 @@ export function ContractorHomePage() {
                   <Button
                     component={RouterLink}
                     to={reportLink(today, "evening")}
-                    size="small"
                     variant={eveningDone ? "outlined" : "contained"}
                   >
                     {eveningDone ? (isEditable(today) ? "แก้ไข" : "ดู") : "ส่ง"}
@@ -221,7 +208,7 @@ export function ContractorHomePage() {
       </Card>
 
       {next ? (
-        <Button component={RouterLink} to={next.to} size="large" fullWidth sx={{ minHeight: 48, mb: 2 }}>
+        <Button component={RouterLink} to={next.to} fullWidth sx={{ mb: 2 }}>
           {next.label}
         </Button>
       ) : !current.isLoading && report ? (
@@ -247,12 +234,11 @@ export function ContractorHomePage() {
             ))}
           </Stack>
         ) : rows.length === 0 ? (
-          <Stack alignItems="center" spacing={1} sx={{ p: 3, color: "text.secondary" }}>
-            <AssignmentOutlinedIcon />
-            <Typography variant="body2">ยังไม่มีรายงานใน {HISTORY_DAYS} วันที่ผ่านมา</Typography>
-          </Stack>
+          <Box sx={{ p: 2 }}>
+            <EmptySection dense icon={<AssignmentOutlinedIcon />} title={`ยังไม่มีรายงานใน ${HISTORY_DAYS} วันที่ผ่านมา`} />
+          </Box>
         ) : (
-          <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }} aria-label="ประวัติรายงาน">
+          <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }} aria-label="Report history">
             {rows.map((r) => (
               <HistoryRow
                 key={`${r.contractorId}-${r.reportDate}`}
@@ -267,17 +253,6 @@ export function ContractorHomePage() {
       </Card>
 
       <FieldBottomNav />
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={4000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert severity="success" variant="filled" onClose={() => setToast(null)}>
-          {toast}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }
@@ -378,7 +353,6 @@ function HistoryRow({
             <Button
               component={RouterLink}
               to={to}
-              size="small"
               variant={editable && anySent ? "contained" : "outlined"}
               sx={{ minWidth: 64 }}
             >

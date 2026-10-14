@@ -5,6 +5,49 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
 
+// Compact empty state for a section inside a page (dashed frame + muted icon).
+// Page-level empties use EmptyState below.
+export function EmptySection({
+  icon,
+  title,
+  description,
+  action,
+  dense = false,
+}: {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  dense?: boolean;
+}) {
+  return (
+    <Box
+      sx={{
+        py: dense ? 2.5 : 4,
+        px: 2,
+        textAlign: "center",
+        border: "1px dashed",
+        borderColor: "divider",
+        borderRadius: 2,
+        bgcolor: "grey.50",
+      }}
+    >
+      <Stack spacing={1} alignItems="center">
+        <Box sx={{ color: "text.disabled", display: "flex", "& .MuiSvgIcon-root": { fontSize: dense ? 26 : 30 } }}>{icon}</Box>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {title}
+        </Typography>
+        {description ? (
+          <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 420 }}>
+            {description}
+          </Typography>
+        ) : null}
+        {action}
+      </Stack>
+    </Box>
+  );
+}
+
 // Centered empty/coming-soon state. Visual only — no business logic.
 export function EmptyState({
   icon,
@@ -25,7 +68,7 @@ export function EmptyState({
             sx={{
               width: 56,
               height: 56,
-              borderRadius: 3,
+              borderRadius: 2,
               bgcolor: "primary.light",
               color: "primary.dark",
               display: "flex",

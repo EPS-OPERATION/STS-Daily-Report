@@ -44,13 +44,13 @@ export function DateRangeFields({
         format="D MMM YYYY"
         slotProps={{ textField: { size: "small", sx: { width: 160 } } }}
       />
-      <Button size="small" variant="outlined" onClick={() => set(today, today)}>
+      <Button size="medium" variant="outlined" onClick={() => set(today, today)}>
         Today
       </Button>
-      <Button size="small" variant="outlined" onClick={() => set(monday, monday.add(6, "day"))}>
+      <Button size="medium" variant="outlined" onClick={() => set(monday, monday.add(6, "day"))}>
         This week
       </Button>
-      <Button size="small" variant="outlined" onClick={() => set(today.startOf("month"), today.endOf("month"))}>
+      <Button size="medium" variant="outlined" onClick={() => set(today.startOf("month"), today.endOf("month"))}>
         This month
       </Button>
     </Stack>

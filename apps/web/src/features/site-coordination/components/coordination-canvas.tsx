@@ -328,14 +328,14 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
       return <Stack direction="row" spacing={1.5} alignItems="center" sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: alpha(theme.palette.primary.main, 0.06) }}>
         <PentagonOutlined fontSize="small" color="primary" />
         <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}>{step}</Typography>
-        <Button size="small" startIcon={<UndoOutlined fontSize="small" />} disabled={!n} onClick={() => onChange({ geometry: { type: "polygon", points: draft.geometry.points.slice(0, -1) } })} sx={{ whiteSpace: "nowrap" }}>ย้อนจุด</Button>
-        <Button size="small" color="inherit" disabled={!n} onClick={() => onChange({ geometry: { type: "polygon", points: [] } })} sx={{ whiteSpace: "nowrap", display: { xs: "none", sm: "inline-flex" } }}>วาดใหม่</Button>
-        <Button size="small" variant="contained" disableElevation startIcon={<CheckOutlined fontSize="small" />} disabled={n < 3 || Boolean(coordinationGeometryError(draft.geometry))} onClick={onFinish} sx={{ whiteSpace: "nowrap" }}>เสร็จ</Button>
+        <Button startIcon={<UndoOutlined fontSize="small" />} disabled={!n} onClick={() => onChange({ geometry: { type: "polygon", points: draft.geometry.points.slice(0, -1) } })} sx={{ whiteSpace: "nowrap" }}>Undo point</Button>
+        <Button color="inherit" disabled={!n} onClick={() => onChange({ geometry: { type: "polygon", points: [] } })} sx={{ whiteSpace: "nowrap", display: { xs: "none", sm: "inline-flex" } }}>Redraw</Button>
+        <Button variant="contained" disableElevation startIcon={<CheckOutlined fontSize="small" />} disabled={n < 3 || Boolean(coordinationGeometryError(draft.geometry))} onClick={onFinish} sx={{ whiteSpace: "nowrap" }}>Done</Button>
       </Stack>;
     })() : <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider" }}>
       {draft ? "ลากไอคอนไปจุดทำงาน · ลากพื้นที่เพื่อย้าย · มุมสี่เหลี่ยมปรับขนาด/หมุน · ดับเบิลคลิกเพื่อแก้ชื่อ · ตั้งค่าอื่นที่แผงด้านข้าง" : "คลิกงานเพื่อดูและแก้ไข · ลากผังว่างเพื่อเลื่อน · ล้อเมาส์เพื่อซูม"}
     </Typography>)}
-    {imageError ? <Alert severity="error" sx={{ m: 1.5 }}>โหลดภาพผังไม่สำเร็จ กรุณาตรวจภาพพื้นหลังแล้วลองใหม่</Alert> : <Box ref={stageBox} role="img" aria-label="ผังงานรายวัน เลือกรายการงานจากรายการด้านข้างเพื่อดูรายละเอียด" sx={{ position: "relative", bgcolor: "background.paper", touchAction: "none", cursor: tool === "polygon" ? "crosshair" : undefined }}>
+    {imageError ? <Alert severity="error" sx={{ m: 1.5 }}>โหลดภาพผังไม่สำเร็จ กรุณาตรวจภาพพื้นหลังแล้วลองใหม่</Alert> : <Box ref={stageBox} role="img" aria-label="Daily plan. Select an item from the side list to see details." sx={{ position: "relative", bgcolor: "background.paper", touchAction: "none", cursor: tool === "polygon" ? "crosshair" : undefined }}>
       <Stage ref={stage} width={width} height={height} scaleX={scale} scaleY={scale} x={offset.x} y={offset.y}         draggable={tool === "move" && !readOnly}
         onDragStart={() => setDragging(true)}
         onDragEnd={(e) => {
@@ -501,10 +501,10 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
       };
       return <Popper open placement="top" anchorEl={anchor} modifiers={[{ name: "offset", options: { offset: [0, 40] } }]} sx={{ zIndex: 1200 }}>
         <Stack direction="row" sx={{ px: 0.5, py: 0.25, bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 2, boxShadow: 2 }}>
-              <Tooltip title="ลากเพื่อย้ายข้อความ">
+              <Tooltip title="Drag to move text">
                 <Box
                   role="button"
-                  aria-label="ลากเพื่อย้ายข้อความ"
+                  aria-label="Drag to move text"
                   onPointerDown={(e) => {
                     e.currentTarget.setPointerCapture(e.pointerId);
                     textDrag.current = { px: e.clientX, py: e.clientY, x: draft.x, y: draft.y };
@@ -528,10 +528,10 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
       </Popper>;
     })()}
       {!readOnly && <Stack direction="column" spacing={0.5} sx={{ position: "absolute", bottom: 14, right: 14, zIndex: 30, bgcolor: "rgba(255,255,255,0.92)", backdropFilter: "blur(6px)", p: 0.5, borderRadius: 2, border: "1px solid rgba(0,0,0,0.12)", boxShadow: 2 }}>
-        <IconButton size="small" aria-label="ซูมเข้า" disabled={zoom >= 6} onClick={() => changeZoom(1.25)}><AddOutlined fontSize="small" /></IconButton>
+        <IconButton size="small" aria-label="Zoom in" disabled={zoom >= 6} onClick={() => changeZoom(1.25)}><AddOutlined fontSize="small" /></IconButton>
         <Typography variant="caption" sx={{ textAlign: "center", fontSize: 10, fontWeight: 700 }}>{Math.round(zoom * 100)}%</Typography>
-        <IconButton size="small" aria-label="ซูมออก" disabled={zoom <= 1} onClick={() => changeZoom(1 / 1.25)}><RemoveOutlined fontSize="small" /></IconButton>
-        <IconButton size="small" aria-label="พอดีผัง" onClick={frameContent}><RestartAltOutlined fontSize="small" /></IconButton>
+        <IconButton size="small" aria-label="Zoom out" disabled={zoom <= 1} onClick={() => changeZoom(1 / 1.25)}><RemoveOutlined fontSize="small" /></IconButton>
+        <IconButton size="small" aria-label="Fit map" onClick={frameContent}><RestartAltOutlined fontSize="small" /></IconButton>
       </Stack>}
     </Box>}
     {!image && !imageError && <Typography role="status" variant="caption" color="text.secondary">กำลังโหลดภาพผัง…</Typography>}

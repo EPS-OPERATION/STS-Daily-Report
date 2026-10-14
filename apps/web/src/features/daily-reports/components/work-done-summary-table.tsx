@@ -14,14 +14,15 @@ import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
+import { TableCard } from "@/components/ui/table-card.js";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import PrintIcon from "@mui/icons-material/Print";
+import FileDownloadIcon from "@mui/icons-material/FileDownloadOutlined";
+import PrintIcon from "@mui/icons-material/PrintOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import WarningAmberIcon from "@mui/icons-material/WarningAmberOutlined";
 import { ContractorBadge } from "./contractor-badge.js";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
@@ -151,7 +152,6 @@ export function WorkDoneSummaryTable({
           {/* Action Buttons: Export & Print */}
           <Stack direction="row" spacing={1}>
             <Button
-              size="small"
               variant="outlined"
               startIcon={<PrintIcon />}
               onClick={handlePrint}
@@ -160,13 +160,12 @@ export function WorkDoneSummaryTable({
               พิมพ์รายงาน
             </Button>
             <Button
-              size="small"
               variant="contained"
               startIcon={<FileDownloadIcon />}
               onClick={handleExportCsv}
               sx={{ textTransform: "none", fontWeight: 600 }}
             >
-              ส่งออก CSV (Excel)
+              Export CSV (Excel)
             </Button>
           </Stack>
         </Stack>
@@ -222,11 +221,11 @@ export function WorkDoneSummaryTable({
             <InputLabel id="work-contractor-label">ผู้รับเหมา</InputLabel>
             <Select
               labelId="work-contractor-label"
-              label="ผู้รับเหมา"
+              label="Contractor"
               value={selectedContractor}
               onChange={(e) => onSelectContractor(e.target.value)}
             >
-              <MenuItem value="All Contractors">ทุกผู้รับเหมา ({items.length} งาน)</MenuItem>
+              <MenuItem value="All Contractors">All contractors ({items.length})</MenuItem>
               {contractors.map((c) => {
                 const countForC = items.filter((i) => i.contractorName === c || i.contractorCode === c).length;
                 return (
@@ -243,11 +242,11 @@ export function WorkDoneSummaryTable({
             <InputLabel id="work-building-label">อาคาร / พื้นที่</InputLabel>
             <Select
               labelId="work-building-label"
-              label="อาคาร / พื้นที่"
+              label="Building / area"
               value={buildingFilter}
               onChange={(e) => setBuildingFilter(e.target.value)}
             >
-              <MenuItem value="All Buildings">ทุกอาคาร ({items.length})</MenuItem>
+              <MenuItem value="All Buildings">All buildings ({items.length})</MenuItem>
               {buildings.map((b) => {
                 const countForB = items.filter((i) => i.buildingName === b).length;
                 return (
@@ -278,19 +277,18 @@ export function WorkDoneSummaryTable({
             action={
               <Button
                 variant="outlined"
-                size="small"
                 onClick={() => {
                   onSelectContractor("All Contractors");
                   setBuildingFilter("All Buildings");
                   setSearch("");
                 }}
               >
-                ดูทั้งหมด
+                View all
               </Button>
             }
           />
         ) : (
-          <TableContainer sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
+          <TableCard><TableContainer>
             <Table size="small" sx={{ minWidth: 750 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: "action.hover" }}>
@@ -418,7 +416,7 @@ export function WorkDoneSummaryTable({
                 })}
               </TableBody>
             </Table>
-          </TableContainer>
+          </TableContainer></TableCard>
         )}
 
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>

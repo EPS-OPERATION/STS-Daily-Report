@@ -4,9 +4,12 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import CalendarTodayIcon from "@mui/icons-material/CalendarTodayOutlined";
+import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import type { DronePhotoLog } from "../types/drone.types.js";
 
 interface DroneLogCardProps {
@@ -15,6 +18,7 @@ interface DroneLogCardProps {
   isSelectedB: boolean;
   onSelectA: (log: DronePhotoLog) => void;
   onSelectB: (log: DronePhotoLog) => void;
+  onDelete?: (log: DronePhotoLog) => void;
 }
 
 export function DroneLogCard({
@@ -23,6 +27,7 @@ export function DroneLogCard({
   isSelectedB,
   onSelectA,
   onSelectB,
+  onDelete,
 }: DroneLogCardProps) {
   const isSelected = isSelectedA || isSelectedB;
 
@@ -32,7 +37,7 @@ export function DroneLogCard({
       sx={{
         border: "1px solid",
         borderColor: isSelected ? "primary.main" : "divider",
-        borderRadius: 2.5,
+        borderRadius: 2,
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
@@ -63,12 +68,24 @@ export function DroneLogCard({
           }}
         >
           {isSelectedA && (
-            <Chip size="small" label="ภาพฐาน (Baseline)" color="default" sx={{ fontWeight: 700, bgcolor: "#fff", color: "#000" }} />
+            <Chip size="small" label="Baseline image" color="default" sx={{ fontWeight: 700, bgcolor: "#fff", color: "#000" }} />
           )}
           {isSelectedB && (
-            <Chip size="small" label="ภาพเปรียบเทียบ (Target)" color="primary" sx={{ fontWeight: 700 }} />
+            <Chip size="small" label="Target image" color="primary" sx={{ fontWeight: 700 }} />
           )}
         </Box>
+        {onDelete ? (
+          <Tooltip title="Delete log">
+            <IconButton
+              size="small"
+              aria-label={`Delete log ${log.title}`}
+              onClick={() => onDelete(log)}
+              sx={{ position: "absolute", top: 6, right: 6, bgcolor: "rgba(15,23,42,0.55)", color: "#fff", "&:hover": { bgcolor: "rgba(15,23,42,0.75)" } }}
+            >
+              <DeleteOutlineOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
       </Box>
 
       {/* Card Content */}
@@ -110,7 +127,6 @@ export function DroneLogCard({
         {/* Action Buttons to select into comparison */}
         <Stack direction="row" spacing={1} sx={{ pt: 2, mt: "auto" }}>
           <Button
-            size="small"
             variant={isSelectedA ? "contained" : "outlined"}
             color={isSelectedA ? "inherit" : "primary"}
             onClick={() => onSelectA(log)}
@@ -120,7 +136,6 @@ export function DroneLogCard({
             {isSelectedA ? "✓ เป็นภาพฐาน" : "เลือกเป็นภาพฐาน"}
           </Button>
           <Button
-            size="small"
             variant={isSelectedB ? "contained" : "outlined"}
             color="primary"
             onClick={() => onSelectB(log)}

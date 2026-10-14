@@ -20,7 +20,8 @@ import {
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 
-const BLUE = "#dbe9f6";
+import { PRINT_BLUE } from "@/components/print/print-tokens.js";
+const BLUE = PRINT_BLUE;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_ACTIVITY_ROWS = 10;
 
@@ -76,7 +77,7 @@ export function DailyReportPrintPage() {
       <PrintStyles />
 
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-        <Button onClick={() => window.print()}>พิมพ์ / บันทึกเป็น PDF</Button>
+        <Button onClick={() => window.print()}>Print / Save as PDF</Button>
         <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
           ในหน้าต่างพิมพ์ เลือก "Save as PDF" / "บันทึกเป็น PDF"
         </Typography>
@@ -175,7 +176,7 @@ export function DailyReportsBatchPrintPage() {
     <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
       <PrintStyles />
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-        <Button onClick={() => window.print()}>พิมพ์ / บันทึกเป็น PDF</Button>
+        <Button onClick={() => window.print()}>Print / Save as PDF</Button>
         <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
           {ids.length} รายงาน ({ids.length * 2} หน้า){failed > 0 ? ` · โหลดไม่สำเร็จ ${failed} รายงาน` : ""} — ในหน้าต่างพิมพ์ เลือก "Save as PDF"
         </Typography>
@@ -467,7 +468,7 @@ function SummarySheet({ r }: { r: PrintReport }) {
 
   return (
     <Box className="sheet">
-      <Typography sx={{ fontWeight: 800, fontSize: 14, mb: 0.5 }}>
+      <Typography sx={{ fontWeight: 700, fontSize: 14, mb: 0.5 }}>
         สรุปรายงานประจำวัน — {r.contractorName || r.contractorCode} · {thaiShortDate(r.reportDate)}
       </Typography>
 

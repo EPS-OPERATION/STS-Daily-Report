@@ -41,6 +41,14 @@ export function SafetyReportPrintPage() {
     });
   }, [ready, from, to]);
 
+  const loadError = (stats.error as Error | null) ?? (findings.error as Error | null);
+  if (loadError) {
+    return (
+      <Stack alignItems="center" spacing={2} sx={{ py: 10 }}>
+        <Typography color="error">โหลดรายงานไม่สำเร็จ — {loadError.message}</Typography>
+      </Stack>
+    );
+  }
   if (!ready || !s) {
     return (
       <Stack alignItems="center" spacing={2} sx={{ py: 10 }}>
@@ -65,7 +73,7 @@ export function SafetyReportPrintPage() {
       `}</style>
 
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-        <Button onClick={() => window.print()}>พิมพ์ / บันทึกเป็น PDF</Button>
+        <Button onClick={() => window.print()}>Print / Save as PDF</Button>
         <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
           ในหน้าต่างพิมพ์ เลือก "Save as PDF" / "บันทึกเป็น PDF"
         </Typography>
@@ -128,7 +136,7 @@ export function SafetyReportPrintPage() {
         </Typography>
         <Stack direction="row" spacing={3} alignItems="flex-start">
           <Box sx={{ flex: "0 0 52%" }}>
-            <Typography sx={{ color: "#127a2b", fontWeight: 800, fontSize: 20, textAlign: "center", mb: 0.5 }}>STATISTIC</Typography>
+            <Typography sx={{ color: "#127a2b", fontWeight: 700, fontSize: 20, textAlign: "center", mb: 0.5 }}>STATISTIC</Typography>
             <StatisticTable stats={s} />
           </Box>
           <Box sx={{ flex: 1 }}>

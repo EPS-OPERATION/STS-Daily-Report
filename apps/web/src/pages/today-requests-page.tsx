@@ -3,6 +3,11 @@ import ChevronLeftOutlinedIcon from "@mui/icons-material/ChevronLeftOutlined";
 import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
+import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import HandymanOutlinedIcon from "@mui/icons-material/HandymanOutlined";
+import InboxOutlinedIcon from "@mui/icons-material/InboxOutlined";
+import PrecisionManufacturingOutlinedIcon from "@mui/icons-material/PrecisionManufacturingOutlined";
+import RouteOutlinedIcon from "@mui/icons-material/RouteOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -22,7 +27,9 @@ import dayjs from "dayjs";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { QueryError } from "@/components/ui/query-error.js";
 import {
   ContractorBadge,
   ContractorFilterPopover,
@@ -218,14 +225,14 @@ export function TodayRequestsPage() {
         size="small"
         value={view}
         onChange={(_, v: View | null) => v && setView(v)}
-        aria-label="มุมมอง Daily Request"
+        aria-label="Daily Request view"
         sx={{ mb: 2.5, bgcolor: "background.paper" }}
       >
         <ToggleButton value="requests" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
           <AssignmentOutlinedIcon fontSize="small" />
           คำขอประจำวัน
           {clashingRoads.length > 0 ? (
-            <Chip size="small" color="error" label={`เส้นทางทับซ้อน ${clashingRoads.length}`} sx={{ height: 20, ml: 0.5 }} />
+            <Chip size="small" color="error" label={`Road clashes ${clashingRoads.length}`} sx={{ height: 20, ml: 0.5 }} />
           ) : null}
         </ToggleButton>
         <ToggleButton value="plan" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
@@ -236,9 +243,7 @@ export function TodayRequestsPage() {
 
       {view === "plan" ? (
         loadError ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            โหลดข้อมูลไม่สำเร็จ: {loadError.message}
-          </Alert>
+          <QueryError error={loadError} onRetry={() => { void week.refetch(); void rfi.refetch(); }} />
         ) : !data ? (
           <Stack spacing={2}>
             <Skeleton variant="rounded" height={120} />
@@ -250,9 +255,7 @@ export function TodayRequestsPage() {
       ) : null}
 
       {view === "requests" && loadError ? (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          โหลดข้อมูลไม่สำเร็จ: {loadError.message}
-        </Alert>
+        <QueryError error={loadError} onRetry={() => { void week.refetch(); void rfi.refetch(); }} />
       ) : null}
 
       {view !== "requests" ? null : !data || !rfi.data ? (
@@ -281,14 +284,14 @@ export function TodayRequestsPage() {
                   size="small"
                   color={clashOnly ? "error" : "default"}
                   variant={clashOnly ? "filled" : "outlined"}
-                  label="เฉพาะวันที่ชนกัน"
+                  label="Clashing days only"
                   onClick={() => setClashOnly((v) => !v)}
                 />
               </Stack>
               {shownDays.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 2 }}>ไม่มีคำขอในช่วงนี้</Typography>
               ) : (
-                <Table size="small" aria-label="ภาพรวมรายวัน">
+                <Table size="small" aria-label="Daily overview">
                   <TableHead>
                     <TableRow>
                       <TableCell>วันที่</TableCell>
@@ -330,12 +333,12 @@ export function TodayRequestsPage() {
           ) : null}
           {isRange && shownDays.length > 0 ? (
             <Stack direction="row" alignItems="center" spacing={1}>
-              <IconButton aria-label="วันก่อนหน้า" disabled={dayIndex <= 0} onClick={() => setDay(shownDays[dayIndex - 1]!.date)}>
+              <IconButton aria-label="Previous day" disabled={dayIndex <= 0} onClick={() => setDay(shownDays[dayIndex - 1]!.date)}>
                 <ChevronLeftOutlinedIcon />
               </IconButton>
               <Typography variant="h4">{formatThaiDate(selectedDay)}</Typography>
               <IconButton
-                aria-label="วันถัดไป"
+                aria-label="Next day"
                 disabled={dayIndex < 0 || dayIndex >= shownDays.length - 1}
                 onClick={() => setDay(shownDays[dayIndex + 1]!.date)}
               >
@@ -347,6 +350,7 @@ export function TodayRequestsPage() {
           <Section title="Machine request">
             <SimpleTable
               empty="ไม่มีการจองเครื่องจักร"
+              emptyIcon={<PrecisionManufacturingOutlinedIcon />}
               head={[...dayHead, "Machine", "Building", "Contractor", "Time", "วัตถุประสงค์"]}
               rows={dayMachines.map((m) => ({
                 key: m.id,
@@ -365,6 +369,7 @@ export function TodayRequestsPage() {
           <Section title="Equipment request">
             <SimpleTable
               empty="ไม่มีการขอเครื่องมือ/อุปกรณ์"
+              emptyIcon={<HandymanOutlinedIcon />}
               head={[...dayHead, "Equipment", "Qty", "Building", "Contractor", "วัตถุประสงค์"]}
               rows={dayEquipment.map((e) => ({
                 key: e.id,
@@ -389,6 +394,7 @@ export function TodayRequestsPage() {
             />
             <SimpleTable
               empty="ไม่มีการขอใช้/ปิดถนน"
+              emptyIcon={<RouteOutlinedIcon />}
               head={[...dayHead, "Road / lane", "Time", "Contractor", "Next to", "วัตถุประสงค์", ...(canEdit ? [""] : [])]}
               rows={dayRoads.map((r) => ({
                 key: r.id,
@@ -411,7 +417,7 @@ export function TodayRequestsPage() {
                   r.purpose,
                   ...(canEdit
                     ? [
-                        <IconButton key="e" size="small" aria-label={`แก้เวลา ${r.contractorCode} ${r.roadLocation}`} onClick={() => setEditing(r)}>
+                        <IconButton key="e" size="small" aria-label={`Edit time ${r.contractorCode} ${r.roadLocation}`} onClick={() => setEditing(r)}>
                           <EditOutlinedIcon fontSize="small" />
                         </IconButton>,
                       ]
@@ -462,6 +468,7 @@ export function TodayRequestsPage() {
           >
             <SimpleTable
               empty="ไม่มีคำขอตรวจ"
+              emptyIcon={<FactCheckOutlinedIcon />}
               head={[...dayHead, "Type", "Time", "Contractor", "Work item", "Building"]}
               rows={dayInspections.map((r) => ({
                 key: r.id,
@@ -501,17 +508,15 @@ function SimpleTable({
   head,
   rows,
   empty,
+  emptyIcon,
 }: {
   head: string[];
   rows: { key: string; tone?: "error" | "warning"; cells: ReactNode[] }[];
   empty: string;
+  emptyIcon?: ReactNode;
 }) {
   if (rows.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-        {empty}
-      </Typography>
-    );
+    return <EmptySection dense icon={emptyIcon ?? <InboxOutlinedIcon />} title={empty} />;
   }
   return (
     <Box sx={{ overflowX: "auto", border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper" }}>

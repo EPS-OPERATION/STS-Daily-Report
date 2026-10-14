@@ -76,18 +76,17 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
           </Box>
           <Button
             variant="outlined"
-            size="small"
             startIcon={<FileDownloadOutlinedIcon />}
             onClick={exportCsv}
             disabled={visible.length === 0}
             sx={{ alignSelf: { xs: "flex-start", sm: "center" }, flexShrink: 0 }}
           >
-            ส่งออก CSV
+            Export CSV
           </Button>
         </Stack>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 2 }}>
-          <TextField select size="small" label="ผู้รับเหมา" value={contractor} onChange={(e) => setContractor(e.target.value)} sx={{ minWidth: 200 }}>
-            <MenuItem value="all">ทุกผู้รับเหมา</MenuItem>
+          <TextField select size="small" label="Contractor" value={contractor} onChange={(e) => setContractor(e.target.value)} sx={{ minWidth: 200 }}>
+            <MenuItem value="all">All contractors</MenuItem>
             {contractors.map((c) => (
               <MenuItem key={c} value={c}>
                 {c}
@@ -128,13 +127,12 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
               rows.length > 0 ? (
                 <Button
                   variant="outlined"
-                  size="small"
                   onClick={() => {
                     setContractor("all");
                     setSearch("");
                   }}
                 >
-                  ล้างตัวกรอง
+                  Clear filters
                 </Button>
               ) : undefined
             }

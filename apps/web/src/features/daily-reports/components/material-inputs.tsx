@@ -1,5 +1,6 @@
-import AddIcon from "@mui/icons-material/Add";
+import AddIcon from "@mui/icons-material/AddOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -12,6 +13,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { Controller, useFieldArray, type Control } from "react-hook-form";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import type { EveningFormValues } from "../schemas/daily-report.schema.js";
 
 // Common site materials (suggestions only — contractors can type anything).
@@ -39,9 +41,7 @@ export function MaterialInputs({ control }: { control: Control<EveningFormValues
     <Box>
       <Stack spacing={1.5}>
         {rows.fields.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            ไม่มีวัสดุที่รายงานวันนี้ — กดปุ่มด้านล่างเพื่อเพิ่มรายการ
-          </Typography>
+          <EmptySection dense icon={<Inventory2OutlinedIcon />} title="ไม่มีวัสดุที่รายงานวันนี้" description="กดปุ่มด้านล่างเพื่อเพิ่มรายการ" />
         ) : null}
         {rows.fields.map((row, i) => (
           <Card key={row.id} variant="outlined">
@@ -51,7 +51,7 @@ export function MaterialInputs({ control }: { control: Control<EveningFormValues
                   รายการที่ {i + 1}
                 </Typography>
                 <Box sx={{ flexGrow: 1 }} />
-                <IconButton size="small" aria-label={`ลบวัสดุรายการที่ ${i + 1}`} onClick={() => rows.remove(i)}>
+                <IconButton size="small" aria-label={`Delete material ${i + 1}`} onClick={() => rows.remove(i)}>
                   <DeleteOutlineOutlinedIcon fontSize="small" />
                 </IconButton>
               </Stack>
@@ -70,7 +70,7 @@ export function MaterialInputs({ control }: { control: Control<EveningFormValues
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="วัสดุหน้างาน / Material"
+                            label="Site material"
                             size="small"
                             fullWidth
                             error={Boolean(fieldState.error)}
@@ -108,7 +108,7 @@ export function MaterialInputs({ control }: { control: Control<EveningFormValues
                     render={({ field, fieldState }) => (
                       <TextField
                         select
-                        label="หน่วย"
+                        label="Unit"
                         size="small"
                         fullWidth
                         value={field.value}
@@ -137,7 +137,7 @@ export function MaterialInputs({ control }: { control: Control<EveningFormValues
         sx={{ mt: 1.5, borderStyle: "dashed" }}
         onClick={() => rows.append({ name: "", qty: 1, unit: "pcs" })}
       >
-        เพิ่มวัสดุ (Add Material)
+        Add material
       </Button>
     </Box>
   );

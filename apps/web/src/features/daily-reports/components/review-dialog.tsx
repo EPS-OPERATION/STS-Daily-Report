@@ -1,5 +1,9 @@
+import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import ConstructionOutlinedIcon from "@mui/icons-material/ConstructionOutlined";
+import PrecisionManufacturingOutlinedIcon from "@mui/icons-material/PrecisionManufacturingOutlined";
+import RouteOutlinedIcon from "@mui/icons-material/RouteOutlined";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
@@ -16,6 +20,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import LinearProgress from "@mui/material/LinearProgress";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
@@ -23,7 +28,9 @@ import Typography from "@mui/material/Typography";
 import { POSITIONS, WEATHER_CONDITIONS } from "@sts/shared";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
+import { QueryError } from "@/components/ui/query-error.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { useCurrentReport } from "../hooks/use-daily-report-queries.js";
 import type { DailyReport, ReviewQueueRow } from "../types/daily-report.types.js";
@@ -53,6 +60,7 @@ export function ReviewDialog({
 
   const data: DailyReport | null = reportQuery.data?.data.report ?? null;
   const dataLoading = reportQuery.isPending && report !== null;
+  const dataError = reportQuery.error instanceof Error ? reportQuery.error : null;
 
   useEffect(() => {
     if (report) {
@@ -87,11 +95,11 @@ export function ReviewDialog({
           <Stack direction="row" spacing={1}>
             <StatusChip
               status={report?.morningStatus ?? "draft"}
-              label={`Daily Report: ${report?.morningStatus === "submitted" ? "ส่งแล้ว" : "ยังไม่ส่ง"}`}
+              label={`Daily Report: ${report?.morningStatus === "submitted" ? "Submitted" : "Not submitted"}`}
             />
             <StatusChip
               status={report?.eveningStatus ?? "draft"}
-              label={`Daily Request: ${report?.eveningStatus === "submitted" ? "ส่งแล้ว" : "ยังไม่ส่ง"}`}
+              label={`Daily Request: ${report?.eveningStatus === "submitted" ? "Submitted" : "Not submitted"}`}
             />
           </Stack>
         </Stack>
@@ -105,18 +113,22 @@ export function ReviewDialog({
           scrollButtons="auto"
           aria-label="Daily report review tabs"
         >
-          <Tab icon={<GroupsOutlinedIcon />} iconPosition="start" label="กำลังคน & หน้างาน" />
-          <Tab icon={<ConstructionOutlinedIcon />} iconPosition="start" label="การจัดสรรงาน & อาคาร" />
-          <Tab icon={<FactCheckOutlinedIcon />} iconPosition="start" label="คำขอสำหรับพรุ่งนี้" />
-          <Tab icon={<HealthAndSafetyOutlinedIcon />} iconPosition="start" label="ความปลอดภัย & ลายเซ็น" />
+          <Tab icon={<GroupsOutlinedIcon />} iconPosition="start" label="Manpower & site" />
+          <Tab icon={<ConstructionOutlinedIcon />} iconPosition="start" label="Allocation & buildings" />
+          <Tab icon={<FactCheckOutlinedIcon />} iconPosition="start" label="Tomorrow's requests" />
+          <Tab icon={<HealthAndSafetyOutlinedIcon />} iconPosition="start" label="Safety & signature" />
         </Tabs>
       </Box>
 
       <DialogContent sx={{ p: 2.5 }}>
         {dataLoading ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
-            กำลังโหลดข้อมูลรายงาน…
-          </Typography>
+          <Stack spacing={1.5} aria-busy="true">
+            <Skeleton variant="rounded" height={56} />
+            <Skeleton variant="rounded" height={160} />
+            <Skeleton variant="rounded" height={120} />
+          </Stack>
+        ) : dataError ? (
+          <QueryError error={dataError} onRetry={() => void reportQuery.refetch()} />
         ) : !data ? (
           <Alert severity="info" sx={{ my: 2 }}>
             ยังไม่มีข้อมูลรายงานเช้า/เย็นของรายการนี้ในระบบ — ไม่สามารถตรวจสอบได้จนกว่าผู้รับเหมาจะส่งข้อมูล
@@ -247,9 +259,7 @@ export function ReviewDialog({
                   จัดสรรกำลังคนและผลงานจริงเทียบกับแผนงาน ({data.allocations.length} พื้นที่/อาคาร)
                 </Typography>
                 {data.allocations.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
-                    ไม่มีการบันทึกการจัดสรรงานลงอาคาร
-                  </Typography>
+                  <EmptySection dense icon={<ApartmentOutlinedIcon />} title="ไม่มีการบันทึกการจัดสรรงานลงอาคาร" />
                 ) : (
                   data.allocations.map((a) => {
                     const isBehind = a.planPercent !== null && (a.actualPercent ?? 0) < a.planPercent;
@@ -268,7 +278,7 @@ export function ReviewDialog({
                             <Chip
                               size="small"
                               color={isBehind ? "warning" : "success"}
-                              label={isBehind ? "ล่าช้ากว่าแผน" : "ตามแผนงาน"}
+                              label={isBehind ? "Behind plan" : "On plan"}
                             />
                           </Stack>
 
@@ -322,9 +332,7 @@ export function ReviewDialog({
                       🚜 ขอจองเครื่องจักรหนัก (Machinery)
                     </Typography>
                     {data.machinery.length === 0 ? (
-                      <Typography variant="caption" color="text.secondary">
-                        ไม่มีรายการขอจองเครื่องจักร
-                      </Typography>
+                      <EmptySection dense icon={<PrecisionManufacturingOutlinedIcon />} title="ไม่มีรายการขอจองเครื่องจักร" />
                     ) : (
                       <Stack spacing={1}>
                         {data.machinery.map((m) => (
@@ -348,9 +356,7 @@ export function ReviewDialog({
                       📋 ขอใบอนุญาตทำงานเสี่ยง (Permit to Work - PTW)
                     </Typography>
                     {data.permits.length === 0 ? (
-                      <Typography variant="caption" color="text.secondary">
-                        ไม่มีการขอใบอนุญาตทำงานเสี่ยง
-                      </Typography>
+                      <EmptySection dense icon={<AssignmentOutlinedIcon />} title="ไม่มีการขอใบอนุญาตทำงานเสี่ยง" />
                     ) : (
                       <Stack spacing={1}>
                         {data.permits.map((p) => (
@@ -374,9 +380,7 @@ export function ReviewDialog({
                       🛣️ ขอใช้เส้นทาง / ปิดถนน (Road Usage)
                     </Typography>
                     {data.roadUsage.length === 0 ? (
-                      <Typography variant="caption" color="text.secondary">
-                        ไม่มีการขอใช้เส้นทางสัญจร
-                      </Typography>
+                      <EmptySection dense icon={<RouteOutlinedIcon />} title="ไม่มีการขอใช้เส้นทางสัญจร" />
                     ) : (
                       <Stack spacing={1}>
                         {data.roadUsage.map((r) => (
@@ -446,7 +450,7 @@ export function ReviewDialog({
       </DialogContent>
 
       <DialogActions sx={{ p: 2.5, pt: 1.5, borderTop: 1, borderColor: "divider" }}>
-        <Button onClick={onClose}>ปิด</Button>
+        <Button onClick={onClose}>Close</Button>
         <Button
           variant="outlined"
           startIcon={<PictureAsPdfOutlinedIcon />}

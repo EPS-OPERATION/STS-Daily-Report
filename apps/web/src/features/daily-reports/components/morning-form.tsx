@@ -1,4 +1,4 @@
-import AddIcon from "@mui/icons-material/Add";
+import AddIcon from "@mui/icons-material/AddOutlined";
 import AirOutlinedIcon from "@mui/icons-material/AirOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import FilterDramaOutlinedIcon from "@mui/icons-material/FilterDramaOutlined";
@@ -302,7 +302,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
                       syncHours();
                     }}
                     type="time"
-                    label={k === "startTime" ? "เวลาเข้างาน" : "เวลาออกงาน"}
+                    label={k === "startTime" ? "Start time" : "End time"}
                     size="small"
                     fullWidth
                     slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 900 } }}
@@ -318,7 +318,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
               name="workHours"
               control={control}
               render={({ field }) => (
-                <NumberStepper label="ชม.ทำงานปกติ / คน" value={field.value} onChange={field.onChange} max={24} step={0.5} unit="ชม." />
+                <NumberStepper label="Normal hours / person" value={field.value} onChange={field.onChange} max={24} step={0.5} unit="ชม." />
               )}
             />
           </Grid>
@@ -564,7 +564,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
               </Alert>
             );
           })}
-        <Button type="submit" size="large" fullWidth disabled={!canSubmit}>
+        <Button type="submit" fullWidth disabled={!canSubmit}>
           {submit.isPending
             ? "กำลังส่ง…"
             : report?.morningStatus === "submitted"
@@ -625,7 +625,7 @@ function CustomEquipmentList({
         </Typography>
         <Stack direction="row" spacing={1} alignItems="flex-start">
           <TextField
-            label="ชื่อเครื่องจักร/อุปกรณ์"
+            label="Machinery / equipment name"
             placeholder="เช่น เครื่องปั่นไฟ 100 kVA"
             size="small"
             fullWidth
@@ -645,7 +645,7 @@ function CustomEquipmentList({
             slotProps={{ htmlInput: { maxLength: 120 } }}
           />
           <Button variant="outlined" startIcon={<AddIcon />} onClick={add} sx={{ flexShrink: 0, height: 40 }}>
-            เพิ่ม
+            Add
           </Button>
         </Stack>
       </Box>
@@ -665,7 +665,7 @@ function CustomEquipmentList({
           <NumberStepper label={`จำนวน ${key}`} value={values[key] ?? 0} onChange={(n) => onChange({ ...values, [key]: n })} min={0} max={500} unit="เครื่อง" />
           <IconButton
             size="small"
-            aria-label={`ลบ ${key}`}
+            aria-label={`Delete ${key}`}
             onClick={() => {
               const next = { ...values };
               delete next[key];
@@ -783,11 +783,10 @@ function MorningCrewSection({
         <Button
           startIcon={<AddIcon />}
           variant="outlined"
-          size="small"
           disabled={activities.fields.length >= 32}
           onClick={() => activities.append(newActivity(1))}
         >
-          เพิ่มกิจกรรม
+          Add activity
         </Button>
       </Stack>
       {listError && listError !== problem ? (
@@ -827,10 +826,10 @@ function ActivityRow({
               name={`${path}.buildingId`}
               control={control}
               render={({ field, fieldState }) => (
-                <BuildingSelect label="อาคาร" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+                <BuildingSelect label="Building" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
               )}
             />
-            <IconButton aria-label="ลบกิจกรรม" onClick={onRemove} disabled={!canRemove} sx={{ mt: 0.5 }}>
+            <IconButton aria-label="Delete activity" onClick={onRemove} disabled={!canRemove} sx={{ mt: 0.5 }}>
               <DeleteOutlineOutlinedIcon />
             </IconButton>
           </Stack>
@@ -840,7 +839,7 @@ function ActivityRow({
             render={({ field, fieldState }) => (
               <TextField
                 {...field}
-                label="รายละเอียดงาน"
+                label="Work details"
                 placeholder="เช่น ยกติดตั้ง Structure line A–D"
                 size="small"
                 fullWidth
@@ -854,7 +853,7 @@ function ActivityRow({
               name={`${path}.headcount`}
               control={control}
               render={({ field, fieldState }) => (
-                <NumberStepper label="จำนวนคนที่ทำ" value={field.value} onChange={field.onChange} min={1} unit="คน" error={fieldState.error?.message} />
+                <NumberStepper label="Headcount" value={field.value} onChange={field.onChange} min={1} unit="คน" error={fieldState.error?.message} />
               )}
             />
             {timed ? (
@@ -869,7 +868,7 @@ function ActivityRow({
                         {...field}
                         select
                         size="small"
-                        label={k === "startTime" ? "เริ่ม" : "ถึง"}
+                        label={k === "startTime" ? "Start" : "To"}
                         sx={{ width: 112 }}
                         error={Boolean(fieldState.error)}
                         helperText={fieldState.error?.message}
@@ -899,10 +898,9 @@ function ActivityRow({
           {/* Optional extras: time window and plan % */}
           <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ pt: 0.5 }}>
             <Button
-              size="small"
               variant={timed ? "contained" : "outlined"}
               color={timed ? "primary" : "inherit"}
-              startIcon={<ScheduleOutlinedIcon fontSize="small" sx={{ color: timed ? "#fff" : "primary.main" }} />}
+              startIcon={<ScheduleOutlinedIcon fontSize="small" sx={{ color: timed ? "common.white" : "primary.main" }} />}
               endIcon={timed ? <CloseOutlinedIcon sx={{ fontSize: 16 }} /> : undefined}
               onClick={() => setValue(`${path}.timed`, !timed, { shouldDirty: true, shouldValidate: true })}
               sx={{
@@ -912,24 +910,23 @@ function ActivityRow({
                 fontWeight: 700,
                 fontSize: 13,
                 textTransform: "none",
-                bgcolor: timed ? "primary.main" : "#F8FAFC",
-                borderColor: timed ? "primary.main" : "#CBD5E1",
-                color: timed ? "#FFFFFF" : "text.primary",
+                bgcolor: timed ? "primary.main" : "grey.50",
+                borderColor: timed ? "primary.main" : "grey.300",
+                color: timed ? "common.white" : "text.primary",
                 boxShadow: timed ? "0 2px 4px rgba(11,77,139,0.2)" : "none",
                 "&:hover": {
-                  bgcolor: timed ? "primary.dark" : "#EFF6FF",
+                  bgcolor: timed ? "primary.dark" : "primary.light",
                   borderColor: "primary.main",
-                  color: timed ? "#FFFFFF" : "primary.main",
+                  color: timed ? "common.white" : "primary.main",
                 },
               }}
             >
               {timed ? "ระบุเวลา (คลิกเพื่อยกเลิก)" : "+ ระบุเวลา"}
             </Button>
             <Button
-              size="small"
               variant={hasPlan ? "contained" : "outlined"}
               color={hasPlan ? "primary" : "inherit"}
-              startIcon={<PercentOutlinedIcon fontSize="small" sx={{ color: hasPlan ? "#fff" : "primary.main" }} />}
+              startIcon={<PercentOutlinedIcon fontSize="small" sx={{ color: hasPlan ? "common.white" : "primary.main" }} />}
               endIcon={hasPlan ? <CloseOutlinedIcon sx={{ fontSize: 16 }} /> : undefined}
               onClick={() => setValue(`${path}.hasPlan`, !hasPlan, { shouldDirty: true })}
               sx={{
@@ -939,14 +936,14 @@ function ActivityRow({
                 fontWeight: 700,
                 fontSize: 13,
                 textTransform: "none",
-                bgcolor: hasPlan ? "primary.main" : "#F8FAFC",
-                borderColor: hasPlan ? "primary.main" : "#CBD5E1",
-                color: hasPlan ? "#FFFFFF" : "text.primary",
+                bgcolor: hasPlan ? "primary.main" : "grey.50",
+                borderColor: hasPlan ? "primary.main" : "grey.300",
+                color: hasPlan ? "common.white" : "text.primary",
                 boxShadow: hasPlan ? "0 2px 4px rgba(11,77,139,0.2)" : "none",
                 "&:hover": {
-                  bgcolor: hasPlan ? "primary.dark" : "#EFF6FF",
+                  bgcolor: hasPlan ? "primary.dark" : "primary.light",
                   borderColor: "primary.main",
-                  color: hasPlan ? "#FFFFFF" : "primary.main",
+                  color: hasPlan ? "common.white" : "primary.main",
                 },
               }}
             >

@@ -1,4 +1,4 @@
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import OpenInNewIcon from "@mui/icons-material/OpenInNewOutlined";
 import Box from "@mui/material/Box";
 import Link from "@mui/material/Link";
 import Skeleton from "@mui/material/Skeleton";

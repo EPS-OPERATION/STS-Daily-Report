@@ -20,7 +20,8 @@ import { useCurrentProject } from "@/features/projects/index.js";
 import { useSiteDay } from "@/features/site-plan/index.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const BLUE = "#dbe9f6";
+import { PRINT_BLUE } from "@/components/print/print-tokens.js";
+const BLUE = PRINT_BLUE;
 const MIN_ROWS = 25; // paper form has 25 numbered lines
 
 // Buddhist-era date as on the paper forms (12/10/69).
@@ -115,7 +116,7 @@ export function WorkDonePrintPage() {
       `}</style>
 
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-        <Button onClick={() => window.print()}>พิมพ์ / บันทึกเป็น PDF</Button>
+        <Button onClick={() => window.print()}>Print / Save as PDF</Button>
         <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
           {days.length} วัน ({days.length} แผ่น) — ในหน้าต่างพิมพ์ เลือก "Save as PDF"
         </Typography>

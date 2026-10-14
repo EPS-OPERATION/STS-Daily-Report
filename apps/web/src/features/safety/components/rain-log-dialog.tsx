@@ -103,7 +103,7 @@ export function RainLogDialog({
         <DialogContent dividers sx={{ py: 2.5 }}>
           <Stack spacing={2.5}>
             <TextField
-              label="วันที่เกิดฝนตก"
+              label="Rain date"
               type="date"
               fullWidth
               size="small"
@@ -122,7 +122,7 @@ export function RainLogDialog({
               <Grid container spacing={2}>
                 <Grid size={{ xs: 6, sm: 4 }}>
                   <TextField
-                    label="เริ่มฝนตก"
+                    label="Rain start"
                     type="time"
                     size="small"
                     fullWidth
@@ -134,7 +134,7 @@ export function RainLogDialog({
                 </Grid>
                 <Grid size={{ xs: 6, sm: 4 }}>
                   <TextField
-                    label="ฝนหยุด / ทำงานต่อได้"
+                    label="Rain stop / work resumed"
                     type="time"
                     size="small"
                     fullWidth
@@ -146,7 +146,7 @@ export function RainLogDialog({
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
-                    label="รวมเวลาหยุดงาน (ชม.)"
+                    label="Total stoppage (hrs)"
                     type="number"
                     size="small"
                     fullWidth
@@ -162,7 +162,7 @@ export function RainLogDialog({
 
             {/* Impact summary */}
             <TextField
-              label="รายละเอียดเหตุการณ์และสภาพหน้างาน"
+              label="Event and site condition notes"
               multiline
               rows={2}
               fullWidth
@@ -174,7 +174,7 @@ export function RainLogDialog({
             />
 
             <TextField
-              label="ผู้บันทึกข้อมูล (Inspector / Reporter)"
+              label="Recorded by (Inspector / Reporter)"
               size="small"
               fullWidth
               value={recordedBy}
@@ -186,7 +186,7 @@ export function RainLogDialog({
 
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={onClose} color="inherit">
-            ยกเลิก
+            Cancel
           </Button>
           <Button type="submit" variant="contained" color="primary">
             {isNew ? "บันทึกประวัติฝนตก" : "บันทึกการแก้ไข"}

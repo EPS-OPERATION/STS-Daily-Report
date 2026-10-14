@@ -1,4 +1,4 @@
-import AddIcon from "@mui/icons-material/Add";
+import AddIcon from "@mui/icons-material/AddOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
@@ -23,6 +23,9 @@ import { INSPECTION_TYPES, type InspectionType, type Readiness } from "@sts/shar
 import dayjs from "dayjs";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import { HttpError } from "@/services/http/client.js";
 import { useDeleteRequest, useSaveRequest } from "../hooks/use-daily-report-mutations.js";
 import { useInspectionRequests } from "../hooks/use-daily-report-queries.js";
@@ -53,15 +56,14 @@ export function RequestSection({
   const list = useInspectionRequests(projectId, { from: reportDate, to: reportDate, by: "report" });
   const remove = useDeleteRequest();
   const [editing, setEditing] = useState<InspectionRequest | "new" | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<InspectionRequest | null>(null);
   const rows = (list.data?.data ?? []).filter((r) => r.contractorId === contractorId);
 
   return (
     <Box>
       <Stack spacing={1.25}>
         {rows.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            ยังไม่มีคำขอตรวจ — เพิ่มงานที่ต้องการให้ QAQC ตรวจ
-          </Typography>
+          <EmptySection dense icon={<FactCheckOutlinedIcon />} title="ยังไม่มีคำขอตรวจ" description="เพิ่มงานที่ต้องการให้ QAQC ตรวจ" />
         ) : null}
         {rows.map((r) => {
           const editable = r.status === "draft" || r.status === "requested";
@@ -80,7 +82,7 @@ export function RequestSection({
                       px: 0.75,
                     }}
                   >
-                    <Typography variant="body2" sx={{ fontWeight: 800, color: "inherit" }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: "inherit" }}>
                       {r.inspectionTime}
                     </Typography>
                     <Typography variant="caption" sx={{ color: "inherit", fontWeight: 600 }}>
@@ -109,14 +111,14 @@ export function RequestSection({
                   </Box>
                   {editable ? (
                     <Stack>
-                      <IconButton aria-label="แก้ไขคำขอ" size="small" onClick={() => setEditing(r)}>
+                      <IconButton aria-label="Edit request" size="small" onClick={() => setEditing(r)}>
                         <EditOutlinedIcon fontSize="small" />
                       </IconButton>
                       <IconButton
-                        aria-label="ลบคำขอ"
+                        aria-label="Delete request"
                         size="small"
                         disabled={remove.isPending}
-                        onClick={() => remove.mutate(r.id)}
+                        onClick={() => setDeleteTarget(r)}
                       >
                         <DeleteOutlineOutlinedIcon fontSize="small" />
                       </IconButton>
@@ -136,7 +138,7 @@ export function RequestSection({
         onClick={() => setEditing("new")}
         disabled={buildings.length === 0}
       >
-        เพิ่มคำขอตรวจ QAQC
+        Add QAQC inspection request
       </Button>
       {!eveningSubmitted && rows.some((r) => r.status === "draft") ? (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
@@ -148,6 +150,20 @@ export function RequestSection({
           {remove.error.message}
         </Alert>
       ) : null}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete request?"
+        description={deleteTarget ? `คำขอ "${deleteTarget.workItem}" จะถูกลบ` : undefined}
+        loading={remove.isPending}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          remove.mutate(deleteTarget.id, {
+            onSuccess: () => toast.success("ลบคำขอแล้ว"),
+            onSettled: () => setDeleteTarget(null),
+          });
+        }}
+      />
 
       {editing ? (
         <RequestDialog
@@ -244,7 +260,7 @@ function RequestDialog({
                 render={({ field, fieldState }) => (
                   <TextField
                     {...field}
-                    label="งานที่ขอตรวจ"
+                    label="Work item"
                     placeholder="เช่น Rebar ฐานราก F3 / Formwork wall W2"
                     fullWidth
                     size="small"
@@ -260,7 +276,7 @@ function RequestDialog({
                 control={control}
                 render={({ field, fieldState }) => (
                   <BuildingSelect
-                    label="อาคารที่ขอตรวจ"
+                    label="Building"
                     buildings={buildings}
                     value={field.value}
                     onChange={field.onChange}
@@ -277,7 +293,7 @@ function RequestDialog({
                   <TextField
                     {...field}
                     type="date"
-                    label="วันที่ขอตรวจ (Inspection Date)"
+                    label="Inspection date"
                     fullWidth
                     size="small"
                     slotProps={{ inputLabel: { shrink: true } }}
@@ -295,7 +311,7 @@ function RequestDialog({
                   <TextField
                     {...field}
                     type="time"
-                    label="เวลานัดตรวจ"
+                    label="Inspection time"
                     fullWidth
                     size="small"
                     slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 900 } }}
@@ -312,7 +328,7 @@ function RequestDialog({
                 render={({ field }) => (
                   <TextField
                     {...field}
-                    label="หมายเลขเอกสาร"
+                    label="Document no."
                     placeholder="เช่น STSBPP-EB-C-023 Rev.03"
                     fullWidth
                     size="small"
@@ -330,7 +346,7 @@ function RequestDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button variant="text" color="inherit" onClick={onClose}>
-          ยกเลิก
+          Cancel
         </Button>
         <Button type="submit" form="request-form" disabled={save.isPending}>
           {save.isPending ? "กำลังบันทึก…" : "บันทึกคำขอ"}

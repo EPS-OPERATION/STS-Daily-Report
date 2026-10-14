@@ -1,7 +1,7 @@
-import AddIcon from "@mui/icons-material/Add";
+import AddIcon from "@mui/icons-material/AddOutlined";
 import FitScreenOutlinedIcon from "@mui/icons-material/FitScreenOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import RemoveIcon from "@mui/icons-material/Remove";
+import RemoveIcon from "@mui/icons-material/RemoveOutlined";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
@@ -122,7 +122,7 @@ export function SiteMapImage({
                     borderColor: m.selected ? theme.palette.primary.main : alpha(theme.palette.common.black, 0.25),
                     bgcolor: tone.bg,
                     color: tone.fg,
-                    fontWeight: 800,
+                    fontWeight: 700,
                     fontSize: isPart ? 11 : 12,
                     lineHeight: isPart ? "20px" : "26px",
                     cursor: m.draggable ? "grab" : "pointer",
@@ -167,13 +167,13 @@ export function SiteMapImage({
       <Stack
         sx={{ position: "absolute", left: 10, bottom: 10, bgcolor: alpha(theme.palette.background.paper, 0.95), borderRadius: 1.5, boxShadow: 1 }}
       >
-        <IconButton size="small" aria-label="ซูมเข้า" disabled={zoomIdx === ZOOMS.length - 1} onClick={() => setZoomIdx((z) => z + 1)}>
+        <IconButton size="small" aria-label="Zoom in" disabled={zoomIdx === ZOOMS.length - 1} onClick={() => setZoomIdx((z) => z + 1)}>
           <AddIcon fontSize="small" />
         </IconButton>
-        <IconButton size="small" aria-label="ซูมออก" disabled={zoomIdx === 0} onClick={() => setZoomIdx((z) => z - 1)}>
+        <IconButton size="small" aria-label="Zoom out" disabled={zoomIdx === 0} onClick={() => setZoomIdx((z) => z - 1)}>
           <RemoveIcon fontSize="small" />
         </IconButton>
-        <IconButton size="small" aria-label="พอดีจอ" disabled={zoomIdx === 0} onClick={() => setZoomIdx(0)}>
+        <IconButton size="small" aria-label="Fit" disabled={zoomIdx === 0} onClick={() => setZoomIdx(0)}>
           <FitScreenOutlinedIcon fontSize="small" />
         </IconButton>
       </Stack>

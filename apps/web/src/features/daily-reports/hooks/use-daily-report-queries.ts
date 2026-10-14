@@ -81,15 +81,6 @@ export function usePositionMix(projectId: string | null, from: string, to: strin
   });
 }
 
-export function useManpowerTrend(projectId: string | null, until: string, weeks = 12) {
-  return useQuery({
-    queryKey: dailyReportKeys.trend(projectId ?? "", until, weeks),
-    queryFn: () => dailyReportApi.manpowerTrend(projectId!, until, weeks),
-    enabled: Boolean(projectId),
-    placeholderData: keepPreviousData,
-  });
-}
-
 export function useManpowerSummary(projectId: string | null, from: string, to: string) {
   return useQuery({
     queryKey: dailyReportKeys.manpower(projectId ?? "", from, to),

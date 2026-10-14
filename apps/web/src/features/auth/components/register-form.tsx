@@ -45,7 +45,7 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
           <TextField label="Username" autoComplete="username" {...register("username")} error={Boolean(errors.username)} helperText={errors.username?.message ?? "3–20 characters: a–z, 0–9, . _ -"} />
           <PasswordField label="Password" autoComplete="new-password" {...register("password")} error={Boolean(errors.password)} helperText={errors.password?.message ?? "At least 8 characters"} />
           <PasswordField label="Confirm password" autoComplete="new-password" {...register("confirmPassword")} error={Boolean(errors.confirmPassword)} helperText={errors.confirmPassword?.message} />
-          <Button type="button" variant="contained" size="large" fullWidth onClick={() => void next()}>Next</Button>
+          <Button type="button" variant="contained" fullWidth onClick={() => void next()}>Next</Button>
         </Stack>
       ) : (
         <Stack spacing={2}>
@@ -57,7 +57,7 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
           {watch("contractorChoice") === "other" && <TextField label="Company name" autoComplete="organization" {...register("companyName")} error={Boolean(errors.companyName)} helperText={errors.companyName?.message} />}
           <Stack direction="row" spacing={1.5}>
             <Button type="button" color="inherit" disabled={mutation.isPending} onClick={() => setStep(0)}>Back</Button>
-            <Button type="submit" variant="contained" size="large" fullWidth disabled={mutation.isPending}>{mutation.isPending ? "Submitting…" : "Request account"}</Button>
+            <Button type="submit" variant="contained" fullWidth disabled={mutation.isPending}>{mutation.isPending ? "Submitting…" : "Request account"}</Button>
           </Stack>
         </Stack>
       )}

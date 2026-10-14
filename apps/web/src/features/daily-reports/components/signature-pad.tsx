@@ -98,7 +98,7 @@ export function SignaturePad({
       >
         <canvas
           ref={canvasRef}
-          aria-label="ช่องเซ็นชื่อ"
+          aria-label="Signature pad"
           onPointerDown={start}
           onPointerMove={move}
           onPointerUp={end}
@@ -119,8 +119,8 @@ export function SignaturePad({
         <Typography variant="caption" color={error ? "error" : hasExistingSignature && !signed ? "text.secondary" : "text.secondary"}>
           {error ?? (hasExistingSignature && !signed ? "คงลายเซ็นเดิมไว้ (เซ็นใหม่เฉพาะเมื่อต้องการเปลี่ยน)" : "Prepared by Contractor")}
         </Typography>
-        <Button size="small" variant="text" onClick={clear} disabled={(!signed && !hasExistingSignature) || disabled}>
-          ล้างลายเซ็น
+        <Button variant="text" onClick={clear} disabled={(!signed && !hasExistingSignature) || disabled}>
+          Clear signature
         </Button>
       </Stack>
     </Stack>

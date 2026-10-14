@@ -1,9 +1,11 @@
+import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { BarChart } from "@mui/x-charts/BarChart";
 import { PieChart } from "@mui/x-charts/PieChart";
 import dayjs from "dayjs";
 import { CHART_OTHER, CHART_SERIES } from "@/app/theme/chart-palette.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import type { SafetyStats } from "../types/safety.types.js";
 
 // Monthly trend: near misses vs safety inspections (line walk findings), one shared axis.
@@ -67,9 +69,7 @@ export function FindingPie({
           />
         </Box>
       ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 6 }}>
-          ไม่มีรายการในช่วงนี้
-        </Typography>
+        <EmptySection icon={<InsightsOutlinedIcon />} title="ไม่มีรายการในช่วงนี้" description="เลือกช่วงวันที่อื่น หรือรอผู้รับเหมาส่งรายงาน" />
       )}
     </Box>
   );

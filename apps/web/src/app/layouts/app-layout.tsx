@@ -4,6 +4,7 @@ import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import { alpha, useTheme } from "@mui/material/styles";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import FormControl from "@mui/material/FormControl";
@@ -20,7 +21,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import type { UserRole } from "@sts/shared";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { CommandPalette } from "@/app/command-palette/command-palette.js";
 import { PaletteShortcutHint, useCommandPaletteShortcut } from "@/app/command-palette/shortcut-hint.js";
@@ -101,6 +102,7 @@ const GROUPS: NavGroup[] = [
 ];
 
 function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
+  const theme = useTheme();
   const me = useMe();
   const role = me.data?.data.user.role ?? "contractor";
   const isContractor = role === "contractor";
@@ -117,7 +119,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
     : (project ? `${project.code} · ${project.name}` : "STS Project");
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "#FFFFFF" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "common.white" }}>
       <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 1.5 }}>
         <Box
           component={NavLink}
@@ -143,14 +145,14 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
           />
         </Box>
       </Box>
-      <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
+      <Divider sx={{ borderColor: alpha(theme.palette.common.white, 0.12) }} />
       <Box className="sts-navy-scroll" sx={{ flexGrow: 1, overflowY: "auto", px: 1.5, py: 1 }}>
         {visibleGroups.map((group) => (
           <Box key={group.title} sx={{ mb: 1.5 }}>
             {!collapsed && (
               <Typography
                 variant="caption"
-                sx={{ px: 1.5, color: "#7E96B3", textTransform: "uppercase", letterSpacing: 0.8, fontSize: 12 }}
+                sx={{ px: 1.5, color: alpha(theme.palette.common.white, 0.5), textTransform: "uppercase", letterSpacing: 0.8, fontSize: 12 }}
               >
                 {group.title}
               </Typography>
@@ -170,12 +172,12 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
                     sx={{
                       borderRadius: 1.5,
                       mb: 0.25,
-                      color: "#C6D5E5",
+                      color: alpha(theme.palette.common.white, 0.78),
                       position: "relative",
                       justifyContent: collapsed ? "center" : "flex-start",
                       "&.active": {
-                        bgcolor: "rgba(39,135,255,0.22)",
-                        color: "#FFFFFF",
+                        bgcolor: alpha(theme.palette.info.main, 0.22),
+                        color: "common.white",
                         "&::before": {
                           content: '""',
                           position: "absolute",
@@ -187,7 +189,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
                           bgcolor: "info.main",
                         },
                       },
-                      "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
+                      "&:hover": { bgcolor: alpha(theme.palette.common.white, 0.08) },
                     }}
                   >
                     <ListItemIcon sx={{ color: "inherit", minWidth: collapsed ? 0 : 36 }}>
@@ -213,7 +215,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
           </Box>
         ))}
       </Box>
-      <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
+      <Divider sx={{ borderColor: alpha(theme.palette.common.white, 0.12) }} />
       <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 1.75 }}>
         {collapsed ? (
           <Tooltip title={contextLabel} placement="right" arrow>
@@ -225,7 +227,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
             <Typography
               variant="body2"
               title={contextLabel}
-              sx={{ color: "#9DB4CC", fontSize: 12.5, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+              sx={{ color: alpha(theme.palette.common.white, 0.65), fontSize: 12.5, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
             >
               {contextLabel}
             </Typography>
@@ -255,6 +257,13 @@ export function AppLayout() {
   const showProjectSelect = !projectsLoading && projectOptions.length > 1;
 
   useCommandPaletteShortcut(paletteOpen, setPaletteOpen);
+
+  // The field bottom-nav "More" tab opens this drawer (mobile has no topbar toggle target left).
+  useEffect(() => {
+    const open = () => setMobileOpen(true);
+    window.addEventListener("sts:open-nav", open);
+    return () => window.removeEventListener("sts:open-nav", open);
+  }, []);
 
   const sidebarWidth = collapsed ? 76 : DRAWER_WIDTH;
 

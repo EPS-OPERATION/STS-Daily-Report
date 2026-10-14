@@ -1,10 +1,9 @@
-import AddIcon from "@mui/icons-material/Add";
+import AddIcon from "@mui/icons-material/AddOutlined";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import HealthAndSafetyOutlinedIcon from "@mui/icons-material/HealthAndSafetyOutlined";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
-import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
@@ -22,9 +21,14 @@ import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
+import { KpiCard } from "@/components/ui/kpi-card.js";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { QueryError } from "@/components/ui/query-error.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
+import { toast } from "sonner";
 import {
   ContractorBadge,
   ContractorFilterPopover,
@@ -32,6 +36,7 @@ import {
   contractorColorMap,
   mondayOf,
   todayIso,
+  useDailyRequests,
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 import {
@@ -48,7 +53,6 @@ import ThunderstormOutlinedIcon from "@mui/icons-material/ThunderstormOutlined";
 import { HttpError } from "@/services/http/client.js";
 import { WorkPermitsView } from "./work-permits-page.js";
 import { RainLogView } from "@/features/safety/index.js";
-import { CONTRACTOR_LEGEND, WORK_PERMITS } from "@/mock/work-permits.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -79,8 +83,11 @@ export function SafetyPage() {
   const projectContractors = useProjectContractors(projectId).data?.data ?? [];
   const stats = useSafetyStats(projectId, from, to);
   const findings = useSafetyFindings(projectId, from, to);
+  // Permits are requested in the afternoon report; used for the permits tab counts.
+  const permits = useDailyRequests(projectId, from, to).data?.data.permits ?? [];
   const remove = useDeleteFinding(projectId);
   const [editing, setEditing] = useState<SafetyFinding | "new" | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SafetyFinding | null>(null);
 
   const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
@@ -95,18 +102,18 @@ export function SafetyPage() {
   const contractorNames = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of projectContractors) if (c.code) m.set(c.code, c.name);
-    for (const leg of CONTRACTOR_LEGEND) if (!m.has(leg.code)) m.set(leg.code, leg.name);
+    for (const p of permits) if (p.contractorCode) m.set(p.contractorCode, p.contractorName || m.get(p.contractorCode) || "");
     for (const r of rows) if (r.contractorCode) m.set(r.contractorCode, r.contractorName || m.get(r.contractorCode) || "");
     return m;
-  }, [projectContractors, rows]);
+  }, [projectContractors, permits, rows]);
 
   const allCodes = useMemo(() => {
     const set = new Set<string>();
     for (const r of rows) if (r.contractorCode) set.add(r.contractorCode);
-    if (tab === "permits") for (const p of WORK_PERMITS) set.add(p.contractor);
+    for (const p of permits) if (p.contractorCode) set.add(p.contractorCode);
     for (const c of projectContractors) if (c.code) set.add(c.code);
     return [...set].sort((a, b) => a.localeCompare(b));
-  }, [rows, tab, projectContractors]);
+  }, [rows, permits, projectContractors]);
 
   const selectedCodes = useMemo<Set<string>>(() => {
     const raw = params.get("contractors");
@@ -127,16 +134,16 @@ export function SafetyPage() {
     return allCodes.map((code: string) => {
       const n =
         tab === "permits"
-          ? WORK_PERMITS.filter((p) => p.contractor === code).length
+          ? permits.filter((p) => p.contractorCode === code).length
           : rows.filter((r) => r.contractorCode === code).length;
       return {
         code,
         name: contractorNames.get(code),
         color: colors.get(code) ?? "#999",
-        countLabel: tab === "permits" ? `${n} ใบ` : `${n} รายการ`,
+        countLabel: tab === "permits" ? `${n} permits` : `${n} items`,
       };
     });
-  }, [allCodes, tab, rows, contractorNames, colors]);
+  }, [allCodes, tab, rows, permits, contractorNames, colors]);
 
   const visibleRows: SafetyFinding[] = useMemo(
     () => rows.filter((r) => !r.contractorCode || selectedCodes.has(r.contractorCode)),
@@ -190,7 +197,7 @@ export function SafetyPage() {
         size="small"
         value={tab}
         onChange={(_, v: SafetyTab | null) => v && setTab(v)}
-        aria-label="มุมมอง Safety & Work Permits"
+        aria-label="Safety & Work Permits view"
         sx={{ mb: 2.5, bgcolor: "background.paper" }}
       >
         <ToggleButton value="safety" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
@@ -208,16 +215,14 @@ export function SafetyPage() {
       </ToggleButtonGroup>
 
       {tab === "permits" ? (
-        <WorkPermitsView selectedContractorCodes={selectedCodes} />
+        <WorkPermitsView selectedContractorCodes={selectedCodes} defaultFrom={from} defaultTo={to} />
       ) : tab === "rain" ? (
         <RainLogView projectId={projectId ?? ""} from={from} to={to} />
       ) : (
         <>
 
       {error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error.message}
-        </Alert>
+        <QueryError error={error} onRetry={() => { void stats.refetch(); void findings.refetch(); }} />
       ) : null}
 
       {!s ? (
@@ -268,14 +273,19 @@ export function SafetyPage() {
             note={`${visibleRows.length} รายการ · ${visibleRows.filter((r) => r.status === "open").length} ยังไม่ปิด`}
             action={
               <Button startIcon={<AddIcon />} onClick={() => setEditing("new")}>
-                บันทึก Line walk
+                Add line walk
               </Button>
             }
           >
             {visibleRows.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
-                ยังไม่มี Line walk ในช่วงนี้
-              </Typography>
+              <Box sx={{ p: 2 }}>
+                <EmptySection
+                  dense
+                  icon={<HealthAndSafetyOutlinedIcon />}
+                  title="ยังไม่มี Line walk ในช่วงนี้"
+                  description="กด “Add line walk” เพื่อบันทึกสิ่งที่พบจากการเดินตรวจ"
+                />
+              </Box>
             ) : (
               <Box sx={{ overflowX: "auto" }}>
                 <Table size="small" sx={{ minWidth: 1100, "& td": { verticalAlign: "top" } }}>
@@ -312,14 +322,14 @@ export function SafetyPage() {
                         </TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>{r.findingType === "unsafe_act" ? "Unsafe Act." : "Unsafe con."}</TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>
-                          <IconButton size="small" aria-label="แก้ไข" onClick={() => setEditing(r)}>
+                          <IconButton size="small" aria-label="Edit" onClick={() => setEditing(r)}>
                             <EditOutlinedIcon fontSize="small" />
                           </IconButton>
                           <IconButton
                             size="small"
-                            aria-label="ลบ"
+                            aria-label="Delete"
                             disabled={remove.isPending}
-                            onClick={() => window.confirm(`ลบ item ${r.itemNo}?`) && remove.mutate(r.id)}
+                            onClick={() => setDeleteTarget(r)}
                           >
                             <DeleteOutlineOutlinedIcon fontSize="small" />
                           </IconButton>
@@ -337,6 +347,20 @@ export function SafetyPage() {
       {editing && projectId ? (
         <FindingDialog projectId={projectId} finding={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
       ) : null}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete finding?"
+        description={deleteTarget ? `รายการที่ ${deleteTarget.itemNo} จะถูกลบถาวร` : undefined}
+        loading={remove.isPending}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          remove.mutate(deleteTarget.id, {
+            onSuccess: () => toast.success("ลบรายการแล้ว"),
+            onSettled: () => setDeleteTarget(null),
+          });
+        }}
+      />
         </>
       )}
     </Box>
@@ -360,30 +384,14 @@ function Tile({
 }) {
   return (
     <Grid size={{ xs: 6, sm: 4, lg: 2 }}>
-      <Box
-        sx={{
-          height: "100%",
-          border: 1,
-          borderColor: good ? "success.main" : "divider",
-          borderRadius: 2,
-          bgcolor: good ? "success.light" : "background.paper",
-          p: 1.5,
-          textAlign: "center",
-        }}
-      >
-        <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center" sx={{ color: good ? "success.dark" : "text.secondary" }}>
-          {icon}
-          <Typography variant="body2" sx={{ fontWeight: 700, color: "inherit" }}>
-            {label}
-          </Typography>
-        </Stack>
-        <Typography variant="h3" sx={{ color: alert ? "error.main" : good ? "success.dark" : "text.primary", fontVariantNumeric: "tabular-nums" }}>
-          {value}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {unit}
-        </Typography>
-      </Box>
+      <KpiCard
+        label={label}
+        value={String(value)}
+        unit={unit}
+        sub={alert ? "ต้องติดตาม" : good ? "วันต่อเนื่อง" : undefined}
+        subTone={alert ? "error" : good ? "success" : "muted"}
+        icon={icon}
+      />
     </Grid>
   );
 }

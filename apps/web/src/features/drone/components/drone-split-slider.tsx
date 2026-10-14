@@ -7,14 +7,14 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
-import ViewColumnIcon from "@mui/icons-material/ViewColumn";
-import SplitScreenIcon from "@mui/icons-material/Splitscreen";
-import ZoomInIcon from "@mui/icons-material/ZoomIn";
-import ZoomOutIcon from "@mui/icons-material/ZoomOut";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
+import CompareArrowsIcon from "@mui/icons-material/CompareArrowsOutlined";
+import ViewColumnIcon from "@mui/icons-material/ViewColumnOutlined";
+import SplitScreenIcon from "@mui/icons-material/SplitscreenOutlined";
+import ZoomInIcon from "@mui/icons-material/ZoomInOutlined";
+import ZoomOutIcon from "@mui/icons-material/ZoomOutOutlined";
+import RestartAltIcon from "@mui/icons-material/RestartAltOutlined";
+import FullscreenIcon from "@mui/icons-material/FullscreenOutlined";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExitOutlined";
 import type { DronePhotoLog } from "../types/drone.types.js";
 
 interface DroneSplitSliderProps {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import AddAPhotoOutlinedIcon from "@mui/icons-material/AddAPhotoOutlined";
-import CloseIcon from "@mui/icons-material/Close";
+import CloseIcon from "@mui/icons-material/CloseOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -100,7 +100,7 @@ export function PhotoSection({
                   )}
                   {!locked ? (
                     <IconButton
-                      aria-label={`ลบรูป ${p.fileName}`}
+                      aria-label={`Delete photo ${p.fileName}`}
                       size="small"
                       onClick={() => reportId && remove.mutate({ reportId, photoId: p.id })}
                       sx={{ position: "absolute", top: 4, right: 4, bgcolor: "background.paper", "&:hover": { bgcolor: "background.paper" } }}
@@ -118,14 +118,14 @@ export function PhotoSection({
                   sx={{ aspectRatio: "1", borderStyle: "dashed", flexDirection: "column", gap: 0.5, minWidth: 0 }}
                 >
                   {isUploading ? <CircularProgress size={20} /> : <AddAPhotoOutlinedIcon />}
-                  <Typography variant="caption">{isUploading ? (uploadStatus ?? "ส่งรูป...") : "เพิ่มรูป"}</Typography>
+                  <Typography variant="caption">{isUploading ? (uploadStatus ?? "ส่งรูป...") : "Add photo"}</Typography>
                   <input
                     type="file"
                     accept="image/*"
                     capture="environment"
                     multiple
                     hidden
-                    aria-label={`เพิ่มรูป ${c.label}`}
+                    aria-label={`Add photo ${c.label}`}
                     onChange={(e) => {
                       void onPick(c.key, e.target.files);
                       e.target.value = "";

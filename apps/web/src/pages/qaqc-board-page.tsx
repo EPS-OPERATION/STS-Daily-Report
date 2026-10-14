@@ -1,4 +1,8 @@
 import { useMemo, useState } from "react";
+import DonutLargeOutlinedIcon from "@mui/icons-material/DonutLargeOutlined";
+import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
+import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import SearchOffOutlinedIcon from "@mui/icons-material/SearchOffOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -22,6 +26,7 @@ import type { ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CHART_SERIES } from "@/app/theme/chart-palette.js";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import {
   ContractorBadge,
@@ -302,9 +307,13 @@ export function QaqcBoardPage() {
             <Skeleton variant="rounded" height={160} />
           </Box>
         ) : filteredHistory.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 4, textAlign: "center" }}>
-            {searchQuery ? "ไม่พบรายการที่ตรงกับคำค้นหา" : "ไม่มีคำขอตรวจในช่วงวันที่เลือก"}
-          </Typography>
+          <Box sx={{ p: 2 }}>
+            <EmptySection
+              icon={searchQuery ? <SearchOffOutlinedIcon /> : <FactCheckOutlinedIcon />}
+              title={searchQuery ? "ไม่พบรายการที่ตรงกับคำค้นหา" : "ไม่มีคำขอตรวจในช่วงวันที่เลือก"}
+              description={searchQuery ? "ลองแก้คำค้นหาหรือล้างตัวกรอง" : "คำขอจะขึ้นที่นี่เมื่อผู้รับเหมาส่งพร้อมรายงานบ่าย"}
+            />
+          </Box>
         ) : (
           <TableContainer>
             <Table size="small" sx={{ minWidth: 720 }}>
@@ -403,9 +412,9 @@ function ScheduleColumn({
           <Skeleton variant="rounded" height={48} />
         </Stack>
       ) : rows.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, py: 5, textAlign: "center" }}>
-          {empty}
-        </Typography>
+        <Box sx={{ p: 2 }}>
+          <EmptySection dense icon={<EventAvailableOutlinedIcon />} title={empty} />
+        </Box>
       ) : (
         <Stack divider={<Divider />}>
           {rows.map((r) => (
@@ -466,9 +475,9 @@ function ShareCard({
           <Skeleton variant="rounded" height={200} />
         </Box>
       ) : shares.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 8, textAlign: "center" }}>
-          ไม่มีคำขอตรวจในช่วงวันที่เลือก
-        </Typography>
+        <Box sx={{ p: 2 }}>
+          <EmptySection icon={<DonutLargeOutlinedIcon />} title="ไม่มีคำขอตรวจในช่วงวันที่เลือก" description="เลือกช่วงวันที่อื่น หรือรอผู้รับเหมาส่งคำขอ" />
+        </Box>
       ) : (
         <Stack direction={{ xs: "column", sm: "row" }} spacing={3} alignItems="center" sx={{ px: 2.5, py: 2 }}>
           <Box sx={{ position: "relative", width: 200, height: 200, flexShrink: 0 }}>
