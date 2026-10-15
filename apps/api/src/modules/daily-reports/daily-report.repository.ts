@@ -168,6 +168,8 @@ const roadColumns = {
   adjustedAt: dailyReportRoadUsage.adjustedAt,
   adjustedByName: sql<string | null>`coalesce(${users.displayName}, ${users.email})`,
   purpose: dailyReportRoadUsage.purpose,
+  segmentIds: dailyReportRoadUsage.segmentIds,
+  route: dailyReportRoadUsage.route,
   contractorId: dailyReports.contractorId,
   contractorCode: contractors.code,
   contractorName: contractors.name,
@@ -738,6 +740,8 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
           startTime: r.startTime,
           endTime: r.endTime,
           purpose: r.purpose.trim(),
+          segmentIds: r.segmentIds ?? [],
+          route: r.route ?? null,
           ...(carriedRoads[i] ?? {}),
         })),
       );

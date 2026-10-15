@@ -204,6 +204,9 @@ export const roadUsageSchema = z
     startTime: hhmm,
     endTime: hhmm,
     purpose: z.string().trim().min(1, "ระบุวัตถุประสงค์").max(300),
+    // Where on the map: register segments in driving order + the line through them (or a free line).
+    segmentIds: z.array(z.string()).default([]),
+    route: z.array(z.object({ x: z.number(), y: z.number() })).nullable().default(null),
   })
   .refine((r) => r.startTime < r.endTime, { message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม", path: ["endTime"] });
 

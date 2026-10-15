@@ -1,4 +1,4 @@
-import { coordinationGeometryError, coordinationToday, COORDINATION_COLORS, COORDINATION_ICONS, isEpsStaff, type CoordinationIcon, type CoordinationInput, type CoordinationItem } from "@sts/shared";
+import { coordinationGeometryError, coordinationRouteClashes, coordinationToday, COORDINATION_COLORS, COORDINATION_ICONS, isEpsStaff, type CoordinationIcon, type CoordinationInput, type CoordinationItem } from "@sts/shared";
 import AddOutlined from "@mui/icons-material/AddOutlined";
 import CheckOutlined from "@mui/icons-material/CheckOutlined";
 import FilterAltOffOutlined from "@mui/icons-material/FilterAltOffOutlined";
@@ -32,7 +32,8 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
+import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { useMe } from "@/features/auth/index.js";
@@ -48,7 +49,7 @@ import { CoordinationJobList } from "./coordination-job-list.js";
 import { CoordinationInspector } from "./coordination-inspector.js";
 import { TypePicker } from "./type-picker.js";
 import { DisplayOptions, TypeFilter, loadMapDisplay, saveMapDisplay, type MapDisplay } from "./map-filters.js";
-import { ICON_LABELS } from "../types/icon-labels.js";
+import { areaLabel, ICON_LABELS } from "../types/icon-labels.js";
 
 const CoordinationCanvas = lazy(() => import("./coordination-canvas.js").then((module) => ({ default: module.CoordinationCanvas })));
 
@@ -126,10 +127,25 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
     patchItem({ areaKind: "rectangle", geometry: { type: "polygon", points: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }] } });
   };
   const codeOf = (id: string) => data?.contractors.find((c) => c.id === id)?.code ?? "";
+  // Road routes that cross or run along another contractor's route today (live while drawing).
+  const clashes = data
+    ? coordinationRouteClashes(data.items.map((i) => (working && i.id === working.id ? { ...i, ...working.input } : i)), data.map.width, data.map.height)
+    : new Map<string, string[]>();
+  const clashCodes = (id: string) => (clashes.get(id) ?? []).map(codeOf).filter(Boolean);
+  // Road requests for this day, drawn as arrows with the company and time (same filters as jobs).
+  const roadLines = display.roads ? (data?.roads ?? [])
+    .filter((r) => !contractorIds || contractorIds.has(r.contractorId))
+    .map((r) => ({
+      id: r.id, points: r.route, alert: r.clash,
+      color: data?.contractors.find((c) => c.id === r.contractorId)?.color ?? "#0B4D8B",
+      label: `${codeOf(r.contractorId)} ${r.startTime}–${r.endTime}${r.clash ? " · ชนกัน" : ""}`,
+    })) : [];
   const q = search.trim().toLowerCase();
   const items = data?.items.filter((item) =>
     (!contractorIds || contractorIds.has(item.contractorId))
     && types.has(item.icon)
+    // Roads layer off: routes leave the map and the list (the selected one stays while it is open).
+    && (display.roads || item.areaKind !== "route" || item.id === selectedId)
     && (!q || `${item.title} ${item.note ?? ""} ${codeOf(item.contractorId)}`.toLowerCase().includes(q))) ?? [];
   const typeFiltered = types.size < COORDINATION_ICONS.length;
   const isFiltered = Boolean(contractorIds) || typeFiltered || Boolean(q);
@@ -146,6 +162,8 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
     if (workingRef.current?.input.areaKind !== "polygon") patchItem({ areaKind: "polygon" });
     setTool("polygon");
   };
+  // Road route: keep the current points (taps extend the line); "วาดใหม่" clears inside the mode.
+  const drawRoute = () => setTool("route");
   // Auto-save: every edit updates the map instantly and schedules a debounced
   // PATCH; saves are serialized so each one carries the latest revision.
   const flush = async () => {
@@ -193,13 +211,16 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
     try {
       // Canva-style: the item is persisted immediately with a sensible default area,
       // ready to drag/resize — no placement step and no save button.
-      const result = await save.mutateAsync({ input: {
-        contractorId, workDate: date, title: icon === "text" ? "ข้อความใหม่" : "งานใหม่", icon, x: 0.5, y: 0.5, rotation: 0, areaKind: "rectangle", linkArea: true,
-        geometry: { type: "polygon", points: [{ x: 0.43, y: 0.45 }, { x: 0.57, y: 0.45 }, { x: 0.57, y: 0.55 }, { x: 0.43, y: 0.55 }] },
-      } });
+      const road = icon === "road";
+      const result = await save.mutateAsync({ input: road
+        // A road route starts as a short line, then the user taps the real route along the road.
+        ? { contractorId, workDate: date, title: "ใช้ถนน", icon, x: 0.5, y: 0.44, rotation: 0, areaKind: "route", linkArea: true,
+            geometry: { type: "polyline", points: [{ x: 0.44, y: 0.5 }, { x: 0.56, y: 0.5 }] } }
+        : { contractorId, workDate: date, title: icon === "text" ? "ข้อความใหม่" : "งานใหม่", icon, x: 0.5, y: 0.5, rotation: 0, areaKind: "rectangle", linkArea: true,
+            geometry: { type: "polygon", points: [{ x: 0.43, y: 0.45 }, { x: 0.57, y: 0.45 }, { x: 0.57, y: 0.55 }, { x: 0.43, y: 0.55 }] } } });
       const fresh = inputOf(result.data);
-      updateWorking({ id: result.data.id, revision: result.data.revision, base: fresh, input: fresh });
-      setSelectedId(result.data.id); setTool("move");
+      updateWorking({ id: result.data.id, revision: result.data.revision, base: fresh, input: road ? { ...fresh, geometry: { type: "polyline", points: [] } } : fresh });
+      setSelectedId(result.data.id); setTool(road ? "route" : "move");
       setTextEditId(icon === "text" ? result.data.id : null);
     } catch { /* save.isError shows the message; nothing was created. */ }
     finally { setCreating(false); }
@@ -290,7 +311,9 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
     draft={draft}
     contractors={data?.contractors ?? []}
     editableContractors={editableCompanies}
-    drawing={tool === "polygon"}
+    drawing={tool === "polygon" || tool === "route"}
+    clashWith={clashCodes(selected.id)}
+    onDrawRoute={drawRoute}
     areaDirty={areaDirty}
     geometryError={geometryError}
     saving={pending || save.isPending}
@@ -324,6 +347,9 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
               sx={{ whiteSpace: "nowrap", height: 40, width: { xs: "100%", sm: "auto" }, bgcolor: "background.paper" }}>ล็อกแผน</Button>}
             {canExport && <Button variant="outlined" color="inherit" startIcon={<PrintOutlined />} href={reportHref} target="_blank" rel="noopener"
               sx={{ whiteSpace: "nowrap", height: 40, width: { xs: "100%", sm: "auto" }, bgcolor: "background.paper" }}>รายงาน PDF</Button>}
+            {/* EPS keeps the site road register that contractors pick road segments from. */}
+            {canExport && <Button variant="outlined" color="inherit" startIcon={<AddRoadOutlined />} component={RouterLink} to="/site-coordination/roads"
+              sx={{ whiteSpace: "nowrap", height: 40, width: { xs: "100%", sm: "auto" }, bgcolor: "background.paper" }}>ทะเบียนถนน</Button>}
           </Stack>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ "& > .MuiBadge-root, & > .MuiButton-root": { flex: { xs: "1 1 100%", sm: "none" } }, "& > .MuiBadge-root > .MuiButton-root": { width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "space-between", sm: "center" } } }}>
             {mineControl}
@@ -351,9 +377,9 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
             onSelect={selectItem} onChange={patchItem} onFinish={finish}
             onDeselect={() => selectItem(null)}
             textEditing={textEditId !== null && textEditId === working?.id} onEditText={() => { if (workingRef.current) setTextEditId(workingRef.current.id); }}
-            display={display} /></Suspense>
+            display={display} clashes={clashes} roads={roadLines} /></Suspense>
           {/* Detail card for the clicked job (contractor · title · type · area · full note); on every map. */}
-          {(compact || display.detailCard) && selected && !textEditId && tool !== "polygon" && (
+          {(compact || display.detailCard) && selected && !textEditId && tool === "move" && (
             <Box sx={{ position: "absolute", left: 12, top: 44, width: "min(340px, calc(100% - 24px))", px: 1.75, py: 1.5, bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 2, boxShadow: "0 6px 20px rgba(15, 23, 42, 0.12)", zIndex: 2 }}>
               <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
                 <Box component="span" sx={{ width: 10, height: 10, borderRadius: "3px", bgcolor: company?.color ?? "divider", flexShrink: 0 }} />
@@ -362,7 +388,7 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
                 <IconButton size="small" aria-label="ปิดรายละเอียด" onClick={() => selectItem(null)} sx={{ p: 0.25, mr: -0.75 }}><CloseOutlined sx={{ fontSize: 16 }} /></IconButton>
               </Stack>
               <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                {ICON_LABELS[(draft ?? selected).icon]} · {(draft ?? selected).areaKind === "polygon" ? `พื้นที่รูปทรงอิสระ ${(draft ?? selected).geometry.points.length} จุดมุม` : "พื้นที่สี่เหลี่ยม"}
+                {ICON_LABELS[(draft ?? selected).icon]} · {areaLabel(draft ?? selected, true)}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 700 }}>{draft?.title ?? selected.title}</Typography>
               <Typography variant="body2" color={(draft?.note ?? selected.note) ? "text.primary" : "text.secondary"} sx={{ whiteSpace: "pre-line", mt: 0.25 }}>
@@ -386,11 +412,12 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
           )}
         </Box>
         {!compact && selected && wide ? <Box sx={{ borderLeft: "1px solid", borderColor: "divider", height: 652, minHeight: 0 }}>{inspector}</Box>
-          : !compact && display.jobList && <CoordinationJobList embedded items={items} contractors={data.contractors} selectedId={selectedId} onSelect={selectItem} onCollapse={() => setDisplay({ ...display, jobList: false })}
+          : !compact && display.jobList && <CoordinationJobList embedded items={items} contractors={data.contractors} clashCodes={clashCodes} selectedId={selectedId} onSelect={selectItem} onCollapse={() => setDisplay({ ...display, jobList: false })}
             footer={<DayNote date={date} dayNote={data.dayNote} canEdit={!readOnly && data.canEditDayNote} onSave={(note) => saveDayNote.mutateAsync(note)} />} />}
         </Box>
       </Box>
-      {!compact && selected && !wide && <Paper elevation={8} sx={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 1200, maxHeight: "48vh", display: "flex", flexDirection: "column", borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: "hidden" }}>
+      {/* Phone: the sheet steps aside while drawing so the whole map is free to tap (the hint bar has เสร็จ). */}
+      {!compact && selected && !wide && tool === "move" && <Paper elevation={8} sx={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 1200, maxHeight: "48vh", display: "flex", flexDirection: "column", borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: "hidden" }}>
         <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: "divider", mx: "auto", mt: 1 }} />
         {inspector}
       </Paper>}
@@ -398,7 +425,8 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
     </>}
     <Popover open={Boolean(addAnchor)} anchorEl={addAnchor} onClose={() => setAddAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "left" }} transformOrigin={{ vertical: "top", horizontal: "left" }} slotProps={{ paper: { sx: { p: 1, mt: 0.5 } } }}>
       <Box sx={{ p: 1 }}>
-        <TypePicker onPick={(icon) => { setAddAnchor(null); void createItem(icon); }} />
+        {/* Roads come from Daily Request (picked on the road register), not from map jobs. */}
+        <TypePicker exclude={["road"]} onPick={(icon) => { setAddAnchor(null); void createItem(icon); }} />
       </Box>
     </Popover>
     <Dialog open={lockConfirm} onClose={dayLock.isPending ? undefined : () => setLockConfirm(false)} fullWidth maxWidth="xs">

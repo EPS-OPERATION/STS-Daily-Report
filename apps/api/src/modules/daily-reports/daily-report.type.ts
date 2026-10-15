@@ -1,3 +1,4 @@
+import type { CoordinationPoint } from "@sts/shared";
 import type {
   AccidentCategory,
   Discipline,
@@ -83,6 +84,8 @@ export interface RoadUsageInput {
   startTime: string;
   endTime: string;
   purpose: string;
+  segmentIds?: string[];
+  route?: CoordinationPoint[] | null;
 }
 
 // Materials on site today (evening check-out): free-text name + qty + unit.
@@ -169,6 +172,9 @@ export interface RoadRow {
   adjustedAt: Date | null;
   adjustedByName: string | null;
   purpose: string;
+  /** Register segments in driving order (empty = none picked) and the line drawn through them. */
+  segmentIds: string[];
+  route: CoordinationPoint[] | null;
   contractorId: string;
   contractorCode: string;
   contractorName?: string;

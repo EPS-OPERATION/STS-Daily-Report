@@ -7,10 +7,10 @@ import { ICON_LABELS } from "../types/icon-labels.js";
 import { MachineGlyph } from "./machine-icon.js";
 
 // Work-type grid used by the "เพิ่มงาน" popover and the edit panel (selected tile = current type).
-export function TypePicker({ value, onPick, columns = 4 }: { value?: CoordinationIcon; onPick: (icon: CoordinationIcon) => void; columns?: number }) {
+export function TypePicker({ value, onPick, columns = 4, exclude = [] }: { value?: CoordinationIcon; onPick: (icon: CoordinationIcon) => void; columns?: number; exclude?: CoordinationIcon[] }) {
   return (
     <Box sx={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(64px, 1fr))`, gap: 0.5 }}>
-      {COORDINATION_ICONS.map((icon) => {
+      {COORDINATION_ICONS.filter((icon) => !exclude.includes(icon)).map((icon) => {
         const active = value === icon;
         return (
           <Button

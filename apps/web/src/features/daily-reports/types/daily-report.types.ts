@@ -1,5 +1,6 @@
 import type {
   AccidentCategory,
+  CoordinationPoint,
   Discipline,
   InspectionResult,
   InspectionType,
@@ -155,6 +156,9 @@ export interface ReportRoadUsage {
   adjustedAt: string | null;
   adjustedByName: string | null;
   purpose: string;
+  /** Register segments in driving order (empty = none picked) and the line through them. */
+  segmentIds: string[];
+  route: CoordinationPoint[] | null;
   contractorId: string;
   contractorCode: string;
   contractorName?: string;
@@ -347,7 +351,7 @@ export interface EveningPayload {
     taskName?: string;
     supervisorName?: string;
   }[];
-  roadUsage: { buildingId?: string | null; roadLocation: string; startTime: string; endTime: string; purpose: string }[];
+  roadUsage: { buildingId?: string | null; roadLocation: string; startTime: string; endTime: string; purpose: string; segmentIds?: string[]; route?: CoordinationPoint[] | null }[];
   materials: { name: string; qty: number; unit: string }[];
   forecasts: { buildingId: string; description: string }[];
 }

@@ -92,7 +92,7 @@ export function EveningForm({
   const tomorrow = addDaysIso(date, 1);
   // Other contractors' bookings for tomorrow → live clash hints on each request row.
   const tomorrowWeek = useWeeklySummary(projectId, mondayOf(tomorrow));
-  const ctx = { targetDate: tomorrow, contractorId: contractor.id, others: tomorrowWeek.data?.data ?? null };
+  const ctx = { projectId, targetDate: tomorrow, contractorId: contractor.id, others: tomorrowWeek.data?.data ?? null };
   const allocations = report?.allocations ?? [];
   const form = useForm<EveningFormValues>({
     resolver: zodResolver(eveningSchema),
@@ -132,6 +132,8 @@ export function EveningForm({
         startTime: r.requestedStartTime,
         endTime: r.requestedEndTime,
         purpose: r.purpose,
+        segmentIds: r.segmentIds ?? [],
+        route: r.route ?? null,
       })),
       materials: (report?.materials ?? []).map((m) => ({
         name: m.materialName,
@@ -227,6 +229,8 @@ export function EveningForm({
           startTime: r.startTime,
           endTime: r.endTime,
           purpose: r.purpose.trim(),
+          segmentIds: r.segmentIds,
+          route: r.route,
         })),
         materials: v.materials.map((m) => ({
           name: m.name.trim(),

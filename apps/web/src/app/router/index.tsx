@@ -26,6 +26,7 @@ import { SitePlanPage } from "@/pages/site-plan-page.js";
 import { SitePlanConfigPage } from "@/pages/site-plan-config-page.js";
 import { SiteCoordinationPage } from "@/pages/site-coordination-page.js";
 import { SiteCoordinationReportPage } from "@/pages/site-coordination-report-page.js";
+import { RoadRegisterPage } from "@/pages/road-register-page.js";
 import { ContractorCoordinationPage } from "@/pages/contractor-coordination-page.js";
 import { TodayRequestsPage } from "@/pages/today-requests-page.js";
 
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "daily-reports", element: <DailyReportsPage /> },
               { path: "site-coordination", element: <SiteCoordinationPage /> },
+              { path: "site-coordination/roads", element: <RoadRegisterPage /> },
               { path: "today-requests", element: <TodayRequestsPage /> },
               { path: "today-request", element: <Navigate to="/today-requests" replace /> },
               { path: "tomorrow", element: <Navigate to="/today-requests" replace /> },

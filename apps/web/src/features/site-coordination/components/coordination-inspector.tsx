@@ -1,5 +1,7 @@
 import type { CoordinationContractor, CoordinationInput, CoordinationItem } from "@sts/shared";
+import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
 import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
+import SwapHorizOutlined from "@mui/icons-material/SwapHorizOutlined";
 import CheckCircleOutlineOutlined from "@mui/icons-material/CheckCircleOutlineOutlined";
 import CropSquareOutlined from "@mui/icons-material/CropSquareOutlined";
 import DeleteOutlineOutlined from "@mui/icons-material/DeleteOutlineOutlined";
@@ -8,6 +10,7 @@ import PentagonOutlined from "@mui/icons-material/PentagonOutlined";
 import RestartAltOutlined from "@mui/icons-material/RestartAltOutlined";
 import SyncOutlined from "@mui/icons-material/SyncOutlined";
 import TextFieldsOutlined from "@mui/icons-material/TextFieldsOutlined";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -19,7 +22,7 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
-import { ICON_LABELS } from "../types/icon-labels.js";
+import { areaLabel, ICON_LABELS } from "../types/icon-labels.js";
 import { MachineGlyph } from "./machine-icon.js";
 import { TypePicker } from "./type-picker.js";
 
@@ -35,6 +38,10 @@ interface Props {
   saving: boolean;
   onPatch: (patch: Partial<CoordinationInput>) => void;
   onDrawFree: () => void;
+  /** Road route: draw or extend the line on the map. */
+  onDrawRoute: () => void;
+  /** Contractor codes whose route collides with this one today. */
+  clashWith: string[];
   onMakeRectangle: () => void;
   onResetArea: () => void;
   onDelete: () => void;
@@ -67,6 +74,8 @@ export function CoordinationInspector({
   saving,
   onPatch,
   onDrawFree,
+  onDrawRoute,
+  clashWith,
   onMakeRectangle,
   onResetArea,
   onDelete,
@@ -144,8 +153,41 @@ export function CoordinationInspector({
                 </Button>
               ) : null}
             </Field>
+            {clashWith.length ? (
+              <Alert severity="error" sx={{ py: 0.25 }}>
+                เส้นทางนี้ทับหรือชิดกับเส้นทางของ {clashWith.join(", ")} ในวันเดียวกัน — ประสานกันก่อนใช้ถนน
+              </Alert>
+            ) : null}
+            {draft.areaKind === "route" ? (
+              <Field label="เส้นทางถนน">
+                <Stack direction="row" spacing={1}>
+                  <Button fullWidth variant={drawing ? "contained" : "outlined"} disableElevation startIcon={<AddRoadOutlined />} onClick={onDrawRoute} sx={{ textTransform: "none" }}>
+                    {drawing ? "กำลังวาดเส้นทาง" : "แก้ / ต่อเส้นทาง"}
+                  </Button>
+                  {/* The arrows follow the tap order; one tap flips the way the route is driven. */}
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<SwapHorizOutlined />}
+                    disabled={drawing || draft.geometry.points.length < 2}
+                    onClick={() => onPatch({ geometry: { type: "polyline", points: [...draft.geometry.points].reverse() } })}
+                    sx={{ textTransform: "none" }}
+                  >
+                    กลับทิศทาง
+                  </Button>
+                </Stack>
+                <Typography variant="caption" color={geometryError ? "warning.dark" : "text.secondary"}>
+                  {geometryError ?? `${draft.geometry.points.length} จุด · ลูกศรชี้ทิศทางที่ใช้ถนน · ลากจุดบนผังเพื่อปรับ · ใช้ทั้งวัน`}
+                </Typography>
+                {areaDirty ? (
+                  <Button size="small" startIcon={<RestartAltOutlined />} onClick={onResetArea} sx={{ alignSelf: "flex-start", textTransform: "none" }}>
+                    คืนเส้นทางเดิม
+                  </Button>
+                ) : null}
+              </Field>
+            ) : <>
             <Field label="ประเภทงาน">
-              <TypePicker value={draft.icon} onPick={(icon) => onPatch({ icon })} />
+              <TypePicker value={draft.icon} onPick={(icon) => onPatch({ icon })} exclude={["road"]} />
             </Field>
             <Divider />
             <Field label="พื้นที่ทำงาน">
@@ -194,6 +236,7 @@ export function CoordinationInspector({
               </Box>
               <Switch checked={draft.linkArea !== false} onChange={(e) => onPatch({ linkArea: e.target.checked })} />
             </Stack>
+            </>}
           </>
         ) : (
           <>
@@ -206,7 +249,7 @@ export function CoordinationInspector({
               </Typography>
             </Field>
             <Field label="พื้นที่ทำงาน">
-              <Typography variant="body2">{item.areaKind === "polygon" ? `รูปทรงอิสระ ${item.geometry.points.length} จุดมุม` : "สี่เหลี่ยม"}</Typography>
+              <Typography variant="body2">{areaLabel(item, true)}</Typography>
             </Field>
             <Typography variant="caption" color="text.secondary">
               ดูได้อย่างเดียว — แก้ไขได้เฉพาะงานของบริษัทที่บัญชีนี้ผูกไว้

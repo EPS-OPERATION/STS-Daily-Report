@@ -204,6 +204,20 @@
       "when": 1791964799749,
       "tag": "0028_first_abomination",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791989430259,
+      "tag": "0029_handy_madame_web",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791993251256,
+      "tag": "0030_thin_colossus",
+      "breakpoints": true
     }
   ]
 }

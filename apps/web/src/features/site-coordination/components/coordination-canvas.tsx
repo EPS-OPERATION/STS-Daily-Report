@@ -1,4 +1,5 @@
 import AddOutlined from "@mui/icons-material/AddOutlined";
+import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
 import CheckOutlined from "@mui/icons-material/CheckOutlined";
 import DragIndicatorOutlined from "@mui/icons-material/DragIndicatorOutlined";
 import PentagonOutlined from "@mui/icons-material/PentagonOutlined";
@@ -16,13 +17,13 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
 import { useEffect, useRef, useState } from "react";
-import { Circle, Group, Image as CanvasImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
+import { Arrow, Circle, Group, Image as CanvasImage, Layer, Line, Rect, RegularPolygon, Stage, Text, Transformer } from "react-konva";
 import Konva from "konva";import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationPoint } from "@sts/shared";
 import { COORDINATION_MAX, COORDINATION_MIN, coordinationGeometryError } from "@sts/shared";
 import { MachineIcon } from "./machine-icon.js";
 import type { MapDisplay } from "./map-filters.js";
 
-export type MapTool = "move" | "polygon";
+export type MapTool = "move" | "polygon" | "route";
 interface Props {
   map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[];
   selectedId: string | null; draft: CoordinationInput | null; draftId?: string; tool: MapTool; compact?: boolean;
@@ -36,16 +37,21 @@ interface Props {
   fixedHeight?: number;
   /** Called once the artwork is drawn with the framed stage (null when the image failed). Read-only only. */
   onReady?: (stage: Konva.Stage | null) => void;
+  /** Road routes that cross or run along another contractor's route that day (id → other contractor ids). */
+  clashes?: ReadonlyMap<string, string[]>;
+  /** Road requests of the day (Daily Request): arrows under the jobs, red outline on a clash. */
+  roads?: { id: string; points: CoordinationPoint[]; color: string; label: string; alert: boolean }[];
 }
+const NO_CLASHES: ReadonlyMap<string, string[]> = new Map();
 const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true };
 const clamp = (n: number) => Math.max(COORDINATION_MIN, Math.min(COORDINATION_MAX, n));
 
 // Nearest point on the polygon boundary (image-pixel space): the connector line
 // attaches to the closest edge instead of a fixed corner.
-function nearestBoundaryPoint(points: CoordinationPoint[], px: number, py: number, width: number, height: number) {
+function nearestBoundaryPoint(points: CoordinationPoint[], px: number, py: number, width: number, height: number, closed = true) {
   let best = { x: points[0]!.x * width, y: points[0]!.y * height };
   let bestDistance = Infinity;
-  for (let i = 0; i < points.length; i++) {
+  for (let i = 0; i < (closed ? points.length : points.length - 1); i++) {
     const a = { x: points[i]!.x * width, y: points[i]!.y * height };
     const b = { x: points[(i + 1) % points.length]!.x * width, y: points[(i + 1) % points.length]!.y * height };
     const abx = b.x - a.x, aby = b.y - a.y;
@@ -109,6 +115,60 @@ function areaCentroid(points: CoordinationPoint[], width: number, height: number
     return { x: (sum.x / points.length) * width, y: (sum.y / points.length) * height };
   }
   return { x: cx / (3 * twiceArea), y: cy / (3 * twiceArea) };
+}
+
+// Point halfway along a route (image pixels): where its contractor chip sits.
+function routeMidpoint(points: CoordinationPoint[], width: number, height: number) {
+  const px = points.map((p) => ({ x: p.x * width, y: p.y * height }));
+  const lengths = px.slice(1).map((p, i) => Math.hypot(p.x - px[i]!.x, p.y - px[i]!.y));
+  let rest = lengths.reduce((a, b) => a + b, 0) / 2;
+  for (let i = 0; i < lengths.length; i++) {
+    if (rest <= lengths[i]! && lengths[i]! > 0) {
+      const t = rest / lengths[i]!;
+      return { x: px[i]!.x + (px[i + 1]!.x - px[i]!.x) * t, y: px[i]!.y + (px[i + 1]!.y - px[i]!.y) * t };
+    }
+    rest -= lengths[i]!;
+  }
+  return px[0] ?? { x: 0, y: 0 };
+}
+
+// Direction marks on a road route (image pixels): a start dot, small arrows along the line every
+// ~90 screen px and an arrowhead at the end, so the way the contractor drives reads at a glance.
+// The title sits under the midpoint chip. Never listens: the route line itself takes the clicks.
+export function RouteMarks({ points, dx, dy, color, paper, scale, title, textColor, arrowsHidden = false, labelDy = 14 }: {
+  points: { x: number; y: number }[]; dx: number; dy: number; color: string; paper: string; scale: number; title: string; textColor: string;
+  /** Label only (e.g. a register road with no direction). */
+  arrowsHidden?: boolean;
+  /** Screen px from the midpoint down to the label (stacked when labels would overlap). */
+  labelDy?: number;
+}) {
+  const step = 90 / scale;
+  const marks: { x: number; y: number; rotation: number }[] = [];
+  let next = step / 2;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]!, b = points[i]!;
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const rotation = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI + 90;
+    while (next < length) {
+      marks.push({ x: a.x + ((b.x - a.x) * next) / length, y: a.y + ((b.y - a.y) * next) / length, rotation });
+      next += step;
+    }
+    next -= length;
+  }
+  const end = points[points.length - 1]!, before = points[points.length - 2]!;
+  const mid = routeMidpoint(points.map((p) => ({ x: p.x, y: p.y })), 1, 1);
+  const label = title ? layoutTextTitle(title, { font: CAPTION_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: CAPTION_LINE_HEIGHT, maxLines: CAPTION_MAX_LINES, minWidth: 64 }) : null;
+  return <Group x={dx} y={dy} listening={false}>
+    {/* The last stretch near the arrowhead stays clear of small marks. */}
+    {!arrowsHidden && marks.filter((m) => Math.hypot(m.x - end.x, m.y - end.y) > 30 / scale).map((m, i) => (
+      <RegularPolygon key={i} x={m.x} y={m.y} sides={3} radius={5 / scale} rotation={m.rotation} fill={paper} />
+    ))}
+    {!arrowsHidden && <Circle x={points[0]!.x} y={points[0]!.y} radius={7 / scale} fill={paper} stroke={color} strokeWidth={3 / scale} />}
+    {!arrowsHidden && <Arrow points={[before.x, before.y, end.x, end.y]} pointerLength={22 / scale} pointerWidth={22 / scale} fill={color} stroke={color} strokeWidth={6 / scale} lineCap="round" />}
+    {label && <Group x={mid.x} y={mid.y} scaleX={1 / scale} scaleY={1 / scale}>
+      <Text x={-label.width / 2} y={labelDy} width={label.width} text={label.lines.join("\n")} fontFamily="Inter" fontSize={12} fontStyle="600" lineHeight={CAPTION_LINE_HEIGHT / 12} align="center" fill={textColor} stroke={paper} strokeWidth={3} fillAfterStrokeEnabled />
+    </Group>}
+  </Group>;
 }
 
 // Report room (screen px) kept clear around the drawing: job titles and notes hang below or beside their marker.
@@ -189,8 +249,12 @@ function layoutTextTitle(title: string, options: { font?: string; maxWidth?: num
   return { lines, width, height, lineHeight };
 }
 
-export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, onReady }: Props) {
+export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, onReady, clashes = NO_CLASHES, roads = [] }: Props) {
   const theme = useTheme();
+  // Point-by-point drawing: a free-shape area (closed) or a road route (open line).
+  const drawingTool = tool === "polygon" || tool === "route";
+  const drawType = tool === "route" ? "polyline" : "polygon";
+  const minPoints = tool === "route" ? 2 : 3;
   const container = useRef<HTMLDivElement>(null);
   const stageBox = useRef<HTMLDivElement>(null);
   const stage = useRef<Konva.Stage>(null);
@@ -267,19 +331,19 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
     if (transformer.current && rectangle.current) transformer.current.nodes([rectangle.current]);
   }, [draft?.areaKind, draft?.geometry, tool]);
   useEffect(() => {
-    if (tool !== "polygon" || !draft) return;
+    if (!drawingTool || !draft) return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && ["INPUT", "TEXTAREA"].includes(t.tagName)) return;
       const pts = draft.geometry.points;
-      if (e.key === "Enter" && pts.length >= 3 && !coordinationGeometryError(draft.geometry)) { e.preventDefault(); onFinish(); }
-      else if (e.key === "Backspace" && pts.length) { e.preventDefault(); onChange({ geometry: { type: "polygon", points: pts.slice(0, -1) } }); }
+      if (e.key === "Enter" && pts.length >= minPoints && !coordinationGeometryError(draft.geometry)) { e.preventDefault(); onFinish(); }
+      else if (e.key === "Backspace" && pts.length) { e.preventDefault(); onChange({ geometry: { type: drawType, points: pts.slice(0, -1) } }); }
       else if (e.key === "Escape") { e.preventDefault(); onFinish(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [tool, draft, onChange, onFinish]);
-  useEffect(() => { if (tool !== "polygon") setHover(null); }, [tool]);
+  useEffect(() => { if (!drawingTool) setHover(null); }, [drawingTool]);
   const point = (allowClamp = false) => {
     const node = stage.current, pointer = node?.getPointerPosition();
     if (!node || !pointer) return null;
@@ -289,10 +353,17 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
   };
   const click = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (pointerMoved.current) return;
-    if (e.target !== stage.current) return;
+    // While drawing, a tap on top of another job (e.g. a route already on that road) still places a
+    // point; only the draft's own vertices stop the tap (they cancel bubbling).
+    if (!drawingTool && e.target !== stage.current) return;
     if (tool === "polygon") {
       const p = point(); if (!draft || !p) return;
       onChange({ areaKind: "polygon", geometry: { type: "polygon", points: [...draft.geometry.points, p] } });
+      return;
+    }
+    if (tool === "route") {
+      const p = point(); if (!draft || !p) return;
+      onChange({ areaKind: "route", geometry: { type: "polyline", points: [...draft.geometry.points, p] } });
       return;
     }
     if (tool === "move") onDeselect();
@@ -322,20 +393,22 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
     return { left, top, color, text: layoutTextTitle(draft.title), caption: layoutTextTitle(draft.title, { font: CAPTION_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: CAPTION_LINE_HEIGHT, maxLines: CAPTION_MAX_LINES, minWidth: 64 }) };
   })() : null;
   return <Box ref={container} sx={{ width: "100%", minWidth: 0 }}>
-    {!readOnly && (tool === "polygon" && draft ? (() => {
+    {!readOnly && (drawingTool && draft ? (() => {
       const n = draft.geometry.points.length;
-      const step = n === 0 ? "คลิกบนผังเพื่อวางจุดมุมแรกของพื้นที่" : n < 3 ? `วางจุดมุมแล้ว ${n} จุด — วางต่ออีกอย่างน้อย ${3 - n} จุด` : `วางแล้ว ${n} จุด — คลิกจุดแรก (วงใหญ่) หรือกด Enter เพื่อปิดรูป`;
-      return <Stack direction="row" spacing={1.5} alignItems="center" sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: alpha(theme.palette.primary.main, 0.06) }}>
-        <PentagonOutlined fontSize="small" color="primary" />
-        <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}>{step}</Typography>
-        <Button size="small" startIcon={<UndoOutlined fontSize="small" />} disabled={!n} onClick={() => onChange({ geometry: { type: "polygon", points: draft.geometry.points.slice(0, -1) } })} sx={{ whiteSpace: "nowrap" }}>ย้อนจุด</Button>
-        <Button size="small" color="inherit" disabled={!n} onClick={() => onChange({ geometry: { type: "polygon", points: [] } })} sx={{ whiteSpace: "nowrap", display: { xs: "none", sm: "inline-flex" } }}>วาดใหม่</Button>
-        <Button size="small" variant="contained" disableElevation startIcon={<CheckOutlined fontSize="small" />} disabled={n < 3 || Boolean(coordinationGeometryError(draft.geometry))} onClick={onFinish} sx={{ whiteSpace: "nowrap" }}>เสร็จ</Button>
+      const step = tool === "route"
+        ? n === 0 ? "แตะจุดเริ่มต้นบนถนน — ลูกศรจะชี้ตามลำดับที่แตะ" : n < 2 ? "แตะจุดถัดไปตามถนน" : `วางแล้ว ${n} จุด — แตะต่อตามถนน หรือกด เสร็จ / Enter`
+        : n === 0 ? "คลิกบนผังเพื่อวางจุดมุมแรกของพื้นที่" : n < 3 ? `วางจุดมุมแล้ว ${n} จุด — วางต่ออีกอย่างน้อย ${3 - n} จุด` : `วางแล้ว ${n} จุด — คลิกจุดแรก (วงใหญ่) หรือกด Enter เพื่อปิดรูป`;
+      return <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: alpha(theme.palette.primary.main, 0.06) }}>
+        {tool === "route" ? <AddRoadOutlined fontSize="small" color="primary" /> : <PentagonOutlined fontSize="small" color="primary" />}
+        <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0, flex: { xs: "1 1 calc(100% - 32px)", sm: "1 1 0" }, overflowWrap: "anywhere" }}>{step}</Typography>
+        <Button size="small" startIcon={<UndoOutlined fontSize="small" />} disabled={!n} onClick={() => onChange({ geometry: { type: drawType, points: draft.geometry.points.slice(0, -1) } })} sx={{ whiteSpace: "nowrap" }}>ย้อนจุด</Button>
+        <Button size="small" color="inherit" disabled={!n} onClick={() => onChange({ geometry: { type: drawType, points: [] } })} sx={{ whiteSpace: "nowrap", display: { xs: "none", sm: "inline-flex" } }}>วาดใหม่</Button>
+        <Button size="small" variant="contained" disableElevation startIcon={<CheckOutlined fontSize="small" />} disabled={n < minPoints || Boolean(coordinationGeometryError(draft.geometry))} onClick={onFinish} sx={{ whiteSpace: "nowrap" }}>เสร็จ</Button>
       </Stack>;
     })() : <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider" }}>
       {draft ? "ลากไอคอนไปจุดทำงาน · ลากพื้นที่เพื่อย้าย · มุมสี่เหลี่ยมปรับขนาด/หมุน · ดับเบิลคลิกเพื่อแก้ชื่อ · ตั้งค่าอื่นที่แผงด้านข้าง" : "คลิกงานเพื่อดูและแก้ไข · ลากผังว่างเพื่อเลื่อน · ล้อเมาส์เพื่อซูม"}
     </Typography>)}
-    {imageError ? <Alert severity="error" sx={{ m: 1.5 }}>โหลดภาพผังไม่สำเร็จ กรุณาตรวจภาพพื้นหลังแล้วลองใหม่</Alert> : <Box ref={stageBox} role="img" aria-label="ผังงานรายวัน เลือกรายการงานจากรายการด้านข้างเพื่อดูรายละเอียด" sx={{ position: "relative", bgcolor: "background.paper", touchAction: "none", cursor: tool === "polygon" ? "crosshair" : undefined }}>
+    {imageError ? <Alert severity="error" sx={{ m: 1.5 }}>โหลดภาพผังไม่สำเร็จ กรุณาตรวจภาพพื้นหลังแล้วลองใหม่</Alert> : <Box ref={stageBox} role="img" aria-label="ผังงานรายวัน เลือกรายการงานจากรายการด้านข้างเพื่อดูรายละเอียด" sx={{ position: "relative", bgcolor: "background.paper", touchAction: "none", cursor: drawingTool ? "crosshair" : undefined }}>
       <Stage ref={stage} width={width} height={height} scaleX={scale} scaleY={scale} x={offset.x} y={offset.y}         draggable={tool === "move" && !readOnly}
         onDragStart={() => setDragging(true)}
         onDragEnd={(e) => {
@@ -344,7 +417,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
           pointerMoved.current = true; window.setTimeout(() => { pointerMoved.current = false; }, 0);
           if (e.target === stage.current) setPan({ x: e.target.x() - (width - map.width * fit) / 2, y: e.target.y() - (height - map.height * fit) / 2 });
         }}
-        onMouseMove={() => { if (tool === "polygon") setHover(point()); }} onMouseLeave={() => setHover(null)}
+        onMouseMove={() => { if (drawingTool) setHover(point()); }} onMouseLeave={() => setHover(null)}
         onClick={click} onTap={click} onWheel={readOnly ? undefined : (e) => { e.evt.preventDefault(); changeZoom(e.evt.deltaY < 0 ? 1.15 : 1 / 1.15, stage.current?.getPointerPosition() ?? undefined); }}>
         <Layer listening={false}>{image && <CanvasImage image={image} width={map.width} height={map.height} />}</Layer>
         {!readOnly && <Layer listening={false}>
@@ -363,6 +436,23 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
             </>;
           })()}
         </Layer>}
+        <Layer listening={false}>
+          {roads.map((road, index) => {
+            const pts = road.points.flatMap((p) => [p.x * map.width, p.y * map.height]);
+            // Labels sit under each route's midpoint; when an earlier label is close on screen, go one line lower.
+            const mid = routeMidpoint(road.points, map.width, map.height);
+            const below = roads.slice(0, index).filter((o) => {
+              const m = routeMidpoint(o.points, map.width, map.height);
+              return Math.hypot(m.x - mid.x, m.y - mid.y) * scale < 90;
+            }).length;
+            return <Group key={road.id}>
+              <Line points={pts} stroke={road.alert ? theme.palette.error.main : theme.palette.background.paper} strokeWidth={(road.alert ? 15 : 11) / scale} lineCap="round" lineJoin="round" opacity={0.95} />
+              <Line points={pts} stroke={road.color} strokeWidth={7 / scale} lineCap="round" lineJoin="round" />
+              <RouteMarks points={road.points.map((p) => ({ x: p.x * map.width, y: p.y * map.height }))} dx={0} dy={0} color={road.color}
+                paper={theme.palette.background.paper} scale={scale} title={road.label} textColor={theme.palette.text.primary} labelDy={14 + below * 17} />
+            </Group>;
+          })}
+        </Layer>
         <Layer>
           {displayed.map(({ item, id, editing }) => {
             const company = contractors.find((c) => c.id === item.contractorId);
@@ -391,22 +481,29 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
             const noteY = item.icon === "text"
               ? (textLayout?.height ?? 0) / 2 + 4
               : 28 + (captionShown && captionLayout ? captionLayout.lines.length * CAPTION_LINE_HEIGHT + 2 : 0);
-            const center = areaCentroid(area, map.width, map.height);
+            const route = item.areaKind === "route";
+            const clash = route ? clashes.get(id) : undefined;
+            const center = route ? routeMidpoint(area, map.width, map.height) : areaCentroid(area, map.width, map.height);
             const a = drawnArea[0], b = drawnArea[1], d = drawnArea[3];
             return <Group key={id}
               onDblClick={(e) => { if (tool !== "move") return; e.cancelBubble = true; onSelect(id); onEditText(); }}
               onDblTap={(e) => { if (tool !== "move") return; e.cancelBubble = true; onSelect(id); onEditText(); }}>
-              {area[0] && item.linkArea !== false && (display.links || selected) && (display.areas || selected) && (() => {
+              {!route && area[0] && item.linkArea !== false && (display.links || selected) && (display.areas || selected) && (() => {
                 const dragArea = dragOffset ? shiftPoints(area, dragOffset.x / map.width, dragOffset.y / map.height) : area;
-                const anchor = nearestBoundaryPoint(dragArea, item.x * map.width, item.y * map.height, map.width, map.height);
+                const anchor = nearestBoundaryPoint(dragArea, item.x * map.width, item.y * map.height, map.width, map.height, !route);
                 return <Line points={[item.x * map.width, item.y * map.height, anchor.x, anchor.y]} stroke={color} strokeWidth={1.5 / scale} dash={[5 / scale, 4 / scale]} opacity={selected ? 1 : 0.55} listening={false} />;
               })()}
               {isRectangle && a && b && d ? <Rect ref={rectangle} x={a.x * map.width} y={a.y * map.height}
                 width={Math.hypot((b.x - a.x) * map.width, (b.y - a.y) * map.height)} height={Math.hypot((d.x - a.x) * map.width, (d.y - a.y) * map.height)}
                 rotation={Math.atan2((b.y - a.y) * map.height, (b.x - a.x) * map.width) * 180 / Math.PI} scaleX={1} scaleY={1}
                 fill={`${color}26`} stroke={color} strokeWidth={3 / scale} draggable onDragMove={rectangleChange} onDragEnd={rectangleChange} onTransformEnd={rectangleChange} />
-                : (display.areas || selected) && <Line points={points} closed fill={`${color}${selected ? "3D" : "26"}`} fillEnabled={area.length >= 3} opacity={selectedId || draft ? selected ? 1 : 0.45 : 1}
-                  stroke={color} strokeWidth={(selected ? 3 : 2) / scale} onClick={select} onTap={select}
+                : (display.areas || selected) && <>
+                  {/* A road route: thick open line on a light casing; the casing turns red on a clash. */}
+                  {route && area.length >= 2 && <Line points={points} x={dragOffset?.source === "line" ? dragOffset.x : 0} y={dragOffset?.source === "line" ? dragOffset.y : 0}
+                    stroke={clash ? theme.palette.error.main : theme.palette.background.paper} strokeWidth={((selected ? 8 : 6) + (clash ? 8 : 4)) / scale}
+                    lineCap="round" lineJoin="round" opacity={selectedId || draft ? selected ? 1 : 0.6 : 0.95} listening={false} />}
+                  <Line points={points} closed={!route} fill={route ? undefined : `${color}${selected ? "3D" : "26"}`} fillEnabled={!route && area.length >= 3} opacity={selectedId || draft ? selected ? 1 : 0.45 : 1}
+                  stroke={color} strokeWidth={(route ? (selected ? 8 : 6) : (selected ? 3 : 2)) / scale} lineCap="round" lineJoin="round" hitStrokeWidth={route ? 24 / scale : undefined} onClick={select} onTap={select}
                   draggable={editable}
                   onDragStart={(e) => { areaDragStart.current = area; areaDragNodeStart.current = { x: e.target.x(), y: e.target.y() }; }}
                   onDragMove={(e) => { const s = areaDragNodeStart.current; if (s) setAreaDrag({ id, x: e.target.x() - s.x, y: e.target.y() - s.y, source: "line" }); }}
@@ -416,11 +513,16 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
                     if (!s) return;
                     const { dx, dy } = areaDelta(e, s, base, map.width, map.height);
                     e.target.position({ x: 0, y: 0 });
-                    onChange({ geometry: { type: "polygon", points: shiftPoints(base, dx, dy) } });
-                  }} />}
+                    onChange({ geometry: { type: item.geometry.type, points: shiftPoints(base, dx, dy) } });
+                  }} /></>}
+              {route && area.length >= 2 && (display.areas || selected) && <RouteMarks
+                points={drawnArea.map((p) => ({ x: p.x * map.width, y: p.y * map.height }))}
+                dx={dragOffset?.source === "line" ? dragOffset.x : 0} dy={dragOffset?.source === "line" ? dragOffset.y : 0}
+                color={color} paper={theme.palette.background.paper} scale={scale}
+                title={(display.labels || selected) && !(textEditing && editing) ? item.title : ""} textColor={theme.palette.text.primary} />}
               {isRectangle && <Transformer ref={transformer} flipEnabled={false} borderStroke={color} anchorStroke={color} anchorFill={theme.palette.background.paper} anchorSize={10} rotateEnabled />}
-              {editing && (item.areaKind === "polygon" || tool === "polygon") && area.map((p, index) => <Circle key={index} x={p.x * map.width + (dragOffset?.x ?? 0)} y={p.y * map.height + (dragOffset?.y ?? 0)} radius={(index === 0 && tool === "polygon" && area.length >= 3 ? 11 : 6) / scale} fill={index === 0 && tool === "polygon" && area.length >= 3 ? color : theme.palette.background.paper} stroke={color} strokeWidth={2 / scale}
-                draggable onDragMove={(e) => onChange({ geometry: { type: "polygon", points: area.map((v, i) => i === index ? { x: clamp(e.target.x() / map.width), y: clamp(e.target.y() / map.height) } : v) } })}
+              {editing && (item.areaKind === "polygon" || route || drawingTool) && area.map((p, index) => <Circle key={index} x={p.x * map.width + (dragOffset?.x ?? 0)} y={p.y * map.height + (dragOffset?.y ?? 0)} radius={(index === 0 && tool === "polygon" && area.length >= 3 ? 11 : 6) / scale} fill={index === 0 && tool === "polygon" && area.length >= 3 ? color : theme.palette.background.paper} stroke={color} strokeWidth={2 / scale}
+                draggable onDragMove={(e) => onChange({ geometry: { type: item.geometry.type, points: area.map((v, i) => i === index ? { x: clamp(e.target.x() / map.width), y: clamp(e.target.y() / map.height) } : v) } })}
                 onClick={(e) => { e.cancelBubble = true; if (index === 0 && area.length >= 3 && tool === "polygon") onFinish(); }}
                 onTap={(e) => { e.cancelBubble = true; if (index === 0 && area.length >= 3 && tool === "polygon") onFinish(); }} />)}
               {(display.chips || selected) && <Group x={center.x + (dragOffset?.x ?? 0)} y={center.y + (dragOffset?.y ?? 0)} scaleX={1 / scale} scaleY={1 / scale} draggable={editable}
@@ -438,12 +540,12 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
                   areaDragStart.current = null; areaDragNodeStart.current = null; setAreaDrag(null);
                   if (!s) return;
                   const { dx, dy } = areaDelta(e, s, base, map.width, map.height);
-                  onChange({ geometry: { type: "polygon", points: shiftPoints(base, dx, dy) } });
+                  onChange({ geometry: { type: item.geometry.type, points: shiftPoints(base, dx, dy) } });
                 }}>
-                <Rect x={-34} y={-11} width={68} height={22} fill={theme.palette.background.paper} opacity={0.94} stroke={color} strokeWidth={1.5} cornerRadius={4} />
-                <Text x={-34} y={-7} width={68} text={company?.code ?? "—"} fontFamily="Inter" fontSize={12} fontStyle="bold" align="center" fill={theme.palette.text.primary} listening={false} />
+                <Rect x={-34} y={-11} width={68} height={22} fill={clash ? theme.palette.error.main : theme.palette.background.paper} opacity={0.94} stroke={clash ? theme.palette.error.main : color} strokeWidth={1.5} cornerRadius={4} />
+                <Text x={-34} y={-7} width={68} text={company?.code ?? "—"} fontFamily="Inter" fontSize={12} fontStyle="bold" align="center" fill={clash ? theme.palette.error.contrastText : theme.palette.text.primary} listening={false} />
               </Group>}
-              <Group x={item.x * map.width} y={item.y * map.height} scaleX={1 / scale} scaleY={1 / scale} draggable={editable}
+              {!route && <Group x={item.x * map.width} y={item.y * map.height} scaleX={1 / scale} scaleY={1 / scale} draggable={editable}
                 onClick={select} onTap={select}
                 onDragMove={(e) => {
                   const x = clamp(e.target.x() / map.width), y = clamp(e.target.y() / map.height);
@@ -463,12 +565,12 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
                   {captionShown && captionLayout && <Text x={-captionLayout.width / 2} y={28} width={captionLayout.width} text={captionLayout.lines.join("\n")} fontFamily="Inter" fontSize={12} fontStyle="600" lineHeight={CAPTION_LINE_HEIGHT / 12} align="center" fill={theme.palette.text.primary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled listening={false} />}
                 </>}
                 {noteLayout && <Text x={-noteLayout.width / 2} y={noteY} width={noteLayout.width} text={noteLayout.lines.join("\n")} fontFamily="Inter" fontSize={11} lineHeight={NOTE_LINE_HEIGHT / 11} align="center" fill={theme.palette.text.secondary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled listening={false} />}
-              </Group>
+              </Group>}
             </Group>;
           })}
         </Layer>
       </Stage>
-      {tool === "polygon" && draft && hover && draft.geometry.points.length > 0 && (() => {
+      {drawingTool && draft && hover && draft.geometry.points.length > 0 && (() => {
         const pts = draft.geometry.points;
         const last = pts[pts.length - 1]!, first = pts[0]!;
         const px = (p: CoordinationPoint) => ({ x: offset.x + p.x * map.width * scale, y: offset.y + p.y * map.height * scale });
@@ -476,7 +578,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
         const color = contractors.find((c) => c.id === draft.contractorId)?.color ?? theme.palette.primary.main;
         return <Box component="svg" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
           <line x1={a.x} y1={a.y} x2={h.x} y2={h.y} stroke={color} strokeWidth={2} strokeDasharray="6 4" />
-          {pts.length >= 2 && <line x1={h.x} y1={h.y} x2={f.x} y2={f.y} stroke={color} strokeWidth={1.25} strokeDasharray="3 5" opacity={0.6} />}
+          {tool === "polygon" && pts.length >= 2 && <line x1={h.x} y1={h.y} x2={f.x} y2={f.y} stroke={color} strokeWidth={1.25} strokeDasharray="3 5" opacity={0.6} />}
           <circle cx={h.x} cy={h.y} r={4} fill={color} />
         </Box>;
       })()}

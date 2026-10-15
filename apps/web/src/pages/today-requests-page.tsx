@@ -40,9 +40,11 @@ import {
   useAdjustRoadUsage,
   useDailyRequests,
 } from "@/features/daily-reports/index.js";
+import { ExportButtons } from "@/features/daily-reports/components/export-buttons.js";
+import { downloadCsv, printSections, type ExportSection } from "@/features/daily-reports/utils/report-export.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 import { useMe } from "@/features/auth/index.js";
-import { isEpsStaff, normalizeRoadName } from "@sts/shared";
+import { isEpsStaff, roadPlacesMeet } from "@sts/shared";
 import { toast } from "sonner";
 import { HttpError } from "@/services/http/client.js";
 
@@ -125,6 +127,18 @@ export function TodayRequestsPage() {
   const inspections = allInspections.filter(keep);
   const loadError = [week.error, rfi.error].find((e) => e instanceof HttpError) as HttpError | undefined;
   const forecasts = allForecasts.filter(keep);
+  // Print / CSV: every request in the range for the chosen contractors, one table per kind.
+  const who = (r: { contractorCode: string; contractorName?: string }) => `${r.contractorCode} ${r.contractorName ?? contractorNames.get(r.contractorCode) ?? ""}`.trim();
+  const requestSections = (): ExportSection[] => [
+    { title: "เครื่องจักร (Machinery)", head: ["วันที่", "ผู้รับเหมา", "เครื่องจักร", "หมายเลข", "เวลา", "พื้นที่", "วัตถุประสงค์"],
+      rows: machines.map((m) => [m.targetDate, who(m), m.machineType, m.unitTag, m.startTime && m.endTime ? `${m.startTime}–${m.endTime}` : "ทั้งวัน", `${m.buildingCode} ${m.buildingName}`, m.purpose]) },
+    { title: "อุปกรณ์ (Equipment)", head: ["วันที่", "ผู้รับเหมา", "อุปกรณ์", "จำนวน", "พื้นที่", "วัตถุประสงค์"],
+      rows: equipment.map((e) => [e.targetDate, who(e), e.equipmentType, e.qty, `${e.buildingCode} ${e.buildingName}`, e.purpose]) },
+    { title: "ขอใช้ / ปิดถนน (Road usage)", head: ["วันที่", "ผู้รับเหมา", "ถนน", "เวลา", "วัตถุประสงค์", "สถานะ"],
+      rows: roads.map((r) => [r.targetDate, who(r), r.roadLocation, `${r.startTime}–${r.endTime}`, r.purpose, [r.conflict ? "ชนกัน" : "", r.adjusted ? `EPS ปรับเวลา (ขอ ${r.requestedStartTime}–${r.requestedEndTime})` : ""].filter(Boolean).join(" · ")]) },
+    { title: "QAQC (ขอตรวจ)", head: ["วันที่ตรวจ", "เวลา", "ผู้รับเหมา", "ประเภท", "งาน", "พื้นที่", "สถานะ", "ผล"],
+      rows: inspections.map((i) => [i.inspectionDate, i.inspectionTime, who(i), i.inspectionType, i.workItem, [`${i.buildingCode} ${i.buildingName}`, i.location].filter(Boolean).join(" · "), i.status, i.result]) },
+  ];
   // A range (up to 62 days) is shown as an overview of its days; one day is opened in detail (?day=YYYY-MM-DD).
   const [clashOnly, setClashOnly] = useState(false);
   const dayRows = useMemo(() => {
@@ -213,13 +227,14 @@ export function TodayRequestsPage() {
         }
       />
 
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: "center" }} sx={{ mb: 2.5 }}>
       <ToggleButtonGroup
         exclusive
         size="small"
         value={view}
         onChange={(_, v: View | null) => v && setView(v)}
         aria-label="มุมมอง Daily Request"
-        sx={{ mb: 2.5, bgcolor: "background.paper" }}
+        sx={{ bgcolor: "background.paper", alignSelf: "flex-start" }}
       >
         <ToggleButton value="requests" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
           <AssignmentOutlinedIcon fontSize="small" />
@@ -233,6 +248,14 @@ export function TodayRequestsPage() {
           Tomorrow Forecast Activities{data ? ` (${forecasts.length})` : ""}
         </ToggleButton>
       </ToggleButtonGroup>
+      {view === "requests" ? (
+        <ExportButtons
+          disabled={!data || machines.length + equipment.length + roads.length + inspections.length === 0}
+          onPrint={() => printSections("Daily Request — คำขอประจำวัน", `${rangeLabel} · ผู้รับเหมา ${selectedCodes.size === allCodes.length ? "ทั้งหมด" : [...selectedCodes].join(", ")}`, requestSections())}
+          onCsv={() => downloadCsv(`STS_Daily_Request_${isRange ? `${from}_${to}` : from}.csv`, requestSections())}
+        />
+      ) : null}
+      </Stack>
 
       {view === "plan" ? (
         loadError ? (
@@ -425,7 +448,7 @@ export function TodayRequestsPage() {
               bookings={
                 editing
                   ? allRoads.filter(
-                      (r) => r.targetDate === editing.targetDate && normalizeRoadName(r.roadLocation) === normalizeRoadName(editing.roadLocation),
+                      (r) => r.targetDate === editing.targetDate && (r.id === editing.id || roadPlacesMeet(r, editing)),
                     )
                   : []
               }

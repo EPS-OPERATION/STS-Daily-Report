@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
-import type { CoordinationInput } from "@sts/shared";
+import type { CoordinationInput, CoordinationPoint } from "@sts/shared";
 import type { QueryDb } from "@/db/client.js";
-import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItems, coordinationMaps, projectContractors, users } from "@/db/schema/index.js";
+import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItems, coordinationMaps, coordinationRoadSegments, dailyReportRoadUsage, dailyReports, projectContractors, users } from "@/db/schema/index.js";
 
 export async function getMap(db: QueryDb, projectId: string, lock = false) {
   const query = db.select().from(coordinationMaps).where(eq(coordinationMaps.projectId, projectId)).limit(1);
@@ -68,4 +68,48 @@ export async function insertDayLock(db: QueryDb, projectId: string, workDate: st
 }
 export async function deleteDayLock(db: QueryDb, projectId: string, workDate: string) {
   await db.delete(coordinationDayLocks).where(and(eq(coordinationDayLocks.projectId, projectId), eq(coordinationDayLocks.workDate, workDate)));
+}
+
+// ---- road register ----
+export type RoadSegmentInput = { road: string; name: string; points: CoordinationPoint[]; closed: boolean };
+const segmentColumns = { id: coordinationRoadSegments.id, road: coordinationRoadSegments.road, name: coordinationRoadSegments.name, points: coordinationRoadSegments.points, closed: coordinationRoadSegments.closed };
+export async function listRoadSegments(db: QueryDb, projectId: string) {
+  return db.select(segmentColumns).from(coordinationRoadSegments).where(eq(coordinationRoadSegments.projectId, projectId)).orderBy(asc(coordinationRoadSegments.road), asc(coordinationRoadSegments.name));
+}
+export async function findRoadSegmentByName(db: QueryDb, projectId: string, name: string) {
+  const [row] = await db.select(segmentColumns).from(coordinationRoadSegments).where(and(eq(coordinationRoadSegments.projectId, projectId), sql`lower(${coordinationRoadSegments.name}) = lower(${name})`)).limit(1);
+  return row ?? null;
+}
+export async function getRoadSegment(db: QueryDb, projectId: string, id: string) {
+  const [row] = await db.select(segmentColumns).from(coordinationRoadSegments).where(and(eq(coordinationRoadSegments.projectId, projectId), eq(coordinationRoadSegments.id, id))).limit(1);
+  return row ?? null;
+}
+export async function insertRoadSegment(db: QueryDb, projectId: string, input: RoadSegmentInput, userId: string) {
+  const [row] = await db.insert(coordinationRoadSegments).values({ projectId, ...input, updatedBy: userId }).returning(segmentColumns);
+  return row!;
+}
+export async function updateRoadSegment(db: QueryDb, projectId: string, id: string, input: RoadSegmentInput, userId: string) {
+  const [row] = await db.update(coordinationRoadSegments).set({ ...input, updatedBy: userId, updatedAt: new Date() })
+    .where(and(eq(coordinationRoadSegments.projectId, projectId), eq(coordinationRoadSegments.id, id))).returning(segmentColumns);
+  return row ?? null;
+}
+export async function deleteRoadSegment(db: QueryDb, projectId: string, id: string) {
+  await db.delete(coordinationRoadSegments).where(and(eq(coordinationRoadSegments.projectId, projectId), eq(coordinationRoadSegments.id, id)));
+}
+
+// Road requests made for this day (Daily Request of the day before). Times are what EPS settled.
+export async function listRoadRequests(db: QueryDb, projectId: string, date: string) {
+  return db.select({
+    id: dailyReportRoadUsage.id,
+    contractorId: dailyReports.contractorId,
+    roadLocation: dailyReportRoadUsage.roadLocation,
+    startTime: sql<string>`coalesce(${dailyReportRoadUsage.adjustedStartTime}, ${dailyReportRoadUsage.startTime})`,
+    endTime: sql<string>`coalesce(${dailyReportRoadUsage.adjustedEndTime}, ${dailyReportRoadUsage.endTime})`,
+    purpose: dailyReportRoadUsage.purpose,
+    segmentIds: dailyReportRoadUsage.segmentIds,
+    route: dailyReportRoadUsage.route,
+  }).from(dailyReportRoadUsage)
+    .innerJoin(dailyReports, eq(dailyReportRoadUsage.reportId, dailyReports.id))
+    .where(and(eq(dailyReports.projectId, projectId), eq(dailyReportRoadUsage.targetDate, date)))
+    .orderBy(asc(dailyReportRoadUsage.startTime));
 }

@@ -20,11 +20,14 @@ import {
   MACHINE_TYPES,
   PERMIT_TYPES,
   SITE_EQUIPMENT_TYPES,
+  roadPlacesMeet,
   timeWindowsOverlap,
   type MachineType,
   type PermitType,
 } from "@sts/shared";
-import { Controller, useFieldArray, useWatch, type Control } from "react-hook-form";
+import { useState } from "react";
+import { Controller, useController, useFieldArray, useWatch, type Control } from "react-hook-form";
+import { RoadRoutePicker } from "./road-route-picker.js";
 import type { EveningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, WeeklySummary } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
@@ -39,6 +42,7 @@ const norm = (s: string | null | undefined) => (s ?? "").trim().toUpperCase().re
 // Other contractors' bookings for the same target date, so clashes show before
 // the evening report is sent (the server re-checks after).
 export interface TomorrowContext {
+  projectId: string;
   targetDate: string;
   contractorId: string;
   others: Pick<WeeklySummary, "machinery" | "roads"> | null;
@@ -303,7 +307,7 @@ export function RoadUsageRequests({
         variant="outlined"
         fullWidth
         sx={{ mt: 1.5, borderStyle: "dashed" }}
-        onClick={() => rows.append({ roadLocation: "", buildingId: "", startTime: "08:00", endTime: "10:00", purpose: "" })}
+        onClick={() => rows.append({ roadLocation: "", buildingId: "", startTime: "08:00", endTime: "10:00", purpose: "", segmentIds: [], route: null })}
       >
         ขอใช้ / ปิดถนน
       </Button>
@@ -323,13 +327,17 @@ function RoadRow({
   onRemove: () => void;
 }) {
   const v = useWatch({ control, name: `roadUsage.${index}` });
+  const [picking, setPicking] = useState(false);
+  const segmentIds = useController({ control, name: `roadUsage.${index}.segmentIds` });
+  const route = useController({ control, name: `roadUsage.${index}.route` });
+  const roadName = useController({ control, name: `roadUsage.${index}.roadLocation` });
   const knownRoads = [...new Set((ctx.others?.roads ?? []).map((r) => r.roadLocation))];
   const clashes = (ctx.others?.roads ?? []).filter(
     (r) =>
       r.targetDate === ctx.targetDate &&
       r.contractorId !== ctx.contractorId &&
-      norm(v?.roadLocation) !== "" &&
-      norm(r.roadLocation) === norm(v?.roadLocation) &&
+      Boolean(v) &&
+      roadPlacesMeet({ roadLocation: v.roadLocation, segmentIds: v.segmentIds, route: v.route }, r) &&
       v.startTime < v.endTime &&
       timeWindowsOverlap(v.startTime, v.endTime, r.startTime, r.endTime),
   );
@@ -364,6 +372,34 @@ function RoadRow({
             <IconButton aria-label="ลบคำขอใช้ถนน" onClick={onRemove}>
               <DeleteOutlineOutlinedIcon />
             </IconButton>
+          </Grid>
+          <Grid size={12}>
+            {/* Where on the map: register segments in driving order, or a temporary road drawn by hand. */}
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Button size="small" variant={route.field.value ? "outlined" : "contained"} disableElevation startIcon={<AddRoadOutlinedIcon />} onClick={() => setPicking(true)}>
+                {route.field.value ? "แก้เส้นทางบนแผนที่" : "เลือกเส้นทางบนแผนที่"}
+              </Button>
+              <Typography variant="caption" color={route.field.value ? "text.primary" : "text.secondary"}>
+                {route.field.value
+                  ? segmentIds.field.value.length ? `${segmentIds.field.value.length} ช่วงจากทะเบียนถนน · มีลูกศรบอกทาง` : "ถนนชั่วคราว (วาดเอง)"
+                  : "ยังไม่ได้ระบุบนแผนที่"}
+              </Typography>
+            </Stack>
+            {picking ? (
+              <RoadRoutePicker
+                open
+                projectId={ctx.projectId}
+                date={ctx.targetDate}
+                color="#0B4D8B"
+                initial={{ segmentIds: segmentIds.field.value, route: route.field.value }}
+                onClose={() => setPicking(false)}
+                onApply={(c) => {
+                  segmentIds.field.onChange(c.segmentIds);
+                  route.field.onChange(c.route);
+                  if (c.name) roadName.field.onChange(c.name);
+                }}
+              />
+            ) : null}
           </Grid>
           <Grid size={12}>
             <Controller

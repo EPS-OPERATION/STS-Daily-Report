@@ -6,6 +6,7 @@ import craneUrl from "../icons/crane.png";
 import machineryUrl from "../icons/machinery.png";
 import pinUrl from "../icons/pin.png";
 import pipeUrl from "../icons/pipe.png";
+import roadUrl from "../icons/road.png";
 import truckUrl from "../icons/truck.png";
 import weldUrl from "../icons/weld.png";
 
@@ -15,7 +16,7 @@ type MachineIconName = Exclude<CoordinationIcon, "text">;
 // PNG artwork is a black silhouette on white; at runtime the silhouette is used as
 // an alpha mask and recoloured with the contractor colour, so one image serves all.
 export const MACHINE_ICON_URLS: Record<MachineIconName, string> = {
-  crane: craneUrl, machinery: machineryUrl, truck: truckUrl, weld: weldUrl, pipe: pipeUrl, box: boxUrl, pin: pinUrl,
+  crane: craneUrl, machinery: machineryUrl, truck: truckUrl, weld: weldUrl, pipe: pipeUrl, box: boxUrl, pin: pinUrl, road: roadUrl,
 };
 const sources = new Map<MachineIconName, Promise<HTMLImageElement>>();
 function loadSource(icon: MachineIconName) {
