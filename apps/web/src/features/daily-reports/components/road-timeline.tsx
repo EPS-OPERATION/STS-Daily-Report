@@ -89,7 +89,7 @@ export function TimelineRows({ rows, compact = false }: { rows: TimelineRow[]; c
             <Box
               key={`band${b.from}`}
               role="img"
-              aria-label={`ชนกัน ${minutesToTime(b.from)}–${minutesToTime(b.to)}`}
+              aria-label={`Clash ${minutesToTime(b.from)}–${minutesToTime(b.to)}`}
               sx={{
                 position: "absolute",
                 top: 0,
@@ -149,7 +149,7 @@ export function TimelineRows({ rows, compact = false }: { rows: TimelineRow[]; c
                   component={interactive ? "button" : "div"}
                   type={interactive ? "button" : undefined}
                   onClick={interactive ? r.onClick : undefined}
-                  aria-label={interactive ? `แก้เวลา ${label}` : label}
+                  aria-label={interactive ? `Edit time ${label}` : label}
                   title={`${r.label} ${r.start}–${r.end}`}
                   sx={{
                     position: "absolute",
@@ -230,7 +230,7 @@ function RoadGroup<T extends ReportRoadUsage>({ bookings, pairs, visibleIds, can
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
         <Typography variant="body2" sx={{ fontWeight: 700 }}>{first.roadLocation}</Typography>
         <Typography variant="caption" color="text.secondary">{formatThaiDate(first.targetDate)}</Typography>
-        {pairs.length > 0 ? <Chip size="small" color="error" label={`ชนกัน ${colliding.size} รายการ`} sx={{ height: 20 }} /> : null}
+        {pairs.length > 0 ? <Chip size="small" color="error" label={`${colliding.size} clashes`} sx={{ height: 20 }} /> : null}
         {pairs.length > 0 || rows.some((r) => r.requested) ? (
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ ml: { sm: "auto" } }}>
             {pairs.length > 0 ? (

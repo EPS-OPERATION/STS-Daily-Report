@@ -1,6 +1,7 @@
+import ThunderstormOutlinedIcon from "@mui/icons-material/ThunderstormOutlined";
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import { BarChart } from "@mui/x-charts/BarChart";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import type { RainStats } from "../types/rain-log.types.js";
 
 interface RainTrendChartProps {
@@ -12,13 +13,7 @@ export function RainTrendChart({ stats, height = 300 }: RainTrendChartProps) {
   const data = stats.byDate;
 
   if (data.length === 0) {
-    return (
-      <Box sx={{ py: 6, textAlign: "center", bgcolor: "background.paper", borderRadius: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          ไม่มีประวัติฝนตกในช่วงวันที่เลือก
-        </Typography>
-      </Box>
-    );
+    return <EmptySection icon={<ThunderstormOutlinedIcon />} title="ไม่มีประวัติฝนตกในช่วงวันที่เลือก" description="บันทึกเวลาฝนตกจริงเพื่อเริ่มเก็บสถิติ Delay" />;
   }
 
   return (

@@ -1,6 +1,6 @@
 {
-  "id": "4fd90951-aea9-47eb-801b-cf267b9fe683",
-  "prevId": "8700c2e7-b8f5-43e6-97d2-1ad26ad376c3",
+  "id": "8700c2e7-b8f5-43e6-97d2-1ad26ad376c3",
+  "prevId": "99fb7b79-32a0-4b21-92e1-f68d02fe9f38",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4467,11 +4467,11 @@
         },
         "coordination_items_icon_check": {
           "name": "coordination_items_icon_check",
-          "value": "\"coordination_items\".\"icon\" IN ('crane','machinery','truck','weld','pipe','box','pin','road','text')"
+          "value": "\"coordination_items\".\"icon\" IN ('crane','machinery','truck','weld','pipe','box','pin','text')"
         },
         "coordination_items_area_kind_check": {
           "name": "coordination_items_area_kind_check",
-          "value": "\"coordination_items\".\"area_kind\" IN ('rectangle','polygon','route')"
+          "value": "\"coordination_items\".\"area_kind\" IN ('rectangle','polygon')"
         }
       },
       "isRLSEnabled": false
@@ -4552,6 +4552,166 @@
           "value": "\"coordination_maps\".\"width\" > 0 AND \"coordination_maps\".\"height\" > 0"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.drone_logs": {
+      "name": "drone_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "log_date": {
+          "name": "log_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "captured_by": {
+          "name": "captured_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "tags": {
+          "name": "tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "object_key": {
+          "name": "object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "file_name": {
+          "name": "file_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "drone_logs_project_date_idx": {
+          "name": "drone_logs_project_date_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "log_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "drone_logs_project_id_projects_id_fk": {
+          "name": "drone_logs_project_id_projects_id_fk",
+          "tableFrom": "drone_logs",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "drone_logs_created_by_users_id_fk": {
+          "name": "drone_logs_created_by_users_id_fk",
+          "tableFrom": "drone_logs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "drone_logs_object_key_unique": {
+          "name": "drone_logs_object_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "object_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },

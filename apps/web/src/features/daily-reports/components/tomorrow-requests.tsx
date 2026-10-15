@@ -1,4 +1,4 @@
-import AddIcon from "@mui/icons-material/Add";
+import AddIcon from "@mui/icons-material/AddOutlined";
 import AddRoadOutlinedIcon from "@mui/icons-material/AddRoadOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
@@ -128,7 +128,7 @@ function MachineryRow({
               name={`machinery.${index}.machineType`}
               control={control}
               render={({ field, fieldState }) => (
-                <TextField select label="ประเภทเครื่องจักร" size="small" fullWidth {...field} error={Boolean(fieldState.error)} helperText={fieldState.error?.message}>
+                <TextField select label="Machinery type" size="small" fullWidth {...field} error={Boolean(fieldState.error)} helperText={fieldState.error?.message}>
                   {MACHINE_TYPES.map((m) => (
                     <MenuItem key={m} value={m}>
                       {m}
@@ -142,11 +142,11 @@ function MachineryRow({
             <Controller
               name={`machinery.${index}.unitTag`}
               control={control}
-              render={({ field }) => <TextField {...field} label="หมายเลขเครื่อง" placeholder="CR-01" size="small" fullWidth />}
+              render={({ field }) => <TextField {...field} label="Machine no." placeholder="CR-01" size="small" fullWidth />}
             />
           </Grid>
           <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }}>
-            <IconButton aria-label="ลบการจอง" onClick={onRemove}>
+            <IconButton aria-label="Delete booking" onClick={onRemove}>
               <DeleteOutlineOutlinedIcon />
             </IconButton>
           </Grid>
@@ -155,7 +155,7 @@ function MachineryRow({
               name={`machinery.${index}.buildingId`}
               control={control}
               render={({ field, fieldState }) => (
-                <BuildingSelect label="อาคารที่ใช้งาน" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+                <BuildingSelect label="Building in use" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
               )}
             />
           </Grid>
@@ -166,7 +166,7 @@ function MachineryRow({
               render={({ field }) => (
                 <FormControlLabel
                   control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
-                  label={field.value ? "ใช้ทั้งวัน (ไม่ระบุเวลา)" : "ระบุช่วงเวลา"}
+                  label={field.value ? "All day (no time)" : "Set time range"}
                 />
               )}
             />
@@ -176,7 +176,7 @@ function MachineryRow({
             <Controller
               name={`machinery.${index}.purpose`}
               control={control}
-              render={({ field }) => <TextField {...field} label="วัตถุประสงค์ (Purpose)" placeholder="เช่น ยก Structure line A–D" size="small" fullWidth />}
+              render={({ field }) => <TextField {...field} label="Purpose" placeholder="เช่น ยก Structure line A–D" size="small" fullWidth />}
             />
           </Grid>
         </Grid>
@@ -220,7 +220,7 @@ export function EquipmentRequests({ control, buildings }: { control: Control<Eve
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="เครื่องมือ / อุปกรณ์ (พิมพ์เพิ่มเองได้)"
+                            label="Tools / equipment (type to add)"
                             size="small"
                             fullWidth
                             error={Boolean(fieldState.error)}
@@ -237,12 +237,12 @@ export function EquipmentRequests({ control, buildings }: { control: Control<Eve
                     name={`equipmentRequests.${i}.qty`}
                     control={control}
                     render={({ field, fieldState }) => (
-                      <NumberStepper label="จำนวน" value={field.value} onChange={field.onChange} min={1} max={500} error={fieldState.error?.message} />
+                      <NumberStepper label="Qty" value={field.value} onChange={field.onChange} min={1} max={500} error={fieldState.error?.message} />
                     )}
                   />
                 </Grid>
                 <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }}>
-                  <IconButton aria-label="ลบคำขออุปกรณ์" onClick={() => rows.remove(i)}>
+                  <IconButton aria-label="Delete equipment request" onClick={() => rows.remove(i)}>
                     <DeleteOutlineOutlinedIcon />
                   </IconButton>
                 </Grid>
@@ -251,7 +251,7 @@ export function EquipmentRequests({ control, buildings }: { control: Control<Eve
                     name={`equipmentRequests.${i}.buildingId`}
                     control={control}
                     render={({ field, fieldState }) => (
-                      <BuildingSelect label="อาคาร" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+                      <BuildingSelect label="Building" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
                     )}
                   />
                 </Grid>
@@ -259,7 +259,7 @@ export function EquipmentRequests({ control, buildings }: { control: Control<Eve
                   <Controller
                     name={`equipmentRequests.${i}.purpose`}
                     control={control}
-                    render={({ field }) => <TextField {...field} label="วัตถุประสงค์ (Purpose)" size="small" fullWidth />}
+                    render={({ field }) => <TextField {...field} label="Purpose" size="small" fullWidth />}
                   />
                 </Grid>
               </Grid>
@@ -352,7 +352,7 @@ function RoadRow({
               render={({ field, fieldState }) => (
                 <TextField
                   {...field}
-                  label="ถนน / ช่องทาง"
+                  label="Road / lane"
                   placeholder="เช่น Road R2 (Boiler–ACC)"
                   size="small"
                   fullWidth
@@ -369,7 +369,7 @@ function RoadRow({
             </datalist>
           </Grid>
           <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }}>
-            <IconButton aria-label="ลบคำขอใช้ถนน" onClick={onRemove}>
+            <IconButton aria-label="Delete road request" onClick={onRemove}>
               <DeleteOutlineOutlinedIcon />
             </IconButton>
           </Grid>
@@ -409,7 +409,7 @@ function RoadRow({
                 <>
                   <TextField
                     {...field}
-                    label="วัตถุประสงค์"
+                    label="Purpose"
                     size="small"
                     fullWidth
                     error={Boolean(fieldState.error)}
@@ -542,7 +542,7 @@ function PermitRow({
                 {meta?.labelTh}
               </Typography>
             </Box>
-            <IconButton aria-label="ลบใบอนุญาต" onClick={onRemove}>
+            <IconButton aria-label="Delete permit" onClick={onRemove}>
               <DeleteOutlineOutlinedIcon />
             </IconButton>
           </Stack>
@@ -551,7 +551,7 @@ function PermitRow({
               name={`permits.${index}.otherLabel`}
               control={control}
               render={({ field, fieldState }) => (
-                <TextField {...field} label="ชื่องานเสี่ยง" size="small" fullWidth error={Boolean(fieldState.error)} helperText={fieldState.error?.message} />
+                <TextField {...field} label="Hazard work" size="small" fullWidth error={Boolean(fieldState.error)} helperText={fieldState.error?.message} />
               )}
             />
           ) : null}
@@ -560,14 +560,14 @@ function PermitRow({
               name={`permits.${index}.buildingId`}
               control={control}
               render={({ field, fieldState }) => (
-                <BuildingSelect label="อาคาร" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+                <BuildingSelect label="Building" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
               )}
             />
             <Controller
               name={`permits.${index}.workers`}
               control={control}
               render={({ field, fieldState }) => (
-                <NumberStepper label="จำนวนคน" value={field.value} onChange={field.onChange} min={1} unit="คน" error={fieldState.error?.message} />
+                <NumberStepper label="Headcount" value={field.value} onChange={field.onChange} min={1} unit="คน" error={fieldState.error?.message} />
               )}
             />
           </Stack>
@@ -600,7 +600,7 @@ function PermitRow({
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="ชื่องานความเสี่ยงสูง"
+                        label="High-risk work"
                         placeholder="เช่น ยกและงานสูงที่อาคาร Boiler"
                         size="small"
                         error={Boolean(fieldState.error)}
@@ -623,7 +623,7 @@ function PermitRow({
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="ผู้ควบคุมงาน (EPS)"
+                        label="Supervisor (EPS)"
                         placeholder="เช่น นายสุชิต"
                         size="small"
                         error={Boolean(fieldState.error)}
@@ -663,7 +663,7 @@ function TimeWindow({
                 onChange={field.onChange}
                 onBlur={field.onBlur}
                 type="time"
-                label={k === "startTime" ? "เริ่ม" : "สิ้นสุด"}
+                label={k === "startTime" ? "Start" : "End"}
                 size="small"
                 fullWidth
                 slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 900 } }}
@@ -711,7 +711,7 @@ export function ForecastActivities({ control, buildings }: { control: Control<Ev
                     render={({ field, fieldState }) => (
                       <TextField
                         {...field}
-                        label={`รายการที่ ${i + 1} — รายละเอียดงาน`}
+                        label={`Item ${i + 1} — work details`}
                         placeholder="เช่น Scaffolding erection"
                         size="small"
                         fullWidth
@@ -722,7 +722,7 @@ export function ForecastActivities({ control, buildings }: { control: Control<Ev
                   />
                 </Grid>
                 <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }} order={{ sm: 3 }}>
-                  <IconButton aria-label={`ลบแผนงานรายการที่ ${i + 1}`} onClick={() => rows.remove(i)}>
+                  <IconButton aria-label={`Delete plan item ${i + 1}`} onClick={() => rows.remove(i)}>
                     <DeleteOutlineOutlinedIcon />
                   </IconButton>
                 </Grid>
@@ -731,7 +731,7 @@ export function ForecastActivities({ control, buildings }: { control: Control<Ev
                     name={`forecasts.${i}.buildingId`}
                     control={control}
                     render={({ field, fieldState }) => (
-                      <BuildingSelect label="พื้นที่ (Area)" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+                      <BuildingSelect label="Area" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
                     )}
                   />
                 </Grid>
@@ -748,7 +748,7 @@ export function ForecastActivities({ control, buildings }: { control: Control<Ev
         disabled={rows.fields.length >= 20}
         onClick={() => rows.append({ description: "", buildingId: "" })}
       >
-        เพิ่มแผนงานพรุ่งนี้
+        Add tomorrow's plan
       </Button>
     </Box>
   );

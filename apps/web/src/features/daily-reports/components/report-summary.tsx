@@ -1,5 +1,7 @@
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -122,9 +124,9 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
         subtitle={`สำหรับ ${formatThaiDate(report.requestsForDate)} — ส่งแล้วพร้อมรายงานบ่าย`}
       >
         {report.machinery.length + report.equipmentRequests.length + report.permits.length + report.roadUsage.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            ไม่มีการจองเครื่องจักร / ถนน / ใบอนุญาตสำหรับพรุ่งนี้
-          </Typography>
+          <Box sx={{ mb: 1.5 }}>
+            <EmptySection dense icon={<EventNoteOutlinedIcon />} title="ไม่มีการจองเครื่องจักร / ถนน / ใบอนุญาตสำหรับพรุ่งนี้" />
+          </Box>
         ) : (
           <Stack spacing={0.5} sx={{ mb: 1.5 }}>
             {report.machinery.map((m) => (

@@ -1,10 +1,10 @@
-import AddIcon from "@mui/icons-material/Add";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import AddIcon from "@mui/icons-material/AddOutlined";
+import ArrowBackIcon from "@mui/icons-material/ArrowBackOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import ChevronRightIcon from "@mui/icons-material/ChevronRightOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMoreOutlined";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUncheckedOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import Accordion from "@mui/material/Accordion";
@@ -30,6 +30,7 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import {
@@ -48,6 +49,7 @@ import { HttpError } from "@/services/http/client.js";
 
 type PartDraft = PartInput & { id: string | null };
 const VIEW_LABEL: Record<SiteMapView, string> = { overview: "Overview", topview: "Top view", plan: "Plan" };
+type PendingConfirm = { title: string; description?: string; confirmLabel?: string; run: () => void };
 
 // Admin site-map configuration (deck v2, "admin config map"):
 // Map → Facility marker (per view) → optional Work Parts with their own markers.
@@ -66,6 +68,7 @@ export function SitePlanConfigPage() {
   const [partPoint, setPartPoint] = useState<MapPoint | null>(null); // part marker, unsaved
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
 
   const buildings = map.data?.data ?? [];
   const building = buildings.find((b) => b.id === buildingId) ?? null;
@@ -84,7 +87,11 @@ export function SitePlanConfigPage() {
     return !q || b.name.toLowerCase().includes(q) || b.code.toLowerCase().includes(q) || (b.nameTh ?? "").includes(q);
   });
 
-  const confirmDiscard = () => !dirty || window.confirm("มีการแก้ไขที่ยังไม่บันทึก — ทิ้งการแก้ไขนี้?");
+  // Unsaved edits: confirm first, then run the navigation action.
+  const guardDiscard = (next: () => void) => {
+    if (dirty) setPendingConfirm({ title: "Discard unsaved changes?", description: "การแก้ไขที่ยังไม่บันทึกจะหายไป", confirmLabel: "Discard", run: next });
+    else next();
+  };
   const discard = () => {
     setPendingPoint(null);
     setPartPoint(null);
@@ -92,23 +99,25 @@ export function SitePlanConfigPage() {
     if (part) setPart(savedPart ? { id: savedPart.id, code: savedPart.code, name: savedPart.name, status: savedPart.status } : null);
   };
   const chooseBuilding = (id: string) => {
-    if (id === buildingId || !confirmDiscard()) return;
-    discard();
-    setPart(null);
-    setMode("building");
-    setBuildingId(id);
+    if (id === buildingId) return;
+    guardDiscard(() => {
+      discard();
+      setPart(null);
+      setMode("building");
+      setBuildingId(id);
+    });
   };
-  const chooseView = (v: SiteMapView) => {
-    if (!confirmDiscard()) return;
-    setPendingPoint(null);
-    setPartPoint(null);
-    setView(v);
-  };
-  const choosePart = (p: SiteMapBuilding["parts"][number]) => {
-    if (!confirmDiscard()) return;
-    setPartPoint(null);
-    setPart({ id: p.id, code: p.code, name: p.name, status: p.status });
-  };
+  const chooseView = (v: SiteMapView) =>
+    guardDiscard(() => {
+      setPendingPoint(null);
+      setPartPoint(null);
+      setView(v);
+    });
+  const choosePart = (p: SiteMapBuilding["parts"][number]) =>
+    guardDiscard(() => {
+      setPartPoint(null);
+      setPart({ id: p.id, code: p.code, name: p.name, status: p.status });
+    });
   const newPart = (b: SiteMapBuilding) => {
     const used = new Set(b.parts.map((p) => p.code));
     const letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").find((l) => !used.has(l)) ?? String(b.parts.length + 1);
@@ -222,8 +231,8 @@ export function SitePlanConfigPage() {
         title="Zone Configuration"
         subtitle="วางหมุดอาคาร (Facility marker) บนแผนที่ และแบ่ง Work Part ของแต่ละอาคาร"
         actions={
-          <Button component={RouterLink} to="/site-plan" size="small" variant="text" startIcon={<ArrowBackIcon />}>
-            กลับ Site Plan
+          <Button component={RouterLink} to="/site-plan" variant="text" startIcon={<ArrowBackIcon />}>
+            Back to Site Plan
           </Button>
         }
       />
@@ -247,7 +256,7 @@ export function SitePlanConfigPage() {
                     <TextField
                       size="small"
                       fullWidth
-                      placeholder="ค้นหาอาคาร…"
+                      placeholder="Search facilities…"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       slotProps={{
@@ -316,20 +325,23 @@ export function SitePlanConfigPage() {
                           </Stack>
                           {building.markers[view] ? (
                             <Button
-                              size="small"
                               color="error"
                               startIcon={<DeleteOutlineOutlinedIcon />}
                               sx={{ mt: 1 }}
                               disabled={saving}
                               onClick={() =>
-                                window.confirm(`ลบหมุด ${building.name} ใน ${VIEW_LABEL[view]}?`) &&
-                                run(async () => {
-                                  await writer.setBuildingMarker(building.id, view, null);
-                                  setPendingPoint(null);
+                                setPendingConfirm({
+                                  title: `Delete marker in ${VIEW_LABEL[view]}?`,
+                                  description: `หมุด ${building.name} จะถูกลบออกจากมุมมองนี้`,
+                                  run: () =>
+                                    run(async () => {
+                                      await writer.setBuildingMarker(building.id, view, null);
+                                      setPendingPoint(null);
+                                    }),
                                 })
                               }
                             >
-                              ลบหมุดในมุมมองนี้
+                              Delete marker in this view
                             </Button>
                           ) : null}
                         </AccordionDetails>
@@ -337,14 +349,14 @@ export function SitePlanConfigPage() {
                       <Button
                         fullWidth
                         variant="outlined"
-                        size="small"
                         endIcon={<ChevronRightIcon />}
                         sx={{ mt: 1.25, justifyContent: "space-between" }}
                         onClick={() => {
-                          if (!confirmDiscard()) return;
-                          setPendingPoint(null);
-                          setMode("parts");
-                          setPart(null);
+                          guardDiscard(() => {
+                            setPendingPoint(null);
+                            setMode("parts");
+                            setPart(null);
+                          });
                         }}
                       >
                         Work Parts configuration ({building.parts.length})
@@ -357,12 +369,13 @@ export function SitePlanConfigPage() {
                   <Stack direction="row" spacing={1} alignItems="center">
                     <IconButton
                       size="small"
-                      aria-label="กลับไปรายการอาคาร"
+                      aria-label="Back to facilities"
                       onClick={() => {
-                        if (!confirmDiscard()) return;
-                        discard();
-                        setPart(null);
-                        setMode("building");
+                        guardDiscard(() => {
+                          discard();
+                          setPart(null);
+                          setMode("building");
+                        });
                       }}
                     >
                       <ArrowBackIcon fontSize="small" />
@@ -377,10 +390,9 @@ export function SitePlanConfigPage() {
                     </Box>
                   </Stack>
                   <Button
-                    size="small"
                     startIcon={<AddIcon />}
                     sx={{ mt: 1.5 }}
-                    onClick={() => confirmDiscard() && newPart(building)}
+                    onClick={() => guardDiscard(() => newPart(building))}
                   >
                     Add Part
                   </Button>
@@ -408,14 +420,18 @@ export function SitePlanConfigPage() {
                         {part.id ? (
                           <IconButton
                             size="small"
-                            aria-label="ลบ Part"
+                            aria-label="Delete part"
                             disabled={saving}
                             onClick={() =>
-                              window.confirm(`ลบ ${part.name}?`) &&
-                              run(async () => {
-                                await writer.deletePart(part.id!);
-                                setPart(null);
-                                setPartPoint(null);
+                              setPendingConfirm({
+                                title: `Delete ${part.name}?`,
+                                description: "Part นี้จะถูกลบถาวร",
+                                run: () =>
+                                  run(async () => {
+                                    await writer.deletePart(part.id!);
+                                    setPart(null);
+                                    setPartPoint(null);
+                                  }),
                               })
                             }
                           >
@@ -453,12 +469,11 @@ export function SitePlanConfigPage() {
                         </Typography>
                         {savedPart?.markers[view] && !partPoint ? (
                           <Button
-                            size="small"
                             color="error"
                             disabled={saving}
                             onClick={() => run(async () => void (await writer.setPartMarker(savedPart.id, view, null)))}
                           >
-                            ลบหมุดของ Part
+                            Delete part marker
                           </Button>
                         ) : null}
                       </Box>
@@ -554,6 +569,18 @@ export function SitePlanConfigPage() {
           </Button>
         </Stack>
       </Box>
+      <ConfirmDialog
+        open={Boolean(pendingConfirm)}
+        title={pendingConfirm?.title ?? ""}
+        description={pendingConfirm?.description}
+        confirmLabel={pendingConfirm?.confirmLabel}
+        onClose={() => setPendingConfirm(null)}
+        onConfirm={() => {
+          const action = pendingConfirm;
+          setPendingConfirm(null);
+          action?.run();
+        }}
+      />
     </Box>
   );
 }

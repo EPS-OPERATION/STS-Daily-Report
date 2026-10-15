@@ -67,4 +67,10 @@ export const palette: PaletteOptions = {
     light: "#EAF3FC",
     contrastText: "#FFFFFF",
   },
+  violet: {
+    main: "#6D28D9",
+    dark: "#5B21B6",
+    light: "#EDE9FE",
+    contrastText: "#FFFFFF",
+  },
 };

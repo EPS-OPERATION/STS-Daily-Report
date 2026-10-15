@@ -32,6 +32,7 @@ import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
+import { QueryError } from "@/components/ui/query-error.js";
 import {
   ALL_BUILDINGS,
   ALL_CONTRACTORS,
@@ -182,16 +183,16 @@ export function DailyReportsPage() {
     window.open(`/daily-reports/history/print?${p.toString()}`, "_blank", "noopener");
   };
 
-  const loadError =
+  const loadError: HttpError | null =
     history.error instanceof HttpError
-      ? history.error.message
+      ? history.error
       : inspections.error instanceof HttpError
-        ? inspections.error.message
+        ? inspections.error
         : null;
   const loading = history.isPending;
 
   const shiftChip = (s: string) =>
-    s === "submitted" ? <StatusChip status="submitted" label="ส่งแล้ว" /> : <StatusChip status="draft" label="ยังไม่ส่ง" />;
+    s === "submitted" ? <StatusChip status="submitted" label="Submitted" /> : <StatusChip status="draft" label="Not submitted" />;
 
   const dateRangeLabel = isRange ? `${formatThaiDate(from)} – ${formatThaiDate(to)}` : formatThaiDate(from);
   const pct = (n: number) => (counts.all > 0 ? `${Math.round((n / counts.all) * 100)}% ของทั้งหมด` : "—");
@@ -220,9 +221,7 @@ export function DailyReportsPage() {
           กรุณาเลือกโครงการด้านบนเพื่อดูสรุปรายงานประจำวัน
         </Alert>
       ) : loadError ? (
-        <Alert severity="error" sx={{ mb: 2.5 }}>
-          ไม่สามารถโหลดข้อมูลรายงานได้: {loadError}
-        </Alert>
+        <QueryError error={loadError} onRetry={() => { void history.refetch(); void inspections.refetch(); }} />
       ) : loading ? (
         <Stack spacing={2} sx={{ mb: 2.5 }}>
           <Skeleton variant="rounded" height={90} />
@@ -293,7 +292,7 @@ export function DailyReportsPage() {
             />
           ) : (
             <Box>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, flexWrap: "wrap", rowGap: 1 }} role="group" aria-label="กรองตามสถานะการส่ง">
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, flexWrap: "wrap", rowGap: 1 }} role="group" aria-label="Filter by submission status">
                 {(
                   [
                     ["all", `ทั้งหมด (${counts.all})`],
@@ -314,12 +313,11 @@ export function DailyReportsPage() {
                 <Box sx={{ flexGrow: 1 }} />
                 <Button
                   variant="outlined"
-                  size="small"
                   startIcon={<PictureAsPdfOutlinedIcon />}
                   onClick={exportSummaryPdf}
                   disabled={rows.length === 0}
                 >
-                  Export PDF (สรุปตาราง)
+                  Export PDF (summary table)
                 </Button>
               </Stack>
 
@@ -328,8 +326,8 @@ export function DailyReportsPage() {
                   <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
                     <FormControl size="small" sx={{ minWidth: 220 }}>
                       <InputLabel id="history-contractor">ผู้รับเหมา</InputLabel>
-                      <Select labelId="history-contractor" label="ผู้รับเหมา" value={contractor} onChange={(e) => setContractor(e.target.value)}>
-                        <MenuItem value={ALL_CONTRACTORS}>ทุกผู้รับเหมา</MenuItem>
+                      <Select labelId="history-contractor" label="Contractor" value={contractor} onChange={(e) => setContractor(e.target.value)}>
+                        <MenuItem value={ALL_CONTRACTORS}>All contractors</MenuItem>
                         {[...new Set(contractorNames.values())].sort().map((c) => (
                           <MenuItem key={c} value={c}>
                             {c}
@@ -338,8 +336,8 @@ export function DailyReportsPage() {
                       </Select>
                     </FormControl>
                     <TextField
-                      label="ค้นหา"
-                      placeholder="ชื่อผู้รับเหมา, รหัส หรือวันที่…"
+                      label="Search"
+                      placeholder="Contractor, code or date…"
                       size="small"
                       fullWidth
                       value={search}
@@ -355,14 +353,13 @@ export function DailyReportsPage() {
                       action={
                         <Button
                           variant="outlined"
-                          size="small"
                           onClick={() => {
                             setFilter("all");
                             setSearch("");
                             setContractor(ALL_CONTRACTORS);
                           }}
                         >
-                          ดูทั้งหมด
+                          View all
                         </Button>
                       }
                     />

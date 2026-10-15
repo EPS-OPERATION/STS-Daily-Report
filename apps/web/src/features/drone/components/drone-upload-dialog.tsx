@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -9,40 +10,70 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
-import type { DronePhotoLog } from "../types/drone.types.js";
+import CloudUploadIcon from "@mui/icons-material/CloudUploadOutlined";
+import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternateOutlined";
+import dayjs from "dayjs";
+import { toast } from "sonner";
+import { HttpError } from "@/services/http/client.js";
+import { useUploadDroneLog } from "../hooks/use-drone-logs.js";
 
 interface DroneUploadDialogProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (log: DronePhotoLog) => void;
+  projectId: string | null;
+  onSaved?: (dateIso: string) => void;
 }
 
-export function DroneUploadDialog({ open, onClose, onSubmit }: DroneUploadDialogProps) {
-  const [date, setDate] = useState<string>("2026-10-02");
+export function DroneUploadDialog({ open, onClose, projectId, onSaved }: DroneUploadDialogProps) {
+  const upload = useUploadDroneLog(projectId);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [date, setDate] = useState<string>(dayjs().format("YYYY-MM-DD"));
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [capturedBy, setCapturedBy] = useState<string>("EPS QAQC Team");
-  const [fileName, setFileName] = useState<string>("");
+  const [tags, setTags] = useState<string>("");
+  const [file, setFile] = useState<File | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newLog: DronePhotoLog = {
-      id: `log-${Date.now()}`,
-      date,
-      title: title || `ภาพถ่ายโดรน ณ วันที่ ${date}`,
-      description: description || "บันทึกความคืบหน้าหน้างานประจำรอบบิน",
-      imageUrl: "/drone/flight-2026-10-01.jpg",
-      capturedBy,
-      tags: ["ภาพสำรวจโดรน"],
-    };
-    onSubmit(newLog);
+  const reset = () => {
+    setDate(dayjs().format("YYYY-MM-DD"));
+    setTitle("");
+    setDescription("");
+    setCapturedBy("EPS QAQC Team");
+    setTags("");
+    setFile(null);
+  };
+
+  const close = () => {
+    if (upload.isPending) return;
+    reset();
     onClose();
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file || !projectId || upload.isPending) return;
+    upload.mutate(
+      {
+        date,
+        title: title.trim() || `ภาพถ่ายโดรน ณ วันที่ ${date}`,
+        description: description.trim(),
+        capturedBy: capturedBy.trim(),
+        tags: tags.trim(),
+        file,
+      },
+      {
+        onSuccess: () => {
+          toast.success("บันทึกภาพถ่ายโดรนแล้ว");
+          onSaved?.(date);
+          reset();
+          onClose();
+        },
+      },
+    );
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={close} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <AddPhotoAlternateIcon color="primary" />
@@ -50,24 +81,30 @@ export function DroneUploadDialog({ open, onClose, onSubmit }: DroneUploadDialog
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2.5}>
-            {/* File Upload Area */}
             <Box
               sx={{
                 border: "2px dashed",
-                borderColor: fileName ? "primary.main" : "divider",
+                borderColor: file ? "primary.main" : "divider",
                 borderRadius: 2,
                 p: 3,
                 textAlign: "center",
-                bgcolor: fileName ? "action.selected" : "action.hover",
+                bgcolor: file ? "action.selected" : "action.hover",
                 cursor: "pointer",
                 transition: "all 0.2s",
                 "&:hover": { borderColor: "primary.light" },
               }}
-              onClick={() => setFileName("Drone_Survey_Latest.jpg")}
+              onClick={() => inputRef.current?.click()}
             >
-              <CloudUploadIcon sx={{ fontSize: 40, color: fileName ? "primary.main" : "text.secondary", mb: 1 }} />
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+              <CloudUploadIcon sx={{ fontSize: 40, color: file ? "primary.main" : "text.secondary", mb: 1 }} />
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                {fileName ? `ไฟล์ที่เลือก: ${fileName}` : "คลิกหรือลากไฟล์ภาพถ่ายโดรน (JPG, PNG)"}
+                {file ? `ไฟล์ที่เลือก: ${file.name}` : "คลิกเพื่อเลือกไฟล์ภาพถ่ายโดรน (JPG, PNG)"}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 ภาพมุมสูงหรือภาพมุมเฉียงที่ใช้ติดตามความก้าวหน้าโครงการ
@@ -78,7 +115,7 @@ export function DroneUploadDialog({ open, onClose, onSubmit }: DroneUploadDialog
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
-                  label="วันที่ถ่ายภาพ"
+                  label="Photo date"
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
@@ -89,7 +126,7 @@ export function DroneUploadDialog({ open, onClose, onSubmit }: DroneUploadDialog
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
-                  label="ผู้ถ่าย / ทีมงาน"
+                  label="Photographer / team"
                   value={capturedBy}
                   onChange={(e) => setCapturedBy(e.target.value)}
                 />
@@ -97,7 +134,7 @@ export function DroneUploadDialog({ open, onClose, onSubmit }: DroneUploadDialog
               <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
-                  label="หัวข้อ / บริเวณที่สำรวจ"
+                  label="Title / survey area"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="เช่น ภาพรวมโครงการและโครงสร้าง Boiler, ลานกองเชื้อเพลิงชีวมวล"
@@ -107,7 +144,7 @@ export function DroneUploadDialog({ open, onClose, onSubmit }: DroneUploadDialog
               <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
-                  label="บันทึกรายละเอียดความก้าวหน้าหน้างาน"
+                  label="Progress notes"
                   multiline
                   rows={3}
                   value={description}
@@ -115,15 +152,30 @@ export function DroneUploadDialog({ open, onClose, onSubmit }: DroneUploadDialog
                   placeholder="ระบุสิ่งที่สังเกตเห็น เช่น โครงสร้างเหล็กชั้น 2 ติดตั้งเสร็จ, เทพื้นคอนกรีตเรียบร้อย..."
                 />
               </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  label="Tags (comma separated)"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="Boiler, Silo, ภาพมุมสูงรวม"
+                />
+              </Grid>
             </Grid>
+
+            {upload.error ? (
+              <Alert severity="error">
+                {upload.error instanceof HttpError ? upload.error.message : "อัปโหลดไม่สำเร็จ กรุณาลองใหม่"}
+              </Alert>
+            ) : null}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={onClose} color="inherit">
-            ยกเลิก
+          <Button onClick={close} color="inherit" disabled={upload.isPending}>
+            Cancel
           </Button>
-          <Button type="submit" variant="contained">
-            บันทึกรูปภาพ
+          <Button type="submit" variant="contained" disabled={!file || upload.isPending}>
+            {upload.isPending ? "Uploading…" : "Save photos"}
           </Button>
         </DialogActions>
       </form>

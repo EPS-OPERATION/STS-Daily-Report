@@ -23,10 +23,10 @@ import dayjs, { type Dayjs } from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { QueryError } from "@/components/ui/query-error.js";
 import { useMaterials } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { useProjectContractors } from "@/features/projects/hooks/use-projects.js";
-import { HttpError } from "@/services/http/client.js";
 
 // EPS view of materials contractors reported on site: totals per material
 // plus the day-by-day log. Data rides the evening check-out — no separate
@@ -70,9 +70,7 @@ export function MaterialsPage() {
       {!projectId ? (
         <Alert severity="info">Select a project to see its materials.</Alert>
       ) : log.isError ? (
-        <Alert severity="error">
-          {log.error instanceof HttpError ? log.error.message : "Could not load materials"}
-        </Alert>
+        <QueryError error={log.error as Error} onRetry={() => void log.refetch()} />
       ) : log.isPending ? (
         <Stack spacing={2}>
           <Skeleton variant="rounded" height={90} />

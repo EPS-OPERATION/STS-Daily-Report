@@ -25,7 +25,7 @@ export function DayLockBanner({ lock, canUnlock, busy, onUnlock }: { lock: Coord
         </Typography>
       </Box>
       {canUnlock ? (
-        <Button size="small" variant="outlined" color="inherit" startIcon={<LockOpenOutlined fontSize="small" />} disabled={busy} onClick={onUnlock} sx={{ textTransform: "none", whiteSpace: "nowrap", bgcolor: "background.paper" }}>
+        <Button variant="outlined" color="inherit" startIcon={<LockOpenOutlined fontSize="small" />} disabled={busy} onClick={onUnlock} sx={{ textTransform: "none", whiteSpace: "nowrap", bgcolor: "background.paper" }}>
           ปลดล็อก
         </Button>
       ) : null}
@@ -55,7 +55,7 @@ export function DayLockStamp({ lock, date, small = false }: { lock: Coordination
         lineHeight: 1.15,
       }}
     >
-      <Typography sx={{ fontWeight: 800, fontSize: small ? 12 : 17, letterSpacing: "0.04em", color: "inherit" }}>ล็อกแผนแล้ว</Typography>
+      <Typography sx={{ fontWeight: 700, fontSize: small ? 12 : 17, letterSpacing: "0.04em", color: "inherit" }}>ล็อกแผนแล้ว</Typography>
       <Typography sx={{ fontWeight: 700, fontSize: small ? 9 : 11, letterSpacing: "0.18em", color: "inherit" }}>LOCKED · {dayjs(date).format("DD/MM/YY")}</Typography>
       {!small ? (
         <Typography sx={{ fontSize: 10.5, color: "inherit", opacity: 0.9 }}>{lock.lockedByName ?? "EPS"}</Typography>

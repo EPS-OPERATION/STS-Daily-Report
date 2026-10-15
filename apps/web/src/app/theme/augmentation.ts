@@ -5,9 +5,11 @@ import type {} from "@mui/material/styles";
 declare module "@mui/material/styles" {
   interface Palette {
     navy: Palette["primary"];
+    violet: Palette["primary"];
   }
   interface PaletteOptions {
     navy?: PaletteOptions["primary"];
+    violet?: PaletteOptions["primary"];
   }
   interface TypographyVariants {
     metric: React.CSSProperties;

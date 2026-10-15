@@ -92,7 +92,7 @@ export function CoordinationInspector({
       {/* header: back to the list · job identity · save state */}
       <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 1, py: 0.75, borderBottom: "1px solid", borderColor: "divider" }}>
         <Tooltip title="กลับไปรายการงาน">
-          <IconButton size="small" aria-label="กลับไปรายการงาน" onClick={onClose}>
+          <IconButton size="small" aria-label="Back to item list" onClick={onClose}>
             <ArrowBackOutlined fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -126,15 +126,15 @@ export function CoordinationInspector({
       <Stack spacing={2.25} sx={{ p: 1.75, overflowY: "auto", flex: 1 }}>
         {editable && draft ? (
           <>
-            <Field label="ชื่องาน (แสดงบนผัง)">
+            <Field label="Item name (shown on map)">
               <TextField size="small" fullWidth value={draft.title} onChange={(e) => onPatch({ title: e.target.value })}
                 error={!draft.title.trim()} helperText={!draft.title.trim() ? "ระบุชื่องาน" : undefined} placeholder="เช่น จุดจอดเครน 25T" />
             </Field>
-            <Field label="หมายเหตุ / รายละเอียด">
+            <Field label="Note / details">
               <TextField size="small" fullWidth multiline minRows={3} maxRows={8} value={draft.note ?? ""} onChange={(e) => onPatch({ note: e.target.value.slice(0, 1000) })}
                 placeholder="เช่น ยก A Frame 09:00–12:00 · ปิดถนน R2 ชั่วคราว" />
             </Field>
-            <Field label="ผู้รับเหมา">
+            <Field label="Contractor">
               <TextField select size="small" fullWidth value={draft.contractorId} onChange={(e) => onPatch({ contractorId: e.target.value })}>
                 {editableContractors.map((c) => (
                   <MenuItem key={c.id} value={c.id}>
@@ -148,7 +148,7 @@ export function CoordinationInspector({
                 ))}
               </TextField>
               {onEditColor && company ? (
-                <Button size="small" startIcon={<PaletteOutlined fontSize="small" />} onClick={() => onEditColor(company)} sx={{ alignSelf: "flex-start", textTransform: "none" }}>
+                <Button startIcon={<PaletteOutlined fontSize="small" />} onClick={() => onEditColor(company)} sx={{ alignSelf: "flex-start", textTransform: "none" }}>
                   เปลี่ยนสี {company.code}
                 </Button>
               ) : null}
@@ -159,7 +159,7 @@ export function CoordinationInspector({
               </Alert>
             ) : null}
             {draft.areaKind === "route" ? (
-              <Field label="เส้นทางถนน">
+              <Field label="Road route">
                 <Stack direction="row" spacing={1}>
                   <Button fullWidth variant={drawing ? "contained" : "outlined"} disableElevation startIcon={<AddRoadOutlined />} onClick={onDrawRoute} sx={{ textTransform: "none" }}>
                     {drawing ? "กำลังวาดเส้นทาง" : "แก้ / ต่อเส้นทาง"}
@@ -186,11 +186,11 @@ export function CoordinationInspector({
                 ) : null}
               </Field>
             ) : <>
-            <Field label="ประเภทงาน">
+            <Field label="Work type">
               <TypePicker value={draft.icon} onPick={(icon) => onPatch({ icon })} exclude={["road"]} />
             </Field>
             <Divider />
-            <Field label="พื้นที่ทำงาน">
+            <Field label="Work area">
               <Stack direction="row" spacing={1}>
                 <Button
                   fullWidth
@@ -220,7 +220,7 @@ export function CoordinationInspector({
                     : `${draft.geometry.points.length} จุดมุม · ลากจุดมุมบนผังเพื่อปรับรูป`)}
               </Typography>
               {areaDirty ? (
-                <Button size="small" startIcon={<RestartAltOutlined />} onClick={onResetArea} sx={{ alignSelf: "flex-start", textTransform: "none" }}>
+                <Button startIcon={<RestartAltOutlined />} onClick={onResetArea} sx={{ alignSelf: "flex-start", textTransform: "none" }}>
                   คืนค่าพื้นที่เดิม
                 </Button>
               ) : null}
@@ -240,15 +240,15 @@ export function CoordinationInspector({
           </>
         ) : (
           <>
-            <Field label="ประเภทงาน">
+            <Field label="Work type">
               <Typography variant="body2">{ICON_LABELS[item.icon]}</Typography>
             </Field>
-            <Field label="หมายเหตุ / รายละเอียด">
+            <Field label="Note / details">
               <Typography variant="body2" color={item.note ? "text.primary" : "text.secondary"} sx={{ whiteSpace: "pre-line" }}>
                 {item.note || "ไม่มีหมายเหตุ"}
               </Typography>
             </Field>
-            <Field label="พื้นที่ทำงาน">
+            <Field label="Work area">
               <Typography variant="body2">{areaLabel(item, true)}</Typography>
             </Field>
             <Typography variant="caption" color="text.secondary">
@@ -261,7 +261,7 @@ export function CoordinationInspector({
       {editable ? (
         <Box sx={{ p: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
           <Button fullWidth color="error" variant="outlined" startIcon={<DeleteOutlineOutlined />} onClick={onDelete} sx={{ textTransform: "none" }}>
-            ลบงานนี้
+            Delete item
           </Button>
         </Box>
       ) : null}

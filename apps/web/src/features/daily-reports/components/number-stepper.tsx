@@ -1,5 +1,5 @@
-import AddIcon from "@mui/icons-material/Add";
-import RemoveIcon from "@mui/icons-material/Remove";
+import AddIcon from "@mui/icons-material/AddOutlined";
+import RemoveIcon from "@mui/icons-material/RemoveOutlined";
 import IconButton from "@mui/material/IconButton";
 import InputBase from "@mui/material/InputBase";
 import Stack from "@mui/material/Stack";
@@ -40,7 +40,7 @@ export function NumberStepper({
       ) : null}
       <Stack direction="row" alignItems="center" spacing={0.5}>
         <IconButton
-          aria-label={label ? `ลด ${label}` : "ลด"}
+          aria-label={label ? `Decrease ${label}` : "Decrease"}
           size="small"
           disabled={disabled || value <= min}
           onClick={() => onChange(clamp(value - step))}
@@ -96,7 +96,7 @@ export function NumberStepper({
           }}
         />
         <IconButton
-          aria-label={label ? `เพิ่ม ${label}` : "เพิ่ม"}
+          aria-label={label ? `Increase ${label}` : "Increase"}
           size="small"
           disabled={disabled || value >= max}
           onClick={() => onChange(clamp(value + step))}

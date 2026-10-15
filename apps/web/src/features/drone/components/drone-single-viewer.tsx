@@ -6,12 +6,12 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import ZoomInIcon from "@mui/icons-material/ZoomIn";
-import ZoomOutIcon from "@mui/icons-material/ZoomOut";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import ZoomInIcon from "@mui/icons-material/ZoomInOutlined";
+import ZoomOutIcon from "@mui/icons-material/ZoomOutOutlined";
+import RestartAltIcon from "@mui/icons-material/RestartAltOutlined";
+import FullscreenIcon from "@mui/icons-material/FullscreenOutlined";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExitOutlined";
+import CalendarTodayIcon from "@mui/icons-material/CalendarTodayOutlined";
 import CameraAltOutlinedIcon from "@mui/icons-material/CameraAltOutlined";
 import type { DronePhotoLog } from "../types/drone.types.js";
 
@@ -159,7 +159,7 @@ export function DroneSingleViewer({ photo }: DroneSingleViewerProps) {
             backdropFilter: "blur(8px)",
             color: "#ffffff",
             p: 2,
-            borderRadius: 2.5,
+            borderRadius: 2,
             maxWidth: 420,
             border: "1px solid rgba(255,255,255,0.15)",
             boxShadow: "0 8px 30px rgba(0,0,0,0.4)",

@@ -1,7 +1,7 @@
-import AddIcon from "@mui/icons-material/Add";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import RemoveIcon from "@mui/icons-material/Remove";
+import AddIcon from "@mui/icons-material/AddOutlined";
+import ExpandLessIcon from "@mui/icons-material/ExpandLessOutlined";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMoreOutlined";
+import RemoveIcon from "@mui/icons-material/RemoveOutlined";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
@@ -73,7 +73,7 @@ export function CountList({
             </Box>
             <IconButton
               size="small"
-              aria-label={`ลด ${item.label}`}
+              aria-label={`Decrease ${item.label}`}
               disabled={value <= 0}
               onClick={() => onChange(item.key, Math.max(0, value - 1))}
               sx={{
@@ -126,7 +126,7 @@ export function CountList({
             />
             <IconButton
               size="small"
-              aria-label={`เพิ่ม ${item.label}`}
+              aria-label={`Increase ${item.label}`}
               onClick={() => onChange(item.key, Math.min(max, value + 1))}
               sx={{
                 border: 1,
@@ -150,7 +150,6 @@ export function CountList({
         <Button
           fullWidth
           variant="text"
-          size="small"
           onClick={() => setExpanded((e) => !e)}
           endIcon={showAll ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           sx={{ borderRadius: 0, borderBottom: totalLabel ? 1 : 0, borderColor: "divider" }}
@@ -163,7 +162,7 @@ export function CountList({
           <Typography variant="body2" sx={{ fontWeight: 700, color: "inherit" }}>
             {totalLabel}
           </Typography>
-          <Typography variant="body1" sx={{ fontWeight: 800, color: "inherit" }}>
+          <Typography variant="body1" sx={{ fontWeight: 700, color: "inherit" }}>
             {total} {unit}
           </Typography>
         </Stack>

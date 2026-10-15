@@ -19,6 +19,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { FINDING_TYPES, type FindingStatus, type FindingType } from "@sts/shared";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useBuildings } from "@/features/daily-reports/index.js";
 import { useProjectContractors } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
@@ -92,13 +93,18 @@ export function FindingDialog({
     if (missing) return;
     save.mutate(
       { id: finding?.id ?? null, input: { ...v, locationDetail: v.locationDetail?.trim() || undefined }, findingPhoto, closePhoto },
-      { onSuccess: onClose },
+      {
+        onSuccess: () => {
+          toast.success("บันทึกรายการ Line walk แล้ว");
+          onClose();
+        },
+      },
     );
   };
 
   return (
     <Dialog open onClose={onClose} fullScreen={fullScreen} fullWidth maxWidth="md">
-      <DialogTitle>{finding ? `Line walk · item ${finding.itemNo}` : "บันทึก Line walk"}</DialogTitle>
+      <DialogTitle>{finding ? `Line walk · item ${finding.itemNo}` : "Add line walk"}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ pt: 1 }}>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -127,7 +133,7 @@ export function FindingDialog({
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField select label="Location (อาคาร)" value={v.buildingId ?? ""} onChange={(e) => set("buildingId", e.target.value || null)} fullWidth size="small">
-              <MenuItem value="">— ไม่ระบุ —</MenuItem>
+              <MenuItem value="">— None —</MenuItem>
               {buildings.map((b) => (
                 <MenuItem key={b.id} value={b.id}>
                   {b.name}
@@ -136,11 +142,11 @@ export function FindingDialog({
             </TextField>
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <TextField label="ตำแหน่งเพิ่มเติม" placeholder="เช่น Line A ชั้น 2" value={v.locationDetail ?? ""} onChange={(e) => set("locationDetail", e.target.value)} fullWidth size="small" />
+            <TextField label="Additional location" placeholder="เช่น Line A ชั้น 2" value={v.locationDetail ?? ""} onChange={(e) => set("locationDetail", e.target.value)} fullWidth size="small" />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField select label="Responsible (ผู้รับเหมา)" value={v.contractorId ?? ""} onChange={(e) => set("contractorId", e.target.value || null)} fullWidth size="small">
-              <MenuItem value="">— ไม่ระบุ —</MenuItem>
+              <MenuItem value="">— None —</MenuItem>
               {contractors.map((c) => (
                 <MenuItem key={c.id} value={c.id}>
                   {c.code} · {c.name}
@@ -215,7 +221,7 @@ export function FindingDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button variant="text" color="inherit" onClick={onClose}>
-          ยกเลิก
+          Cancel
         </Button>
         <Button onClick={submit} disabled={save.isPending}>
           {save.isPending ? "กำลังบันทึก…" : "บันทึก"}

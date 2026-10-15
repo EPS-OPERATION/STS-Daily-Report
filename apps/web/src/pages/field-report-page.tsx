@@ -15,6 +15,7 @@ import Typography from "@mui/material/Typography";
 import { canEditReport } from "@sts/shared";
 import dayjs from "dayjs";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import { FieldBottomNav } from "@/components/field/field-bottom-nav.js";
 import {
   EveningForm,
@@ -126,7 +127,7 @@ export function FieldReportPage() {
             fullWidth
             value={shift}
             onChange={(_, v: Shift | null) => v && setShift(v)}
-            aria-label="เลือกรอบรายงาน"
+            aria-label="Select report shift"
             sx={{
               bgcolor: "rgba(255,255,255,0.12)",
               borderRadius: 2,
@@ -192,13 +193,8 @@ export function FieldReportPage() {
           onSubmitted={() => {
             const isEdit = morningDone;
             const time = dayjs().format("HH:mm");
-            navigate("/field", {
-              state: {
-                toast: isEdit
-                  ? `บันทึกการแก้ไข Daily Report เรียบร้อย (เวลา ${time} น.)`
-                  : `ส่ง Daily Report เรียบร้อย (เวลา ${time} น.)`,
-              },
-            });
+            toast.success(isEdit ? `บันทึกการแก้ไข Daily Report เรียบร้อย (เวลา ${time} น.)` : `ส่ง Daily Report เรียบร้อย (เวลา ${time} น.)`);
+            navigate("/field");
           }}
         />
         )
@@ -212,7 +208,7 @@ export function FieldReportPage() {
             severity="info"
             sx={{ mb: 2 }}
             action={
-              <Button color="inherit" size="small" onClick={() => window.open(`/daily-reports/${report.id}/print`, "_blank", "noopener")}>
+              <Button color="inherit" onClick={() => window.open(`/daily-reports/${report.id}/print`, "_blank", "noopener")}>
                 Export PDF
               </Button>
             }
@@ -234,13 +230,8 @@ export function FieldReportPage() {
           onSubmitted={() => {
             const isEdit = eveningDone;
             const time = dayjs().format("HH:mm");
-            navigate("/field", {
-              state: {
-                toast: isEdit
-                  ? `บันทึกการแก้ไข Daily Request เรียบร้อย (เวลา ${time} น.)`
-                  : `ส่ง Daily Request เรียบร้อย (เวลา ${time} น.)`,
-              },
-            });
+            toast.success(isEdit ? `บันทึกการแก้ไข Daily Request เรียบร้อย (เวลา ${time} น.)` : `ส่ง Daily Request เรียบร้อย (เวลา ${time} น.)`);
+            navigate("/field");
           }}
         />
         </>

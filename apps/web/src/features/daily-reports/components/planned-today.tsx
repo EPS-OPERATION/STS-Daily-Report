@@ -1,5 +1,7 @@
 import AddRoadOutlinedIcon from "@mui/icons-material/AddRoadOutlined";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import HandymanOutlinedIcon from "@mui/icons-material/HandymanOutlined";
 import PrecisionManufacturingOutlinedIcon from "@mui/icons-material/PrecisionManufacturingOutlined";
 import Box from "@mui/material/Box";
@@ -19,11 +21,7 @@ export function PlannedTodayChecklist({ planned }: { planned: PlannedToday }) {
   const empty =
     planned.machinery.length + planned.equipment.length + planned.permits.length + planned.roads.length + planned.inspections.length === 0;
   if (empty) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        ไม่มีคำขอสำหรับวันนี้ (คำขอต้องส่งในรายงานบ่ายของเมื่อวาน)
-      </Typography>
-    );
+    return <EmptySection dense icon={<EventNoteOutlinedIcon />} title="ไม่มีคำขอสำหรับวันนี้" description="คำขอต้องส่งในรายงานบ่ายของเมื่อวาน" />;
   }
   return (
     <Stack spacing={1.25}>

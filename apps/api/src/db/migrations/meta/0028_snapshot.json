@@ -1,6 +1,6 @@
 {
-  "id": "8700c2e7-b8f5-43e6-97d2-1ad26ad376c3",
-  "prevId": "99fb7b79-32a0-4b21-92e1-f68d02fe9f38",
+  "id": "99fb7b79-32a0-4b21-92e1-f68d02fe9f38",
+  "prevId": "b1f64f1c-267d-41a7-9f16-7631240e41d0",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3629,182 +3629,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.daily_report_standard_items": {
-      "name": "daily_report_standard_items",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "contractor_id": {
-          "name": "contractor_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "building_id": {
-          "name": "building_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "default_count": {
-          "name": "default_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "permit_type": {
-          "name": "permit_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "high_risk": {
-          "name": "high_risk",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "task_name": {
-          "name": "task_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "supervisor_name": {
-          "name": "supervisor_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "daily_report_standard_items_owner_idx": {
-          "name": "daily_report_standard_items_owner_idx",
-          "columns": [
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "contractor_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "kind",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "daily_report_standard_items_project_id_projects_id_fk": {
-          "name": "daily_report_standard_items_project_id_projects_id_fk",
-          "tableFrom": "daily_report_standard_items",
-          "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "daily_report_standard_items_contractor_id_contractors_id_fk": {
-          "name": "daily_report_standard_items_contractor_id_contractors_id_fk",
-          "tableFrom": "daily_report_standard_items",
-          "tableTo": "contractors",
-          "columnsFrom": [
-            "contractor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "daily_report_standard_items_building_id_buildings_id_fk": {
-          "name": "daily_report_standard_items_building_id_buildings_id_fk",
-          "tableFrom": "daily_report_standard_items",
-          "tableTo": "buildings",
-          "columnsFrom": [
-            "building_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "daily_report_standard_items_kind_check": {
-          "name": "daily_report_standard_items_kind_check",
-          "value": "\"daily_report_standard_items\".\"kind\" in ('activity', 'equipment', 'permit')"
-        },
-        "daily_report_standard_items_label_check": {
-          "name": "daily_report_standard_items_label_check",
-          "value": "char_length(\"daily_report_standard_items\".\"label\") between 1 and 200"
-        },
-        "daily_report_standard_items_count_check": {
-          "name": "daily_report_standard_items_count_check",
-          "value": "\"daily_report_standard_items\".\"default_count\" between 1 and 500"
-        },
-        "daily_report_standard_items_shape_check": {
-          "name": "daily_report_standard_items_shape_check",
-          "value": "(\"daily_report_standard_items\".\"kind\" = 'activity' and \"daily_report_standard_items\".\"building_id\" is not null and \"daily_report_standard_items\".\"permit_type\" is null)\n        or (\"daily_report_standard_items\".\"kind\" = 'equipment' and \"daily_report_standard_items\".\"building_id\" is null and \"daily_report_standard_items\".\"permit_type\" is null)\n        or (\"daily_report_standard_items\".\"kind\" = 'permit' and \"daily_report_standard_items\".\"building_id\" is not null and \"daily_report_standard_items\".\"permit_type\" is not null)"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.safety_findings": {
       "name": "safety_findings",
       "schema": "",
@@ -4552,6 +4376,166 @@
           "value": "\"coordination_maps\".\"width\" > 0 AND \"coordination_maps\".\"height\" > 0"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.drone_logs": {
+      "name": "drone_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "log_date": {
+          "name": "log_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "captured_by": {
+          "name": "captured_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "tags": {
+          "name": "tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "object_key": {
+          "name": "object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "file_name": {
+          "name": "file_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "drone_logs_project_date_idx": {
+          "name": "drone_logs_project_date_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "log_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "drone_logs_project_id_projects_id_fk": {
+          "name": "drone_logs_project_id_projects_id_fk",
+          "tableFrom": "drone_logs",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "drone_logs_created_by_users_id_fk": {
+          "name": "drone_logs_created_by_users_id_fk",
+          "tableFrom": "drone_logs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "drone_logs_object_key_unique": {
+          "name": "drone_logs_object_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "object_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },

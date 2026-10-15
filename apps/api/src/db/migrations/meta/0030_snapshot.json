@@ -1,6 +1,6 @@
 {
-  "id": "9b517c79-557c-447c-8c50-a372c6d6fcdf",
-  "prevId": "4fd90951-aea9-47eb-801b-cf267b9fe683",
+  "id": "4fd90951-aea9-47eb-801b-cf267b9fe683",
+  "prevId": "8700c2e7-b8f5-43e6-97d2-1ad26ad376c3",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2866,19 +2866,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "segment_ids": {
-          "name": "segment_ids",
-          "type": "uuid[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::uuid[]"
-        },
-        "route": {
-          "name": "route",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -4567,8 +4554,8 @@
       },
       "isRLSEnabled": false
     },
-    "public.coordination_road_segments": {
-      "name": "coordination_road_segments",
+    "public.drone_logs": {
+      "name": "drone_logs",
       "schema": "",
       "columns": {
         "id": {
@@ -4584,33 +4571,65 @@
           "primaryKey": false,
           "notNull": true
         },
-        "road": {
-          "name": "road",
+        "log_date": {
+          "name": "log_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "name": {
-          "name": "name",
+        "description": {
+          "name": "description",
           "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "points": {
-          "name": "points",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "closed": {
-          "name": "closed",
-          "type": "boolean",
           "primaryKey": false,
           "notNull": true,
-          "default": false
+          "default": "''"
         },
-        "updated_by": {
-          "name": "updated_by",
+        "captured_by": {
+          "name": "captured_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "tags": {
+          "name": "tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "object_key": {
+          "name": "object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "file_name": {
+          "name": "file_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -4631,8 +4650,8 @@
         }
       },
       "indexes": {
-        "coordination_road_segments_name_unique": {
-          "name": "coordination_road_segments_name_unique",
+        "drone_logs_project_date_idx": {
+          "name": "drone_logs_project_date_idx",
           "columns": [
             {
               "expression": "project_id",
@@ -4641,22 +4660,22 @@
               "nulls": "last"
             },
             {
-              "expression": "name",
+              "expression": "log_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": true,
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
       "foreignKeys": {
-        "coordination_road_segments_project_id_projects_id_fk": {
-          "name": "coordination_road_segments_project_id_projects_id_fk",
-          "tableFrom": "coordination_road_segments",
+        "drone_logs_project_id_projects_id_fk": {
+          "name": "drone_logs_project_id_projects_id_fk",
+          "tableFrom": "drone_logs",
           "tableTo": "projects",
           "columnsFrom": [
             "project_id"
@@ -4667,12 +4686,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "coordination_road_segments_updated_by_users_id_fk": {
-          "name": "coordination_road_segments_updated_by_users_id_fk",
-          "tableFrom": "coordination_road_segments",
+        "drone_logs_created_by_users_id_fk": {
+          "name": "drone_logs_created_by_users_id_fk",
+          "tableFrom": "drone_logs",
           "tableTo": "users",
           "columnsFrom": [
-            "updated_by"
+            "created_by"
           ],
           "columnsTo": [
             "id"
@@ -4682,18 +4701,17 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "coordination_road_segments_road_check": {
-          "name": "coordination_road_segments_road_check",
-          "value": "char_length(\"coordination_road_segments\".\"road\") between 1 and 20"
-        },
-        "coordination_road_segments_name_check": {
-          "name": "coordination_road_segments_name_check",
-          "value": "char_length(\"coordination_road_segments\".\"name\") between 1 and 80"
+      "uniqueConstraints": {
+        "drone_logs_object_key_unique": {
+          "name": "drone_logs_object_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "object_key"
+          ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },

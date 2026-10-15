@@ -48,7 +48,7 @@ export function StatisticTable({ stats, compact }: { stats: SafetyStats; compact
               <td style={{ textAlign: "center", color: row.period ? RED : INK, fontWeight: 700 }}>{row.period}</td>
               <td style={{ textAlign: "center", color: row.year ? RED : INK, fontWeight: 700 }}>{row.year}</td>
               <td style={{ textAlign: "center", fontSize: font + 4 }} aria-label={row.year ? "attention" : "good"}>
-                {row.year ? "😔" : "🙂"}
+                {row.year ? "😟" : "😊"}
               </td>
             </tr>
           );

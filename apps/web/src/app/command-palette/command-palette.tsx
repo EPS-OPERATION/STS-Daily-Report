@@ -13,6 +13,8 @@ import Typography from "@mui/material/Typography";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMe } from "@/features/auth/hooks/use-me.js";
+import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
+import { usePlanZones } from "@/features/site-plan/index.js";
 import { buildCommands } from "./command-registry.js";
 import { useCommandPalette } from "./use-command-palette.js";
 
@@ -43,7 +45,17 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const navigate = useNavigate();
   const me = useMe();
   const role = me.data?.data.user.role ?? "contractor";
-  const commands = useMemo(() => buildCommands(navigate, role), [navigate, role]);
+  const { projectId } = useCurrentProject();
+  const contractors = useProjectContractors(projectId).data?.data ?? [];
+  const zones = usePlanZones(projectId).data?.data ?? [];
+  const entities = useMemo(
+    () => ({
+      contractors: contractors.map((c) => ({ code: c.code, name: c.name })),
+      zones: zones.map((z) => ({ code: z.code, name: z.name })),
+    }),
+    [contractors, zones],
+  );
+  const commands = useMemo(() => buildCommands(navigate, role, entities), [navigate, role, entities]);
   const { query, setQuery, groups, groupLabel, activeIndex, activeCommand, setActive, move, execute, flat } =
     useCommandPalette(commands);
 

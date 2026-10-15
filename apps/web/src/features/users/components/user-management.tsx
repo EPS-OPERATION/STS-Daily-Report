@@ -16,6 +16,7 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { USER_ROLES, isEpsStaff, type UserRole } from "@sts/shared";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { QueryError } from "@/components/ui/query-error.js";
 import { useMe } from "@/features/auth/index.js";
 import { ContractorPicker } from "@/features/auth/components/contractor-picker.js";
 import { useCurrentProject } from "@/features/projects/index.js";
@@ -63,9 +64,9 @@ export function UserManagement() {
     { field: "createdAt", headerName: "Requested date", width: 170, valueFormatter: (value: string) => new Date(value).toLocaleString("th-TH") },
     ...(status === "rejected" ? [{ field: "rejectionReason", headerName: "Reason", flex: 1, minWidth: 160 }] : []),
     { field: "actions", headerName: "Actions", sortable: false, filterable: false, width: actionsWidth, renderCell: ({ row }) => <Stack direction="row" spacing={1} sx={{ alignItems: "center", height: "100%" }}>
-      {status === "pending" ? <><Button size="small" aria-label={`Approve ${row.username ?? row.email}`} onClick={() => setDecision({ user: row, action: "approve" })}>Approve</Button><Button size="small" color="error" aria-label={`Reject ${row.username ?? row.email}`} onClick={() => setDecision({ user: row, action: "reject" })}>Reject</Button></> : status === "active" ? <>
-        {row.role === "contractor" && row.membershipCount === 0 ? <Button size="small" variant="outlined" aria-label={`Link ${row.username ?? row.email}`} disabled={mutating} onClick={() => openLink(row)}>Link contractor</Button> : null}
-        {isAdmin ? <Button size="small" variant="text" aria-label={`Reset password for ${row.username ?? row.email}`} onClick={() => { reset.reset(); setCopied(false); setCopyError(false); setResetUser(row); }}>Reset password</Button> : null}
+      {status === "pending" ? <><Button aria-label={`Approve ${row.username ?? row.email}`} onClick={() => setDecision({ user: row, action: "approve" })}>Approve</Button><Button color="error" aria-label={`Reject ${row.username ?? row.email}`} onClick={() => setDecision({ user: row, action: "reject" })}>Reject</Button></> : status === "active" ? <>
+        {row.role === "contractor" && row.membershipCount === 0 ? <Button variant="outlined" aria-label={`Link ${row.username ?? row.email}`} disabled={mutating} onClick={() => openLink(row)}>Link contractor</Button> : null}
+        {isAdmin ? <Button variant="text" aria-label={`Reset password for ${row.username ?? row.email}`} onClick={() => { reset.reset(); setCopied(false); setCopyError(false); setResetUser(row); }}>Reset password</Button> : null}
         {isAdmin && row.id !== myId ? <>
           <Select
             size="small"
@@ -77,9 +78,9 @@ export function UserManagement() {
           >
             {USER_ROLES.map((r) => <MenuItem key={r} value={r}>{ROLE_LABEL[r]}</MenuItem>)}
           </Select>
-          <Button size="small" color="error" disabled={mutating} onClick={() => changeStatus.mutate({ id: row.id, status: "disabled" })}>Disable</Button>
+          <Button color="error" disabled={mutating} onClick={() => changeStatus.mutate({ id: row.id, status: "disabled" })}>Disable</Button>
         </> : null}
-      </> : status === "disabled" ? (isAdmin && row.id !== myId ? <Button size="small" disabled={mutating} onClick={() => changeStatus.mutate({ id: row.id, status: "active" })}>Reactivate</Button> : null) : null}
+      </> : status === "disabled" ? (isAdmin && row.id !== myId ? <Button disabled={mutating} onClick={() => changeStatus.mutate({ id: row.id, status: "active" })}>Reactivate</Button> : null) : null}
     </Stack> },
   ];
   const mutateError = changeRole.error ?? changeStatus.error;
@@ -93,7 +94,7 @@ export function UserManagement() {
         {isAdmin ? <Tab label="Rejected" value="rejected" /> : null}
       </Tabs>
       <TextField label="Search users" value={search} onChange={(e) => setSearch(e.target.value)} size="small" sx={{ maxWidth: 400 }} />
-      {users.isError && <Alert severity="error" action={<Button color="inherit" onClick={() => void users.refetch()}>Retry</Button>}>{users.error.message}</Alert>}
+      {users.isError && <QueryError error={users.error as Error} onRetry={() => void users.refetch()} />}
       {mutateError && <Alert severity="error">{mutateError.message}</Alert>}
       <Box sx={{ height: 520, width: "100%" }}><DataGrid rows={users.data?.data ?? []} columns={columns} rowCount={users.data?.meta.total ?? 0} loading={users.isFetching}
         paginationMode="server" paginationModel={pagination} onPaginationModelChange={setPagination} pageSizeOptions={[20, 50, 100]} disableRowSelectionOnClick disableColumnMenu

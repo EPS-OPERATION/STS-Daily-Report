@@ -2,6 +2,7 @@ import type { CoordinationContractor, CoordinationItem } from "@sts/shared";
 import TextFieldsOutlined from "@mui/icons-material/TextFieldsOutlined";
 import ChevronRightOutlined from "@mui/icons-material/ChevronRightOutlined";
 import ExpandLessOutlined from "@mui/icons-material/ExpandLessOutlined";
+import InboxOutlined from "@mui/icons-material/InboxOutlined";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
@@ -10,6 +11,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
 import { areaLabel, ICON_LABELS } from "../types/icon-labels.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
 import { MachineGlyph } from "./machine-icon.js";
 
 // Every job of the day under the map (same contractor filter as the map), so the detail behind
@@ -53,18 +55,16 @@ export function CoordinationJobList({
         </Typography>
         {onCollapse ? (
           <Tooltip title="ซ่อนรายการงาน">
-            <IconButton size="small" aria-label="ซ่อนรายการงาน" onClick={onCollapse} sx={{ alignSelf: "center", my: -0.5 }}>
+            <IconButton size="small" aria-label="Hide item list" onClick={onCollapse} sx={{ alignSelf: "center", my: -0.5 }}>
               <ChevronRightOutlined fontSize="small" sx={{ display: { xs: "none", lg: "block" } }} />
               <ExpandLessOutlined fontSize="small" sx={{ display: { xs: "block", lg: "none" } }} />
             </IconButton>
           </Tooltip>
         ) : null}
       </Stack>
-      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 1.5, py: 1 }}>
       {!rows.length ? (
-        <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 2 }}>
-          ไม่มีงานที่ตรงกับตัวกรอง
-        </Typography>
+        <EmptySection dense icon={<InboxOutlined />} title="ไม่มีงานที่ตรงกับตัวกรอง" />
       ) : null}
       {rows.map((item, i) => {
         const c = byId.get(item.contractorId);

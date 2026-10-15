@@ -1,6 +1,6 @@
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import DraftIcon from "@mui/icons-material/RadioButtonUnchecked";
+import DraftIcon from "@mui/icons-material/RadioButtonUncheckedOutlined";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import RateReviewOutlinedIcon from "@mui/icons-material/RateReviewOutlined";
 import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
@@ -33,7 +33,7 @@ export function StatusChip({ status, label }: { status: string; label?: string }
       draft: { bg: theme.palette.grey[100], fg: theme.palette.text.secondary, icon: DraftIcon },
       submitted: { bg: theme.palette.info.light, fg: theme.palette.info.dark, icon: SendOutlinedIcon },
       pending: { bg: theme.palette.warning.light, fg: theme.palette.warning.dark, icon: ScheduleOutlinedIcon },
-      reviewed: { bg: "#EDE9FE", fg: "#6D28D9", icon: RateReviewOutlinedIcon },
+      reviewed: { bg: theme.palette.violet.light, fg: theme.palette.violet.dark, icon: RateReviewOutlinedIcon },
       approved: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
       completed: { bg: theme.palette.success.light, fg: theme.palette.success.dark, icon: CheckCircleOutlineIcon },
       rejected: { bg: theme.palette.error.light, fg: theme.palette.error.dark, icon: CancelOutlinedIcon },

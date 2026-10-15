@@ -1,5 +1,4 @@
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
-import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -15,6 +14,7 @@ import { workloadLevel } from "@sts/shared";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { QueryError } from "@/components/ui/query-error.js";
 import { WorkloadLegend, todayIso } from "@/features/daily-reports/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import {
@@ -115,7 +115,7 @@ export function SitePlanPage() {
               <ToggleButton value="topview">Top view</ToggleButton>
               <ToggleButton value="plan">Plan</ToggleButton>
             </ToggleButtonGroup>
-            <Button component={RouterLink} to="/site-plan/config" size="small" variant="outlined" startIcon={<TuneOutlinedIcon />}>
+            <Button component={RouterLink} to="/site-plan/config" variant="outlined" startIcon={<TuneOutlinedIcon />}>
               ตั้งค่าหมุด
             </Button>
           </Stack>
@@ -123,9 +123,7 @@ export function SitePlanPage() {
       />
 
       {error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          โหลดข้อมูลไม่สำเร็จ: {error.message}
-        </Alert>
+        <QueryError error={error} onRetry={() => { void map.refetch(); void day.refetch(); }} />
       ) : null}
 
       {!map.data || !day.data ? (

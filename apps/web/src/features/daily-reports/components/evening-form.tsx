@@ -285,7 +285,7 @@ export function EveningForm({
                 fullWidth
                 value={field.value === null ? null : field.value ? "yes" : "no"}
                 onChange={(_, v: "yes" | "no" | null) => v && field.onChange(v === "yes")}
-                aria-label="เกิดอุบัติเหตุวันนี้หรือไม่"
+                aria-label="Accident today?"
               >
                 <ToggleButton value="no" color="success">
                   ไม่เกิด
@@ -309,7 +309,7 @@ export function EveningForm({
             render={({ field, fieldState }) => (
               <TextField
                 select
-                label="ประเภทเหตุการณ์"
+                label="Event type"
                 value={field.value ?? ""}
                 onChange={(e) => field.onChange(e.target.value || null)}
                 fullWidth
@@ -334,7 +334,7 @@ export function EveningForm({
             render={({ field, fieldState }) => (
               <TextField
                 {...field}
-                label="รายละเอียดเหตุการณ์ / การดำเนินการ"
+                label="Event details / action"
                 multiline
                 minRows={2}
                 fullWidth
@@ -475,7 +475,7 @@ export function EveningForm({
             render={({ field, fieldState }) => (
               <TextField
                 {...field}
-                label="ชื่อผู้รายงาน"
+                label="Reporter name"
                 size="small"
                 fullWidth
                 error={Boolean(fieldState.error)}
@@ -516,8 +516,8 @@ export function EveningForm({
           py: 1.5,
         }}
       >
-        <Button type="submit" size="large" fullWidth disabled={submit.isPending} sx={{ bgcolor: "navy.main" }}>
-          {submit.isPending ? "กำลังส่ง…" : report?.eveningStatus === "submitted" ? "บันทึกการแก้ไขรายงานบ่าย" : "ส่งรายงานบ่าย (Check-out)"}
+        <Button type="submit" fullWidth disabled={submit.isPending} sx={{ bgcolor: "navy.main" }}>
+          {submit.isPending ? "กำลังส่ง…" : report?.eveningStatus === "submitted" ? "Save evening report changes" : "Submit evening report (Check-out)"}
         </Button>
       </Box>
     </Box>
