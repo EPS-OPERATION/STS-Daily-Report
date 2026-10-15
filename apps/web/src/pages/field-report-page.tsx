@@ -183,6 +183,13 @@ export function FieldReportPage() {
           buildings={buildings.data?.data ?? []}
           report={report}
           plannedToday={current.data.data.plannedToday}
+          autoCopyFrom={ISO_DATE.test(params.get("copy") ?? "") ? params.get("copy")! : undefined}
+          onAutoCopyStarted={() => {
+            // Copy once: drop the flag so a reload does not copy again.
+            const p = new URLSearchParams(params);
+            p.delete("copy");
+            setParams(p, { replace: true });
+          }}
           onSubmitted={() => {
             const isEdit = morningDone;
             const time = dayjs().format("HH:mm");

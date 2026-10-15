@@ -150,9 +150,9 @@ export function RainLogView({ projectId, from, to }: RainLogViewProps) {
         <CardContent sx={{ p: 2.5 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
             <Box>
-              <Typography variant="h6">กราฟแนวโน้มฝนตกและชั่วโมงหยุดงาน (Rain & Delay Trend)</Typography>
+              <Typography variant="h6">กราฟชั่วโมงหยุดงานจากเหตุฝนตก (Work Stoppage Hours)</Typography>
               <Typography variant="caption" color="text.secondary">
-                เทียบชั่วโมงที่สั่งหยุดงานจริง (แกนซ้าย) กับปริมาณน้ำฝน (แกนขวา) เพื่อพิสูจน์สาเหตุงาน Delay
+                บันทึกชั่วโมงที่สั่งหยุดงานจริงจากเหตุฝนตก เพื่อพิสูจน์สาเหตุงาน Delay (EOT Claim)
               </Typography>
             </Box>
             <Chip

@@ -153,11 +153,14 @@ export const eveningBody = t.Object({
   ),
   roadUsage: t.Array(
     t.Object({
-      buildingId: t.String({ format: "uuid" }),
+      buildingId: t.Optional(t.Nullable(t.String())),
       roadLocation: t.String({ minLength: 1, maxLength: 120 }),
       startTime: hhmm,
       endTime: hhmm,
       purpose: t.String({ minLength: 1, maxLength: 300 }),
+      // Where: register segments in driving order and the line through them (or a free line).
+      segmentIds: t.Optional(t.Array(t.String({ format: "uuid" }), { maxItems: 50 })),
+      route: t.Optional(t.Nullable(t.Array(t.Object({ x: t.Number(), y: t.Number() }), { minItems: 2, maxItems: 500 }))),
     }),
     { maxItems: 20 },
   ),

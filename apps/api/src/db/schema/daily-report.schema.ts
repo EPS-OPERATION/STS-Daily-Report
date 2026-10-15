@@ -1,4 +1,5 @@
-import { boolean, check, date, index, integer, numeric, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, date, index, integer, jsonb, numeric, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import type { CoordinationPoint } from "@sts/shared";
 import { sql } from "drizzle-orm";
 import { buildings } from "./building.schema.js";
 import { contractors } from "./contractor.schema.js";
@@ -348,7 +349,6 @@ export const dailyReportRoadUsage = pgTable(
       .references(() => dailyReports.id, { onDelete: "cascade" }),
     targetDate: date("target_date").notNull(),
     buildingId: uuid("building_id")
-      .notNull()
       .references(() => buildings.id, { onDelete: "restrict" }),
     roadLocation: text("road_location").notNull(),
     startTime: text("start_time").notNull(),
@@ -359,6 +359,10 @@ export const dailyReportRoadUsage = pgTable(
     adjustedEndTime: text("adjusted_end_time"),
     adjustedBy: uuid("adjusted_by").references(() => users.id, { onDelete: "set null" }),
     adjustedAt: timestamp("adjusted_at", { withTimezone: true }),
+    // Where on the map: register segments in driving order (empty = not picked), and the line drawn
+    // through them in that direction (or a free line for a temporary road). Null = name only (older rows).
+    segmentIds: uuid("segment_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    route: jsonb("route").$type<CoordinationPoint[]>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

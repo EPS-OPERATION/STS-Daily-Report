@@ -210,7 +210,7 @@ export function SafetyPage() {
         </ToggleButton>
         <ToggleButton value="rain" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
           <ThunderstormOutlinedIcon fontSize="small" />
-          ฝนตก & สถิติ Delay
+          สถิติฝนตก
         </ToggleButton>
       </ToggleButtonGroup>
 

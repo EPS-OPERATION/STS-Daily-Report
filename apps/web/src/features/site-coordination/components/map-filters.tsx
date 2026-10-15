@@ -16,6 +16,8 @@ import { MachineGlyph } from "./machine-icon.js";
 
 // What the map draws (per browser): the job icon is always shown, everything else can be switched off.
 export interface MapDisplay {
+  /** Road routes (arrows) drawn by contractors. */
+  roads: boolean;
   areas: boolean;
   labels: boolean;
   notes: boolean;
@@ -25,7 +27,7 @@ export interface MapDisplay {
   jobList: boolean;
 }
 
-export const DEFAULT_MAP_DISPLAY: MapDisplay = { areas: true, labels: true, notes: true, links: true, chips: true, detailCard: true, jobList: true };
+export const DEFAULT_MAP_DISPLAY: MapDisplay = { roads: true, areas: true, labels: true, notes: true, links: true, chips: true, detailCard: true, jobList: true };
 
 const DISPLAY_KEY = "sts_map_display_v1";
 
@@ -47,6 +49,7 @@ export function saveMapDisplay(display: MapDisplay) {
 }
 
 const DISPLAY_OPTIONS: { key: keyof MapDisplay; label: string; hint: string; group: "map" | "detail" }[] = [
+  { key: "roads", label: "Road routes", hint: "เส้นและลูกศรทิศทางที่ผู้รับเหมาใช้ถนน", group: "map" },
   { key: "areas", label: "Work areas", hint: "กรอบสีขอบเขตที่ใช้", group: "map" },
   { key: "labels", label: "Item labels", hint: "ข้อความสั้นบนผัง", group: "map" },
   { key: "notes", label: "Notes under labels", hint: "บรรทัดเล็กสีจาง สูงสุด 2 บรรทัด", group: "map" },

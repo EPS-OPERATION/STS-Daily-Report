@@ -15,6 +15,7 @@ import { siteActivityRoutes } from "@/modules/site-activities/index.js";
 import { sitePlanRoutes } from "@/modules/site-plans/index.js";
 import { zoneRoutes } from "@/modules/zones/index.js";
 import { userRoutes } from "@/modules/users/index.js";
+import { reportStandardItemRoutes } from "@/modules/report-standard-items/index.js";
 import { errorPlugin } from "@/plugins/errors.js";
 import { resolveAuthIdentity } from "@/auth/auth.service.js";
 import { AuthRequiredError } from "@/shared/errors/app-error.js";
@@ -46,7 +47,7 @@ export function buildApp() {
     })
     .get(HEALTH_PATH, () => ({ status: "ok" }))
     .group(API_PREFIX, (group) =>
-      group.use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(inspectionRequestRoutes).use(safetyRoutes).use(coordinationRoutes).use(droneRoutes),
+      group.use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(inspectionRequestRoutes).use(safetyRoutes).use(coordinationRoutes).use(droneRoutes).use(reportStandardItemRoutes),
     )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;

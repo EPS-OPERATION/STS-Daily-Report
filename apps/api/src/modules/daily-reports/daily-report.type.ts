@@ -1,3 +1,4 @@
+import type { CoordinationPoint } from "@sts/shared";
 import type {
   AccidentCategory,
   Discipline,
@@ -78,11 +79,13 @@ export interface MorningInput {
 }
 
 export interface RoadUsageInput {
-  buildingId: string;
+  buildingId?: string | null;
   roadLocation: string;
   startTime: string;
   endTime: string;
   purpose: string;
+  segmentIds?: string[];
+  route?: CoordinationPoint[] | null;
 }
 
 // Materials on site today (evening check-out): free-text name + qty + unit.
@@ -156,9 +159,9 @@ export type ConflictSeverity = "conflict" | "possible";
 export interface RoadRow {
   id: string;
   targetDate: string;
-  buildingId: string;
-  buildingCode: string;
-  buildingName: string;
+  buildingId: string | null;
+  buildingCode: string | null;
+  buildingName: string | null;
   roadLocation: string;
   // startTime/endTime: what EPS settled (the request until EPS changes it). requested*: the contractor's own times.
   startTime: string;
@@ -169,6 +172,9 @@ export interface RoadRow {
   adjustedAt: Date | null;
   adjustedByName: string | null;
   purpose: string;
+  /** Register segments in driving order (empty = none picked) and the line drawn through them. */
+  segmentIds: string[];
+  route: CoordinationPoint[] | null;
   contractorId: string;
   contractorCode: string;
   contractorName?: string;

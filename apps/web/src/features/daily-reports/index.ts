@@ -54,3 +54,4 @@ export { RoadStatusChip } from "./components/road-status-chip.js";
 export { RoadTimeDialog } from "./components/road-time-dialog.js";
 export { RoadTimelines } from "./components/road-timeline.js";
 export { useAdjustRoadUsage } from "./hooks/use-road-usage.js";
+export { COPY_LOOKBACK_DAYS, CopySourceButton, useCopySources } from "./components/copy-source-button.js";

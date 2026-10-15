@@ -1,5 +1,4 @@
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
-import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -18,13 +17,14 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state.js";
+import { downloadCsv, printSections, type ExportSection } from "../utils/report-export.js";
+import { ExportButtons } from "./export-buttons.js";
 import type { DailyRequests } from "../types/daily-report.types.js";
 import { formatThaiDate } from "../utils/dates.js";
 import { ContractorBadge } from "./contractor-badge.js";
 
 type ForecastRow = DailyRequests["forecasts"][number];
 
-const csvCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
 
 // History log of Tomorrow Forecast Activities (paper form R003): what each contractor said,
 // in its afternoon report, it would work on the next day — filtered by target date range.
@@ -48,21 +48,13 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
   const current = Math.min(page, Math.max(0, Math.ceil(visible.length / perPage) - 1));
   const pageRows = visible.slice(current * perPage, (current + 1) * perPage);
 
-  const exportCsv = () => {
-    const head = ["Date", "Contractor", "Description", "Area"];
-    const lines = visible.map((r) =>
-      [r.targetDate, `${r.contractorCode} ${r.contractorName}`, r.description, `${r.buildingCode} ${r.buildingName}`].map(csvCell).join(","),
-    );
-    const blob = new Blob(["﻿" + [head.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `STS_Tomorrow_Forecast_${fileTag}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const section = (): ExportSection => ({
+    title: "Tomorrow Forecast Activities",
+    head: ["วันที่", "ผู้รับเหมา", "รายละเอียดงาน", "พื้นที่"],
+    rows: visible.map((r) => [r.targetDate, `${r.contractorCode} ${r.contractorName}`, r.description, `${r.buildingCode} ${r.buildingName}`]),
+  });
+  const exportCsv = () => downloadCsv(`STS_Tomorrow_Forecast_${fileTag}.csv`, [section()]);
+  const print = () => printSections("Tomorrow Forecast Activities", `${rangeLabel} · ${visible.length} รายการ`, [section()]);
 
   return (
     <Card>
@@ -74,15 +66,7 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
               {rangeLabel} · แผนงานที่ผู้รับเหมาแจ้งไว้ในรายงานบ่ายของวันก่อน
             </Typography>
           </Box>
-          <Button
-            variant="outlined"
-            startIcon={<FileDownloadOutlinedIcon />}
-            onClick={exportCsv}
-            disabled={visible.length === 0}
-            sx={{ alignSelf: { xs: "flex-start", sm: "center" }, flexShrink: 0 }}
-          >
-            Export CSV
-          </Button>
+          <ExportButtons onPrint={print} onCsv={exportCsv} disabled={visible.length === 0} />
         </Stack>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 2 }}>
           <TextField select size="small" label="Contractor" value={contractor} onChange={(e) => setContractor(e.target.value)} sx={{ minWidth: 200 }}>

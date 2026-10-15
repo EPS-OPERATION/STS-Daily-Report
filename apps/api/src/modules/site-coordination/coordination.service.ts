@@ -1,9 +1,11 @@
-import { COORDINATION_COLORS, coordinationDateValid, coordinationGeometryError, coordinationRectangleValid, isEpsStaff, type CoordinationInput, type CoordinationReport } from "@sts/shared";
+import { COORDINATION_COLORS, coordinationDateValid, coordinationGeometryError, coordinationRectangleValid, isEpsStaff, roadPlacesMeet, routeGeometryError, timeWindowsOverlap, type CoordinationRoad, type RoadSegment, type CoordinationInput, type CoordinationReport } from "@sts/shared";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import type { AuthContext } from "@/auth/auth.types.js";
 import { getDb } from "@/db/client.js";
 import { getProjectById } from "@/modules/projects/project.repository.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
+import { listRoadRequests } from "./coordination.repository.js";
+import { deleteRoadSegment, findRoadSegmentByName, getRoadSegment, insertRoadSegment, listRoadSegments, updateRoadSegment, type RoadSegmentInput } from "./coordination.repository.js";
 import { deleteDayLock, deleteDayNote, deleteItem, getDayLock, getDayNote, getItem, getMap, insertDayLock, insertColor, insertItem, listCoordinationContractors, listItems, updateColor, updateItem, upsertDayNote } from "./coordination.repository.js";
 
 async function access(auth: AuthContext, projectId: string, contractorId?: string) {
@@ -18,6 +20,9 @@ function clean(input: CoordinationInput): CoordinationInput {
   if (!coordinationDateValid(input.workDate)) throw new ValidationError("Invalid work date");
   const title = input.title.trim();
   if (!title) throw new ValidationError("Enter a work title");
+  // A road route is a line; every other job has an area. The two never mix.
+  if ((input.areaKind === "route") !== (input.geometry.type === "polyline")) throw new ValidationError("A road route needs a line, other jobs need an area");
+  if ((input.areaKind === "route") !== (input.icon === "road")) throw new ValidationError("Road routes use the road type");
   const error = coordinationGeometryError(input.geometry);
   if (error) throw new ValidationError(error);
   if (input.areaKind === "rectangle") {
@@ -42,7 +47,7 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
   const db = getDb();
   const map = await getMap(db, projectId);
   if (!map) throw new NotFoundError("This project has no coordination drawing configured");
-  const [initialCompanies, items, dayNote, lock] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), getDayNote(db, projectId, date), getDayLock(db, projectId, date)]);
+  const [initialCompanies, items, dayNote, lock, roads] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), getDayNote(db, projectId, date), getDayLock(db, projectId, date), mapRoads(projectId, date)]);
   const missingColors = initialCompanies.some((company) => !company.color);
   // Assign missing project colours once under the map lock. Normal polling is read-only.
   if (missingColors) await db.transaction(async (tx) => {
@@ -60,7 +65,7 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
   return {
     map: { id: map.id, projectId, imagePath: map.imagePath, width: map.width, height: map.height },
     contractors: companies.map((c) => ({ ...c, color: c.color!, revision: c.revision! })),
-    items: items.map(dto), editableContractorIds: lock ? [] : isEpsStaff(auth.user.role) ? companies.map((c) => c.id) : memberships.map((m) => m.id),
+    items: items.map(dto), roads, editableContractorIds: lock ? [] : isEpsStaff(auth.user.role) ? companies.map((c) => c.id) : memberships.map((m) => m.id),
     canManageColors: isEpsStaff(auth.user.role),
     dayNote: dayNote ? { note: dayNote.note, updatedAt: dayNote.updatedAt.toISOString(), updatedByName: dayNote.updatedByName ?? dayNote.updatedByEmail ?? null } : null,
     canEditDayNote: !lock && isEpsStaff(auth.user.role),
@@ -137,6 +142,53 @@ export async function coordinationReportService(auth: AuthContext, projectId: st
     map: data.map,
     contractors: data.contractors,
     items: data.items,
+    roads: data.roads,
     dayNote: data.dayNote,
   };
+}
+
+// ---- road register: everyone on the project reads it; EPS staff keep it up to date ----
+export async function listRoadSegmentsService(auth: AuthContext, projectId: string): Promise<RoadSegment[]> {
+  await access(auth, projectId);
+  return listRoadSegments(getDb(), projectId);
+}
+
+function cleanSegment(raw: { road: string; name: string; points: RoadSegment["points"]; closed?: boolean }): RoadSegmentInput {
+  const road = raw.road.trim();
+  const name = raw.name.trim();
+  if (!road || !name) throw new ValidationError("Enter the road code and the segment name");
+  const error = routeGeometryError(raw.points);
+  if (error) throw new ValidationError(error);
+  return { road, name, points: raw.points, closed: raw.closed ?? false };
+}
+
+export async function saveRoadSegmentService(auth: AuthContext, projectId: string, raw: Parameters<typeof cleanSegment>[0], id?: string): Promise<RoadSegment> {
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can change the road register");
+  await access(auth, projectId);
+  const input = cleanSegment(raw);
+  const db = getDb();
+  const same = await findRoadSegmentByName(db, projectId, input.name);
+  if (same && same.id !== id) throw new ConflictError(`A road segment named "${input.name}" already exists`);
+  if (!id) return insertRoadSegment(db, projectId, input, auth.user.id);
+  const row = await updateRoadSegment(db, projectId, id, input, auth.user.id);
+  if (!row) throw new NotFoundError("Road segment not found");
+  return row;
+}
+
+export async function deleteRoadSegmentService(auth: AuthContext, projectId: string, id: string) {
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can change the road register");
+  await access(auth, projectId);
+  const db = getDb();
+  if (!await getRoadSegment(db, projectId, id)) throw new NotFoundError("Road segment not found");
+  await deleteRoadSegment(db, projectId, id);
+}
+
+// Road requests of the day that have a route, each flagged when another contractor uses the same
+// place at an overlapping time (checked against every request that day, routes or not).
+async function mapRoads(projectId: string, date: string): Promise<CoordinationRoad[]> {
+  const rows = await listRoadRequests(getDb(), projectId, date);
+  return rows.flatMap((r) => r.route && r.route.length >= 2 ? [{
+    id: r.id, contractorId: r.contractorId, roadLocation: r.roadLocation, startTime: r.startTime, endTime: r.endTime, purpose: r.purpose, route: r.route,
+    clash: rows.some((o) => o.id !== r.id && o.contractorId !== r.contractorId && timeWindowsOverlap(r.startTime, r.endTime, o.startTime, o.endTime) && roadPlacesMeet(r, o)),
+  }] : []);
 }

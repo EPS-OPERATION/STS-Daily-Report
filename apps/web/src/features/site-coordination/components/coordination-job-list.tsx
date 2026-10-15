@@ -4,13 +4,14 @@ import ChevronRightOutlined from "@mui/icons-material/ChevronRightOutlined";
 import ExpandLessOutlined from "@mui/icons-material/ExpandLessOutlined";
 import InboxOutlined from "@mui/icons-material/InboxOutlined";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
+import { areaLabel, ICON_LABELS } from "../types/icon-labels.js";
 import { EmptySection } from "@/components/ui/empty-state.js";
-import { ICON_LABELS } from "../types/icon-labels.js";
 import { MachineGlyph } from "./machine-icon.js";
 
 // Every job of the day under the map (same contractor filter as the map), so the detail behind
@@ -23,7 +24,10 @@ export function CoordinationJobList({
   embedded = false,
   onCollapse,
   footer,
+  clashCodes,
 }: {
+  /** Contractor codes whose road route collides with this job's route (empty = no clash). */
+  clashCodes?: (id: string) => string[];
   /** Inside the map card: no own border; a right-hand panel the height of the map on wide screens. */
   embedded?: boolean;
   items: CoordinationItem[];
@@ -95,8 +99,11 @@ export function CoordinationJobList({
                   {c?.code ?? "—"}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" noWrap>
-                  {c?.name} · {ICON_LABELS[item.icon]} · {item.areaKind === "polygon" ? "พื้นที่รูปทรงอิสระ" : "พื้นที่สี่เหลี่ยม"}
+                  {c?.name} · {ICON_LABELS[item.icon]} · {areaLabel(item)}
                 </Typography>
+                {clashCodes?.(item.id).length ? (
+                  <Chip size="small" color="error" label={`ทับเส้นทาง ${clashCodes(item.id).join(", ")}`} sx={{ height: 20, flexShrink: 0 }} />
+                ) : null}
               </Stack>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 {item.title}

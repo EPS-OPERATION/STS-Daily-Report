@@ -621,7 +621,7 @@ function SummarySheet({ r }: { r: PrintReport }) {
                 <td>
                   {u.roadLocation} · {u.purpose}
                 </td>
-                <td className="c">{u.buildingCode}</td>
+                <td className="c">{u.buildingCode || "-"}</td>
                 <td className="c">{u.startTime}–{u.endTime}</td>
               </tr>
             ))}

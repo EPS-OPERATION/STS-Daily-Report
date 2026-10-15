@@ -1,3 +1,4 @@
+import { routeDistance, type CoordinationPoint } from "./coordination.js";
 // Contractor daily report vocabulary shared by api (validation) and web (forms/labels).
 // Framework-free: plain consts + helpers only.
 
@@ -289,4 +290,31 @@ export function editDeadline(reportDate: string): Date {
 
 export function canEditReport(reportDate: string, now: Date = new Date()): boolean {
   return now.getTime() < editDeadline(reportDate).getTime();
+}
+
+// Entries a contractor saves once and picks again (report-standard-items module). Same key = same entry.
+export const STANDARD_ITEM_KINDS = ["activity", "equipment", "permit"] as const;
+export type StandardItemKind = (typeof STANDARD_ITEM_KINDS)[number];
+
+export function standardItemKey(i: { kind: StandardItemKind; buildingId: string | null; permitType: string | null; label: string }): string {
+  return [i.kind, i.buildingId ?? "", i.permitType ?? "", i.label.trim().toLowerCase()].join("|");
+}
+
+// Where a road request is: register segments and/or a drawn line; older rows only have a name.
+export interface RoadPlace {
+  roadLocation: string;
+  segmentIds?: string[] | null;
+  route?: CoordinationPoint[] | null;
+}
+// Two drawn lines closer than this share of the drawing are on the same stretch of road.
+export const ROAD_ROUTE_NEAR = 0.006;
+
+// Same place on the road: shared register segment; else lines that cross or run together; else the
+// same road name (requests made before routes existed). Time and contractor are checked by the caller.
+export function roadPlacesMeet(a: RoadPlace, b: RoadPlace): boolean {
+  const sa = a.segmentIds ?? [], sb = b.segmentIds ?? [];
+  if (sa.length && sb.length) return sa.some((id) => sb.includes(id));
+  if (a.route && a.route.length >= 2 && b.route && b.route.length >= 2) return routeDistance(a.route, b.route, 1, 1) <= ROAD_ROUTE_NEAR;
+  const name = normalizeRoadName(a.roadLocation);
+  return name !== "" && name === normalizeRoadName(b.roadLocation);
 }

@@ -197,6 +197,34 @@
       "when": 1791989752025,
       "tag": "0027_shiny_toxin",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791989753025,
+      "tag": "0028_giant_major_mapleleaf",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791989754025,
+      "tag": "0029_first_abomination",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791989755025,
+      "tag": "0030_handy_madame_web",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791989756025,
+      "tag": "0031_thin_colossus",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@ import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
-import { minutesToTime, normalizeRoadName, roadClashPairs, timeToMinutes } from "@sts/shared";
+import { minutesToTime, roadClashPairs, roadPlacesMeet, timeToMinutes } from "@sts/shared";
 import type { ReportRoadUsage } from "../types/daily-report.types.js";
 import { formatThaiDate } from "../utils/dates.js";
 
@@ -290,16 +290,24 @@ export function RoadTimelines<T extends ReportRoadUsage>({
   canEdit: boolean;
   onEdit: (r: T) => void;
 }) {
+  // One group per stretch of road and date: bookings that meet (shared segment, crossing lines or
+  // the same name), joined through each other.
   const groups = new Map<string, T[]>();
+  const groupOf = new Map<string, string>();
   for (const r of allRoads) {
-    const key = `${r.targetDate}|${normalizeRoadName(r.roadLocation)}`;
-    groups.set(key, [...(groups.get(key) ?? []), r]);
+    const hits = [...new Set(allRoads.filter((o) => o.id !== r.id && groupOf.has(o.id) && o.targetDate === r.targetDate && roadPlacesMeet(r, o)).map((o) => groupOf.get(o.id)!))];
+    const key = hits[0] ?? r.id;
+    const merged = [...hits.flatMap((k) => groups.get(k) ?? []), r];
+    for (const k of hits) groups.delete(k);
+    groups.set(key, merged);
+    for (const m of merged) groupOf.set(m.id, key);
   }
   if (visibleIds.size === 0) return null;
   const shown = [...groups.values()]
     .map((g) => ({
       g,
-      pairs: roadClashPairs(g.map((r) => ({ id: r.id, contractorId: r.contractorId, startTime: r.startTime, endTime: r.endTime }))),
+      pairs: roadClashPairs(g.map((r) => ({ id: r.id, contractorId: r.contractorId, startTime: r.startTime, endTime: r.endTime })))
+        .filter((p) => { const a = g.find((r) => r.id === p.a)!, b = g.find((r) => r.id === p.b)!; return roadPlacesMeet(a, b); }),
     }))
     .filter(({ pairs }) => pairs.some((p) => visibleIds.has(p.a) || visibleIds.has(p.b)))
     .sort((a, b) => (a.g[0]!.targetDate.localeCompare(b.g[0]!.targetDate)) || a.g[0]!.roadLocation.localeCompare(b.g[0]!.roadLocation));
@@ -314,7 +322,7 @@ export function RoadTimelines<T extends ReportRoadUsage>({
     <Stack spacing={2} divider={<Divider flexItem />} sx={{ mb: 2 }}>
       {shown.map(({ g, pairs }) => (
         <RoadGroup
-          key={`${g[0]!.targetDate}|${normalizeRoadName(g[0]!.roadLocation)}`}
+          key={g[0]!.id}
           bookings={g}
           pairs={pairs}
           visibleIds={visibleIds}

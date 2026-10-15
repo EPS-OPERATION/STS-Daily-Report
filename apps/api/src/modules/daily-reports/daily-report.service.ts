@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DISCIPLINE_CODES, REQUEST_STATUSES, allocationPeak, canEditReport, dayManpower, timeWindowsOverlap, editDeadline, isEpsStaff, normalizePagination, workloadLevel, type Discipline, type PermitType, type RequestStatus } from "@sts/shared";
+import { DISCIPLINE_CODES, REQUEST_STATUSES, allocationPeak, canEditReport, dayManpower, timeWindowsOverlap, editDeadline, isEpsStaff, normalizePagination, routeGeometryError, workloadLevel, type Discipline, type PermitType, type RequestStatus } from "@sts/shared";
 import { getEnv } from "@/config/env.js";
 import { getDb } from "@/db/client.js";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
@@ -10,6 +10,7 @@ import { isContractorInProject } from "@/modules/site-activities/site-activity.r
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { getStorage } from "@/shared/storage/index.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
+import { listRoadSegments } from "@/modules/site-coordination/coordination.repository.js";
 import { listRequests } from "@/modules/inspection-requests/inspection-request.repository.js";
 import { findMachineryConflicts, findRoadConflicts } from "./daily-report.conflicts.js";
 import { getRoadUsageForProject, setRoadAdjustment } from "./daily-report.repository.js";
@@ -391,8 +392,13 @@ function validateTomorrow(
   for (const f of forecasts) {
     if (!f.description.trim()) throw new ValidationError("Describe each forecast activity");
   }
-  for (const b of [...machinery, ...equipment, ...permits, ...roads, ...forecasts]) {
+  for (const b of [...machinery, ...equipment, ...permits, ...forecasts]) {
     if (!buildingIds.has(b.buildingId)) throw new ValidationError("Unknown building", { buildingId: b.buildingId });
+  }
+  for (const r of roads) {
+    if (r.buildingId && !buildingIds.has(r.buildingId)) {
+      throw new ValidationError("Unknown building", { buildingId: r.buildingId });
+    }
   }
   for (const m of machinery) {
     if (Boolean(m.startTime) !== Boolean(m.endTime)) {
@@ -450,6 +456,15 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
     input.roadUsage,
     input.forecasts ?? [],
   );
+  // Road routes: picked segments must be in this project's register; any line must be a valid route.
+  if (input.roadUsage.some((r) => r.segmentIds?.length || r.route)) {
+    const register = new Set((await listRoadSegments(db, projectId)).map((s) => s.id));
+    for (const r of input.roadUsage) {
+      if ((r.segmentIds ?? []).some((id) => !register.has(id))) throw new ValidationError("A chosen road segment is not in the road register", { road: r.roadLocation });
+      const error = r.route ? routeGeometryError(r.route) : null;
+      if (error) throw new ValidationError(error, { road: r.roadLocation });
+    }
+  }
   // Materials on site: one row per material + unit, positive quantity.
   const seenMaterials = new Set<string>();
   for (const m of input.materials) {

@@ -128,10 +128,8 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
           aria-label="STS Platform — home"
           title="STS Platform — home"
           sx={{
-            display: "block",
-            width: "fit-content",
-            mx: collapsed ? "auto" : 0,
-            borderRadius: 1.5,
+            display: "inline-flex",
+            alignItems: "center",
             textDecoration: "none",
             transition: "opacity 0.15s",
             "&:hover": { opacity: 0.85 },
@@ -139,9 +137,9 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
         >
           <Box
             component="img"
-            src={collapsed ? "/brand/logo-eps-mark-on-dark.png" : "/brand/logo-eps-on-dark.png"}
+            src={collapsed ? "/brand/logo-eps-mark-white.png" : "/brand/logo-eps-white.png"}
             alt="EPS — STS Platform"
-            sx={collapsed ? { width: 40, height: "auto", display: "block" } : { height: 32, width: "auto", display: "block" }}
+            sx={collapsed ? { width: 36, height: 36, display: "block" } : { height: 32, width: "auto", display: "block" }}
           />
         </Box>
       </Box>

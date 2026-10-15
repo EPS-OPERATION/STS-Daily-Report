@@ -20,16 +20,20 @@ import {
   MACHINE_TYPES,
   PERMIT_TYPES,
   SITE_EQUIPMENT_TYPES,
+  roadPlacesMeet,
   timeWindowsOverlap,
   type MachineType,
   type PermitType,
 } from "@sts/shared";
-import { Controller, useFieldArray, useWatch, type Control } from "react-hook-form";
+import { useState } from "react";
+import { Controller, useController, useFieldArray, useWatch, type Control } from "react-hook-form";
+import { RoadRoutePicker } from "./road-route-picker.js";
 import type { EveningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, WeeklySummary } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
 import { NumberStepper } from "./number-stepper.js";
-import { PERMIT_ICONS } from "./permit-meta.js";
+import { StandardItemsPanel, type StandardItem } from "@/features/report-standard-items/index.js";
+import { PERMIT_ICONS, permitLabel } from "./permit-meta.js";
 
 const ROAD_PURPOSES = ["Crane outrigger setup", "Concrete mixer staging", "Material delivery", "Heavy equipment move"];
 
@@ -38,6 +42,7 @@ const norm = (s: string | null | undefined) => (s ?? "").trim().toUpperCase().re
 // Other contractors' bookings for the same target date, so clashes show before
 // the evening report is sent (the server re-checks after).
 export interface TomorrowContext {
+  projectId: string;
   targetDate: string;
   contractorId: string;
   others: Pick<WeeklySummary, "machinery" | "roads"> | null;
@@ -277,7 +282,7 @@ export function EquipmentRequests({ control, buildings }: { control: Control<Eve
 
 export function RoadUsageRequests({
   control,
-  buildings,
+  buildings: _buildings,
   ctx,
 }: {
   control: Control<EveningFormValues>;
@@ -294,7 +299,7 @@ export function RoadUsageRequests({
           </Typography>
         ) : null}
         {rows.fields.map((row, i) => (
-          <RoadRow key={row.id} index={i} control={control} buildings={buildings} ctx={ctx} onRemove={() => rows.remove(i)} />
+          <RoadRow key={row.id} index={i} control={control} ctx={ctx} onRemove={() => rows.remove(i)} />
         ))}
       </Stack>
       <Button
@@ -302,7 +307,7 @@ export function RoadUsageRequests({
         variant="outlined"
         fullWidth
         sx={{ mt: 1.5, borderStyle: "dashed" }}
-        onClick={() => rows.append({ roadLocation: "", buildingId: "", startTime: "08:00", endTime: "10:00", purpose: "" })}
+        onClick={() => rows.append({ roadLocation: "", buildingId: "", startTime: "08:00", endTime: "10:00", purpose: "", segmentIds: [], route: null })}
       >
         ขอใช้ / ปิดถนน
       </Button>
@@ -313,24 +318,26 @@ export function RoadUsageRequests({
 function RoadRow({
   index,
   control,
-  buildings,
   ctx,
   onRemove,
 }: {
   index: number;
   control: Control<EveningFormValues>;
-  buildings: Building[];
   ctx: TomorrowContext;
   onRemove: () => void;
 }) {
   const v = useWatch({ control, name: `roadUsage.${index}` });
+  const [picking, setPicking] = useState(false);
+  const segmentIds = useController({ control, name: `roadUsage.${index}.segmentIds` });
+  const route = useController({ control, name: `roadUsage.${index}.route` });
+  const roadName = useController({ control, name: `roadUsage.${index}.roadLocation` });
   const knownRoads = [...new Set((ctx.others?.roads ?? []).map((r) => r.roadLocation))];
   const clashes = (ctx.others?.roads ?? []).filter(
     (r) =>
       r.targetDate === ctx.targetDate &&
       r.contractorId !== ctx.contractorId &&
-      norm(v?.roadLocation) !== "" &&
-      norm(r.roadLocation) === norm(v?.roadLocation) &&
+      Boolean(v) &&
+      roadPlacesMeet({ roadLocation: v.roadLocation, segmentIds: v.segmentIds, route: v.route }, r) &&
       v.startTime < v.endTime &&
       timeWindowsOverlap(v.startTime, v.endTime, r.startTime, r.endTime),
   );
@@ -338,7 +345,7 @@ function RoadRow({
     <Card variant="outlined" sx={{ borderColor: clashes.length ? "error.main" : "divider" }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Grid container spacing={1.5}>
-          <Grid size={{ xs: 10, sm: 6 }}>
+          <Grid size={{ xs: 10, sm: 11 }}>
             <Controller
               name={`roadUsage.${index}.roadLocation`}
               control={control}
@@ -361,21 +368,40 @@ function RoadRow({
               ))}
             </datalist>
           </Grid>
-          <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }} order={{ sm: 3 }}>
+          <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }}>
             <IconButton aria-label="Delete road request" onClick={onRemove}>
               <DeleteOutlineOutlinedIcon />
             </IconButton>
           </Grid>
-          <Grid size={{ xs: 12, sm: 5 }} order={{ sm: 2 }}>
-            <Controller
-              name={`roadUsage.${index}.buildingId`}
-              control={control}
-              render={({ field, fieldState }) => (
-                <BuildingSelect label="Adjacent building" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
-              )}
-            />
+          <Grid size={12}>
+            {/* Where on the map: register segments in driving order, or a temporary road drawn by hand. */}
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Button size="small" variant={route.field.value ? "outlined" : "contained"} disableElevation startIcon={<AddRoadOutlinedIcon />} onClick={() => setPicking(true)}>
+                {route.field.value ? "แก้เส้นทางบนแผนที่" : "เลือกเส้นทางบนแผนที่"}
+              </Button>
+              <Typography variant="caption" color={route.field.value ? "text.primary" : "text.secondary"}>
+                {route.field.value
+                  ? segmentIds.field.value.length ? `${segmentIds.field.value.length} ช่วงจากทะเบียนถนน · มีลูกศรบอกทาง` : "ถนนชั่วคราว (วาดเอง)"
+                  : "ยังไม่ได้ระบุบนแผนที่"}
+              </Typography>
+            </Stack>
+            {picking ? (
+              <RoadRoutePicker
+                open
+                projectId={ctx.projectId}
+                date={ctx.targetDate}
+                color="#0B4D8B"
+                initial={{ segmentIds: segmentIds.field.value, route: route.field.value }}
+                onClose={() => setPicking(false)}
+                onApply={(c) => {
+                  segmentIds.field.onChange(c.segmentIds);
+                  route.field.onChange(c.route);
+                  if (c.name) roadName.field.onChange(c.name);
+                }}
+              />
+            ) : null}
           </Grid>
-          <Grid size={12} order={{ sm: 4 }}>
+          <Grid size={12}>
             <Controller
               name={`roadUsage.${index}.purpose`}
               control={control}
@@ -412,8 +438,30 @@ function RoadRow({
   );
 }
 
-export function PermitRequests({ control, buildings }: { control: Control<EveningFormValues>; buildings: Building[] }) {
+// A saved permit becomes one request row. A custom ("other") permit keeps its name in otherLabel.
+const permitFromStandard = (i: StandardItem) => ({
+  permitType: i.permitType ?? "other",
+  otherLabel: i.permitType === "other" ? i.label : "",
+  buildingId: i.buildingId ?? "",
+  workers: i.defaultCount,
+  highRisk: i.highRisk,
+  taskName: i.taskName,
+  supervisorName: i.supervisorName,
+});
+
+export function PermitRequests({
+  control,
+  buildings,
+  projectId,
+  contractorId,
+}: {
+  control: Control<EveningFormValues>;
+  buildings: Building[];
+  projectId: string;
+  contractorId: string;
+}) {
   const rows = useFieldArray({ control, name: "permits" });
+  const permits = useWatch({ control, name: "permits" });
   return (
     <Box>
       <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1.5 }}>
@@ -431,6 +479,27 @@ export function PermitRequests({ control, buildings }: { control: Control<Evenin
           );
         })}
       </Stack>
+      <StandardItemsPanel
+        kind="permit"
+        projectId={projectId}
+        contractorId={contractorId}
+        buildings={buildings}
+        onApply={(items) => items.forEach((i) => rows.append(permitFromStandard(i)))}
+        onSaveFromForm={() =>
+          permits
+            .filter((p) => p.buildingId && (p.permitType !== "other" || (p.otherLabel ?? "").trim()))
+            .map((p) => ({
+              kind: "permit" as const,
+              label: p.permitType === "other" ? (p.otherLabel ?? "").trim() : permitLabel(p.permitType),
+              buildingId: p.buildingId,
+              defaultCount: p.workers,
+              permitType: p.permitType,
+              highRisk: p.highRisk,
+              taskName: p.taskName.trim(),
+              supervisorName: p.supervisorName.trim(),
+            }))
+        }
+      />
       <Stack spacing={1.5}>
         {rows.fields.map((row, i) => (
           <PermitRow key={row.id} index={i} control={control} buildings={buildings} onRemove={() => rows.remove(i)} />

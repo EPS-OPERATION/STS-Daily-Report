@@ -1,12 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CoordinationInput } from "@sts/shared";
+import type { CoordinationInput, RoadSegment } from "@sts/shared";
 import { coordinationApi } from "../api/coordination.api.js";
 export const coordinationKeys = {
   all: ["coordination"] as const,
   project: (projectId: string) => ["coordination", projectId] as const,
   day: (projectId: string, date: string) => ["coordination", projectId, date] as const,
   report: (projectId: string, date: string) => ["coordination", "report", projectId, date] as const,
+  roads: (projectId: string) => ["coordination", "roads", projectId] as const,
 };
+// Site road register (segments). Read by everyone; EPS staff edit it.
+export function useRoadSegments(projectId: string | null) {
+  return useQuery({ queryKey: coordinationKeys.roads(projectId ?? ""), queryFn: () => coordinationApi.roads(projectId!), enabled: Boolean(projectId) });
+}
+export function useSaveRoadSegment(projectId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { input: Omit<RoadSegment, "id">; id?: string }) => coordinationApi.saveRoad(projectId!, v.input, v.id),
+    onSuccess: () => client.invalidateQueries({ queryKey: coordinationKeys.roads(projectId!) }),
+  });
+}
+export function useDeleteRoadSegment(projectId: string | null) {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => coordinationApi.removeRoad(projectId!, id), onSuccess: () => client.invalidateQueries({ queryKey: coordinationKeys.roads(projectId!) }) });
+}
 export function useCoordination(projectId: string | null, date: string) {
   return useQuery({ queryKey: coordinationKeys.day(projectId ?? "", date), queryFn: () => coordinationApi.get(projectId!, date), enabled: Boolean(projectId), refetchInterval: 10_000 });
 }

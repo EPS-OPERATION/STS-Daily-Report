@@ -7,12 +7,15 @@ import type { ReactNode } from "react";
 
 // Numbered form section used by both shifts of the field report.
 export function SectionCard({
+  id,
   index,
   title,
   subtitle,
   tone = "primary",
   children,
 }: {
+  /** Anchor for scrolling to this section (e.g. the first one with a missing field). */
+  id?: string;
   index: number;
   title: string;
   subtitle?: string;
@@ -20,7 +23,7 @@ export function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <Card sx={{ mb: 2, overflow: "visible" }}>
+    <Card id={id} sx={{ mb: 2, overflow: "visible", scrollMarginTop: { xs: 72, md: 88 } }}>
       <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
         <Stack direction="row" spacing={1.25} alignItems="flex-start" sx={{ mb: 2 }}>
           <Box

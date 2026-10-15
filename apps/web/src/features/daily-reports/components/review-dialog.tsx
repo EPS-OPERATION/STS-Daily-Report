@@ -386,7 +386,7 @@ export function ReviewDialog({
                         {data.roadUsage.map((r) => (
                           <Box key={r.id} sx={{ p: 1.5, bgcolor: "grey.50", borderRadius: 1 }}>
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                              {r.roadLocation} · อาคาร {r.buildingCode}
+                              {r.roadLocation}{r.buildingCode ? ` · อาคาร ${r.buildingCode}` : ""}
                             </Typography>
                             <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                               เวลา: {r.startTime}–{r.endTime} · วัตถุประสงค์: {r.purpose}
