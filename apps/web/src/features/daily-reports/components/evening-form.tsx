@@ -24,6 +24,8 @@ import {
   type PositionCode,
 } from "@sts/shared";
 import { OvertimeRows } from "./overtime-rows.js";
+import { DraftBanner, DraftSavedNote, FormProgress, YesNoGate, type ProgressItem } from "./form-aids.js";
+import { draftKey, useFormDraft } from "../hooks/use-form-draft.js";
 import MenuItem from "@mui/material/MenuItem";
 import { useState, type FormEvent } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormReturn } from "react-hook-form";
@@ -155,6 +157,17 @@ export function EveningForm({
   const [validationError, setValidationError] = useState<string | null>(null);
   const hasExistingSignature = Boolean(report?.hasSignature);
   const { control, handleSubmit, setValue, formState, watch } = form;
+  const draft = useFormDraft(form, draftKey("evening", projectId, contractor.id, date));
+  // Yes/No gates: open while the contractor says "มี" or rows already exist (saved report, restored draft).
+  const [otAsked, setOtAsked] = useState(false);
+  const [requestsAsked, setRequestsAsked] = useState(false);
+  const overtimeRows = useWatch({ control, name: "overtime" });
+  const machineryRows = useWatch({ control, name: "machinery" });
+  const equipmentRows = useWatch({ control, name: "equipmentRequests" });
+  const roadRows = useWatch({ control, name: "roadUsage" });
+  const requestCount = machineryRows.length + equipmentRows.length + roadRows.length;
+  const otOpen = otAsked || overtimeRows.length > 0;
+  const requestsOpen = requestsAsked || requestCount > 0;
   const progress = useFieldArray({ control, name: "progress" });
   const accident = useWatch({ control, name: "accidentOccurred" });
   const disciplineValues = useWatch({ control, name: "disciplines" });
@@ -226,7 +239,7 @@ export function EveningForm({
         })),
         forecasts: v.forecasts.map((f) => ({ buildingId: f.buildingId, description: f.description.trim() })),
       },
-      { onSuccess: onSubmitted },
+      { onSuccess: () => { draft.clear(); onSubmitted(); } },
     );
   },
   (errors) => goTo(firstSection(Object.keys(errors), SECTIONS)));
@@ -253,8 +266,28 @@ export function EveningForm({
 
   const serverError = submit.error instanceof HttpError ? submit.error : null;
 
+  const errorKeys = Object.keys(formState.errors);
+  const hasError = (id: string) => SECTIONS.find(([sid]) => sid === id)?.[1].some((k) => errorKeys.includes(k)) ?? false;
+  const accidentNote = useWatch({ control, name: "accidentNote" });
+  const accidentCategory = useWatch({ control, name: "accidentCategory" });
+  const progressRows = useWatch({ control, name: "progress" });
+  const signatureName = useWatch({ control, name: "signatureName" });
+  const signatureData = useWatch({ control, name: "signatureData" });
+  const state = (id: string, done: boolean, optional = false): ProgressItem["state"] =>
+    hasError(id) ? "error" : optional ? "optional" : done ? "done" : "todo";
+  const checklist: ProgressItem[] = [
+    { id: "sec-safety", label: "ความปลอดภัย", state: state("sec-safety", accident === false || (accident === true && Boolean(accidentNote?.trim()) && Boolean(accidentCategory))) },
+    { id: "sec-ot", label: "OT", state: state("sec-ot", true, true) },
+    { id: "sec-crew", label: "คนช่วงบ่าย", state: crewsOk ? state("sec-crew", true) : hasError("sec-crew") ? "error" : "todo" },
+    { id: "sec-progress", label: "ผลงาน", state: state("sec-progress", progressRows.every((p) => typeof p.actualPercent === "number"), progressRows.length === 0) },
+    { id: "sec-tomorrow", label: "พรุ่งนี้", state: state("sec-tomorrow", true, true) },
+    { id: "sec-sign", label: "ลงนาม", state: state("sec-sign", Boolean(signatureName.trim()) && Boolean(signatureData)) },
+  ];
+
   return (
     <Box component="form" onSubmit={submitOrShowMissing} noValidate>
+      {draft.pending ? <DraftBanner savedAt={draft.pending.savedAt} onRestore={draft.restore} onDiscard={draft.discard} /> : null}
+      <FormProgress items={checklist} />
       <SectionCard id="sec-safety" index={1} tone="navy" title="ความปลอดภัย" subtitle="ใช้นับวันปลอดอุบัติเหตุ">
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
           <HealthAndSafetyOutlinedIcon color="success" />
@@ -336,7 +369,21 @@ export function EveningForm({
       </SectionCard>
 
       <SectionCard id="sec-ot" index={2} tone="navy" title="ชั่วโมงทำงานล่วงเวลา (OT)" subtitle="แยกตามอาคาร/งาน — จำนวนคนที่ทำ OT × ชม. ใช้คำนวณ NMH">
-        <OvertimeRows control={control} buildings={buildings} activities={allocations} />
+        <YesNoGate
+          question="วันนี้มีคนทำ OT ไหม?"
+          open={otOpen}
+          filled={overtimeRows.length}
+          onYes={() => {
+            setOtAsked(true);
+            if (overtimeRows.length === 0) setValue("overtime", [{ buildingId: "", task: "", workers: 1, hours: 2 }], { shouldDirty: true });
+          }}
+          onNo={() => {
+            setOtAsked(false);
+            setValue("overtime", [], { shouldDirty: true, shouldValidate: formState.isSubmitted });
+          }}
+        >
+          <OvertimeRows control={control} buildings={buildings} activities={allocations} />
+        </YesNoGate>
       </SectionCard>
 
       <SectionCard
@@ -420,19 +467,30 @@ export function EveningForm({
           eveningSubmitted={false}
         />
         <Divider sx={{ my: 2.5 }} />
-        <SubHeading>จองเครื่องจักร (Machine request)</SubHeading>
-        <MachineryRequests control={control} buildings={buildings} ctx={ctx} />
-        <Divider sx={{ my: 2.5 }} />
-        <SubHeading>เครื่องมือ / อุปกรณ์ (Equipment request)</SubHeading>
-        <EquipmentRequests control={control} buildings={buildings} />
-        <Divider sx={{ my: 2.5 }} />
-        <SubHeading>ขอใช้ / ปิดถนน (Road Usage)</SubHeading>
-        {(report?.roadUsage ?? []).some((r) => r.adjusted) ? (
-          <Alert severity="info" sx={{ mb: 1.5 }}>
-            EPS ปรับเวลาถนนบางรายการแล้ว ฟอร์มนี้แสดงเวลาที่คุณขอไว้ เมื่อส่งซ้ำ ระบบจะคงเวลาที่ EPS ปรับไว้
-          </Alert>
-        ) : null}
-        <RoadUsageRequests control={control} buildings={buildings} ctx={ctx} />
+        <YesNoGate
+          question="พรุ่งนี้ต้องจองเครื่องจักร / อุปกรณ์ หรือขอใช้ถนนไหม?"
+          open={requestsOpen}
+          filled={requestCount}
+          onYes={() => setRequestsAsked(true)}
+          onNo={() => {
+            setRequestsAsked(false);
+            for (const name of ["machinery", "equipmentRequests", "roadUsage"] as const) setValue(name, [], { shouldDirty: true });
+          }}
+        >
+          <SubHeading>จองเครื่องจักร (Machine request)</SubHeading>
+          <MachineryRequests control={control} buildings={buildings} ctx={ctx} />
+          <Divider sx={{ my: 2.5 }} />
+          <SubHeading>เครื่องมือ / อุปกรณ์ (Equipment request)</SubHeading>
+          <EquipmentRequests control={control} buildings={buildings} />
+          <Divider sx={{ my: 2.5 }} />
+          <SubHeading>ขอใช้ / ปิดถนน (Road Usage)</SubHeading>
+          {(report?.roadUsage ?? []).some((r) => r.adjusted) ? (
+            <Alert severity="info" sx={{ mb: 1.5 }}>
+              EPS ปรับเวลาถนนบางรายการแล้ว ฟอร์มนี้แสดงเวลาที่คุณขอไว้ เมื่อส่งซ้ำ ระบบจะคงเวลาที่ EPS ปรับไว้
+            </Alert>
+          ) : null}
+          <RoadUsageRequests control={control} buildings={buildings} ctx={ctx} />
+        </YesNoGate>
       </SectionCard>
 
       {/* Materials on site — future feature, hidden for now (schema/API/material-inputs kept). */}
@@ -489,6 +547,7 @@ export function EveningForm({
         <Button type="submit" fullWidth disabled={submit.isPending} sx={{ bgcolor: "navy.main" }}>
           {submit.isPending ? "กำลังส่ง…" : report?.eveningStatus === "submitted" ? "Save evening report changes" : "Submit evening report (Check-out)"}
         </Button>
+        <DraftSavedNote savedAt={draft.savedAt} />
       </Box>
     </Box>
   );

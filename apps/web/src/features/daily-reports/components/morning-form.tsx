@@ -52,6 +52,8 @@ import { CountList } from "./count-list.js";
 import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
 import { SectionCard } from "./section-card.js";
+import { DraftBanner, DraftSavedNote, FormProgress, type ProgressItem } from "./form-aids.js";
+import { draftKey, useFormDraft } from "../hooks/use-form-draft.js";
 import { PermitRequests } from "./tomorrow-requests.js";
 import { formatThaiDate } from "../utils/dates.js";
 import { firstSection, scrollToSection, sectionTitle, type SectionMap } from "../utils/form-sections.js";
@@ -158,6 +160,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
     mode: "onTouched",
   });
   const { control, handleSubmit, formState, setValue, getValues, reset } = form;
+  const draft = useFormDraft(form, draftKey("morning", projectId, contractor.id, date));
 
   // Auto-fetch site weather for Thung Song (TMD / Open-Meteo station at site coordinates)
   const [siteWeather, setSiteWeather] = useState<{
@@ -368,7 +371,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
             };
           }),
         },
-        { onSuccess: onSubmitted },
+        { onSuccess: () => { draft.clear(); onSubmitted(); } },
       );
     },
     (errors) => {
@@ -426,8 +429,26 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
   const canSubmit = !submit.isPending;
   const syncHours = () => setValue("workHours", hoursBetween(getValues("startTime"), getValues("endTime")));
 
+  // Checklist over the form: required sections ✓ / ○ / !, optional ones never block.
+  const errorKeys = Object.keys(formState.errors).flatMap((k) => (k === "crews" ? Object.keys(formState.errors.crews ?? {}).map((d) => `crews.${d}`) : [k]));
+  const hasError = (id: string) => sections().find(([sid]) => sid === id)?.[1].some((k) => errorKeys.includes(k)) ?? false;
+  const startTime = useWatch({ control, name: "startTime" });
+  const endTime = useWatch({ control, name: "endTime" });
+  const weather = useWatch({ control, name: "weather" });
+  const state = (id: string, done: boolean, optional = false): ProgressItem["state"] =>
+    hasError(id) ? "error" : optional ? "optional" : done ? "done" : "todo";
+  const checklist: ProgressItem[] = [
+    { id: "sec-general", label: "ข้อมูลทั่วไป", state: state("sec-general", picked.length > 0 && Boolean(startTime) && Boolean(endTime)) },
+    { id: "sec-weather", label: "อากาศ", state: state("sec-weather", Boolean(weather)) },
+    ...picked.map((d) => ({ id: `sec-crew-${d}`, label: `คน ${d}`, state: state(`sec-crew-${d}`, crewReady(d)) })),
+    { id: "sec-equipment", label: "เครื่องจักร", state: state("sec-equipment", true, true) },
+    { id: "sec-permits", label: "Work Permit", state: state("sec-permits", true, true) },
+  ];
+
   return (
     <Box component="form" onSubmit={submitOrShowMissing} noValidate>
+      {draft.pending ? <DraftBanner savedAt={draft.pending.savedAt} onRestore={draft.restore} onDiscard={draft.discard} /> : null}
+      <FormProgress items={checklist} />
       {report?.morningStatus === "submitted" ? (
         <Alert severity="info" sx={{ mb: 2 }}>
           ส่งรายงานเช้าแล้ว — แก้ไขและส่งใหม่ได้ถึง 12:00 น. ของวันถัดไป
@@ -803,6 +824,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
               ? "บันทึกการแก้ไขรายงานเช้า"
               : "บันทึก / ส่งรายงานเช้า"}
         </Button>
+        <DraftSavedNote savedAt={draft.savedAt} />
       </Box>
     </Box>
   );
