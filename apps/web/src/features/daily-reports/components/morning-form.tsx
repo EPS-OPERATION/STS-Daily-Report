@@ -47,7 +47,7 @@ import { useSubmitMorning } from "../hooks/use-daily-report-mutations.js";
 import { morningSchema, placementStatus, type ActivityValues, type MorningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
-import { COPY_LOOKBACK_DAYS, CopySourceButton } from "./copy-source-button.js";
+import { CopySourcePanel } from "./copy-source-button.js";
 import { CountList } from "./count-list.js";
 import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
@@ -439,10 +439,10 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
     hasError(id) ? "error" : optional ? "optional" : done ? "done" : "todo";
   const checklist: ProgressItem[] = [
     { id: "sec-general", label: "ข้อมูลทั่วไป", state: state("sec-general", picked.length > 0 && Boolean(startTime) && Boolean(endTime)) },
-    { id: "sec-weather", label: "อากาศ", state: state("sec-weather", Boolean(weather)) },
-    ...picked.map((d) => ({ id: `sec-crew-${d}`, label: `คน ${d}`, state: state(`sec-crew-${d}`, crewReady(d)) })),
-    { id: "sec-equipment", label: "เครื่องจักร", state: state("sec-equipment", true, true) },
-    { id: "sec-permits", label: "Work Permit", state: state("sec-permits", true, true) },
+    { id: "sec-weather", label: "สภาพอากาศ", state: state("sec-weather", Boolean(weather)) },
+    ...picked.map((d) => ({ id: `sec-crew-${d}`, label: `กำลังคน ${d}`, state: state(`sec-crew-${d}`, crewReady(d)) })),
+    { id: "sec-equipment", label: "เครื่องจักร / เครื่องมือ", state: state("sec-equipment", true, true) },
+    { id: "sec-permits", label: "ใบอนุญาตงานเสี่ยง", state: state("sec-permits", true, true) },
   ];
 
   return (
@@ -455,26 +455,13 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
         </Alert>
       ) : null}
 
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        alignItems={{ sm: "center" }}
-        justifyContent="space-between"
-        spacing={1.25}
-        sx={{ mb: 2, p: 1.5, border: 1, borderColor: "divider", borderRadius: 2 }}
-      >
-        <Typography variant="body2" color="text.secondary">
-          ใช้คน งาน และเครื่องจักรจากรายงานเช้าที่ส่งแล้ว (ย้อนหลัง {COPY_LOOKBACK_DAYS} วัน) — แก้ไขได้ก่อนส่ง
-        </Typography>
-        <Box sx={{ flexShrink: 0 }}>
-          <CopySourceButton
-            projectId={projectId}
-            contractorId={contractor.id}
-            date={date}
-            disabled={copying || submit.isPending}
-            onPick={(day) => void startCopy(day)}
-          />
-        </Box>
-      </Stack>
+      <CopySourcePanel
+        projectId={projectId}
+        contractorId={contractor.id}
+        date={date}
+        disabled={copying || submit.isPending}
+        onPick={(day) => void startCopy(day)}
+      />
       {copyNotice ? (
         <Alert severity="info" sx={{ mb: 2 }} onClose={() => setCopyNotice(null)}>
           {copyNotice}

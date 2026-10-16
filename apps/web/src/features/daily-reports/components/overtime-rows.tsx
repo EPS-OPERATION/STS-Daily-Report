@@ -9,8 +9,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { overtimeTotals } from "@sts/shared";
-import { Controller, useFieldArray, useWatch, type Control } from "react-hook-form";
+import { Controller, useFieldArray, type Control } from "react-hook-form";
 import type { EveningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, ReportAllocation } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
@@ -28,8 +27,6 @@ export function OvertimeRows({
   activities: ReportAllocation[];
 }) {
   const rows = useFieldArray({ control, name: "overtime" });
-  const values = useWatch({ control, name: "overtime" });
-  const totals = overtimeTotals((values ?? []).map((r) => ({ workers: r.workers || 0, hours: r.hours || 0 })));
   const add = (buildingId = "", task = "") => rows.append({ buildingId, task, workers: 1, hours: 2 });
   // One suggestion per building + task, in the morning's order.
   const suggestions = [...new Map(activities.map((a) => [`${a.buildingId}|${a.workDescription}`, a])).values()].slice(0, 8);
@@ -116,16 +113,9 @@ export function OvertimeRows({
         </Box>
       ) : null}
 
-      <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" useFlexGap spacing={1}>
-        <Button variant="outlined" startIcon={<AddIcon />} onClick={() => add()} sx={{ minHeight: 44 }}>
-          เพิ่มรายการ OT
-        </Button>
-        {rows.fields.length > 0 ? (
-          <Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums" }}>
-            รวม OT: <b>{totals.workers}</b> คน · <b>{totals.manHours}</b> คน-ชม.
-          </Typography>
-        ) : null}
-      </Stack>
+      <Button variant="outlined" startIcon={<AddIcon />} onClick={() => add()} sx={{ minHeight: 44, alignSelf: "flex-start" }}>
+        เพิ่มรายการ OT
+      </Button>
     </Stack>
   );
 }
