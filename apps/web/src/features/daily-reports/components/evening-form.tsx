@@ -1,3 +1,4 @@
+import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import HealthAndSafetyOutlinedIcon from "@mui/icons-material/HealthAndSafetyOutlined";
 import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
@@ -32,7 +33,7 @@ import { useState, type FormEvent } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormReturn } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
-import { useWeeklySummary } from "../hooks/use-daily-report-queries.js";
+import { useInspectionRequests, useWeeklySummary } from "../hooks/use-daily-report-queries.js";
 import { eveningSchema, type EveningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { addDaysIso, formatThaiDate, mondayOf } from "../utils/dates.js";
@@ -162,6 +163,10 @@ export function EveningForm({
   // Yes/No gates: open while the contractor says "มี" or rows already exist (saved report, restored draft).
   const [otAsked, setOtAsked] = useState(false);
   const [requestsAsked, setRequestsAsked] = useState(false);
+  const inspectionList = useInspectionRequests(projectId, { from: date, to: date, by: "report" });
+  const inspectionRows = (inspectionList.data?.data ?? []).filter((r) => r.contractorId === contractor.id);
+  const [qaqcAsked, setQaqcAsked] = useState(false);
+  const qaqcOpen = qaqcAsked || inspectionRows.length > 0;
   const overtimeRows = useWatch({ control, name: "overtime" });
   const machineryRows = useWatch({ control, name: "machinery" });
   const equipmentRows = useWatch({ control, name: "equipmentRequests" });
@@ -460,14 +465,24 @@ export function EveningForm({
         <SubHeading>แผนงานพรุ่งนี้ (Tomorrow Forecast Activities)</SubHeading>
         <ForecastActivities control={control} buildings={buildings} />
         <Divider sx={{ my: 2.5 }} />
-        <SubHeading>ขอตรวจ QAQC</SubHeading>
-        <RequestSection
-          projectId={projectId}
-          contractorId={contractor.id}
-          reportDate={date}
-          buildings={buildings}
-          eveningSubmitted={false}
-        />
+        <YesNoGate
+          icon={<FactCheckOutlinedIcon color="primary" fontSize="small" />}
+          question="มีการนัดตรวจ (RFI) หรือไม่"
+          open={qaqcOpen}
+          filled={inspectionRows.length}
+          onYes={() => setQaqcAsked(true)}
+          onNo={() => setQaqcAsked(false)}
+        >
+          <Box sx={{ mt: 1.5 }}>
+            <RequestSection
+              projectId={projectId}
+              contractorId={contractor.id}
+              reportDate={date}
+              buildings={buildings}
+              eveningSubmitted={false}
+            />
+          </Box>
+        </YesNoGate>
         <Divider sx={{ my: 2.5 }} />
         <YesNoGate
           question="พรุ่งนี้ต้องจองเครื่องจักร / อุปกรณ์ หรือขอใช้ถนนหรือไม่"
