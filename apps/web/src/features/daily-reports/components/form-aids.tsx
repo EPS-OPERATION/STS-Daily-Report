@@ -1,6 +1,4 @@
-import CheckCircleOutlineOutlinedIcon from "@mui/icons-material/CheckCircleOutlineOutlined";
-import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
-import RadioButtonUncheckedOutlinedIcon from "@mui/icons-material/RadioButtonUncheckedOutlined";
+import CheckOutlinedIcon from "@mui/icons-material/CheckOutlined";
 import RestoreOutlinedIcon from "@mui/icons-material/RestoreOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -128,20 +126,45 @@ export function YesNoGate({
 export type ProgressState = "done" | "todo" | "error" | "optional";
 export interface ProgressItem { id: string; label: string; state: ProgressState }
 
-const STATE_VIEW: Record<ProgressState, { icon: ReactNode; color: string }> = {
-  done: { icon: <CheckCircleOutlineOutlinedIcon sx={{ fontSize: 16 }} />, color: "success.main" },
-  optional: { icon: <CheckCircleOutlineOutlinedIcon sx={{ fontSize: 16 }} />, color: "text.disabled" },
-  todo: { icon: <RadioButtonUncheckedOutlinedIcon sx={{ fontSize: 16 }} />, color: "text.secondary" },
-  error: { icon: <ErrorOutlineOutlinedIcon sx={{ fontSize: 16 }} />, color: "error.main" },
-};
+const STATE_TEXT: Record<ProgressState, string> = { done: "กรอกครบแล้ว", todo: "ยังไม่ครบ", error: "ต้องแก้ไข", optional: "กรอกเฉพาะถ้ามี" };
 
-// Sticky checklist over the form: every section with ✓ / ○ / !, tap to jump there.
-// Optional sections never block ("ไม่บังคับ"), so the count is of required sections only.
+// Step badge: the section's number, a check once complete, "!" when something must be fixed.
+function StepBadge({ n, state }: { n: number; state: ProgressState }) {
+  const filled = state === "done" || state === "error";
+  return (
+    <Box
+      component="span"
+      sx={{
+        width: 20,
+        height: 20,
+        flexShrink: 0,
+        borderRadius: "50%",
+        display: "inline-grid",
+        placeItems: "center",
+        fontSize: 11,
+        fontWeight: 700,
+        fontVariantNumeric: "tabular-nums",
+        border: 1.5,
+        borderColor: state === "done" ? "success.main" : state === "error" ? "error.main" : state === "optional" ? "divider" : "text.secondary",
+        bgcolor: state === "done" ? "success.main" : state === "error" ? "error.main" : "transparent",
+        color: filled ? "common.white" : state === "optional" ? "text.secondary" : "text.primary",
+      }}
+    >
+      {state === "done" ? <CheckOutlinedIcon sx={{ fontSize: 14 }} /> : state === "error" ? "!" : n}
+    </Box>
+  );
+}
+
+// Sticky step bar over the form: every section, numbered like its card, tap to jump there.
+// Optional sections ("ถ้ามี") never count; the counter is of required sections only.
 export function FormProgress({ items }: { items: ProgressItem[] }) {
   const required = items.filter((i) => i.state !== "optional");
   const done = required.filter((i) => i.state === "done").length;
+  const complete = done === required.length;
   return (
     <Box
+      component="nav"
+      aria-label="ความครบถ้วนของรายงาน"
       sx={{
         position: "sticky",
         top: { xs: 56, sm: 64 },
@@ -155,41 +178,59 @@ export function FormProgress({ items }: { items: ProgressItem[] }) {
         borderColor: "divider",
         display: "flex",
         alignItems: "center",
-        gap: 1,
+        gap: 1.25,
       }}
     >
-      <Typography variant="caption" sx={{ fontWeight: 700, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", color: done === required.length ? "success.main" : "text.primary" }}>
-        ครบ {done}/{required.length}
-      </Typography>
-      <Box sx={{ display: "flex", gap: 0.75, overflowX: "auto", scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}>
-        {items.map((item) => {
-          const view = STATE_VIEW[item.state];
-          return (
-            <ButtonBase
-              key={item.id}
-              onClick={() => scrollToSection(item.id)}
-              aria-label={`${item.label}: ${item.state === "done" ? "ครบแล้ว" : item.state === "error" ? "ต้องแก้" : item.state === "optional" ? "ไม่บังคับ" : "ยังไม่ครบ"}`}
-              sx={{
-                flexShrink: 0,
-                gap: 0.5,
-                px: 1,
-                py: 0.5,
-                borderRadius: 1.5,
-                border: 1,
-                borderColor: item.state === "error" ? "error.main" : "divider",
-                color: view.color,
-                typography: "caption",
-                fontWeight: 600,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {view.icon}
-              <Box component="span" sx={{ color: item.state === "optional" ? "text.secondary" : "text.primary" }}>
-                {item.label}
+      <Box sx={{ flexShrink: 0, pr: 1.25, borderRight: 1, borderColor: "divider", lineHeight: 1.2 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontSize: 11 }}>
+          หัวข้อบังคับ
+        </Typography>
+        <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: complete ? "success.main" : "text.primary" }}>
+          {done}/{required.length} {complete ? "ครบ" : ""}
+        </Typography>
+      </Box>
+      {/* Wide screens wrap every step into view; phones scroll sideways, the fade says there is more. */}
+      <Box
+        sx={{
+          display: "flex",
+          gap: 0.5,
+          minWidth: 0,
+          flexWrap: { xs: "nowrap", md: "wrap" },
+          overflowX: { xs: "auto", md: "visible" },
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
+          maskImage: { xs: "linear-gradient(to right, #000 85%, transparent)", md: "none" },
+        }}
+      >
+        {items.map((item, i) => (
+          <ButtonBase
+            key={item.id}
+            onClick={() => scrollToSection(item.id)}
+            aria-label={`ขั้นที่ ${i + 1} ${item.label}: ${STATE_TEXT[item.state]}`}
+            title={STATE_TEXT[item.state]}
+            sx={{
+              flexShrink: 0,
+              gap: 0.75,
+              pl: 0.5,
+              pr: 1,
+              py: 0.5,
+              borderRadius: 999,
+              typography: "caption",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+              color: item.state === "optional" ? "text.secondary" : item.state === "error" ? "error.main" : "text.primary",
+              "&:hover": { bgcolor: "action.hover" },
+            }}
+          >
+            <StepBadge n={i + 1} state={item.state} />
+            {item.label}
+            {item.state === "optional" ? (
+              <Box component="span" sx={{ fontWeight: 400, color: "text.disabled" }}>
+                · ถ้ามี
               </Box>
-            </ButtonBase>
-          );
-        })}
+            ) : null}
+          </ButtonBase>
+        ))}
       </Box>
     </Box>
   );

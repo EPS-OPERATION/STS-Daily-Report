@@ -278,11 +278,11 @@ export function EveningForm({
     hasError(id) ? "error" : optional ? "optional" : done ? "done" : "todo";
   const checklist: ProgressItem[] = [
     { id: "sec-safety", label: "ความปลอดภัย", state: state("sec-safety", accident === false || (accident === true && Boolean(accidentNote?.trim()) && Boolean(accidentCategory))) },
-    { id: "sec-ot", label: "OT", state: state("sec-ot", true, true) },
-    { id: "sec-crew", label: "คนช่วงบ่าย", state: crewsOk ? state("sec-crew", true) : hasError("sec-crew") ? "error" : "todo" },
-    { id: "sec-progress", label: "ผลงาน", state: state("sec-progress", progressRows.every((p) => typeof p.actualPercent === "number"), progressRows.length === 0) },
-    { id: "sec-tomorrow", label: "พรุ่งนี้", state: state("sec-tomorrow", true, true) },
-    { id: "sec-sign", label: "ลงนาม", state: state("sec-sign", Boolean(signatureName.trim()) && Boolean(signatureData)) },
+    { id: "sec-ot", label: "ล่วงเวลา (OT)", state: state("sec-ot", true, true) },
+    { id: "sec-crew", label: "ผู้ปฏิบัติงานช่วงบ่าย", state: crewsOk ? state("sec-crew", true) : hasError("sec-crew") ? "error" : "todo" },
+    { id: "sec-progress", label: "ผลงานจริง", state: state("sec-progress", progressRows.every((p) => typeof p.actualPercent === "number"), progressRows.length === 0) },
+    { id: "sec-tomorrow", label: "คำขอวันพรุ่งนี้", state: state("sec-tomorrow", true, true) },
+    { id: "sec-sign", label: "ลงนามยืนยัน", state: state("sec-sign", Boolean(signatureName.trim()) && Boolean(signatureData)) },
   ];
 
   return (
