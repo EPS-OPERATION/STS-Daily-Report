@@ -120,7 +120,18 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "navy.dark", color: "common.white" }}>
-      <Box sx={{ px: collapsed ? 1.5 : 2.5, py: 1.5 }}>
+      <Box
+        sx={{
+          height: 64,
+          display: "flex",
+          alignItems: "center",
+          px: collapsed ? 1.5 : 2.5,
+          bgcolor: "#FFFFFF",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          justifyContent: collapsed ? "center" : "flex-start",
+        }}
+      >
         <Box
           component={NavLink}
           to="/"
@@ -143,7 +154,6 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
           />
         </Box>
       </Box>
-      <Divider sx={{ borderColor: alpha(theme.palette.common.white, 0.12) }} />
       <Box className="sts-navy-scroll" sx={{ flexGrow: 1, overflowY: "auto", px: 1.5, py: 1 }}>
         {visibleGroups.map((group) => (
           <Box key={group.title} sx={{ mb: 1.5 }}>

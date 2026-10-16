@@ -33,6 +33,7 @@ import {
   SITE_EQUIPMENT_TYPES,
   WEATHER_CONDITIONS,
   type Discipline,
+  type PermitType,
   type PositionCode,
   type WeatherCondition,
 } from "@sts/shared";
@@ -44,14 +45,14 @@ import { StandardItemsPanel, type StandardItem } from "@/features/report-standar
 import { dailyReportApi } from "../api/daily-report.api.js";
 import { useSubmitMorning } from "../hooks/use-daily-report-mutations.js";
 import { morningSchema, placementStatus, type ActivityValues, type MorningFormValues } from "../schemas/daily-report.schema.js";
-import type { Building, DailyReport, PlannedToday, ReportContractor } from "../types/daily-report.types.js";
+import type { Building, DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
 import { COPY_LOOKBACK_DAYS, CopySourceButton } from "./copy-source-button.js";
 import { CountList } from "./count-list.js";
 import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
-import { PlannedTodayChecklist } from "./planned-today.js";
 import { SectionCard } from "./section-card.js";
+import { PermitRequests } from "./tomorrow-requests.js";
 import { formatThaiDate } from "../utils/dates.js";
 import { firstSection, scrollToSection, sectionTitle, type SectionMap } from "../utils/form-sections.js";
 
@@ -61,7 +62,6 @@ interface MorningFormProps {
   contractor: ReportContractor;
   buildings: Building[];
   report: DailyReport | null;
-  plannedToday: PlannedToday;
   onSubmitted: () => void;
   /** Opened from the home page copy button: copy this sent morning report once on open. */
   autoCopyFrom?: string;
@@ -138,10 +138,19 @@ function toDefaults(report: DailyReport | null): MorningFormValues {
       ...Object.fromEntries((report?.equipment ?? []).map((e) => [e.equipmentType, e.qty])),
     } as Record<string, number>,
     crews: { CE: crewDefaults(report, "CE"), ME: crewDefaults(report, "ME"), EE: crewDefaults(report, "EE") },
+    permits: (report?.permits ?? []).map((p) => ({
+      permitType: p.permitType,
+      otherLabel: p.otherLabel ?? "",
+      buildingId: p.buildingId,
+      workers: p.workers,
+      highRisk: p.highRisk ?? false,
+      taskName: p.taskName ?? "",
+      supervisorName: p.supervisorName ?? "",
+    })),
   };
 }
 
-export function MorningForm({ projectId, date, contractor, buildings, report, plannedToday, onSubmitted, autoCopyFrom, onAutoCopyStarted }: MorningFormProps) {
+export function MorningForm({ projectId, date, contractor, buildings, report, onSubmitted, autoCopyFrom, onAutoCopyStarted }: MorningFormProps) {
   const submit = useSubmitMorning(projectId);
   const form = useForm<MorningFormValues>({
     resolver: zodResolver(morningSchema),
@@ -250,6 +259,16 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
     }
     const equipment = { ...emptyCounts(SITE_EQUIPMENT_TYPES), ...Object.fromEntries(source.equipment.map((e) => [e.equipmentType, e.qty])) };
     setValue("equipment", equipment as Record<string, number>, { shouldDirty: true });
+    const sourcePermits = (source.permits ?? []).map((p) => ({
+      permitType: p.permitType,
+      otherLabel: p.otherLabel ?? "",
+      buildingId: p.buildingId,
+      workers: p.workers,
+      highRisk: p.highRisk ?? false,
+      taskName: p.taskName ?? "",
+      supervisorName: p.supervisorName ?? "",
+    }));
+    setValue("permits", sourcePermits, { shouldDirty: true });
     setCopied({ date: source.reportDate, snapshot });
     setCopyNotice(null);
     setConfirmCopy(null);
@@ -319,6 +338,15 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
           equipment: Object.entries(v.equipment)
             .filter(([, n]) => n > 0)
             .map(([equipmentType, qty]) => ({ equipmentType: equipmentType.trim(), qty })),
+          permits: v.permits.map((p) => ({
+            buildingId: p.buildingId,
+            permitType: p.permitType as PermitType,
+            otherLabel: p.permitType === "other" ? p.otherLabel?.trim() : undefined,
+            workers: p.workers,
+            highRisk: p.highRisk,
+            taskName: p.highRisk ? p.taskName.trim() : undefined,
+            supervisorName: p.highRisk ? p.supervisorName.trim() : undefined,
+          })),
           crews: DISCIPLINE_CODES.filter((d) => v.disciplines.includes(d)).map((d) => {
             const c = v.crews[d];
             return {
@@ -358,6 +386,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
     ["sec-weather", ["weather", "temperatureC", "humidityPct"]],
     ...picked.map((d) => [`sec-crew-${d}`, [`crews.${d}`]] as const),
     ["sec-equipment", ["equipment"]],
+    ["sec-permits", ["permits"]],
   ];
 
   const goTo = (id: string | null) => {
@@ -713,8 +742,13 @@ export function MorningForm({ projectId, date, contractor, buildings, report, pl
         />
       </SectionCard>
 
-      <SectionCard index={4 + picked.length} title="คำขอสำหรับวันนี้ (ส่งไว้เมื่อวานบ่าย)" subtitle="อ่านอย่างเดียว — ขอใหม่/แก้ไขได้ในรายงานบ่าย (แผนพรุ่งนี้)">
-        <PlannedTodayChecklist planned={plannedToday} />
+      <SectionCard
+        id="sec-permits"
+        index={4 + picked.length}
+        title="ใบอนุญาตงานเสี่ยง (Work Permits)"
+        subtitle="สำหรับงานเสี่ยงที่จะทำวันนี้ (Hot Work, Work at Height, Lifting ฯลฯ)"
+      >
+        <PermitRequests control={control} buildings={buildings} projectId={projectId} contractorId={contractor.id} />
       </SectionCard>
 
       {validationError ? (

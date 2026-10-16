@@ -7,6 +7,7 @@ export const coordinationFormSchema = z.object({
   rotation: z.number().min(-360).max(360), areaKind: z.enum(["rectangle", "polygon", "route"]),
   geometry: z.object({ type: z.enum(["polygon", "polyline"]), points: z.array(z.object({ x: z.number(), y: z.number() })) }),
   linkArea: z.boolean().optional(),
+  twoWay: z.boolean().optional(),
   note: z.string().max(1000, "หมายเหตุยาวได้ไม่เกิน 1000 ตัวอักษร").nullable().optional(),
 }).superRefine((v, ctx) => {
   const error = coordinationGeometryError(v.geometry);

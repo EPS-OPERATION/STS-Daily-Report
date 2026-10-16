@@ -17,6 +17,7 @@ import {
 import { POSITIONS } from "@sts/shared";
 import dayjs from "dayjs";
 import { CHART_OTHER, CHART_PRIMARY, CHART_SERIES } from "@/app/theme/chart-palette.js";
+import { formatThaiDate } from "../utils/dates.js";
 import type { ManpowerSummary, PositionMixRow } from "../types/daily-report.types.js";
 
 const DAY_TH = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."];
@@ -32,9 +33,9 @@ const legendBottom = {
   legend: { direction: "horizontal" as const, position: { vertical: "bottom" as const, horizontal: "center" as const } },
 };
 
-function Empty({ text }: { text: string }) {
+function Empty({ text, height = 280 }: { text: string; height?: number }) {
   return (
-    <Box sx={{ height: 280, display: "grid", placeItems: "center" }}>
+    <Box sx={{ height, display: "grid", placeItems: "center" }}>
       <Typography variant="body2" color="text.secondary">
         {text}
       </Typography>
@@ -126,14 +127,20 @@ export function ManDayByContractorChart({
   days,
   daily,
   colors,
+  height = 352,
+  legend = true,
 }: {
   days: string[];
   daily: ManpowerSummary["daily"];
   colors: Map<string, string>;
+  /** Total height, chip row included. */
+  height?: number;
+  /** The chip row already names each colour; tight layouts drop the legend under the bars. */
+  legend?: boolean;
 }) {
   // Contractors hidden by the filter chips (empty = show all).
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-  if (daily.length === 0) return <Empty text="ยังไม่มีรายงานเช้าในช่วงนี้" />;
+  if (daily.length === 0) return <Empty text="ยังไม่มีรายงานเช้าในช่วงนี้" height={height} />;
   const perDay = new Map<string, Map<string, number>>(); // contractor → date → headcount
   for (const r of daily) {
     const row = perDay.get(r.contractorCode) ?? new Map<string, number>();
@@ -153,7 +160,7 @@ export function ManDayByContractorChart({
     });
   return (
     <Box>
-      <Stack direction="row" alignItems="center" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1, justifyContent: "flex-end" }}>
+      <Stack direction="row" alignItems="center" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: legend ? 1 : 0, justifyContent: "flex-end" }}>
         <Typography variant="caption" color="text.secondary">
           ผู้รับเหมา:
         </Typography>
@@ -180,26 +187,31 @@ export function ManDayByContractorChart({
         })}
       </Stack>
       <BarChart
-        height={320}
+        height={Math.max(160, height - 32)}
         borderRadius={week ? 4 : 2}
-        margin={{ top: 24 }}
+        margin={{ top: legend ? 24 : 12, bottom: 56 }}
         xAxis={[
           {
             scaleType: "band",
             data: days,
-            // Date on the first line, the day's total headcount under it.
-            valueFormatter: (d: string, ctx) => {
-              const label = week ? `${DAY_TH[(dayjs(d).day() + 6) % 7]} ${dayjs(d).format("D")}` : dayjs(d).format("D");
-              const total = totals[days.indexOf(d)] ?? 0;
-              return ctx.location === "tick" && total ? `${label}
-${total} คน` : label;
+            valueFormatter: (d: string) => {
+              const djs = dayjs(d);
+              if (week) {
+                return `${DAY_TH[(djs.day() + 6) % 7]} ${formatThaiDate(d)}`;
+              }
+              return formatThaiDate(d);
             },
-            tickLabelStyle: { fontSize: 12 },
-            height: 48,
+            tickLabelInterval: () => true,
+            tickLabelStyle: {
+              fontSize: days.length > 20 ? 10 : 11,
+              angle: -45,
+              textAnchor: "end",
+            },
+            height: 56,
           },
         ]}
         // 15% headroom so the day total above the tallest bar is never clipped.
-        yAxis={[{ label: "People", width: 48, min: 0, max: Math.max(10, Math.ceil((Math.max(...totals) * 1.15) / 10) * 10) }]}
+        yAxis={[{ label: legend ? "People" : undefined, width: legend ? 48 : 40, min: 0, max: Math.max(10, Math.ceil((Math.max(...totals) * 1.15) / 10) * 10) }]}
         series={codes.map((code) => ({
           id: code,
           label: code,
@@ -212,6 +224,7 @@ ${total} คน` : label;
         barLabel={(item, ctx) => (item.value && ctx.bar.height >= 16 && ctx.bar.width >= 18 ? String(item.value) : null)}
         slots={{ tooltip: CustomStackedBarTooltip }}
         slotProps={legendBottom}
+        hideLegend={!legend}
         grid={{ horizontal: true }}
         sx={{ "& .MuiBarLabel-root": { fill: "#FFFFFF", fontWeight: 700, fontSize: 12 } }}
       />
@@ -224,11 +237,12 @@ ${total} คน` : label;
 export const TREND_DAILY_MAX_DAYS = 31;
 
 // Headcount trend over the selected range (from the same daily rows as the Man-day chart).
-// Days without any report are gaps (null), not zeros, so a missing day is not a false drop.
-export function ManpowerTrendChart({ days, daily }: { days: string[]; daily: Array<{ date: string; headcount: number }> }) {
+// Days without any report are null, not zeros, so a missing day is not a false drop: the line joins the
+// reported days and only those carry a mark (a broken line of fragments was hard to read).
+export function ManpowerTrendChart({ days, daily, height = 300 }: { days: string[]; daily: Array<{ date: string; headcount: number }>; height?: number }) {
   const byDay = new Map<string, number>();
   for (const d of daily) byDay.set(d.date, (byDay.get(d.date) ?? 0) + d.headcount);
-  if (byDay.size === 0) return <Empty text="ยังไม่มีข้อมูลในช่วงที่เลือก" />;
+  if (byDay.size === 0) return <Empty text="ยังไม่มีข้อมูลในช่วงที่เลือก" height={height} />;
 
   const weekly = days.length > TREND_DAILY_MAX_DAYS;
   const points: Array<{ key: string; label: string; value: number | null }> = [];
@@ -250,7 +264,7 @@ export function ManpowerTrendChart({ days, daily }: { days: string[]; daily: Arr
   const unit = weekly ? "คน/วัน (เฉลี่ย)" : "คน";
   return (
     <LineChart
-      height={300}
+      height={height}
       xAxis={[
         {
           scaleType: "point",
@@ -259,7 +273,7 @@ export function ManpowerTrendChart({ days, daily }: { days: string[]; daily: Arr
           tickLabelStyle: { fontSize: 12 },
         },
       ]}
-      yAxis={[{ label: unit, width: 52, min: 0 }]}
+      yAxis={[{ label: height < 300 ? undefined : unit, width: height < 300 ? 36 : 52, min: 0 }]}
       series={[
         {
           id: "trend",
@@ -267,8 +281,8 @@ export function ManpowerTrendChart({ days, daily }: { days: string[]; daily: Arr
           color: CHART_PRIMARY,
           curve: "linear",
           data: points.map((p) => p.value),
-          showMark: points.length <= 14,
-          connectNulls: false,
+          showMark: ({ index }) => points[index]?.value !== null,
+          connectNulls: true,
           valueFormatter: (v: number | null) => (v === null ? "ไม่มีรายงาน" : weekly ? `${v} คน/วัน` : `${v} คน`),
         },
       ]}
@@ -280,17 +294,17 @@ export function ManpowerTrendChart({ days, daily }: { days: string[]; daily: Arr
 }
 
 // Headcount by position, grouped by contractor (actual count in range).
-export function PositionByContractorChart({ rows, colors }: { rows: PositionMixRow[]; colors: Map<string, string> }) {
-  if (rows.length === 0) return <Empty text="ยังไม่มีข้อมูลตำแหน่งในช่วงนี้" />;
+export function PositionByContractorChart({ rows, colors, height = 320 }: { rows: PositionMixRow[]; colors: Map<string, string>; height?: number }) {
+  if (rows.length === 0) return <Empty text="ยังไม่มีข้อมูลตำแหน่งในช่วงนี้" height={height} />;
   // Positions in the form's order, only those anyone used this week.
   const positions = POSITIONS.filter((p) => rows.some((r) => r.position === p.code));
   const codes = [...new Set(rows.map((r) => r.contractorCode))].sort((a, b) => a.localeCompare(b));
   return (
     <BarChart
-      height={320}
+      height={height}
       borderRadius={4}
-      xAxis={[{ scaleType: "band", data: positions.map((p) => p.label), tickLabelStyle: { fontSize: 12 } }]}
-      yAxis={[{ label: "คน", width: 48 }]}
+      xAxis={[{ scaleType: "band", data: positions.map((p) => p.label), tickLabelInterval: () => true, tickLabelStyle: { fontSize: 11, angle: -30, textAnchor: "end" }, height: 64 }]}
+      yAxis={[{ width: 44 }]}
       series={codes.map((code) => ({
         id: code,
         label: code,
@@ -317,14 +331,14 @@ const NATIONALITY_SERIES = [
   { key: "foreignFemale", label: "ต่างชาติ หญิง", color: CHART_SERIES[3] },
 ] as const;
 
-export function NationalityByContractorChart({ contractors }: { contractors: ManpowerSummary["contractors"] }) {
-  if (contractors.length === 0) return <Empty text="ยังไม่มีข้อมูลในช่วงนี้" />;
+export function NationalityByContractorChart({ contractors, height = 300 }: { contractors: ManpowerSummary["contractors"]; height?: number }) {
+  if (contractors.length === 0) return <Empty text="ยังไม่มีข้อมูลในช่วงนี้" height={height} />;
   return (
     <BarChart
-      height={300}
+      height={height}
       borderRadius={4}
       xAxis={[{ scaleType: "band", data: contractors.map((c) => c.contractorCode) }]}
-      yAxis={[{ label: "คน-วัน", width: 64 }]}
+      yAxis={[{ width: 44 }]}
       series={NATIONALITY_SERIES.map((s) => ({
         id: s.key,
         label: s.label,
@@ -344,25 +358,29 @@ export function NationalityByContractorChart({ contractors }: { contractors: Man
 export function ManpowerByBuildingChart({
   rows,
   colors,
+  height,
 }: {
   rows: ManpowerSummary["byBuilding"];
   colors: Map<string, string>;
+  /** Fixed height (bars shrink to fit); default grows with the building count. */
+  height?: number;
 }) {
   const codes = [...new Set(rows.flatMap((b) => Object.keys(b.contractors)))].sort((a, b) => a.localeCompare(b));
-  if (codes.length === 0) return <Empty text="ยังไม่มีการจัดสรรคนลงอาคารในช่วงนี้" />;
+  if (codes.length === 0) return <Empty text="ยังไม่มีการจัดสรรคนลงอาคารในช่วงนี้" height={height} />;
+  const shown = height === undefined ? rows : fitBuildings(rows, Math.max(3, Math.floor((height - 40) / BUILDING_ROW)));
   return (
     <BarChart
-      height={rows.length * 30 + 90}
+      height={height ?? rows.length * 30 + 90}
       layout="horizontal"
       borderRadius={3}
-      yAxis={[{ scaleType: "band", data: rows.map((b) => b.name), width: 190, tickLabelStyle: { fontSize: 13 } }]}
-      xAxis={[{ label: "คน-วัน" }]}
+      yAxis={[{ scaleType: "band", data: shown.map((b) => b.name), width: height === undefined ? 190 : 160, tickLabelStyle: { fontSize: height === undefined ? 13 : 12 } }]}
+      xAxis={[{ label: height === undefined ? "คน-วัน" : undefined }]}
       series={codes.map((code) => ({
         id: code,
         label: code,
         stack: "total",
         color: colors.get(code) ?? CHART_OTHER,
-        data: rows.map((b) => b.contractors[code] ?? 0),
+        data: shown.map((b) => b.contractors[code] ?? 0),
         valueFormatter: (v: number | null) => (v ? `${v.toLocaleString()} คน-วัน` : null),
       }))}
       slotProps={legendBottom}
@@ -371,3 +389,17 @@ export function ManpowerByBuildingChart({
   );
 }
 
+
+/** Screen px per building bar when the chart has a fixed height (labels must not overlap). */
+const BUILDING_ROW = 22;
+
+// Buildings that had people, busiest first; past `max` rows the rest are summed into one "อื่นๆ" bar.
+function fitBuildings(rows: ManpowerSummary["byBuilding"], max: number): ManpowerSummary["byBuilding"] {
+  const total = (b: ManpowerSummary["byBuilding"][number]) => Object.values(b.contractors).reduce((a, n) => a + n, 0);
+  const used = rows.filter((b) => total(b) > 0).sort((a, b) => total(b) - total(a));
+  if (used.length <= max) return used;
+  const rest = used.slice(max - 1);
+  const other = { ...rest[0]!, name: `อื่นๆ (${rest.length} อาคาร)`, contractors: {} as Record<string, number> };
+  for (const b of rest) for (const [code, n] of Object.entries(b.contractors)) other.contractors[code] = (other.contractors[code] ?? 0) + n;
+  return [...used.slice(0, max - 1), other];
+}

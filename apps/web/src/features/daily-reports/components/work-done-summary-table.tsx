@@ -1,11 +1,9 @@
 import { useMemo, useState } from "react";
-import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import FormControl from "@mui/material/FormControl";
-import Grid from "@mui/material/Grid";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -75,24 +73,6 @@ export function WorkDoneSummaryTable({
     [items, selectedContractor, buildingFilter, search],
   );
 
-  // Overall totals
-  const totalHeadcount = useMemo(
-    () => filteredItems.reduce((sum, item) => sum + (item.headcount || 0), 0),
-    [filteredItems]
-  );
-
-  const avgPlan = useMemo(() => {
-    // Plan % is optional: average over the activities that stated one.
-    const planned = filteredItems.filter((item) => item.planPercent !== null);
-    if (planned.length === 0) return 0;
-    return planned.reduce((sum, item) => sum + (item.planPercent ?? 0), 0) / planned.length;
-  }, [filteredItems]);
-
-  const avgActual = useMemo(() => {
-    const withActual = filteredItems.filter((item) => item.actualPercent !== null);
-    if (withActual.length === 0) return null;
-    return withActual.reduce((sum, item) => sum + (item.actualPercent ?? 0), 0) / withActual.length;
-  }, [filteredItems]);
 
   const handleExportCsv = () => {
     const headers = ["Item", "Date", "Contractor", "Building", "Description of work done", "Headcount", "Plan %", "Actual %", "Status"];
@@ -170,49 +150,6 @@ export function WorkDoneSummaryTable({
           </Stack>
         </Stack>
 
-        {/* Quick Summary Pill Bar */}
-        <Grid container spacing={2} sx={{ mb: 2.5 }}>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover", border: "1px solid", borderColor: "divider" }}>
-              <Typography variant="caption" color="text.secondary">
-                รายการเนื้องาน
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                {filteredItems.length} งาน
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover", border: "1px solid", borderColor: "divider" }}>
-              <Typography variant="caption" color="text.secondary">
-                กำลังคนรวม
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: "primary.main" }}>
-                {totalHeadcount.toLocaleString()} คน
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover", border: "1px solid", borderColor: "divider" }}>
-              <Typography variant="caption" color="text.secondary">
-                แผนงานเฉลี่ย (Plan)
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                {avgPlan.toFixed(1)}%
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover", border: "1px solid", borderColor: "divider" }}>
-              <Typography variant="caption" color="text.secondary">
-                ทำจริงเฉลี่ย (Actual)
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: avgActual !== null && avgActual < avgPlan ? "warning.main" : "success.main" }}>
-                {avgActual !== null ? `${avgActual.toFixed(1)}%` : "Pending"}
-              </Typography>
-            </Box>
-          </Grid>
-        </Grid>
 
         {/* Filter Controls Row */}
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 2 }}>

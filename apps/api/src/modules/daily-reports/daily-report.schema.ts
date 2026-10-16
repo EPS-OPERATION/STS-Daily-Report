@@ -91,6 +91,20 @@ export const morningBody = t.Object({
     }),
     { minItems: 1, maxItems: DISCIPLINE_CODES.length },
   ),
+  permits: t.Optional(
+    t.Array(
+      t.Object({
+        buildingId: t.String({ format: "uuid" }),
+        permitType: t.Union(PERMIT_TYPE_CODES.map((p) => t.Literal(p))),
+        otherLabel: t.Optional(t.String({ maxLength: 120 })),
+        workers: t.Integer({ minimum: 1, maximum: 5000 }),
+        highRisk: t.Optional(t.Boolean()),
+        taskName: t.Optional(t.String({ maxLength: 120 })),
+        supervisorName: t.Optional(t.String({ maxLength: 120 })),
+      }),
+      { maxItems: 50 },
+    ),
+  ),
 });
 
 export const reportKeyBody = t.Object({
@@ -102,6 +116,18 @@ export const eveningBody = t.Object({
   date: isoDate,
   contractorId: t.String({ format: "uuid" }),
   otHours: t.Number({ minimum: 0, maximum: 24, multipleOf: 0.5 }),
+  // Itemised OT; when sent, otHours/NMH come from these rows.
+  overtime: t.Optional(
+    t.Array(
+      t.Object({
+        buildingId: t.String({ format: "uuid" }),
+        task: t.String({ minLength: 1, maxLength: 300 }),
+        workers: t.Integer({ minimum: 1, maximum: 1000 }),
+        hours: t.Number({ minimum: 0.5, maximum: 24, multipleOf: 0.5 }),
+      }),
+      { maxItems: 30 },
+    ),
+  ),
   accidentOccurred: t.Boolean(),
   accidentNote: t.Optional(t.String({ maxLength: 1000 })),
   accidentCategory: t.Optional(t.Union(ACCIDENT_CATEGORY_CODES.map((c) => t.Literal(c)))),
@@ -139,17 +165,19 @@ export const eveningBody = t.Object({
     }),
     { maxItems: 30 },
   ),
-  permits: t.Array(
-    t.Object({
-      buildingId: t.String({ format: "uuid" }),
-      permitType: t.Union(PERMIT_TYPE_CODES.map((p) => t.Literal(p))),
-      otherLabel: t.Optional(t.String({ maxLength: 120 })),
-      workers: t.Integer({ minimum: 1, maximum: 5000 }),
-      highRisk: t.Optional(t.Boolean()),
-      taskName: t.Optional(t.String({ maxLength: 120 })),
-      supervisorName: t.Optional(t.String({ maxLength: 120 })),
-    }),
-    { maxItems: 50 },
+  permits: t.Optional(
+    t.Array(
+      t.Object({
+        buildingId: t.String({ format: "uuid" }),
+        permitType: t.Union(PERMIT_TYPE_CODES.map((p) => t.Literal(p))),
+        otherLabel: t.Optional(t.String({ maxLength: 120 })),
+        workers: t.Integer({ minimum: 1, maximum: 5000 }),
+        highRisk: t.Optional(t.Boolean()),
+        taskName: t.Optional(t.String({ maxLength: 120 })),
+        supervisorName: t.Optional(t.String({ maxLength: 120 })),
+      }),
+      { maxItems: 50 },
+    ),
   ),
   roadUsage: t.Array(
     t.Object({

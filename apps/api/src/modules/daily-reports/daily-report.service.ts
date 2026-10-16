@@ -34,6 +34,7 @@ import {
   listEquipmentRequestsInRange,
   listMaterials,
   listForecasts,
+  listOvertime,
   listForecastsInRange,
   listPermitDetailsInRange,
   listMaterialsLog,
@@ -89,13 +90,14 @@ function attendanceOf(r: {
   eveningForeignFemale: number | null;
   workHours: number | null;
   otHours: number | null;
+  otManHours?: number | null;
 }) {
   const morning = r.morningStatus === "submitted" ? r.thaiMale + r.thaiFemale + r.foreignMale + r.foreignFemale : null;
   const evening =
     r.eveningStatus === "submitted" && r.eveningThaiMale !== null
       ? r.eveningThaiMale + (r.eveningThaiFemale ?? 0) + (r.eveningForeignMale ?? 0) + (r.eveningForeignFemale ?? 0)
       : null;
-  return dayManpower({ morning, evening, workHours: r.workHours, otHours: r.otHours });
+  return dayManpower({ morning, evening, workHours: r.workHours, otHours: r.otHours, otManHours: r.otManHours });
 }
 
 function addDays(isoDate: string, days: number): string {
@@ -137,7 +139,7 @@ async function reportDetail(reportId: string) {
   if (!report) throw new NotFoundError("Daily report not found", { reportId });
   // machinery / permits / roadUsage on a report are the requests it raised for the next day.
   const tomorrow = addDays(report.reportDate, 1);
-  const [positions, eveningPositions, crews, equipment, allocations, machinery, equipmentRequests, permits, roadUsage, photos, bookings, others, otherRoads, materials, forecasts] =
+  const [positions, eveningPositions, crews, equipment, allocations, machinery, equipmentRequests, permits, roadUsage, photos, bookings, others, otherRoads, materials, forecasts, overtime] =
     await Promise.all([
       listPositions(db, reportId),
       listPositions(db, reportId, "evening"),
@@ -154,6 +156,7 @@ async function reportDetail(reportId: string) {
       listRoadUsageForTargetExcluding(db, report.projectId, tomorrow, reportId),
       listMaterials(db, reportId),
       listForecasts(db, reportId),
+      listOvertime(db, reportId),
     ]);
   const ownIds = new Set(bookings.map((b) => b.id));
   const conflicts = findMachineryConflicts([...bookings, ...others]).filter(
@@ -194,6 +197,7 @@ async function reportDetail(reportId: string) {
     roadUsage,
     materials,
     forecasts,
+    overtime,
     requestsForDate: tomorrow,
     photos: photosWithUrls,
     roadConflicts: findRoadConflicts([...roadUsage, ...otherRoads])
@@ -331,6 +335,15 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
   }
 
   const buildingIds = new Set((await listBuildings(db, projectId)).map((b) => b.id));
+  if (input.permits) {
+    for (const p of input.permits) {
+      if (!buildingIds.has(p.buildingId)) throw new ValidationError("Unknown building", { buildingId: p.buildingId });
+      if (p.permitType === "other" && !p.otherLabel?.trim()) throw new ValidationError("Describe the permit when type is Other");
+      if (p.highRisk && (!p.taskName?.trim() || !p.supervisorName?.trim())) {
+        throw new ValidationError("High-risk work needs a task name and an EPS supervisor", { permitType: p.permitType });
+      }
+    }
+  }
   for (const crew of input.crews) {
     // Position headcount is the primary total; the nationality/sex split must describe the same people.
     const total = validateCrew(crew);
@@ -385,7 +398,7 @@ function validateTomorrow(
   buildingIds: Set<string>,
   machinery: MachineryInput[],
   equipment: EquipmentRequestInput[],
-  permits: PermitInput[],
+  permits: PermitInput[] = [],
   roads: RoadUsageInput[],
   forecasts: { buildingId: string; description: string }[],
 ) {
@@ -448,11 +461,19 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
     seenCrews.add(crew.discipline);
     validateCrew(crew);
   }
+  const buildingIds = new Set((await listBuildings(db, projectId)).map((b) => b.id));
+  // OT rows: a known building, a task, and never more people on one row than worked the afternoon.
+  const afternoonCrew = input.crews.reduce((s, c) => s + c.thaiMale + c.thaiFemale + c.foreignMale + c.foreignFemale, 0);
+  for (const o of input.overtime ?? []) {
+    if (!buildingIds.has(o.buildingId)) throw new ValidationError("Unknown building", { buildingId: o.buildingId });
+    if (!o.task.trim()) throw new ValidationError("Describe the OT work");
+    if (o.workers > afternoonCrew) throw new ValidationError(`OT people (${o.workers}) exceed the afternoon crew (${afternoonCrew})`);
+  }
   validateTomorrow(
-    new Set((await listBuildings(db, projectId)).map((b) => b.id)),
+    buildingIds,
     input.machinery,
     input.equipmentRequests,
-    input.permits,
+    input.permits ?? [],
     input.roadUsage,
     input.forecasts ?? [],
   );

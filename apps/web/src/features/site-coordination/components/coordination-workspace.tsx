@@ -32,6 +32,7 @@ import dayjs from "dayjs";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
+import RouteOutlined from "@mui/icons-material/RouteOutlined";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import { QueryError } from "@/components/ui/query-error.js";
@@ -55,7 +56,7 @@ const CoordinationCanvas = lazy(() => import("./coordination-canvas.js").then((m
 const inputOf = (item: CoordinationItem): CoordinationInput => ({
   contractorId: item.contractorId, workDate: item.workDate, title: item.title, icon: item.icon,
   x: item.x, y: item.y, rotation: item.rotation, areaKind: item.areaKind, geometry: structuredClone(item.geometry),
-  linkArea: item.linkArea, note: item.note ?? null,
+  linkArea: item.linkArea, twoWay: item.twoWay, note: item.note ?? null,
 });
 // Auto-save editing: `working` is the item currently on the map (selected + editable).
 // `base` keeps the last persisted state so an invalid in-progress drawing can be reverted.
@@ -87,6 +88,7 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
   const [chosenColor, setChosenColor] = useState("");
   const [colorRevision, setColorRevision] = useState(1);
   const workingRef = useRef<Working | null>(null);
+  const mapBoxRef = useRef<HTMLDivElement | null>(null);
   const savingRef = useRef(false);
   const queuedRef = useRef(false);
   const timerRef = useRef<number | null>(null);
@@ -163,6 +165,12 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
   };
   // Road route: keep the current points (taps extend the line); "วาดใหม่" clears inside the mode.
   const drawRoute = () => setTool("route");
+  // Drawing starts from the toolbar; on a phone the map sits below it, so bring the map (and its tap hint) into view.
+  useEffect(() => {
+    if (tool === "move") return;
+    const box = mapBoxRef.current?.getBoundingClientRect();
+    if (box && (box.top < 0 || box.top > window.innerHeight * 0.4)) mapBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [tool]);
   // Auto-save: every edit updates the map instantly and schedules a debounced
   // PATCH; saves are serialized so each one carries the latest revision.
   const flush = async () => {
@@ -346,6 +354,9 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
             <Box sx={{ flex: 1 }} />
             {!readOnly && <Button variant="contained" disableElevation startIcon={<AddOutlined />} onClick={(e) => setAddAnchor(e.currentTarget)} disabled={!editableCompanies.length || creating || Boolean(draft)}
               sx={{ whiteSpace: "nowrap", width: { xs: "100%", sm: "auto" } }}>Add item</Button>}
+            {/* Draw the road this contractor will use today: tap points along it, arrows show the way. */}
+            {!readOnly && <Button variant="outlined" startIcon={<RouteOutlined />} onClick={() => void createItem("road")} disabled={!editableCompanies.length || creating || Boolean(draft)}
+              sx={{ whiteSpace: "nowrap", width: { xs: "100%", sm: "auto" } }}>Draw road</Button>}
             {!readOnly && data.canLock && !data.lock && <Button variant="outlined" startIcon={<LockOutlined />} onClick={() => setLockConfirm(true)}
               sx={{ whiteSpace: "nowrap", width: { xs: "100%", sm: "auto" } }}>Lock plan</Button>}
             {canExport && <Button variant="outlined" startIcon={<PrintOutlined />} href={reportHref} target="_blank" rel="noopener"
@@ -374,7 +385,7 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
         </Stack>}
         {/* map + detail panel (beside the map on wide screens, below it otherwise) */}
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: !compact && (display.jobList || selected) ? "minmax(0, 1fr) 360px" : "1fr" } }}>
-        <Box sx={{ position: "relative", minWidth: 0 }}>
+        <Box ref={mapBoxRef} sx={{ position: "relative", minWidth: 0, scrollMarginTop: 64 }}>
           {data.lock && <DayLockStamp lock={data.lock} date={date} small={compact} />}
           <Suspense fallback={<Skeleton variant="rounded" height={compact ? 390 : 620} />}><CoordinationCanvas map={data.map} contractors={data.contractors} items={items} selectedId={selectedId} draft={draft} draftId={working?.id} tool={tool} compact={compact}
             onSelect={selectItem} onChange={patchItem} onFinish={finish}
@@ -428,8 +439,7 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
     </>}
     <Popover open={Boolean(addAnchor)} anchorEl={addAnchor} onClose={() => setAddAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "left" }} transformOrigin={{ vertical: "top", horizontal: "left" }} slotProps={{ paper: { sx: { p: 1, mt: 0.5 } } }}>
       <Box sx={{ p: 1 }}>
-        {/* Roads come from Daily Request (picked on the road register), not from map jobs. */}
-        <TypePicker exclude={["road"]} onPick={(icon) => { setAddAnchor(null); void createItem(icon); }} />
+        <TypePicker onPick={(icon) => { setAddAnchor(null); void createItem(icon); }} />
       </Box>
     </Popover>
     <Dialog open={lockConfirm} onClose={dayLock.isPending ? undefined : () => setLockConfirm(false)} fullWidth maxWidth="xs">

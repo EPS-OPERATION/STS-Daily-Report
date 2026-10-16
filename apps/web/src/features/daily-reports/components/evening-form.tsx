@@ -18,11 +18,12 @@ import {
   ACCIDENT_CATEGORIES,
   DISCIPLINES,
   DISCIPLINE_CODES,
+  overtimeTotals,
   type Discipline,
   type MachineType,
-  type PermitType,
   type PositionCode,
 } from "@sts/shared";
+import { OvertimeRows } from "./overtime-rows.js";
 import MenuItem from "@mui/material/MenuItem";
 import { useState, type FormEvent } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormReturn } from "react-hook-form";
@@ -38,7 +39,7 @@ import { NumberStepper } from "./number-stepper.js";
 import { RequestSection } from "./request-section.js";
 import { SectionCard } from "./section-card.js";
 import { SignaturePad } from "./signature-pad.js";
-import { EquipmentRequests, ForecastActivities, MachineryRequests, PermitRequests, RoadUsageRequests } from "./tomorrow-requests.js";
+import { EquipmentRequests, ForecastActivities, MachineryRequests, RoadUsageRequests } from "./tomorrow-requests.js";
 
 const disciplineLabel = (d: Discipline) => DISCIPLINES.find((x) => x.code === d)?.label ?? d;
 
@@ -66,7 +67,7 @@ function crewDefaults(report: DailyReport | null, d: Discipline): EveningCrew {
 // Sections in screen order with the fields each one holds (first one with an error gets the scroll).
 const SECTIONS: SectionMap = [
   ["sec-safety", ["accidentOccurred", "accidentNote", "accidentCategory"]],
-  ["sec-ot", ["otHours"]],
+  ["sec-ot", ["overtime"]],
   ["sec-crew", ["disciplines", "crews"]],
   ["sec-progress", ["progress"]],
   ["sec-tomorrow", ["forecasts", "machinery", "equipmentRequests", "permits", "roadUsage", "materials"]],
@@ -97,7 +98,7 @@ export function EveningForm({
   const form = useForm<EveningFormValues>({
     resolver: zodResolver(eveningSchema),
     defaultValues: {
-      otHours: report?.otHours ?? 0,
+      overtime: (report?.overtime ?? []).map((o) => ({ buildingId: o.buildingId, task: o.task, workers: o.workers, hours: o.hours })),
       accidentOccurred: report?.accidentOccurred ?? null,
       accidentNote: report?.accidentNote ?? "",
       accidentCategory: report?.accidentCategory ?? null,
@@ -116,15 +117,7 @@ export function EveningForm({
         buildingId: e.buildingId,
         purpose: e.purpose ?? "",
       })),
-      permits: (report?.permits ?? []).map((p) => ({
-        permitType: p.permitType,
-        otherLabel: p.otherLabel ?? "",
-        buildingId: p.buildingId,
-        workers: p.workers,
-        highRisk: p.highRisk ?? false,
-        taskName: p.taskName ?? "",
-        supervisorName: p.supervisorName ?? "",
-      })),
+      permits: [],
       // The contractor's own times. EPS changes stay on the server and carry over when this is re-sent.
       roadUsage: (report?.roadUsage ?? []).map((r) => ({
         roadLocation: r.roadLocation,
@@ -176,7 +169,9 @@ export function EveningForm({
         {
           date,
           contractorId: contractor.id,
-          otHours: v.otHours,
+          // Per-person OT on the report header = the longest OT row; NMH uses the rows themselves.
+          otHours: overtimeTotals(v.overtime).maxHours,
+          overtime: v.overtime.map((o) => ({ ...o, task: o.task.trim() })),
           accidentOccurred: v.accidentOccurred ?? false,
           accidentNote: v.accidentOccurred ? v.accidentNote?.trim() : undefined,
           accidentCategory: v.accidentOccurred ? (v.accidentCategory ?? undefined) : undefined,
@@ -214,15 +209,7 @@ export function EveningForm({
           qty: e.qty,
           purpose: e.purpose?.trim() || undefined,
         })),
-        permits: v.permits.map((p) => ({
-          buildingId: p.buildingId,
-          permitType: p.permitType as PermitType,
-          otherLabel: p.permitType === "other" ? p.otherLabel?.trim() : undefined,
-          workers: p.workers,
-          highRisk: p.highRisk,
-          taskName: p.highRisk ? p.taskName.trim() : undefined,
-          supervisorName: p.highRisk ? p.supervisorName.trim() : undefined,
-        })),
+        permits: [],
         roadUsage: v.roadUsage.map((r) => ({
           buildingId: r.buildingId || undefined,
           roadLocation: r.roadLocation.trim(),
@@ -348,22 +335,8 @@ export function EveningForm({
         ) : null}
       </SectionCard>
 
-      <SectionCard id="sec-ot" index={2} tone="navy" title="ชั่วโมงทำงานล่วงเวลา (OT)" subtitle="ต่อคน (ชม.) — ใช้คำนวณ NMH">
-        <Controller
-          name="otHours"
-          control={control}
-          render={({ field, fieldState }) => (
-            <NumberStepper
-              label="OT (ชม.)"
-              value={field.value}
-              onChange={field.onChange}
-              max={24}
-              step={0.5}
-              unit="ชม."
-              error={fieldState.error?.message}
-            />
-          )}
-        />
+      <SectionCard id="sec-ot" index={2} tone="navy" title="ชั่วโมงทำงานล่วงเวลา (OT)" subtitle="แยกตามอาคาร/งาน — จำนวนคนที่ทำ OT × ชม. ใช้คำนวณ NMH">
+        <OvertimeRows control={control} buildings={buildings} activities={allocations} />
       </SectionCard>
 
       <SectionCard
@@ -460,9 +433,6 @@ export function EveningForm({
           </Alert>
         ) : null}
         <RoadUsageRequests control={control} buildings={buildings} ctx={ctx} />
-        <Divider sx={{ my: 2.5 }} />
-        <SubHeading>ใบอนุญาตงานเสี่ยง (Work Permits)</SubHeading>
-        <PermitRequests control={control} buildings={buildings} projectId={projectId} contractorId={contractor.id} />
       </SectionCard>
 
       {/* Materials on site — future feature, hidden for now (schema/API/material-inputs kept). */}

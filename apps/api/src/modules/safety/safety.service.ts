@@ -181,7 +181,11 @@ export async function safetyStatsService(projectId: string, from: string, to: st
   const lastLti = allAccidents.filter((a) => a.category === "lti").at(-1)?.reportDate ?? null;
 
   const nmh = (rows: typeof hoursRange) =>
-    rows.reduce((s, h) => s + manHours(h.thaiMale + h.thaiFemale + h.foreignMale + h.foreignFemale, h.workHours, h.otHours), 0);
+    rows.reduce((s, h) => {
+      const headcount = h.thaiMale + h.thaiFemale + h.foreignMale + h.foreignFemale;
+      // Itemised OT counts only the people who stayed; older reports: everyone × OT hours.
+      return s + (h.otManHours !== null ? manHours(headcount, h.workHours, 0) + h.otManHours : manHours(headcount, h.workHours, h.otHours));
+    }, 0);
 
   const done = findingsInRange.filter((f) => f.status === "done").length;
   const byContractor = (type: FindingType) => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DonutLargeOutlinedIcon from "@mui/icons-material/DonutLargeOutlined";
 import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
@@ -17,6 +17,7 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
+import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -72,6 +73,8 @@ export function QaqcBoardPage() {
   const scheduleQuery = useInspectionRequests(projectId, { from: today, to: tomorrow, by: "inspection" });
   const historyQuery = useInspectionRequests(tooLong ? null : projectId, { from, to, by: "inspection" });
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
@@ -172,6 +175,10 @@ export function QaqcBoardPage() {
         .some((v) => v?.toLowerCase().includes(q)),
     );
   }, [visibleHistoryRows, searchQuery]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, from, to, selectedCodes]);
 
   const rangeLabel = from === to ? formatThaiDate(from) : `${formatThaiDate(from)} – ${formatThaiDate(to)}`;
 
@@ -315,7 +322,8 @@ export function QaqcBoardPage() {
             />
           </Box>
         ) : (
-          <TableContainer>
+          <>
+            <TableContainer>
             <Table size="small" sx={{ minWidth: 720 }}>
               <TableHead>
                 <TableRow>
@@ -327,7 +335,9 @@ export function QaqcBoardPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredHistory.map((r) => (
+                {filteredHistory
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((r) => (
                   <TableRow key={r.id} hover>
                     <TableCell sx={{ whiteSpace: "nowrap" }}>{formatThaiDate(r.inspectionDate)}</TableCell>
                     <TableCell sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{r.inspectionTime}</TableCell>
@@ -357,6 +367,22 @@ export function QaqcBoardPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePagination
+            component="div"
+            count={filteredHistory.length}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 15, 25, 50]}
+            labelRowsPerPage="แถวต่อหน้า:"
+            labelDisplayedRows={({ from, to, count }) => `${from}–${to} จาก ${count}`}
+            sx={{ borderTop: 1, borderColor: "divider" }}
+          />
+        </>
         )}
       </Card>
     </Box>

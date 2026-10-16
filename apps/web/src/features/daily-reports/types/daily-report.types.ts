@@ -165,6 +165,17 @@ export interface ReportRoadUsage {
 }
 
 // Tomorrow Forecast Activity (paper form R003): planned work for targetDate (= report date + 1).
+/** One itemised OT row of the evening report (where, what, how many people, how long). */
+export interface ReportOvertime {
+  id: string;
+  buildingId: string;
+  buildingCode: string;
+  buildingName: string;
+  task: string;
+  workers: number;
+  hours: number;
+}
+
 export interface ReportForecast {
   id: string;
   targetDate: string;
@@ -264,6 +275,8 @@ export interface DailyReport {
   materials: ReportMaterial[];
   /** Tomorrow Forecast Activities raised in this report's afternoon (for requestsForDate). */
   forecasts: ReportForecast[];
+  /** Itemised OT (empty on reports sent before OT was itemised — then only otHours). */
+  overtime?: ReportOvertime[];
   requestsForDate: string;
   photos: ReportPhoto[];
   machineryConflicts: ReportMachineryConflict[];
@@ -298,6 +311,16 @@ export interface CurrentReportResponse {
   data: { contractor: ReportContractor; report: DailyReport | null; plannedToday: PlannedToday };
 }
 
+export interface PermitPayload {
+  buildingId: string;
+  permitType: PermitType;
+  otherLabel?: string;
+  workers: number;
+  highRisk?: boolean;
+  taskName?: string;
+  supervisorName?: string;
+}
+
 export interface MorningPayload {
   date: string;
   contractorId: string;
@@ -308,6 +331,7 @@ export interface MorningPayload {
   temperatureC?: number;
   humidityPct?: number;
   equipment: { equipmentType: string; qty: number }[];
+  permits?: PermitPayload[];
   crews: (CrewPayload & {
     allocations: {
       buildingId: string;
@@ -333,6 +357,7 @@ export interface EveningPayload {
   date: string;
   contractorId: string;
   otHours: number;
+  overtime: { buildingId: string; task: string; workers: number; hours: number }[];
   accidentOccurred: boolean;
   accidentNote?: string;
   accidentCategory?: AccidentCategory;
@@ -342,15 +367,7 @@ export interface EveningPayload {
   signatureData?: string;
   machinery: { buildingId: string; machineType: MachineType; unitTag?: string; startTime?: string; endTime?: string; purpose?: string }[];
   equipmentRequests: { buildingId: string; equipmentType: string; qty: number; purpose?: string }[];
-  permits: {
-    buildingId: string;
-    permitType: PermitType;
-    otherLabel?: string;
-    workers: number;
-    highRisk?: boolean;
-    taskName?: string;
-    supervisorName?: string;
-  }[];
+  permits?: PermitPayload[];
   roadUsage: { buildingId?: string | null; roadLocation: string; startTime: string; endTime: string; purpose: string; segmentIds?: string[]; route?: CoordinationPoint[] | null }[];
   materials: { name: string; qty: number; unit: string }[];
   forecasts: { buildingId: string; description: string }[];

@@ -73,18 +73,31 @@ export interface DayAttendance {
   workHours: number | null;
   /** OT hours per person — worked after the afternoon, so by the afternoon crew. */
   otHours: number | null;
+  /** Σ people × hours of the itemised OT rows; when given it replaces afternoon crew × otHours. */
+  otManHours?: number | null;
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 // Man-day = average attendance of the two halves of the day: someone who leaves at lunch or
 // arrives after it counts ½. With only one half reported, that half stands for the day.
-// NMH = man-days × normal hours + afternoon crew × OT hours.
+// NMH = man-days × normal hours + OT man-hours: Σ(people × hours) of the OT rows, or on reports
+// sent before OT was itemised, afternoon crew × OT hours.
 export function dayManpower(a: DayAttendance): { manDays: number; manHours: number } {
   const manDays = a.morning !== null && a.evening !== null ? (a.morning + a.evening) / 2 : (a.morning ?? a.evening ?? 0);
   const otCrew = a.evening ?? a.morning ?? 0;
   return {
     manDays: round1(manDays),
-    manHours: round1(manDays * (a.workHours ?? 0) + otCrew * (a.otHours ?? 0)),
+    manHours: round1(manDays * (a.workHours ?? 0) + (a.otManHours ?? otCrew * (a.otHours ?? 0))),
+  };
+}
+
+// Itemised OT (evening report): who did OT where. Totals feed NMH and the header's per-person OT hours.
+export interface OvertimeRow { workers: number; hours: number }
+export function overtimeTotals(rows: OvertimeRow[]): { workers: number; maxHours: number; manHours: number } {
+  return {
+    workers: rows.reduce((s, r) => s + r.workers, 0),
+    maxHours: rows.reduce((m, r) => Math.max(m, r.hours), 0),
+    manHours: round1(rows.reduce((s, r) => s + r.workers * r.hours, 0)),
   };
 }

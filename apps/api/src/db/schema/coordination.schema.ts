@@ -32,6 +32,8 @@ export const coordinationItems = pgTable("coordination_items", {
   rotation: numeric("rotation", { precision: 7, scale: 3, mode: "number" }).notNull().default(0),
   areaKind: text("area_kind").$type<CoordinationAreaKind>().notNull(), geometry: jsonb("geometry").$type<CoordinationGeometry>().notNull(),
   linkArea: boolean("link_area").notNull().default(true),
+  // Road routes only: used in both directions.
+  twoWay: boolean("two_way").notNull().default(false),
   // Longer detail behind the short title (shown when the job is clicked / in the list under the map).
   note: text("note"),
   revision: integer("revision").notNull().default(1),

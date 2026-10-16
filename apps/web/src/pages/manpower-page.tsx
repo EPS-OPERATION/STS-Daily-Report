@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -10,6 +10,8 @@ import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { useSearchParams } from "react-router-dom";
@@ -20,10 +22,8 @@ import {
   ContractorFilterPopover,
   ManDayByContractorChart,
   ManpowerByBuildingChart,
-  ManpowerTrendChart,
   NationalityByContractorChart,
   PositionByContractorChart,
-  TREND_DAILY_MAX_DAYS,
   addDaysIso,
   contractorColorMap,
   mondayOf,
@@ -187,6 +187,28 @@ export function ManpowerPage() {
     return { manDays, manHours, avgDaily, count: filteredContractors.length };
   }, [data, isFiltered, selectedCodes.size, allCodes.length, filteredContractors, filteredDaily]);
 
+  const theme = useTheme();
+  const wide = useMediaQuery(theme.breakpoints.up("lg"));
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [panelHeight, setPanelHeight] = useState<number | null>(null);
+  // Wide screens: the four charts fill what is left of the window in a 2x2 grid, so the page never scrolls.
+  // Re-measured on resize and whenever a banner above the grid comes or goes.
+  useLayoutEffect(() => {
+    if (!wide) { setPanelHeight(null); return; }
+    const measure = () => {
+      const top = gridRef.current?.getBoundingClientRect().top;
+      if (top === undefined) return;
+      const free = window.innerHeight - (top + window.scrollY) - PAGE_BOTTOM;
+      setPanelHeight(Math.max(MIN_PANEL, Math.floor((free - ROW_GAP) / 2)));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [wide, Boolean(data), isFiltered, isNoneSelected, Boolean(error), tooLong]);
+  const chartHeight = panelHeight === null ? undefined : panelHeight - PANEL_CHROME;
+  // Charts with a legend underneath: the legend sits outside the chart's own height.
+  const legendChartHeight = chartHeight === undefined ? undefined : chartHeight - LEGEND;
+
   return (
     <Box>
       <PageHeader
@@ -299,7 +321,7 @@ export function ManpowerPage() {
           <Skeleton variant="rounded" height={340} />
         </Stack>
       ) : (
-        <Stack spacing={2.5}>
+        <Stack spacing={wide ? 1.5 : 2.5}>
           {summary.isFetching ? <LinearProgress sx={{ position: "fixed", top: 64, left: 0, right: 0, zIndex: 10 }} /> : null}
 
           <Stack direction="row" flexWrap="wrap" useFlexGap columnGap={3} rowGap={0.5}>
@@ -312,9 +334,10 @@ export function ManpowerPage() {
             />
           </Stack>
 
-          <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12, lg: 7 }}>
+          <Grid container spacing={wide ? 0 : 2.5} ref={gridRef} sx={wide ? { borderTop: 1, borderLeft: 1, borderColor: "divider", bgcolor: "background.paper" } : undefined}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <ChartPanel
+                height={panelHeight}
                 title="Man-day รายวัน แยกตามผู้รับเหมา"
                 note={
                   isFiltered
@@ -322,24 +345,26 @@ export function ManpowerPage() {
                     : "จำนวนคนเข้างานต่อวัน (รายงานเช้า)"
                 }
               >
-                <ManDayByContractorChart days={days} daily={filteredDaily} colors={colors} />
+                <ManDayByContractorChart days={days} daily={filteredDaily} colors={colors} height={chartHeight} legend={chartHeight === undefined} />
               </ChartPanel>
             </Grid>
-            <Grid size={{ xs: 12, lg: 5 }}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <ChartPanel
-                title="แนวโน้มกำลังคน"
+                height={panelHeight}
+                title="สัญชาติ / เพศ แยกตามผู้รับเหมา"
                 note={
-                  span > TREND_DAILY_MAX_DAYS
-                    ? "เฉลี่ยคน/วัน รายสัปดาห์ ในช่วงที่เลือก"
-                    : "คนเข้างานรายวัน ในช่วงที่เลือก"
+                  isFiltered
+                    ? `คน-วัน รวมในช่วงที่เลือก (${selectedCodes.size} เจ้า)`
+                    : "คน-วัน รวมในช่วงที่เลือก"
                 }
               >
-                <ManpowerTrendChart days={days} daily={filteredDaily} />
+                <NationalityByContractorChart contractors={filteredContractors} height={legendChartHeight === undefined ? undefined : legendChartHeight - 22} />
               </ChartPanel>
             </Grid>
 
-            <Grid size={12}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <ChartPanel
+                height={panelHeight}
                 title="กำลังคนแยกตามอาคาร"
                 note={
                   isFiltered
@@ -347,12 +372,13 @@ export function ManpowerPage() {
                     : "คน-วัน รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา"
                 }
               >
-                <ManpowerByBuildingChart rows={filteredByBuilding} colors={colors} />
+                <ManpowerByBuildingChart rows={filteredByBuilding} colors={colors} height={legendChartHeight} />
               </ChartPanel>
             </Grid>
 
-            <Grid size={{ xs: 12, lg: 7 }}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <ChartPanel
+                height={panelHeight}
                 title="จำนวนคนตามตำแหน่ง แยกตามผู้รับเหมา"
                 note={
                   isFiltered
@@ -361,22 +387,10 @@ export function ManpowerPage() {
                 }
               >
                 {positions.data ? (
-                  <PositionByContractorChart rows={filteredPositions} colors={colors} />
+                  <PositionByContractorChart rows={filteredPositions} colors={colors} height={legendChartHeight} />
                 ) : (
-                  <Skeleton variant="rounded" height={320} />
+                  <Skeleton variant="rounded" height={chartHeight ?? 320} />
                 )}
-              </ChartPanel>
-            </Grid>
-            <Grid size={{ xs: 12, lg: 5 }}>
-              <ChartPanel
-                title="สัญชาติ / เพศ แยกตามผู้รับเหมา"
-                note={
-                  isFiltered
-                    ? `คน-วัน รวมในช่วงที่เลือก (${selectedCodes.size} เจ้า)`
-                    : "คน-วัน รวมในช่วงที่เลือก"
-                }
-              >
-                <NationalityByContractorChart contractors={filteredContractors} />
               </ChartPanel>
             </Grid>
           </Grid>
@@ -399,14 +413,28 @@ function Figure({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function ChartPanel({ title, note, children }: { title: string; note: string; children: ReactNode }) {
+// Fit-to-window sizing (wide screens): main's bottom padding, the grid row gap, the smallest useful panel,
+// and the panel's own chrome (padding + title + note) taken off before the chart gets its height.
+const PAGE_BOTTOM = 26; // main bottom padding + the 1px divider lines
+const ROW_GAP = 0;
+const MIN_PANEL = 200;
+const PANEL_CHROME = 56;
+const LEGEND = 30;
+
+function ChartPanel({ title, note, height, children }: { title: string; note: string; height?: number | null; children: ReactNode }) {
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2, height: "100%" }}>
-      <Typography variant="h5">{title}</Typography>
-      <Typography variant="caption" color="text.secondary">
-        {note}
-      </Typography>
-      <Box sx={{ mt: 1 }}>{children}</Box>
+    <Box sx={height
+      // Fitted (wide) layout: one flat surface, panels split by 1px lines — no boxes, gaps or rounded corners.
+      ? { borderRight: 1, borderBottom: 1, borderColor: "divider", p: 1.5, height, overflow: "hidden" }
+      : { border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2, height: "100%", overflow: "hidden" }}>
+      {/* Fitted panels keep the note on the title line: every pixel of height goes to the chart. */}
+      <Stack direction={height ? "row" : "column"} columnGap={1} alignItems={height ? "baseline" : "flex-start"} sx={{ minWidth: 0 }}>
+        <Typography variant="h5" noWrap sx={{ flexShrink: 0 }}>{title}</Typography>
+        <Typography variant="caption" color="text.secondary" noWrap component="p" sx={{ minWidth: 0 }} title={note}>
+          {note}
+        </Typography>
+      </Stack>
+      <Box sx={{ mt: height ? 0.5 : 1 }}>{children}</Box>
     </Box>
   );
 }

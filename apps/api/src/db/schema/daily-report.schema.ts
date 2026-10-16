@@ -43,6 +43,8 @@ export const dailyReports = pgTable(
     eveningForeignMale: integer("evening_foreign_male"),
     eveningForeignFemale: integer("evening_foreign_female"),
     otHours: numeric("ot_hours", { precision: 4, scale: 1, mode: "number" }),
+    // Σ people × hours of the itemised OT rows (daily_report_overtime); null on reports sent before OT was itemised.
+    otManHours: numeric("ot_man_hours", { precision: 8, scale: 1, mode: "number" }),
     accidentOccurred: boolean("accident_occurred"),
     accidentNote: text("accident_note"),
     // One of ACCIDENT_CATEGORIES (lti / non_lti / property_damage / near_miss / emergency).
@@ -336,6 +338,31 @@ export const dailyReportForecasts = pgTable(
   (t) => [
     index("daily_report_forecasts_report_idx").on(t.reportId),
     index("daily_report_forecasts_target_idx").on(t.targetDate),
+  ],
+);
+
+// Overtime done this evening, itemised: where, what, how many people, how long. Replaced on every evening save.
+// NMH counts these people only (daily_reports.ot_man_hours = Σ workers × hours).
+export const dailyReportOvertime = pgTable(
+  "daily_report_overtime",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reportId: uuid("report_id")
+      .notNull()
+      .references(() => dailyReports.id, { onDelete: "cascade" }),
+    buildingId: uuid("building_id")
+      .notNull()
+      .references(() => buildings.id, { onDelete: "restrict" }),
+    task: text("task").notNull(),
+    workers: integer("workers").notNull(),
+    hours: numeric("hours", { precision: 4, scale: 1, mode: "number" }).notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("daily_report_overtime_report_idx").on(t.reportId),
+    check("daily_report_overtime_workers_check", sql`${t.workers} >= 1 AND ${t.workers} <= 1000`),
+    check("daily_report_overtime_hours_check", sql`${t.hours} > 0 AND ${t.hours} <= 24`),
   ],
 );
 

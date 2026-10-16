@@ -182,7 +182,6 @@ export function FieldReportPage() {
           contractor={contractor}
           buildings={buildings.data?.data ?? []}
           report={report}
-          plannedToday={current.data.data.plannedToday}
           autoCopyFrom={ISO_DATE.test(params.get("copy") ?? "") ? params.get("copy")! : undefined}
           onAutoCopyStarted={() => {
             // Copy once: drop the flag so a reload does not copy again.

@@ -29,7 +29,7 @@ function clean(input: CoordinationInput): CoordinationInput {
     // Rectangle transforms are stored as four polygon vertices, never viewport pixels.
     if (input.geometry.points.length !== 4) throw new ValidationError("A rectangle needs four corners");
   }
-  return { ...input, title, rotation: ((input.rotation % 360) + 360) % 360, linkArea: input.linkArea !== false, note: input.note?.trim() || null };
+  return { ...input, title, rotation: ((input.rotation % 360) + 360) % 360, linkArea: input.linkArea !== false, twoWay: input.areaKind === "route" && input.twoWay === true, note: input.note?.trim() || null };
 }
 const lockDto = (row: NonNullable<Awaited<ReturnType<typeof getDayLock>>>) =>
   ({ lockedAt: row.lockedAt.toISOString(), lockedByName: row.lockedByName ?? row.lockedByEmail ?? null });

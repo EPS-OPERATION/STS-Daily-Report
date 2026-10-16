@@ -1,7 +1,9 @@
 import AddIcon from "@mui/icons-material/AddOutlined";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import DirectionsWalkOutlinedIcon from "@mui/icons-material/DirectionsWalkOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import HealthAndSafetyOutlinedIcon from "@mui/icons-material/HealthAndSafetyOutlined";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import Box from "@mui/material/Box";
@@ -56,13 +58,20 @@ import { RainLogView } from "@/features/safety/index.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-type SafetyTab = "safety" | "permits" | "rain";
+type SafetyTab = "safety" | "linewalk" | "permits" | "rain";
 
 // Safety: EPS line walk entry + statistics from contractor reports + PDF export + Work Permits board + Rain delay log.
 export function SafetyPage() {
   const [params, setParams] = useSearchParams();
   const rawTab = params.get("tab");
-  const tab: SafetyTab = rawTab === "permits" ? "permits" : rawTab === "rain" ? "rain" : "safety";
+  const tab: SafetyTab =
+    rawTab === "linewalk"
+      ? "linewalk"
+      : rawTab === "permits"
+        ? "permits"
+        : rawTab === "rain"
+          ? "rain"
+          : "safety";
 
   const setTab = (next: SafetyTab) => {
     const p = new URLSearchParams(params);
@@ -94,6 +103,41 @@ export function SafetyPage() {
     p.set("from", f);
     p.set("to", t);
     setParams(p, { replace: true });
+  };
+
+  const handleExportCsv = () => {
+    const headers = [
+      "Item",
+      "Observations Identified",
+      "Location",
+      "Location Detail",
+      "Action to be taken",
+      "Responsible Contractor",
+      "Inspection Date",
+      "Expected Complete Date",
+      "Finding Type",
+      "Status",
+    ];
+    const csvRows = visibleRows.map((r) => [
+      r.itemNo,
+      `"${(r.observation || "").replace(/"/g, '""')}"`,
+      `"${(r.buildingCode || "").replace(/"/g, '""')}"`,
+      `"${(r.locationDetail || "").replace(/"/g, '""')}"`,
+      `"${(r.actionToBeTaken || "").replace(/"/g, '""')}"`,
+      `"${r.contractorCode || ""}"`,
+      dayjs(r.inspectionDate).format("YYYY-MM-DD"),
+      r.expectedCompleteDate ? dayjs(r.expectedCompleteDate).format("YYYY-MM-DD") : "",
+      r.findingType === "unsafe_act" ? "Unsafe Act" : "Unsafe Condition",
+      r.status === "done" ? "DONE" : "OPEN",
+    ].join(","));
+    const content = "\uFEFF" + [headers.join(","), ...csvRows].join("\n");
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Safety_Line_Walk_${from}_${to}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const s = stats.data?.data;
@@ -155,17 +199,27 @@ export function SafetyPage() {
   return (
     <Box>
       <PageHeader
-        title={tab === "permits" ? "Work Permits" : tab === "rain" ? "Rain & Delay Log" : "Safety"}
+        title={
+          tab === "permits"
+            ? "Work Permits"
+            : tab === "rain"
+              ? "Rain & Delay Log"
+              : tab === "linewalk"
+                ? "Safety Line Walk"
+                : "Safety Overview"
+        }
         subtitle={
           tab === "permits"
             ? "High-risk permit register · ทะเบียนและสถิติใบอนุญาตทำงานความเสี่ยงสูง"
             : tab === "rain"
               ? "บันทึกเวลาฝนตกจริง · สถิติชั่วโมงสั่งหยุดงาน · หลักฐานประกอบการต่อรอง Delay (EOT Claim) กับ PM"
-              : "Line walk (EPS) · สถิติอุบัติเหตุจากรายงานผู้รับเหมา · Export รายงาน PDF"
+              : tab === "linewalk"
+                ? "Line walk (EPS) · บันทึกการเดินตรวจความปลอดภัย · รายการข้อแก้ไขและมาตรการ"
+                : "สถิติอุบัติเหตุจากรายงานผู้รับเหมา · Performance KPIs · แนวโน้มรายเดือน"
         }
         actions={
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-            {(tab === "safety" || tab === "rain") && (
+            {(tab === "safety" || tab === "linewalk" || tab === "rain") && (
               <DateRangeFields from={from} to={to} maxDays={400} onChange={setRange} />
             )}
             {allCodes.length > 0 && (
@@ -175,18 +229,28 @@ export function SafetyPage() {
                 onChange={setContractors}
               />
             )}
-            {tab === "safety" && (
-              <Button
-                variant="outlined"
-                startIcon={<PictureAsPdfOutlinedIcon />}
-                onClick={() => {
-                  const p = new URLSearchParams({ from, to });
-                  if (selectedCodes.size < allCodes.length) p.set("contractors", [...selectedCodes].join(","));
-                  window.open(`/safety/report?${p.toString()}`, "_blank", "noopener");
-                }}
-              >
-                Export PDF
-              </Button>
+            {tab === "linewalk" && (
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  startIcon={<PictureAsPdfOutlinedIcon />}
+                  onClick={() => {
+                    const p = new URLSearchParams({ from, to });
+                    if (selectedCodes.size < allCodes.length) p.set("contractors", [...selectedCodes].join(","));
+                    window.open(`/safety/report?${p.toString()}`, "_blank", "noopener");
+                  }}
+                >
+                  Export PDF
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<FileDownloadOutlinedIcon />}
+                  onClick={handleExportCsv}
+                  disabled={visibleRows.length === 0}
+                >
+                  Export CSV
+                </Button>
+              </Stack>
             )}
           </Stack>
         }
@@ -204,6 +268,10 @@ export function SafetyPage() {
           <HealthAndSafetyOutlinedIcon fontSize="small" />
           Safety Overview
         </ToggleButton>
+        <ToggleButton value="linewalk" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
+          <DirectionsWalkOutlinedIcon fontSize="small" />
+          Safety Line Walk
+        </ToggleButton>
         <ToggleButton value="permits" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
           <AssignmentOutlinedIcon fontSize="small" />
           Work Permits
@@ -215,46 +283,23 @@ export function SafetyPage() {
       </ToggleButtonGroup>
 
       {tab === "permits" ? (
-        <WorkPermitsView selectedContractorCodes={selectedCodes} defaultFrom={from} defaultTo={to} />
+        <WorkPermitsView
+          selectedContractorCodes={selectedCodes}
+          defaultFrom={params.get("from") && ISO_DATE.test(params.get("from")!) ? params.get("from")! : todayIso()}
+          defaultTo={params.get("to") && ISO_DATE.test(params.get("to")!) ? params.get("to")! : todayIso()}
+        />
       ) : tab === "rain" ? (
         <RainLogView projectId={projectId ?? ""} from={from} to={to} />
-      ) : (
+      ) : tab === "linewalk" ? (
         <>
+          {error ? (
+            <QueryError error={error} onRetry={() => { void stats.refetch(); void findings.refetch(); }} />
+          ) : null}
 
-      {error ? (
-        <QueryError error={error} onRetry={() => { void stats.refetch(); void findings.refetch(); }} />
-      ) : null}
-
-      {!s ? (
-        <Skeleton variant="rounded" height={420} />
-      ) : (
-        <Stack spacing={2.5}>
-          {/* tiles (deck "SAFETY PERFORMANCE") */}
-          <Grid container spacing={1.5}>
-            <Tile label="อุบัติเหตุ" value={s.tiles.accidents} unit="ครั้ง" alert={s.tiles.accidents > 0} />
-            <Tile label="LTI" value={s.tiles.lti} unit="ครั้ง" alert={s.tiles.lti > 0} />
-            <Tile label="Near Miss" value={s.tiles.nearMiss} unit="รายการ" />
-            <Tile label="ตรวจความปลอดภัย" value={s.tiles.inspections} unit="ครั้ง" />
-            <Tile
-              label="ข้อประเด็นแก้ไข"
-              value={s.tiles.closedPct === null ? "—" : `${s.tiles.closedPct}%`}
-              unit={`(${s.tiles.closed}/${s.tiles.inspections})`}
-            />
-            <Tile label="อุบัติเหตุเป็นศูนย์" value={s.daysWithoutAccident} unit="วัน" good icon={<HealthAndSafetyOutlinedIcon />} />
-          </Grid>
-
-          <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12, lg: 6 }}>
-              <Panel title="STATISTIC" note="จากรายงานบ่ายของผู้รับเหมา (ประเภทเหตุการณ์) + ชั่วโมงทำงาน">
-                <StatisticTable stats={s} compact />
-              </Panel>
-            </Grid>
-            <Grid size={{ xs: 12, lg: 6 }}>
-              <Panel title={`แนวโน้มความปลอดภัย (รายเดือน ${s.to.slice(0, 4)})`} note="Near miss จากผู้รับเหมา · Safety inspection = Line walk ของ EPS">
-                <MonthlyTrendChart stats={s} height={300} />
-              </Panel>
-            </Grid>
-            <Grid size={12}>
+          {!s ? (
+            <Skeleton variant="rounded" height={420} />
+          ) : (
+            <Stack spacing={2.5}>
               <Panel title="Finding for line walk" note="แยกตามผู้รับเหมาในช่วงที่เลือก">
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
@@ -265,83 +310,122 @@ export function SafetyPage() {
                   </Grid>
                 </Grid>
               </Panel>
-            </Grid>
-          </Grid>
 
-          <Panel
-            title="Issue Safety Line Walk"
-            note={`${visibleRows.length} รายการ · ${visibleRows.filter((r) => r.status === "open").length} ยังไม่ปิด`}
-            action={
-              <Button startIcon={<AddIcon />} onClick={() => setEditing("new")}>
-                Add line walk
-              </Button>
-            }
-          >
-            {visibleRows.length === 0 ? (
-              <Box sx={{ p: 2 }}>
-                <EmptySection
-                  dense
-                  icon={<HealthAndSafetyOutlinedIcon />}
-                  title="ยังไม่มี Line walk ในช่วงนี้"
-                  description="กด “Add line walk” เพื่อบันทึกสิ่งที่พบจากการเดินตรวจ"
+              <Panel
+                title="Issue Safety Line Walk"
+                note={`${visibleRows.length} รายการ · ${visibleRows.filter((r) => r.status === "open").length} ยังไม่ปิด`}
+                action={
+                  <Button startIcon={<AddIcon />} onClick={() => setEditing("new")}>
+                    Add line walk
+                  </Button>
+                }
+              >
+                {visibleRows.length === 0 ? (
+                  <Box sx={{ p: 2 }}>
+                    <EmptySection
+                      dense
+                      icon={<HealthAndSafetyOutlinedIcon />}
+                      title="ยังไม่มี Line walk ในช่วงนี้"
+                      description="กด “Add line walk” เพื่อบันทึกสิ่งที่พบจากการเดินตรวจ"
+                    />
+                  </Box>
+                ) : (
+                  <Box sx={{ overflowX: "auto" }}>
+                    <Table size="small" sx={{ minWidth: 1100, "& td": { verticalAlign: "top" } }}>
+                      <TableHead>
+                        <TableRow>
+                          {["#", "Observations Identified", "Location", "Action to be taken", "Responsible", "Inspection", "Expect complete", "Finding", "Status", "Close", "Type", ""].map((h) => (
+                            <TableCell key={h} sx={{ fontWeight: 700, bgcolor: "grey.50" }}>
+                              {h}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {visibleRows.map((r) => (
+                          <TableRow key={r.id} hover>
+                            <TableCell>{r.itemNo}</TableCell>
+                            <TableCell sx={{ maxWidth: 220 }}>{r.observation}</TableCell>
+                            <TableCell>
+                              {r.buildingCode ?? "—"}
+                              {r.locationDetail ? <Typography variant="caption" sx={{ display: "block" }}>{r.locationDetail}</Typography> : null}
+                            </TableCell>
+                            <TableCell sx={{ maxWidth: 220 }}>{r.actionToBeTaken}</TableCell>
+                            <TableCell>{r.contractorCode ? <ContractorBadge code={r.contractorCode} title={r.contractorName ?? undefined} /> : "—"}</TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>{dayjs(r.inspectionDate).format("D/MMM/YY")}</TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>{r.expectedCompleteDate ? dayjs(r.expectedCompleteDate).format("D/MMM/YY") : "—"}</TableCell>
+                            <TableCell>
+                              <Thumb src={r.findingPhotoUrl} />
+                            </TableCell>
+                            <TableCell>
+                              {r.status === "done" ? <StatusChip status="completed" label="DONE" /> : <StatusChip status="attention" label="OPEN" />}
+                            </TableCell>
+                            <TableCell>
+                              <Thumb src={r.closePhotoUrl} />
+                            </TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>{r.findingType === "unsafe_act" ? "Unsafe Act." : "Unsafe con."}</TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>
+                              <IconButton size="small" aria-label="Edit" onClick={() => setEditing(r)}>
+                                <EditOutlinedIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                aria-label="Delete"
+                                disabled={remove.isPending}
+                                onClick={() => setDeleteTarget(r)}
+                              >
+                                <DeleteOutlineOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                )}
+              </Panel>
+            </Stack>
+          )}
+        </>
+      ) : (
+        <>
+          {error ? (
+            <QueryError error={error} onRetry={() => { void stats.refetch(); void findings.refetch(); }} />
+          ) : null}
+
+          {!s ? (
+            <Skeleton variant="rounded" height={420} />
+          ) : (
+            <Stack spacing={2.5}>
+              {/* tiles (deck "SAFETY PERFORMANCE") */}
+              <Grid container spacing={1.5}>
+                <Tile label="อุบัติเหตุ" value={s.tiles.accidents} unit="ครั้ง" alert={s.tiles.accidents > 0} />
+                <Tile label="LTI" value={s.tiles.lti} unit="ครั้ง" alert={s.tiles.lti > 0} />
+                <Tile label="Near Miss" value={s.tiles.nearMiss} unit="รายการ" />
+                <Tile label="ตรวจความปลอดภัย" value={s.tiles.inspections} unit="ครั้ง" />
+                <Tile
+                  label="ข้อประเด็นแก้ไข"
+                  value={s.tiles.closedPct === null ? "—" : `${s.tiles.closedPct}%`}
+                  unit={`(${s.tiles.closed}/${s.tiles.inspections})`}
                 />
-              </Box>
-            ) : (
-              <Box sx={{ overflowX: "auto" }}>
-                <Table size="small" sx={{ minWidth: 1100, "& td": { verticalAlign: "top" } }}>
-                  <TableHead>
-                    <TableRow>
-                      {["#", "Observations Identified", "Location", "Action to be taken", "Responsible", "Inspection", "Expect complete", "Finding", "Status", "Close", "Type", ""].map((h) => (
-                        <TableCell key={h} sx={{ fontWeight: 700, bgcolor: "grey.50" }}>
-                          {h}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {visibleRows.map((r) => (
-                      <TableRow key={r.id} hover>
-                        <TableCell>{r.itemNo}</TableCell>
-                        <TableCell sx={{ maxWidth: 220 }}>{r.observation}</TableCell>
-                        <TableCell>
-                          {r.buildingCode ?? "—"}
-                          {r.locationDetail ? <Typography variant="caption" sx={{ display: "block" }}>{r.locationDetail}</Typography> : null}
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 220 }}>{r.actionToBeTaken}</TableCell>
-                        <TableCell>{r.contractorCode ? <ContractorBadge code={r.contractorCode} title={r.contractorName ?? undefined} /> : "—"}</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>{dayjs(r.inspectionDate).format("D/MMM/YY")}</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>{r.expectedCompleteDate ? dayjs(r.expectedCompleteDate).format("D/MMM/YY") : "—"}</TableCell>
-                        <TableCell>
-                          <Thumb src={r.findingPhotoUrl} />
-                        </TableCell>
-                        <TableCell>
-                          {r.status === "done" ? <StatusChip status="completed" label="DONE" /> : <StatusChip status="attention" label="OPEN" />}
-                        </TableCell>
-                        <TableCell>
-                          <Thumb src={r.closePhotoUrl} />
-                        </TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>{r.findingType === "unsafe_act" ? "Unsafe Act." : "Unsafe con."}</TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap" }}>
-                          <IconButton size="small" aria-label="Edit" onClick={() => setEditing(r)}>
-                            <EditOutlinedIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            aria-label="Delete"
-                            disabled={remove.isPending}
-                            onClick={() => setDeleteTarget(r)}
-                          >
-                            <DeleteOutlineOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
-            )}
-          </Panel>
-        </Stack>
+                <Tile label="อุบัติเหตุเป็นศูนย์" value={s.daysWithoutAccident} unit="วัน" good icon={<HealthAndSafetyOutlinedIcon />} />
+              </Grid>
+
+              <Grid container spacing={2.5}>
+                <Grid size={{ xs: 12, lg: 6 }}>
+                  <Panel title="STATISTIC" note="จากรายงานบ่ายของผู้รับเหมา (ประเภทเหตุการณ์) + ชั่วโมงทำงาน">
+                    <StatisticTable stats={s} compact />
+                  </Panel>
+                </Grid>
+                <Grid size={{ xs: 12, lg: 6 }}>
+                  <Panel title={`แนวโน้มความปลอดภัย (รายเดือน ${s.to.slice(0, 4)})`} note="Near miss จากผู้รับเหมา · Safety inspection = Line walk ของ EPS">
+                    <MonthlyTrendChart stats={s} height={300} />
+                  </Panel>
+                </Grid>
+              </Grid>
+            </Stack>
+          )}
+        </>
       )}
 
       {editing && projectId ? (
@@ -361,8 +445,6 @@ export function SafetyPage() {
           });
         }}
       />
-        </>
-      )}
     </Box>
   );
 }

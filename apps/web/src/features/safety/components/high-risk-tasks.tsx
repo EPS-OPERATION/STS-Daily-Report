@@ -85,15 +85,15 @@ export function HighRiskTasks({
 
   const multiDay = byDate.length > 1 || from !== to;
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1.5} sx={{ maxHeight: 220, overflowY: "auto", pr: 0.5 }}>
       {byDate.map(([date, tasks]) => (
         <Box key={date}>
           {multiDay ? (
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.75, display: "block", color: "text.secondary" }}>
               {dayjs(date).format("ddd D MMM YYYY")} · {tasks.length} งาน
             </Typography>
           ) : null}
-          <Grid container spacing={1.5}>
+          <Grid container spacing={1.25}>
             {tasks.map((t) => (
               <Grid key={t.key} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <TaskCard task={t} />
@@ -111,47 +111,47 @@ function TaskCard({ task }: { task: HighRiskTask }) {
     <Box
       sx={{
         height: "100%",
-        p: 1.5,
-        borderRadius: 2,
+        p: 1.25,
+        borderRadius: 1.5,
         bgcolor: "#FFF8EC",
         border: "1px solid",
         borderColor: "#F2D4A6",
-        boxShadow: "0 1px 3px rgba(120, 72, 0, 0.12)",
+        boxShadow: "0 1px 2px rgba(120, 72, 0, 0.08)",
         display: "flex",
         flexDirection: "column",
-        gap: 1,
+        gap: 0.75,
       }}
     >
       {/* header: warning icons per permit type */}
-      <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="center">
-        <Stack direction="row" spacing={0.75} justifyContent="center">
-          {task.permitTypes.map((p) => {
-            const Icon = PERMIT_ICONS[p];
-            return (
-              <Tooltip key={p} title={permitLabel(p)}>
-                <Box sx={{ position: "relative", display: "inline-flex", color: "#C2410C" }}>
-                  <WarningAmberRoundedIcon sx={{ fontSize: 30 }} />
-                  <Icon sx={{ position: "absolute", right: -6, bottom: -2, fontSize: 15, bgcolor: "#FFF8EC", borderRadius: "50%", color: "#7C2D12" }} />
-                </Box>
-              </Tooltip>
-            );
-          })}
-        </Stack>
+      <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
+        {task.permitTypes.map((p) => {
+          const Icon = PERMIT_ICONS[p];
+          return (
+            <Tooltip key={p} title={permitLabel(p)}>
+              <Box sx={{ position: "relative", display: "inline-flex", color: "#C2410C" }}>
+                <WarningAmberRoundedIcon sx={{ fontSize: 24 }} />
+                <Icon sx={{ position: "absolute", right: -5, bottom: -2, fontSize: 13, bgcolor: "#FFF8EC", borderRadius: "50%", color: "#7C2D12" }} />
+              </Box>
+            </Tooltip>
+          );
+        })}
       </Stack>
-      <Typography sx={{ fontWeight: 700, fontSize: 17, textAlign: "center", lineHeight: 1.3 }}>{task.taskName}</Typography>
-      <Box sx={{ alignSelf: "center", px: 1.25, py: 0.4, borderRadius: 1, bgcolor: "#F3E3C8", textAlign: "center" }}>
-        <Typography variant="caption" sx={{ fontWeight: 700 }}>
+      <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", textAlign: "center", lineHeight: 1.25 }} noWrap title={task.taskName}>
+        {task.taskName}
+      </Typography>
+      <Box sx={{ alignSelf: "center", px: 1, py: 0.25, borderRadius: 1, bgcolor: "#F3E3C8", textAlign: "center" }}>
+        <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>
           ผู้ควบคุม (EPS) : {task.supervisors.join(", ") || "—"}
         </Typography>
       </Box>
       <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap justifyContent="center">
         {task.permitTypes.map((p) => (
-          <Chip key={p} size="small" label={permitLabel(p)} variant="outlined" sx={{ height: 22, fontSize: 11, borderColor: "#E7B67A", bgcolor: "#fff" }} />
+          <Chip key={p} size="small" label={permitLabel(p)} variant="outlined" sx={{ height: 20, fontSize: 10, borderColor: "#E7B67A", bgcolor: "#fff" }} />
         ))}
       </Stack>
-      <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ mt: "auto" }}>
+      <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="center" sx={{ mt: "auto", pt: 0.25 }}>
         <ContractorBadge code={task.contractorCode} />
-        <Typography variant="caption" color="text.secondary" noWrap>
+        <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: "0.75rem" }}>
           {task.buildings.join(", ")} · {task.workers} คน
         </Typography>
       </Stack>

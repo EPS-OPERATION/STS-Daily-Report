@@ -12,6 +12,8 @@ import {
   filterSubmissions,
   inspectionTypeLabel,
   isSubmissionFilter,
+  overtimeLines,
+  overtimeSummary,
   todayIso,
   usePrintReport,
   usePrintReports,
@@ -242,7 +244,7 @@ function FormSheet({ r }: { r: PrintReport }) {
         <tbody>
           <tr>
             <td style={{ width: "50%" }}>Project Name: {r.projectName}</td>
-            <td style={{ width: "25%" }}>Total OT: {r.otHours ?? 0} hr.</td>
+            <td style={{ width: "25%" }}>Total OT: {r.overtime?.length ? overtimeSummary(r).replace(/^OT /, "") : `${r.otHours ?? 0} hr.`}</td>
             <td style={{ width: "25%" }}>Report No: -</td>
           </tr>
           <tr>
@@ -521,7 +523,8 @@ function SummarySheet({ r }: { r: PrintReport }) {
         </table>
       ) : null}
       <div style={{ marginTop: 3 }}>
-        ชม.ทำงาน {hrs} ชม./คน · OT {r.otHours ?? 0} ชม./คน · <b>NMH {r.manHours.toLocaleString()} ชม.</b> (man-day = (คนเช้า + คนบ่าย) ÷ 2 · NMH = man-day × ชม.ทำงาน + คนบ่าย × OT)
+        ชม.ทำงาน {hrs} ชม./คน · {overtimeSummary(r)} · <b>NMH {r.manHours.toLocaleString()} ชม.</b> (man-day = (คนเช้า + คนบ่าย) ÷ 2 · NMH = man-day × ชม.ทำงาน + {r.overtime?.length ? "Σ คนที่ทำ OT × ชม. OT" : "คนบ่าย × OT"})
+        {r.overtime?.length ? <div>OT: {overtimeLines(r.overtime).join(" · ")}</div> : null}
         {r.eveningHeadcount > 0 && sumOf(r.positions) > 0 && r.eveningHeadcount !== sumOf(r.positions)
           ? ` · กำลังคนเช้าและบ่ายต่างกัน ${Math.abs(r.eveningHeadcount - sumOf(r.positions))} คน`
           : ""}

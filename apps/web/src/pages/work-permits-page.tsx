@@ -1,4 +1,7 @@
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import ConstructionOutlinedIcon from "@mui/icons-material/ConstructionOutlined";
+import RestartAltOutlinedIcon from "@mui/icons-material/RestartAltOutlined";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberOutlined";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
@@ -14,9 +17,13 @@ import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { BarChart } from "@mui/x-charts/BarChart";
@@ -27,7 +34,14 @@ import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { QueryError } from "@/components/ui/query-error.js";
-import { PERMIT_ICONS, permitLabel, useDailyRequests } from "@/features/daily-reports/index.js";
+import {
+  PERMIT_ICONS,
+  addDaysIso,
+  mondayOf,
+  permitLabel,
+  todayIso,
+  useDailyRequests,
+} from "@/features/daily-reports/index.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 import { HighRiskTasks } from "@/features/safety/index.js";
 
@@ -46,16 +60,32 @@ export function WorkPermitsView({
 } = {}) {
   const theme = useTheme();
   const { projectId } = useCurrentProject();
-  const [from, setFrom] = useState<Dayjs | null>(dayjs(defaultFrom ?? dayjs().startOf("month")));
-  const [to, setTo] = useState<Dayjs | null>(dayjs(defaultTo ?? dayjs()));
+
+  const todayStr = todayIso();
+  const tomorrowStr = addDaysIso(todayStr, 1);
+  const mondayStr = mondayOf(todayStr);
+  const sundayStr = addDaysIso(mondayStr, 6);
+  const monthStartStr = dayjs().startOf("month").format("YYYY-MM-DD");
+  const monthEndStr = dayjs().endOf("month").format("YYYY-MM-DD");
+
+  const [from, setFrom] = useState<Dayjs | null>(dayjs(defaultFrom ?? todayStr));
+  const [to, setTo] = useState<Dayjs | null>(dayjs(defaultTo ?? todayStr));
   const [type, setType] = useState<PermitType | "">("");
   const [building, setBuilding] = useState("");
   const [contractor, setContractor] = useState("");
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  const fromIso = (from ?? dayjs(defaultFrom ?? dayjs().startOf("month"))).format("YYYY-MM-DD");
-  const toIso = (to ?? dayjs(defaultTo ?? dayjs())).format("YYYY-MM-DD");
+  useEffect(() => {
+    if (defaultFrom) setFrom(dayjs(defaultFrom));
+  }, [defaultFrom]);
+
+  useEffect(() => {
+    if (defaultTo) setTo(dayjs(defaultTo));
+  }, [defaultTo]);
+
+  const fromIso = (from ?? dayjs(todayStr)).format("YYYY-MM-DD");
+  const toIso = (to ?? dayjs(todayStr)).format("YYYY-MM-DD");
   const query = useDailyRequests(projectId, fromIso, toIso);
   const permits = useMemo(() => query.data?.data.permits ?? [], [query.data]);
   const contractorList = useProjectContractors(projectId).data?.data ?? [];
@@ -77,8 +107,32 @@ export function WorkPermitsView({
     return true;
   };
 
+  const activePreset = useMemo(() => {
+    if (fromIso === todayStr && toIso === todayStr) return "today";
+    if (fromIso === tomorrowStr && toIso === tomorrowStr) return "tomorrow";
+    if (fromIso === mondayStr && toIso === sundayStr) return "week";
+    if (fromIso === monthStartStr && toIso === monthEndStr) return "month";
+    return "";
+  }, [fromIso, toIso, todayStr, tomorrowStr, mondayStr, sundayStr, monthStartStr, monthEndStr]);
+
+  const handlePresetChange = (_: unknown, val: string | null) => {
+    if (!val) return;
+    if (val === "today") {
+      setFrom(dayjs(todayStr));
+      setTo(dayjs(todayStr));
+    } else if (val === "tomorrow") {
+      setFrom(dayjs(tomorrowStr));
+      setTo(dayjs(tomorrowStr));
+    } else if (val === "week") {
+      setFrom(dayjs(mondayStr));
+      setTo(dayjs(sundayStr));
+    } else if (val === "month") {
+      setFrom(dayjs(monthStartStr));
+      setTo(dayjs(monthEndStr));
+    }
+  };
+
   // Faceted counts: type cards ignore the type filter; the chart ignores the contractor dropdown
-  // (but respects the external contractor filter).
   const forTypeCounts = useMemo(
     () => permits.filter((p) => (!building || p.buildingName === building) && matchContractor(p.contractorCode)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,7 +147,10 @@ export function WorkPermitsView({
     [permits, type, building, contractor, selectedContractorCodes],
   );
   const rows = useMemo(
-    () => permits.filter((p) => (!type || p.permitType === type) && (!building || p.buildingName === building) && matchContractor(p.contractorCode)),
+    () =>
+      permits.filter(
+        (p) => (!type || p.permitType === type) && (!building || p.buildingName === building) && matchContractor(p.contractorCode),
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [permits, type, building, contractor, selectedContractorCodes],
   );
@@ -120,12 +177,14 @@ export function WorkPermitsView({
   );
 
   const clearAll = () => {
-    setFrom(dayjs(defaultFrom ?? dayjs().startOf("month")));
-    setTo(dayjs(defaultTo ?? dayjs()));
+    setFrom(dayjs(todayStr));
+    setTo(dayjs(todayStr));
     setType("");
     setBuilding("");
     setContractor("");
   };
+
+  const isFiltered = Boolean(type || building || contractor || activePreset !== "today");
 
   return (
     <Box>
@@ -133,248 +192,340 @@ export function WorkPermitsView({
         <PageHeader title="Work Permit" subtitle="Permit register from contractor afternoon reports" />
       )}
 
-      <Box sx={{ bgcolor: "success.main", color: "#fff", borderRadius: 1, py: 1, mb: 2, textAlign: "center" }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: 1 }}>
-          WORK PERMIT
-        </Typography>
-      </Box>
+      {/* Quick Controls & Filter Toolbar */}
+      <Card variant="outlined" sx={{ p: 1.25, mb: 2, borderRadius: 2, bgcolor: "background.paper" }}>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={1.5}
+          alignItems={{ xs: "stretch", md: "center" }}
+          justifyContent="space-between"
+          flexWrap="wrap"
+          useFlexGap
+        >
+          {/* Quick Date Presets & Pickers */}
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={activePreset}
+              onChange={handlePresetChange}
+              sx={{ bgcolor: "grey.50" }}
+            >
+              <ToggleButton value="today" sx={{ px: 1.5, py: 0.5, fontSize: "0.8rem", textTransform: "none", fontWeight: 600 }}>
+                วันนี้
+              </ToggleButton>
+              <ToggleButton value="tomorrow" sx={{ px: 1.5, py: 0.5, fontSize: "0.8rem", textTransform: "none", fontWeight: 600 }}>
+                พรุ่งนี้
+              </ToggleButton>
+              <ToggleButton value="week" sx={{ px: 1.5, py: 0.5, fontSize: "0.8rem", textTransform: "none", fontWeight: 600 }}>
+                สัปดาห์นี้
+              </ToggleButton>
+              <ToggleButton value="month" sx={{ px: 1.5, py: 0.5, fontSize: "0.8rem", textTransform: "none", fontWeight: 600 }}>
+                เดือนนี้
+              </ToggleButton>
+            </ToggleButtonGroup>
 
-      <Box sx={{ mb: 2.5 }}>
-        <Card variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
-          <Box sx={{ px: 2.5, py: 1.5, bgcolor: "grey.50", borderBottom: 1, borderColor: "divider" }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <DatePicker
+                label="จาก"
+                value={from}
+                onChange={setFrom}
+                slotProps={{ textField: { size: "small", sx: { width: 135 } } }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                –
+              </Typography>
+              <DatePicker
+                label="ถึง"
+                value={to}
+                onChange={setTo}
+                slotProps={{ textField: { size: "small", sx: { width: 135 } } }}
+              />
+            </Stack>
+          </Stack>
+
+          {/* Location & Contractor Selects */}
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <FormControl size="small" sx={{ minWidth: 130 }}>
+              <InputLabel id="wp-building">อาคาร</InputLabel>
+              <Select
+                labelId="wp-building"
+                label="อาคาร"
+                value={building}
+                onChange={(e) => setBuilding(e.target.value)}
+              >
+                <MenuItem value="">ทุกอาคาร</MenuItem>
+                {buildingOptions.map((b) => (
+                  <MenuItem key={b} value={b}>
+                    {b}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel id="wp-contractor">ผู้รับเหมา</InputLabel>
+              <Select
+                labelId="wp-contractor"
+                label="ผู้รับเหมา"
+                value={contractor}
+                onChange={(e) => setContractor(e.target.value)}
+              >
+                <MenuItem value="">ทุกคน</MenuItem>
+                {contractorOptions.map((c) => (
+                  <MenuItem key={c} value={c}>
+                    {c} · {namesByCode.get(c) ?? ""}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {isFiltered && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                startIcon={<RestartAltOutlinedIcon fontSize="small" />}
+                onClick={clearAll}
+                sx={{ textTransform: "none", fontSize: "0.8rem", height: 36 }}
+              >
+                ล้างตัวกรอง
+              </Button>
+            )}
+          </Stack>
+        </Stack>
+      </Card>
+
+      {/* High-Risk Tasks Section */}
+      <Card variant="outlined" sx={{ borderRadius: 2, overflow: "hidden", mb: 2 }}>
+        <Box sx={{ px: 2, py: 1, bgcolor: "grey.50", borderBottom: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <WarningAmberRoundedIcon sx={{ color: "warning.main", fontSize: 20 }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
               งานที่มีความเสี่ยงสูงและการควบคุม (High-Risk Tasks &amp; Supervision)
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              จาก Work Permit ที่ผู้รับเหมาระบุว่าเป็นงานความเสี่ยงสูง (แจ้งล่วงหน้าในรายงานบ่ายของวันก่อน) พร้อมผู้ควบคุมงาน EPS
-            </Typography>
-          </Box>
-          <CardContent sx={{ p: 2 }}>
-            <HighRiskTasks projectId={projectId} from={fromIso} to={toIso} selectedContractorCodes={selectedContractorCodes} />
-          </CardContent>
-        </Card>
-      </Box>
+          </Stack>
+          <Typography variant="caption" color="text.secondary">
+            จาก Work Permit ที่ผู้รับเหมาระบุว่าเป็นงานความเสี่ยงสูง (แจ้งล่วงหน้าในรายงานบ่ายของวันก่อน)
+          </Typography>
+        </Box>
+        <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+          <HighRiskTasks projectId={projectId} from={fromIso} to={toIso} selectedContractorCodes={selectedContractorCodes} />
+        </CardContent>
+      </Card>
 
       {query.isError && <QueryError error={query.error as Error} onRetry={() => void query.refetch()} />}
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, lg: 2.5 }}>
-          <Card sx={{ height: "100%" }}>
-            <CardContent sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Sub Contractor
+      {/* Side-by-Side: Left = Permit Types & Chart, Right = Register Table */}
+      <Grid container spacing={2}>
+        {/* Left Column: Types & Contractor Chart */}
+        <Grid size={{ xs: 12, lg: 4.5 }}>
+          <Card variant="outlined" sx={{ borderRadius: 2, mb: 2 }}>
+            <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.25 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  ประเภทใบอนุญาต (Permit Types)
+                </Typography>
+                <Chip
+                  size="small"
+                  label={`ทั้งหมด ${permits.length} ใบ`}
+                  color="info"
+                  variant={type === "" ? "filled" : "outlined"}
+                  onClick={() => setType("")}
+                  sx={{ cursor: "pointer", fontWeight: 600, height: 24, fontSize: "0.75rem" }}
+                />
+              </Box>
+
+              <Grid container spacing={1}>
+                {PERMIT_TYPES.map((t) => {
+                  const Icon = PERMIT_ICONS[t.code];
+                  const n = typeCounts.get(t.code) ?? 0;
+                  const active = type === t.code;
+                  return (
+                    <Grid key={t.code} size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
+                      <Box
+                        onClick={() => setType(active ? "" : t.code)}
+                        sx={{
+                          cursor: "pointer",
+                          p: 1,
+                          textAlign: "center",
+                          borderRadius: 1.5,
+                          border: "1.5px solid",
+                          borderColor: active ? "primary.main" : n > 0 ? "warning.light" : "divider",
+                          bgcolor: active ? "primary.50" : n > 0 ? "#FFFDF7" : "background.paper",
+                          transition: "all 0.15s ease",
+                          "&:hover": { borderColor: "primary.main", transform: "translateY(-1px)" },
+                        }}
+                      >
+                        <Icon sx={{ fontSize: 22, color: n > 0 ? "warning.main" : "text.disabled", mb: 0.25 }} />
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            display: "block",
+                            fontSize: "0.72rem",
+                            fontWeight: active ? 700 : 500,
+                            lineHeight: 1.15,
+                            color: active ? "primary.dark" : "text.secondary",
+                            height: 28,
+                            overflow: "hidden",
+                          }}
+                        >
+                          {t.label}
+                        </Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: n > 0 ? "text.primary" : "text.disabled", lineHeight: 1.2 }}>
+                          {n > 0 ? n : "—"}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined" sx={{ borderRadius: 2 }}>
+            <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, fontSize: "0.85rem" }}>
+                สัดส่วนตามผู้รับเหมา (Sub Contractors)
               </Typography>
               {chartData.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  No permits in view.
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", py: 2, textAlign: "center" }}>
+                  ไม่มีใบอนุญาตในช่วงนี้
                 </Typography>
               ) : (
-                <BarChart
-                  height={chartData.length * 34 + 70}
-                  layout="horizontal"
-                  yAxis={[{ scaleType: "band", data: chartData.map(([c]) => c), tickLabelStyle: { fontSize: 13 } }]}
-                  series={[
-                    {
-                      data: chartData.map(([, n]) => n),
-                      color: theme.palette.info.main,
-                      valueFormatter: (v: number | null) => `${v ?? 0}`,
-                    },
-                  ]}
-                  margin={{ left: 44, right: 16, top: 8, bottom: 32 }}
-                />
+                <Box sx={{ height: Math.min(180, Math.max(100, chartData.length * 28 + 25)), width: "100%" }}>
+                  <BarChart
+                    layout="horizontal"
+                    yAxis={[{ scaleType: "band", data: chartData.map(([c]) => c), tickLabelStyle: { fontSize: 11 } }]}
+                    series={[
+                      {
+                        data: chartData.map(([, n]) => n),
+                        color: theme.palette.info.main,
+                        valueFormatter: (v: number | null) => `${v ?? 0}`,
+                      },
+                    ]}
+                    margin={{ left: 42, right: 16, top: 4, bottom: 20 }}
+                  />
+                </Box>
               )}
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, lg: 6.5 }}>
-          <Card sx={{ mb: 2 }}>
-            <CardContent sx={{ p: 2, textAlign: "center" }}>
-              <Typography variant="caption" color="text.secondary">
-                Total Work Permit
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: "info.dark" }}>
-                {query.isLoading ? "–" : rows.length}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Grid container spacing={1.5}>
-            {PERMIT_TYPES.map((t) => {
-              const Icon = PERMIT_ICONS[t.code];
-              const n = typeCounts.get(t.code) ?? 0;
-              const active = type === t.code;
-              return (
-                <Grid key={t.code} size={{ xs: 6, sm: 4, md: 3 }}>
-                  <Card
-                    onClick={() => setType(active ? "" : t.code)}
-                    sx={{
-                      cursor: "pointer",
-                      textAlign: "center",
-                      border: 2,
-                      borderColor: active ? "primary.main" : "transparent",
-                      "&:hover": { borderColor: active ? "primary.main" : "divider" },
-                    }}
-                  >
-                    <CardContent sx={{ p: 1.5 }}>
-                      <Icon sx={{ fontSize: 34 }} color={n > 0 ? "warning" : "disabled"} aria-hidden="true" />
-                      <Typography variant="body2" color="text.secondary">
-                        {t.label}
-                      </Typography>
-                      <Typography variant="h5" sx={{ fontWeight: 700, color: "info.dark" }}>
-                        {n > 0 ? n : "—"}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-            Tap a type to filter the register below.
-          </Typography>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 3 }}>
-          <Card sx={{ height: "100%" }}>
-            <CardContent sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-                Search for Document
-              </Typography>
-              <Stack spacing={1.5}>
-                <DatePicker label="From" value={from} onChange={setFrom} slotProps={{ textField: { size: "small", fullWidth: true } }} />
-                <DatePicker label="To" value={to} onChange={setTo} slotProps={{ textField: { size: "small", fullWidth: true } }} />
-                <FormControl fullWidth size="small">
-                  <InputLabel id="wp-type">Type of Work</InputLabel>
-                  <Select labelId="wp-type" label="Type of Work" value={type} onChange={(e) => setType(e.target.value as PermitType | "")}>
-                    <MenuItem value="">All types</MenuItem>
-                    {PERMIT_TYPES.map((t) => (
-                      <MenuItem key={t.code} value={t.code}>
-                        {t.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl fullWidth size="small">
-                  <InputLabel id="wp-building">Building</InputLabel>
-                  <Select labelId="wp-building" label="Building" value={building} onChange={(e) => setBuilding(e.target.value)}>
-                    <MenuItem value="">All buildings</MenuItem>
-                    {buildingOptions.map((b) => (
-                      <MenuItem key={b} value={b}>
-                        {b}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl fullWidth size="small">
-                  <InputLabel id="wp-contractor">Sub Contractor</InputLabel>
-                  <Select labelId="wp-contractor" label="Sub Contractor" value={contractor} onChange={(e) => setContractor(e.target.value)}>
-                    <MenuItem value="">All contractors</MenuItem>
-                    {contractorOptions.map((c) => (
-                      <MenuItem key={c} value={c}>
-                        {c} · {namesByCode.get(c) ?? ""}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Button variant="outlined" onClick={clearAll}>
-                  Clear filters
-                </Button>
+        {/* Right Column: Permit Register Table */}
+        <Grid size={{ xs: 12, lg: 7.5 }}>
+          <Card variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Box sx={{ px: 2, py: 1, bgcolor: "grey.50", borderBottom: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <AssignmentOutlinedIcon fontSize="small" color="action" />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  ทะเบียนใบอนุญาตทำงาน (Permit Register)
+                </Typography>
+                <Chip
+                  size="small"
+                  label={`${rows.length} รายการ`}
+                  variant="outlined"
+                  sx={{ height: 20, fontSize: "0.72rem" }}
+                />
               </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Card sx={{ mb: 2 }}>
-        <Box sx={{ overflowX: "auto" }}>
-          {query.isLoading ? (
-            <Box sx={{ p: 2 }}>
-              <Skeleton variant="rounded" height={160} />
+              {type && (
+                <Chip
+                  size="small"
+                  label={`กรอง: ${permitLabel(type)}`}
+                  onDelete={() => setType("")}
+                  color="primary"
+                  sx={{ height: 22, fontSize: "0.75rem" }}
+                />
+              )}
             </Box>
-          ) : (
-            <Table size="small" aria-label="Work permit register">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Sub Contractor</TableCell>
-                  <TableCell>Type of Work</TableCell>
-                  <TableCell>Description</TableCell>
-                  <TableCell>Building</TableCell>
-                  <TableCell align="right">Workers</TableCell>
-                  <TableCell>High risk</TableCell>
-                  <TableCell>EPS Supervisor</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((p) => (
-                  <TableRow key={p.id} hover>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>{dayjs(p.targetDate).format("D MMM YYYY")}</TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>{p.contractorCode} · {p.contractorName}</TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>{p.permitType === "other" ? p.otherLabel || permitLabel("other") : permitLabel(p.permitType)}</TableCell>
-                    <TableCell title={p.taskName ?? ""} sx={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {p.taskName || "—"}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>{p.buildingName || p.buildingCode}</TableCell>
-                    <TableCell align="right">{p.workers}</TableCell>
-                    <TableCell>
-                      {p.highRisk ? <Chip size="small" color="warning" label="High risk" sx={{ height: 22 }} /> : "—"}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>{p.supervisorName || "—"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </Box>
-        {!query.isLoading && rows.length === 0 ? (
-          <EmptyState
-            icon={<ConstructionOutlinedIcon />}
-            title="No permits match"
-            description="Permits come from contractor afternoon reports. Loosen the filters or widen the date range."
-            action={
-              <Button variant="outlined" onClick={clearAll}>
-                Clear filters
-              </Button>
-            }
-          />
-        ) : !query.isLoading ? (
-          <TablePagination
-            component="div"
-            count={rows.length}
-            page={page}
-            rowsPerPage={rowsPerPage}
-            rowsPerPageOptions={[10, 25, 50, 100]}
-            onPageChange={(_, v) => setPage(v)}
-            onRowsPerPageChange={(e) => setRowsPerPage(Number(e.target.value))}
-          />
-        ) : null}
-      </Card>
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Card>
-            <CardContent sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Sub Contractor
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {contractorList.length === 0
-                  ? "—"
-                  : contractorList.map((c) => `${c.code}: ${c.name}`).join(" · ")}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 7 }}>
-          <Card>
-            <CardContent sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Permit types
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {PERMIT_TYPES.map((t) => `${t.label}: ${t.labelTh}`).join(" · ")}
-              </Typography>
-            </CardContent>
+            <TableContainer sx={{ maxHeight: 340, overflowY: "auto" }}>
+              {query.isLoading ? (
+                <Box sx={{ p: 2 }}>
+                  <Skeleton variant="rounded" height={160} />
+                </Box>
+              ) : (
+                <Table size="small" stickyHeader aria-label="Work permit register">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>วันที่</TableCell>
+                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>ผู้รับเหมา</TableCell>
+                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>ประเภทงาน</TableCell>
+                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>รายละเอียดงาน</TableCell>
+                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>อาคาร</TableCell>
+                      <TableCell align="right" sx={{ fontSize: "0.775rem", fontWeight: 700 }}>คน</TableCell>
+                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>ความเสี่ยงสูง</TableCell>
+                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>ผู้ควบคุม (EPS)</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((p) => (
+                      <TableRow key={p.id} hover>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
+                          {dayjs(p.targetDate).format("D MMM YYYY")}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
+                          <Tooltip title={p.contractorName || namesByCode.get(p.contractorCode) || ""}>
+                            <Typography component="span" sx={{ fontSize: "inherit", fontWeight: 600 }}>
+                              {p.contractorCode}
+                            </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
+                          {p.permitType === "other" ? p.otherLabel || permitLabel("other") : permitLabel(p.permitType)}
+                        </TableCell>
+                        <TableCell
+                          title={p.taskName ?? ""}
+                          sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.775rem" }}
+                        >
+                          {p.taskName || "—"}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
+                          {p.buildingName || p.buildingCode || "—"}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: "0.775rem" }}>
+                          {p.workers}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: "0.775rem" }}>
+                          {p.highRisk ? (
+                            <Chip size="small" color="warning" label="High risk" sx={{ height: 20, fontSize: "0.7rem" }} />
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
+                          {p.supervisorName || "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TableContainer>
+
+            {!query.isLoading && rows.length === 0 ? (
+              <EmptyState
+                icon={<ConstructionOutlinedIcon />}
+                title="ไม่พบใบอนุญาตทำงาน"
+                description="ไม่มีข้อมูลที่ตรงกับเงื่อนไขตัวกรองหรือช่วงวันที่เลือก"
+                action={
+                  <Button variant="outlined" size="small" onClick={clearAll}>
+                    ล้างตัวกรอง
+                  </Button>
+                }
+              />
+            ) : !query.isLoading ? (
+              <TablePagination
+                component="div"
+                count={rows.length}
+                page={page}
+                rowsPerPage={rowsPerPage}
+                rowsPerPageOptions={[5, 10, 20]}
+                onPageChange={(_, v) => setPage(v)}
+                onRowsPerPageChange={(e) => setRowsPerPage(Number(e.target.value))}
+                sx={{ borderTop: 1, borderColor: "divider" }}
+              />
+            ) : null}
           </Card>
         </Grid>
       </Grid>
