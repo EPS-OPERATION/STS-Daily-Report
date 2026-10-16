@@ -1,4 +1,5 @@
 import HealthAndSafetyOutlinedIcon from "@mui/icons-material/HealthAndSafetyOutlined";
+import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -370,7 +371,8 @@ export function EveningForm({
 
       <SectionCard id="sec-ot" index={2} tone="navy" title="ชั่วโมงทำงานล่วงเวลา (OT)" subtitle="แยกตามอาคาร/งาน — จำนวนคนที่ทำ OT × ชม. ใช้คำนวณ NMH">
         <YesNoGate
-          question="วันนี้มีคนทำ OT ไหม?"
+          icon={<ScheduleOutlinedIcon color="primary" fontSize="small" />}
+          question="วันนี้มีคนทำ OT หรือไม่"
           open={otOpen}
           filled={overtimeRows.length}
           onYes={() => {
@@ -468,7 +470,7 @@ export function EveningForm({
         />
         <Divider sx={{ my: 2.5 }} />
         <YesNoGate
-          question="พรุ่งนี้ต้องจองเครื่องจักร / อุปกรณ์ หรือขอใช้ถนนไหม?"
+          question="พรุ่งนี้ต้องจองเครื่องจักร / อุปกรณ์ หรือขอใช้ถนนหรือไม่"
           open={requestsOpen}
           filled={requestCount}
           onYes={() => setRequestsAsked(true)}

@@ -60,6 +60,11 @@ export function YesNoGate({
   onYes,
   onNo,
   children,
+  icon,
+  noLabel = "ไม่มี",
+  yesLabel = "มี",
+  noColor = "primary",
+  yesColor = "primary",
 }: {
   question: string;
   open: boolean;
@@ -68,43 +73,46 @@ export function YesNoGate({
   onYes: () => void;
   onNo: () => void;
   children: ReactNode;
+  icon?: ReactNode;
+  noLabel?: string;
+  yesLabel?: string;
+  noColor?: "primary" | "secondary" | "success" | "error" | "info" | "warning";
+  yesColor?: "primary" | "secondary" | "success" | "error" | "info" | "warning";
 }) {
   const [confirming, setConfirming] = useState(false);
   return (
     <Box>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5} flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+        {icon}
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {question}
         </Typography>
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          color="primary"
-          value={open ? "yes" : "no"}
-          onChange={(_, v: "yes" | "no" | null) => {
-            if (v === "yes") onYes();
-            if (v === "no") {
-              if (filled > 0) setConfirming(true);
-              else onNo();
-            }
-          }}
-          aria-label={question}
-          // The answer must read at a glance: the chosen side is solid.
-          sx={{ "& .MuiToggleButton-root.Mui-selected": { bgcolor: "primary.main", color: "primary.contrastText", "&:hover": { bgcolor: "primary.dark" } } }}
-        >
-          <ToggleButton value="no" sx={{ px: 2.5, minHeight: 40 }}>
-            ไม่มี
-          </ToggleButton>
-          <ToggleButton value="yes" sx={{ px: 2.5, minHeight: 40 }}>
-            มี
-          </ToggleButton>
-        </ToggleButtonGroup>
       </Stack>
-      {open ? <Box sx={{ mt: 1.5 }}>{children}</Box> : null}
+      <ToggleButtonGroup
+        exclusive
+        fullWidth
+        value={open ? "yes" : "no"}
+        onChange={(_, v: "yes" | "no" | null) => {
+          if (v === "yes") onYes();
+          if (v === "no") {
+            if (filled > 0) setConfirming(true);
+            else onNo();
+          }
+        }}
+        aria-label={question}
+      >
+        <ToggleButton value="no" color={noColor}>
+          {noLabel}
+        </ToggleButton>
+        <ToggleButton value="yes" color={yesColor}>
+          {yesLabel}
+        </ToggleButton>
+      </ToggleButtonGroup>
+      {open ? <Box sx={{ mt: 2 }}>{children}</Box> : null}
       <ConfirmDialog
         open={confirming}
         title="ล้างรายการที่กรอกไว้?"
-        description={`เลือก «ไม่มี» จะลบ ${filled} รายการที่กรอกไว้ในหัวข้อนี้`}
+        description={`เลือก «${noLabel}» จะลบ ${filled} รายการที่กรอกไว้ในหัวข้อนี้`}
         confirmLabel="ลบรายการ"
         cancelLabel="เก็บไว้"
         onClose={() => setConfirming(false)}
