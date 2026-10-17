@@ -76,6 +76,7 @@ export interface MorningInput {
   equipment: { equipmentType: string; qty: number }[];
   // One crew per discipline that worked today (CE / ME / EE); the report is their sum.
   crews: MorningCrewInput[];
+  permits?: PermitInput[];
 }
 
 export interface RoadUsageInput {
@@ -101,11 +102,20 @@ export interface EveningProgressInput {
   countermeasure?: string;
 }
 
+export interface OvertimeInput {
+  buildingId: string;
+  task: string;
+  workers: number;
+  hours: number;
+}
+
 // Evening check-out for `date`; machinery / permits / roadUsage are requests for date + 1.
 export interface EveningInput {
   date: string;
   contractorId: string;
   otHours: number;
+  /** Itemised OT (building, task, people, hours). Absent from older clients. */
+  overtime?: OvertimeInput[];
   accidentOccurred: boolean;
   accidentNote?: string;
   accidentCategory?: AccidentCategory;
@@ -116,11 +126,11 @@ export interface EveningInput {
   signatureData?: string;
   machinery: MachineryInput[];
   equipmentRequests: EquipmentRequestInput[];
-  permits: PermitInput[];
+  permits?: PermitInput[];
   roadUsage: RoadUsageInput[];
   materials: MaterialInput[];
   // Tomorrow Forecast Activities: planned work for date + 1 (description + area).
-  forecasts?: { buildingId: string; description: string }[];
+  forecasts: { buildingId: string; description: string }[];
 }
 
 export interface PhotoUploadInput {

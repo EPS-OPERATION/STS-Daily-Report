@@ -18,6 +18,7 @@ import { PhotoSection } from "./photo-section.js";
 import { RequestSection } from "./request-section.js";
 import { SectionCard } from "./section-card.js";
 import { formatThaiDate, timeWindowLabel } from "../utils/dates.js";
+import { overtimeLines, overtimeSummary } from "../utils/overtime.js";
 
 // Read-only view once the evening shift is submitted (the day is closed).
 export function ReportSummary({ report, buildings }: { report: DailyReport; buildings: Building[] }) {
@@ -60,9 +61,13 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
             </Typography>
           ) : null}
           <Typography variant="caption" color="text.secondary">
-            ไทย ช {report.thaiMale} / ญ {report.thaiFemale} · ต่างชาติ ช {report.foreignMale} / ญ {report.foreignFemale} · OT{" "}
-            {report.otHours ?? 0} ชม.
+            ไทย ช {report.thaiMale} / ญ {report.thaiFemale} · ต่างชาติ ช {report.foreignMale} / ญ {report.foreignFemale} · {overtimeSummary(report)}
           </Typography>
+          {overtimeLines(report.overtime).map((line) => (
+            <Typography key={line} variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              OT: {line}
+            </Typography>
+          ))}
           <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
             {report.startTime ?? "-"}–{report.endTime ?? "-"} · {report.workHours ?? 0} ชม./คน · NMH {report.manHours.toLocaleString()} ชม.
             {weather ? ` · ${weather}` : ""}

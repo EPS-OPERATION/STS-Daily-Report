@@ -28,7 +28,7 @@ import {
 import { useState } from "react";
 import { Controller, useController, useFieldArray, useWatch, type Control } from "react-hook-form";
 import { RoadRoutePicker } from "./road-route-picker.js";
-import type { EveningFormValues } from "../schemas/daily-report.schema.js";
+import type { EveningFormValues, MorningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, WeeklySummary } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
 import { NumberStepper } from "./number-stepper.js";
@@ -455,7 +455,7 @@ export function PermitRequests({
   projectId,
   contractorId,
 }: {
-  control: Control<EveningFormValues>;
+  control: Control<MorningFormValues>;
   buildings: Building[];
   projectId: string;
   contractorId: string;
@@ -486,7 +486,7 @@ export function PermitRequests({
         buildings={buildings}
         onApply={(items) => items.forEach((i) => rows.append(permitFromStandard(i)))}
         onSaveFromForm={() =>
-          permits
+          (permits ?? [])
             .filter((p) => p.buildingId && (p.permitType !== "other" || (p.otherLabel ?? "").trim()))
             .map((p) => ({
               kind: "permit" as const,
@@ -495,8 +495,8 @@ export function PermitRequests({
               defaultCount: p.workers,
               permitType: p.permitType,
               highRisk: p.highRisk,
-              taskName: p.taskName.trim(),
-              supervisorName: p.supervisorName.trim(),
+              taskName: p.taskName?.trim() ?? "",
+              supervisorName: p.supervisorName?.trim() ?? "",
             }))
         }
       />
@@ -516,16 +516,16 @@ function PermitRow({
   onRemove,
 }: {
   index: number;
-  control: Control<EveningFormValues>;
+  control: Control<MorningFormValues>;
   buildings: Building[];
   onRemove: () => void;
 }) {
   const type = useWatch({ control, name: `permits.${index}.permitType` }) as PermitType;
   const highRisk = useWatch({ control, name: `permits.${index}.highRisk` });
-  const allPermits = useWatch({ control, name: "permits" });
+  const allPermits = useWatch({ control, name: "permits" }) ?? [];
   // Same task name on several permits = one job on the Safety page (e.g. Lifting + Work at Height).
-  const taskOptions = [...new Set(allPermits.filter((p, i) => i !== index && p.highRisk && p.taskName.trim()).map((p) => p.taskName.trim()))];
-  const supervisorOptions = [...new Set(allPermits.filter((p, i) => i !== index && p.supervisorName.trim()).map((p) => p.supervisorName.trim()))];
+  const taskOptions = [...new Set(allPermits.filter((p, i) => i !== index && p.highRisk && p.taskName?.trim()).map((p) => p.taskName!.trim()))];
+  const supervisorOptions = [...new Set(allPermits.filter((p, i) => i !== index && p.supervisorName?.trim()).map((p) => p.supervisorName!.trim()))];
   const meta = PERMIT_TYPES.find((p) => p.code === type);
   const Icon = PERMIT_ICONS[type] ?? PERMIT_ICONS.other;
   return (
@@ -692,11 +692,13 @@ function ClashNote({ severe, children }: { severe?: boolean; children: React.Rea
 // Tomorrow Forecast Activities (paper form R003 table): what the crew will work on tomorrow and where.
 export function ForecastActivities({ control, buildings }: { control: Control<EveningFormValues>; buildings: Building[] }) {
   const rows = useFieldArray({ control, name: "forecasts" });
+  const { fieldState } = useController({ control, name: "forecasts" });
+  const errorMsg = fieldState.error?.message;
   return (
     <Box>
       {rows.fields.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          ยังไม่มีแผนงาน — เพิ่มงานที่จะทำพรุ่งนี้และพื้นที่ (ไม่บังคับ)
+        <Typography variant="body2" color={errorMsg ? "error" : "text.secondary"} sx={{ mb: 1, fontWeight: errorMsg ? 600 : 400 }}>
+          {errorMsg ?? "ยังไม่มีแผนงาน — เพิ่มงานที่จะทำพรุ่งนี้และพื้นที่ (บังคับ)"}
         </Typography>
       ) : null}
       <Stack spacing={1.5}>

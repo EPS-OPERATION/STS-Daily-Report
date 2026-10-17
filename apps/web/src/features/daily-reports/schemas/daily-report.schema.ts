@@ -150,6 +150,7 @@ export const morningSchema = z
     humidityPct: z.number().int().min(0).max(100).nullable(),
     equipment: z.record(z.string(), count),
     crews: z.object({ CE: morningCrewSchema, ME: morningCrewSchema, EE: morningCrewSchema }),
+    permits: z.array(permitSchema).default([]),
   })
   .superRefine((v, ctx) => {
     if (v.startTime >= v.endTime) {
@@ -219,7 +220,15 @@ export const materialSchema = z.object({
 
 export const eveningSchema = z
   .object({
-    otHours: z.number().min(0, "ต้องไม่ติดลบ").max(24, "ไม่เกิน 24 ชม."),
+    // Itemised OT: one row per building/task; NMH counts only these people.
+    overtime: z.array(
+      z.object({
+        buildingId: z.string().min(1, "เลือกอาคาร"),
+        task: z.string().trim().min(1, "ระบุงานที่ทำ").max(300),
+        workers: z.number().int().min(1, "อย่างน้อย 1 คน").max(1000),
+        hours: z.number().min(0.5, "อย่างน้อย 0.5 ชม.").max(24, "ไม่เกิน 24 ชม."),
+      }),
+    ).max(30),
     accidentOccurred: z.boolean({ required_error: "เลือกว่าเกิดอุบัติเหตุหรือไม่" }).nullable(),
     accidentNote: z.string().trim().max(1000).optional(),
     accidentCategory: z.enum(asTuple(ACCIDENT_CATEGORY_CODES)).nullable(),
@@ -239,7 +248,7 @@ export const eveningSchema = z
     // Requests for tomorrow.
     machinery: z.array(machinerySchema),
     equipmentRequests: z.array(equipmentRequestSchema),
-    permits: z.array(permitSchema),
+    permits: z.array(permitSchema).default([]),
     roadUsage: z.array(roadUsageSchema),
     // Materials on site today.
     materials: z.array(materialSchema).max(30),
@@ -251,6 +260,7 @@ export const eveningSchema = z
           buildingId: z.string().min(1, "เลือกพื้นที่ / อาคาร"),
         }),
       )
+      .min(1, "เพิ่มแผนงานพรุ่งนี้อย่างน้อย 1 รายการ")
       .max(20),
   })
   .superRefine((v, ctx) => {
@@ -281,9 +291,12 @@ export const eveningSchema = z
       }
       seenMaterials.add(key);
     });
-    if (v.otHours * 2 !== Math.round(v.otHours * 2)) {
-      ctx.addIssue({ code: "custom", path: ["otHours"], message: "กรอกทีละ 0.5 ชม." });
-    }
+    // OT people come from the afternoon crew: one row can't have more people than worked the afternoon.
+    const crew = v.disciplines.reduce((s, d) => { const c = v.crews[d]; return s + c.thaiMale + c.thaiFemale + c.foreignMale + c.foreignFemale; }, 0);
+    v.overtime.forEach((o, i) => {
+      if (o.hours * 2 !== Math.round(o.hours * 2)) ctx.addIssue({ code: "custom", path: ["overtime", i, "hours"], message: "กรอกทีละ 0.5 ชม." });
+      if (crew > 0 && o.workers > crew) ctx.addIssue({ code: "custom", path: ["overtime", i, "workers"], message: `เกินคนช่วงบ่าย (${crew} คน)` });
+    });
   });
 
 export type EveningFormValues = z.infer<typeof eveningSchema>;

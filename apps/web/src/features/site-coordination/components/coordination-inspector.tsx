@@ -169,7 +169,7 @@ export function CoordinationInspector({
                     fullWidth
                     variant="outlined"
                     startIcon={<SwapHorizOutlined />}
-                    disabled={drawing || draft.geometry.points.length < 2}
+                    disabled={drawing || draft.twoWay === true || draft.geometry.points.length < 2}
                     onClick={() => onPatch({ geometry: { type: "polyline", points: [...draft.geometry.points].reverse() } })}
                     sx={{ textTransform: "none" }}
                   >
@@ -177,7 +177,7 @@ export function CoordinationInspector({
                   </Button>
                 </Stack>
                 <Typography variant="caption" color={geometryError ? "warning.dark" : "text.secondary"}>
-                  {geometryError ?? `${draft.geometry.points.length} จุด · ลูกศรชี้ทิศทางที่ใช้ถนน · ลากจุดบนผังเพื่อปรับ · ใช้ทั้งวัน`}
+                  {geometryError ?? `${draft.geometry.points.length} จุด · ${draft.twoWay ? "ใช้ได้ทั้งสองทาง" : "ลูกศรชี้ทิศทางที่ใช้ถนน"} · ลากจุดบนผังเพื่อปรับ · ใช้ทั้งวัน`}
                 </Typography>
                 {areaDirty ? (
                   <Button size="small" startIcon={<RestartAltOutlined />} onClick={onResetArea} sx={{ alignSelf: "flex-start", textTransform: "none" }}>
@@ -185,6 +185,19 @@ export function CoordinationInspector({
                   </Button>
                 ) : null}
               </Field>
+            ) : null}
+            {draft.areaKind === "route" ? (
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    วิ่งได้สองทาง
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ลูกศรที่ปลายทั้งสองข้าง (ไปและกลับ)
+                  </Typography>
+                </Box>
+                <Switch checked={draft.twoWay === true} onChange={(e) => onPatch({ twoWay: e.target.checked })} />
+              </Stack>
             ) : <>
             <Field label="Work type">
               <TypePicker value={draft.icon} onPick={(icon) => onPatch({ icon })} exclude={["road"]} />

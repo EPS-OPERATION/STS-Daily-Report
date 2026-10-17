@@ -35,6 +35,7 @@ import { useCurrentProject } from "@/features/projects/index.js";
 import { useCurrentReport } from "../hooks/use-daily-report-queries.js";
 import type { DailyReport, ReviewQueueRow } from "../types/daily-report.types.js";
 import { formatThaiDate, timeWindowLabel } from "../utils/dates.js";
+import { overtimeLines, overtimeSummary } from "../utils/overtime.js";
 import { permitLabel } from "./permit-meta.js";
 
 export function ReviewDialog({
@@ -155,7 +156,10 @@ export function ReviewDialog({
                         เวลาทำงาน / โอที
                       </Typography>
                       <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        {data.workHours ?? 8} ชม. {data.otHours ? `(OT ${data.otHours} ชม.)` : ""}
+                        {data.workHours ?? 8} ชม.
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }} title={overtimeLines(data.overtime).join(" · ")}>
+                        {overtimeSummary(data)}
                       </Typography>
                     </Card>
                   </Grid>

@@ -47,7 +47,7 @@ describe("man-day share per row", () => {
   });
 });
 
-import { dayManpower } from "@sts/shared";
+import { dayManpower, overtimeTotals } from "@sts/shared";
 
 describe("man-day and man-hour (NMH)", () => {
   it("uses the morning crew when no afternoon count was sent", () => {
@@ -69,5 +69,18 @@ describe("man-day and man-hour (NMH)", () => {
 
   it("is zero when nothing was sent", () => {
     expect(dayManpower({ morning: null, evening: null, workHours: null, otHours: null })).toEqual({ manDays: 0, manHours: 0 });
+  });
+});
+
+describe("itemised OT (NMH counts only the people who did OT)", () => {
+  it("uses Σ people × hours of the OT rows instead of the whole afternoon crew", () => {
+    // 20 people all day × 8 h = 160; OT: 6 people × 2 h + 4 people × 3 h = 24 → 184 (old rule: 20 × 3 = 60).
+    const ot = overtimeTotals([{ workers: 6, hours: 2 }, { workers: 4, hours: 3 }]);
+    expect(ot).toEqual({ workers: 10, maxHours: 3, manHours: 24 });
+    expect(dayManpower({ morning: 20, evening: 20, workHours: 8, otHours: ot.maxHours, otManHours: ot.manHours })).toEqual({ manDays: 20, manHours: 184 });
+  });
+
+  it("keeps the old rule for reports sent before OT was itemised", () => {
+    expect(dayManpower({ morning: 20, evening: 18, workHours: 8, otHours: 2, otManHours: null })).toEqual({ manDays: 19, manHours: 188 });
   });
 });

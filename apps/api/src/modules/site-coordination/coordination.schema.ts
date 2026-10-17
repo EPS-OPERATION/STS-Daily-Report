@@ -15,6 +15,7 @@ const fields = {
   // Areas are closed polygons (3+ points); a road route is an open polyline (2+ points).
   geometry: t.Object({ type: t.Union([t.Literal("polygon"), t.Literal("polyline")]), points: t.Array(point, { minItems: 2, maxItems: 500 }) }),
   linkArea: t.Optional(t.Boolean()),
+  twoWay: t.Optional(t.Boolean()),
   note: t.Optional(t.Union([t.String({ maxLength: 1000 }), t.Null()])),
 };
 export const createBody = t.Object(fields, { additionalProperties: false });

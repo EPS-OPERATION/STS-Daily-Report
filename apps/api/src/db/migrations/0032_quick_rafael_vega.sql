@@ -1,0 +1,1 @@
+ALTER TABLE "coordination_items" ADD COLUMN "two_way" boolean DEFAULT false NOT NULL;

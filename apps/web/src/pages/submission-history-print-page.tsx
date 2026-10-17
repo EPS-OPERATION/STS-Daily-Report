@@ -130,7 +130,7 @@ export function SubmissionHistoryPrintPage() {
 
         <div className="kpis">
           {[
-            ["รายการทั้งหมด (ผู้รับเหมา × วัน)", counts.all, ""],
+            ["รายการทั้งหมด", counts.all, ""],
             ["ส่งครบทั้ง 2 รายงาน", counts.complete, pct(counts.complete)],
             ["ส่งบางส่วน", counts.partial, pct(counts.partial)],
             ["ยังไม่ส่ง", counts.none, pct(counts.none)],

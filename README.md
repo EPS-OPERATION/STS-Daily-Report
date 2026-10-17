@@ -85,7 +85,8 @@ UUID PKs, `created_at/updated_at` timestamptz. Drizzle config: `apps/api/drizzle
 ## 9. Seed data
 
 `bun db:seed` — master data only: 1 project (STS-001), 23 site contractors + project links, 21 zones +
-1 site plan + 16 map areas, 15 buildings + markers. No users and no sample reports — the seeded DB is
+1 site plan + 16 map areas, 15 buildings + markers, 2 demo drone logs (`public/drone` → object storage).
+No users and no sample reports — the seeded DB is
 deploy-ready; create the first admin with `apps/api/scripts/bootstrap-admin.ts` (see §15). Idempotent.
 
 ## 10. Frontend conventions

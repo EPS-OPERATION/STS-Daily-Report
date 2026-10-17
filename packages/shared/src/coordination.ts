@@ -9,6 +9,8 @@ export interface CoordinationInput {
   x: number; y: number; rotation: number; areaKind: CoordinationAreaKind; geometry: CoordinationGeometry;
   /** false = the marker stands alone; no connector line to its area (defaults to true). */
   linkArea?: boolean;
+  /** Road routes only: traffic both ways (arrows at both ends). */
+  twoWay?: boolean;
   /** Optional detail behind the short title (hidden on the map until the job is clicked). */
   note?: string | null;
 }

@@ -25,7 +25,6 @@ import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
-import { EmptySection } from "@/components/ui/empty-state.js";
 import { HttpError } from "@/services/http/client.js";
 import { useDeleteRequest, useSaveRequest } from "../hooks/use-daily-report-mutations.js";
 import { useInspectionRequests } from "../hooks/use-daily-report-queries.js";
@@ -63,7 +62,9 @@ export function RequestSection({
     <Box>
       <Stack spacing={1.25}>
         {rows.length === 0 ? (
-          <EmptySection dense icon={<FactCheckOutlinedIcon />} title="ยังไม่มีคำขอตรวจ" description="เพิ่มงานที่ต้องการให้ QAQC ตรวจ" />
+          <Typography variant="body2" color="text.secondary">
+            ยังไม่มีคำขอนัดตรวจ — กดปุ่มด้านล่างเพื่อเพิ่มคำขอตรวจ QAQC (RFI)
+          </Typography>
         ) : null}
         {rows.map((r) => {
           const editable = r.status === "draft" || r.status === "requested";

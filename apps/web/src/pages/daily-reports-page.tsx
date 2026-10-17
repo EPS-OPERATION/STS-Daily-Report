@@ -232,7 +232,7 @@ export function DailyReportsPage() {
           {/* Submission summary: who sent what in the range */}
           <Grid container spacing={2} sx={{ mb: 2.5 }}>
             {[
-              { label: "รายการทั้งหมด (ผู้รับเหมา × วัน)", value: `${counts.all} รายการ`, sub: dateRangeLabel, color: "text.primary" },
+              { label: "รายการทั้งหมด", value: `${counts.all} รายการ`, sub: dateRangeLabel, color: "text.primary" },
               { label: "ส่งครบทั้ง 2 รายงาน", value: `${counts.complete} รายการ`, sub: pct(counts.complete), color: "success.dark" },
               { label: "ส่งบางส่วน", value: `${counts.partial} รายการ`, sub: "ส่ง Daily Report หรือ Daily Request อย่างเดียว", color: "warning.dark" },
               { label: "ยังไม่ส่ง", value: `${counts.none} รายการ`, sub: pct(counts.none), color: counts.none > 0 ? "error.dark" : "text.secondary" },

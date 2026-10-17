@@ -7,6 +7,7 @@ import {
   dailyReportEquipment,
   dailyReportEquipmentRequests,
   dailyReportForecasts,
+  dailyReportOvertime,
   dailyReportMachinery,
   dailyReportMaterials,
   dailyReportPermits,
@@ -17,7 +18,7 @@ import {
   inspectionRequests,
   users,
 } from "@/db/schema/index.js";
-import { DISCIPLINE_CODES, allocationDayShares } from "@sts/shared";
+import { DISCIPLINE_CODES, allocationDayShares, overtimeTotals } from "@sts/shared";
 import type { Db, QueryDb } from "@/db/client.js";
 import type { BookingRow, CrewInput, EveningInput, MorningInput, RoadRow } from "./daily-report.type.js";
 import { carryRoadAdjustments, type AdjustedRoadRequest } from "./daily-report.road.js";
@@ -307,6 +308,7 @@ export async function listReportsForReview(
       endTime: dailyReports.endTime,
       workHours: dailyReports.workHours,
       otHours: dailyReports.otHours,
+      otManHours: dailyReports.otManHours,
     })
     .from(dailyReports)
     .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
@@ -578,6 +580,7 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
       .delete(dailyReportCrews)
       .where(and(eq(dailyReportCrews.reportId, reportId), eq(dailyReportCrews.shift, "morning")));
     await tx.delete(dailyReportEquipment).where(eq(dailyReportEquipment.reportId, reportId));
+    await tx.delete(dailyReportPermits).where(eq(dailyReportPermits.reportId, reportId));
 
     const morning = crewRows(reportId, "morning", input.crews);
     await tx.insert(dailyReportCrews).values(morning.crews);
@@ -586,6 +589,21 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
       await tx
         .insert(dailyReportEquipment)
         .values(input.equipment.map((e) => ({ reportId, equipmentType: e.equipmentType.trim(), qty: e.qty })));
+    }
+    if (input.permits && input.permits.length > 0) {
+      await tx.insert(dailyReportPermits).values(
+        input.permits.map((p) => ({
+          reportId,
+          targetDate: input.date,
+          buildingId: p.buildingId,
+          permitType: p.permitType,
+          otherLabel: p.permitType === "other" ? p.otherLabel?.trim() || null : null,
+          workers: p.workers,
+          highRisk: Boolean(p.highRisk),
+          taskName: p.highRisk ? p.taskName?.trim() || null : null,
+          supervisorName: p.highRisk ? p.supervisorName?.trim() || null : null,
+        })),
+      );
     }
     // Allocations of all crews, in crew order; sort_order keeps one running sequence.
     const allocationRows = input.crews.flatMap((c) => {
@@ -622,12 +640,15 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
     const signatureData = input.signatureData || existing?.signatureData || null;
     const tomorrow = addDays(input.date, 1);
     const split = sumSplit(input.crews);
+    // Itemised OT sets both the per-person hours shown on the report and the man-hours NMH uses.
+    const ot = input.overtime ? overtimeTotals(input.overtime) : null;
     const header = {
       eveningThaiMale: split.thaiMale,
       eveningThaiFemale: split.thaiFemale,
       eveningForeignMale: split.foreignMale,
       eveningForeignFemale: split.foreignFemale,
-      otHours: input.otHours,
+      otHours: ot ? ot.maxHours : input.otHours,
+      otManHours: ot ? ot.manHours : null,
       accidentOccurred: input.accidentOccurred,
       accidentNote: input.accidentOccurred ? input.accidentNote?.trim() || null : null,
       accidentCategory: input.accidentOccurred ? (input.accidentCategory ?? null) : null,
@@ -683,12 +704,17 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
 
     await tx.delete(dailyReportMachinery).where(eq(dailyReportMachinery.reportId, reportId));
     await tx.delete(dailyReportEquipmentRequests).where(eq(dailyReportEquipmentRequests.reportId, reportId));
-    await tx.delete(dailyReportPermits).where(eq(dailyReportPermits.reportId, reportId));
     // EPS time changes survive a re-sent report when the same request comes back unchanged (carryRoadAdjustments).
     const carriedRoads = carryRoadAdjustments(await listAdjustedRoads(tx, reportId), input.roadUsage);
     await tx.delete(dailyReportRoadUsage).where(eq(dailyReportRoadUsage.reportId, reportId));
     await tx.delete(dailyReportMaterials).where(eq(dailyReportMaterials.reportId, reportId));
     await tx.delete(dailyReportForecasts).where(eq(dailyReportForecasts.reportId, reportId));
+    await tx.delete(dailyReportOvertime).where(eq(dailyReportOvertime.reportId, reportId));
+    if (input.overtime?.length) {
+      await tx.insert(dailyReportOvertime).values(
+        input.overtime.map((o, i) => ({ reportId, buildingId: o.buildingId, task: o.task.trim(), workers: o.workers, hours: o.hours, sortOrder: i })),
+      );
+    }
     if (input.machinery.length > 0) {
       await tx.insert(dailyReportMachinery).values(
         input.machinery.map((m) => ({
@@ -712,21 +738,6 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
           equipmentType: e.equipmentType.trim(),
           qty: e.qty,
           purpose: e.purpose?.trim() || null,
-        })),
-      );
-    }
-    if (input.permits.length > 0) {
-      await tx.insert(dailyReportPermits).values(
-        input.permits.map((p) => ({
-          reportId,
-          targetDate: tomorrow,
-          buildingId: p.buildingId,
-          permitType: p.permitType,
-          otherLabel: p.permitType === "other" ? p.otherLabel?.trim() || null : null,
-          workers: p.workers,
-          highRisk: Boolean(p.highRisk),
-          taskName: p.highRisk ? p.taskName?.trim() || null : null,
-          supervisorName: p.highRisk ? p.supervisorName?.trim() || null : null,
         })),
       );
     }
@@ -887,6 +898,7 @@ export async function listReportHoursInRange(db: Db, projectId: string, from: st
       eveningStatus: dailyReports.eveningStatus,
       workHours: dailyReports.workHours,
       otHours: dailyReports.otHours,
+      otManHours: dailyReports.otManHours,
     })
     .from(dailyReports)
     .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
@@ -985,6 +997,24 @@ export async function getSafetyRecord(db: Db, projectId: string, contractorId: s
       ),
     );
   return rows[0] ?? { accidents: 0, lastAccident: null, firstReport: null };
+}
+
+// Itemised OT of one report (evening).
+export async function listOvertime(db: Db, reportId: string) {
+  return db
+    .select({
+      id: dailyReportOvertime.id,
+      buildingId: dailyReportOvertime.buildingId,
+      buildingCode: buildings.code,
+      buildingName: buildings.name,
+      task: dailyReportOvertime.task,
+      workers: dailyReportOvertime.workers,
+      hours: dailyReportOvertime.hours,
+    })
+    .from(dailyReportOvertime)
+    .innerJoin(buildings, eq(dailyReportOvertime.buildingId, buildings.id))
+    .where(eq(dailyReportOvertime.reportId, reportId))
+    .orderBy(asc(dailyReportOvertime.sortOrder));
 }
 
 // Tomorrow Forecast Activities raised by one report.
