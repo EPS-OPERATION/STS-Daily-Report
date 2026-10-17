@@ -6,8 +6,8 @@ import { contractors } from "./contractor.schema.js";
 import { projects } from "./project.schema.js";
 import { users } from "./user.schema.js";
 
-// One row = one contractor's report for one calendar day (morning check-in +
-// evening check-out). report_date is a DATE (never UTC-shifted). Headcount is
+// One row = one contractor's report for one calendar day (morning report +
+// evening Daily Request). report_date is a DATE (never UTC-shifted). Headcount is
 // split by nationality/gender; total = sum of the four and must equal the sum of
 // building allocations when the morning shift is submitted.
 export const dailyReports = pgTable(
@@ -162,7 +162,7 @@ export const dailyReportEquipment = pgTable(
   ],
 );
 
-// Materials on site today (evening check-out) with quantity + unit.
+// Materials on site today (evening Daily Request) with quantity + unit.
 // Free-text names — contractors type what was delivered/used.
 export const dailyReportMaterials = pgTable(
   "daily_report_materials",

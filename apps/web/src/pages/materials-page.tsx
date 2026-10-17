@@ -29,7 +29,7 @@ import { useCurrentProject } from "@/features/projects/index.js";
 import { useProjectContractors } from "@/features/projects/hooks/use-projects.js";
 
 // EPS view of materials contractors reported on site: totals per material
-// plus the day-by-day log. Data rides the evening check-out — no separate
+// plus the day-by-day log. Data rides the evening Daily Request — no separate
 // material form anywhere else.
 export function MaterialsPage() {
   const { projectId } = useCurrentProject();
@@ -65,7 +65,7 @@ export function MaterialsPage() {
 
   return (
     <Box>
-      <PageHeader title="Materials (Option)" subtitle="วัสดุหน้างานที่ผู้รับเหมารายงานผ่าน check-out — รวมตามวัสดุ + บันทึกรายวัน" />
+      <PageHeader title="Materials (Option)" subtitle="วัสดุหน้างานที่ผู้รับเหมารายงานในรายงานบ่าย (Daily Request) — รวมตามวัสดุ + บันทึกรายวัน" />
 
       {!projectId ? (
         <Alert severity="info">Select a project to see its materials.</Alert>
@@ -168,7 +168,7 @@ export function MaterialsPage() {
             <EmptyState
               icon={<Inventory2OutlinedIcon />}
               title="No materials in view"
-              description="Nothing reported for these filters yet — materials appear here once contractors submit their evening check-out."
+              description="Nothing reported for these filters yet — materials appear here once contractors submit their evening Daily Request."
             />
           ) : (
             <Card>

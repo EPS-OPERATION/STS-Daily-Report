@@ -259,3 +259,21 @@ Local verification: `bun typecheck`, `bun test`, `bun run build`, and
 The integration check uses isolated generated QA projects/companies/users and removes only those
 IDs in `finally`. Browser/tool limitations and the manual walkthrough are recorded in
 [`docs/map-coordination-verification.md`](docs/map-coordination-verification.md).
+
+## Hourly site weather
+
+The API stores site weather per hour in `weather_hourly` (Open-Meteo model data for the project's coordinates).
+
+- **Docker / long-running API:** the built-in job pulls every project at HH:05 (and once at start). Turn it off with `WEATHER_CRON=false`.
+- **Hosts that sleep the process (Vercel):** set `CRON_SECRET` (16+ chars) on the API and call `POST /api/v1/internal/weather/sync` with `Authorization: Bearer <CRON_SECRET>` every hour. Vercel Hobby crons run only daily, so use Supabase `pg_cron` + `pg_net`:
+
+```sql
+select cron.schedule('sts-weather-hourly', '5 * * * *', $$
+  select net.http_post(
+    url := 'https://<your-domain>/api/v1/internal/weather/sync',
+    headers := jsonb_build_object('Authorization', 'Bearer <CRON_SECRET>')
+  );
+$$);
+```
+
+Reads also refresh data older than 30 minutes, so the chart never shows a gap even if a run is missed.

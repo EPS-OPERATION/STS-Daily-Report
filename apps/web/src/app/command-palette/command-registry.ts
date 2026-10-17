@@ -36,7 +36,7 @@ const NAV: NavDef[] = [
 ];
 
 const ACTIONS: Omit<NavDef, "iconKey">[] = [
-  { id: "act-new-report", label: "Create Daily Report", to: "/field/report", description: "Contractor morning check-in / evening check-out", keywords: ["new", "create", "report", "morning", "evening", "allocation"] },
+  { id: "act-new-report", label: "Create Daily Report", to: "/field/report", description: "Contractor morning report / evening Daily Request", keywords: ["new", "create", "report", "morning", "evening", "allocation"] },
   { id: "act-add-contractor", label: "Add Contractor", to: "/contractors", description: "Open the contractor registry", keywords: ["new", "create", "add", "contractor"] },
   { id: "act-today-requests", label: "View Daily Request", to: "/today-requests", description: "Daily requests registry", keywords: ["request", "today", "daily"] },
   { id: "act-upload-photo", label: "Upload Site Photo", to: "/field", description: "Contractor quick photo upload", keywords: ["upload", "photo", "camera", "picture"] },
@@ -67,9 +67,9 @@ export function buildCommands(
       {
         id: "nav-field-report",
         label: "Open Contractor Daily Report",
-        description: "Submit morning check-in and evening check-out",
+        description: "Submit the morning report and the evening Daily Request",
         group: "navigate",
-        keywords: ["report", "daily", "morning", "evening", "check-in", "check-out"],
+        keywords: ["report", "daily", "morning", "evening", "request", "tomorrow"],
         icon: navigationIcons.dailyReports,
         action: go("/field/report"),
       },
@@ -85,7 +85,7 @@ export function buildCommands(
       {
         id: "act-new-report",
         label: "Fill Daily Report",
-        description: "Contractor morning check-in / evening check-out",
+        description: "Contractor morning report / evening Daily Request",
         group: "actions",
         keywords: ["new", "create", "report", "morning", "evening", "allocation"],
         icon: navigationIcons.dailyReports,

@@ -1,43 +1,26 @@
 import dayjs from "dayjs";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { SEED_RAIN_LOGS } from "../data/seed-rain-logs.js";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { safetyApi, safetyKeys } from "../api/safety.api.js";
 import type { RainIntensity, RainLogEntry, RainLogInput, RainStats } from "../types/rain-log.types.js";
 
-const STORAGE_PREFIX = "sts_rain_logs_v1_";
-const SITE_COORD = { lat: 8.098, lon: 99.668 };
-
-export function useRainLogs(projectId: string | null, from?: string, to?: string) {
-  const key = `${STORAGE_PREFIX}${projectId ?? "default"}`;
-
-  const [logs, setLogs] = useState<RainLogEntry[]>(() => {
-    try {
-      const saved = localStorage.getItem(key);
-      if (saved) return JSON.parse(saved) as RainLogEntry[];
-    } catch {
-      // ignore
-    }
-    return SEED_RAIN_LOGS;
+// Rain & Delay Log, stored in the database (EPS writes). Same shape the screens used before.
+export function useRainLogs(projectId: string | null, from: string, to: string) {
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: [...safetyKeys.rainLogs(projectId ?? ""), from, to],
+    queryFn: () => safetyApi.rainLogs(projectId!, from, to),
+    enabled: Boolean(projectId) && from <= to,
   });
+  const filtered = useMemo<RainLogEntry[]>(() => query.data?.data ?? [], [query.data]);
+  const refresh = () => client.invalidateQueries({ queryKey: safetyKeys.rainLogs(projectId ?? "") });
 
-  // Sync to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(logs));
-    } catch {
-      // ignore
-    }
-  }, [key, logs]);
-
-  // Filter by date range
-  const filtered = useMemo(() => {
-    return logs
-      .filter((l) => {
-        if (from && l.date < from) return false;
-        if (to && l.date > to) return false;
-        return true;
-      })
-      .sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime));
-  }, [logs, from, to]);
+  const save = useMutation({
+    mutationFn: (v: { id?: string; input: RainLogInput }) =>
+      v.id ? safetyApi.updateRainLog(projectId!, v.id, v.input) : safetyApi.createRainLog(projectId!, v.input),
+    onSuccess: refresh,
+  });
+  const remove = useMutation({ mutationFn: (id: string) => safetyApi.removeRainLog(projectId!, id), onSuccess: refresh });
 
   // Aggregate statistics
   const stats = useMemo<RainStats>(() => {
@@ -106,69 +89,14 @@ export function useRainLogs(projectId: string | null, from?: string, to?: string
     };
   }, [filtered]);
 
-  const addRainLog = useCallback((input: RainLogInput) => {
-    const entry: RainLogEntry = {
-      ...input,
-      id: `rain-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setLogs((prev) => [entry, ...prev]);
-    return entry;
-  }, []);
-
-  const updateRainLog = useCallback((id: string, input: RainLogInput) => {
-    setLogs((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              ...input,
-              updatedAt: new Date().toISOString(),
-            }
-          : item,
-      ),
-    );
-  }, []);
-
-  const deleteRainLog = useCallback((id: string) => {
-    setLogs((prev) => prev.filter((item) => item.id !== id));
-  }, []);
-
-  // Fetch actual historical or current precipitation from Open-Meteo for the site
-  const fetchWeatherForDate = useCallback(async (dateIso: string) => {
-    try {
-      const url =
-        `https://api.open-meteo.com/v1/forecast?latitude=${SITE_COORD.lat}&longitude=${SITE_COORD.lon}` +
-        `&daily=weather_code,precipitation_sum&timezone=Asia%2FBangkok&start_date=${dateIso}&end_date=${dateIso}`;
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const data = await res.json();
-      const precipitation = data.daily?.precipitation_sum?.[0] ?? 0;
-      const weatherCode = data.daily?.weather_code?.[0] ?? 0;
-
-      let intensity: "light" | "moderate" | "heavy" | "storm" = "light";
-      if (weatherCode >= 95) intensity = "storm";
-      else if (precipitation >= 35 || weatherCode >= 80) intensity = "heavy";
-      else if (precipitation >= 10 || (weatherCode >= 61 && weatherCode <= 67)) intensity = "moderate";
-
-      return {
-        rainfallMm: Math.round(precipitation),
-        intensity,
-        weatherCode,
-      };
-    } catch {
-      return null;
-    }
-  }, []);
-
   return {
     logs: filtered,
-    allLogs: logs,
     stats,
-    addRainLog,
-    updateRainLog,
-    deleteRainLog,
-    fetchWeatherForDate,
+    isLoading: query.isLoading,
+    error: query.error ?? save.error ?? remove.error ?? null,
+    saving: save.isPending || remove.isPending,
+    addRainLog: (input: RainLogInput) => save.mutateAsync({ input }),
+    updateRainLog: (id: string, input: RainLogInput) => save.mutateAsync({ id, input }),
+    deleteRainLog: (id: string) => remove.mutateAsync(id),
   };
 }

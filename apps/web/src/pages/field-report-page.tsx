@@ -35,8 +35,8 @@ import { UnlinkedCompany } from "@/features/auth/components/unlinked-company.js"
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Contractor daily report: morning check-in (manpower → building allocation,
-// machinery, permits) and evening check-out (OT, actual %, photos, signature).
+// Contractor daily report: morning report (manpower → building allocation,
+// machinery, permits) and evening Daily Request (OT, actual %, tomorrow's requests, signature).
 // ?date=YYYY-MM-DD back-fills another day; ?shift=morning|evening picks the tab.
 export function FieldReportPage() {
   const navigate = useNavigate();

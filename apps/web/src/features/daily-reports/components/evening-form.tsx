@@ -66,7 +66,7 @@ function crewDefaults(report: DailyReport | null, d: Discipline): EveningCrew {
   };
 }
 
-// Evening check-out. Independent of the morning shift: without a morning report there
+// Evening Daily Request (tomorrow's plan and requests). Independent of the morning shift: without a morning report there
 // is simply no plan to report actuals against. Also where tomorrow's requests are made.
 // Sections in screen order with the fields each one holds (first one with an error gets the scroll).
 const SECTIONS: SectionMap = [
@@ -569,7 +569,7 @@ export function EveningForm({
         }}
       >
         <Button type="submit" fullWidth disabled={submit.isPending} sx={{ bgcolor: "navy.main" }}>
-          {submit.isPending ? "กำลังส่ง…" : report?.eveningStatus === "submitted" ? "Save evening report changes" : "Submit evening report (Check-out)"}
+          {submit.isPending ? "กำลังส่ง…" : report?.eveningStatus === "submitted" ? "Save Daily Request changes" : "Submit Daily Request"}
         </Button>
         <DraftSavedNote savedAt={draft.savedAt} />
       </Box>

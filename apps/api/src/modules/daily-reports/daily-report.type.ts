@@ -89,7 +89,7 @@ export interface RoadUsageInput {
   route?: CoordinationPoint[] | null;
 }
 
-// Materials on site today (evening check-out): free-text name + qty + unit.
+// Materials on site today (evening Daily Request): free-text name + qty + unit.
 export interface MaterialInput {
   name: string;
   qty: number;
@@ -109,7 +109,7 @@ export interface OvertimeInput {
   hours: number;
 }
 
-// Evening check-out for `date`; machinery / permits / roadUsage are requests for date + 1.
+// Evening Daily Request for `date`; machinery / permits / roadUsage are requests for date + 1.
 export interface EveningInput {
   date: string;
   contractorId: string;

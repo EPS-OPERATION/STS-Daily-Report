@@ -14,3 +14,4 @@ export * from "./report-standard-item.schema.js";
 export * from "./safety.schema.js";
 export * from "./coordination.schema.js";
 export * from "./drone.schema.js";
+export * from "./weather.schema.js";

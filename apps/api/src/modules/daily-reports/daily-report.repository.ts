@@ -630,7 +630,7 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
   });
 }
 
-// Evening check-out works with or without a morning report: upsert the header,
+// Evening Daily Request works with or without a morning report: upsert the header,
 // record actuals for any morning allocations, and replace tomorrow's requests.
 export async function saveEvening(db: Db, projectId: string, input: EveningInput, userId: string) {
   return db.transaction(async (tx: Tx) => {

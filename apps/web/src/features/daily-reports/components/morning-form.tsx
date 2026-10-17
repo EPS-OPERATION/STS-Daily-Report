@@ -36,6 +36,8 @@ import {
   type PermitType,
   type PositionCode,
   type WeatherCondition,
+  weatherCodeLabel,
+  weatherConditionOf,
 } from "@sts/shared";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
 import { useEffect, useRef, useState, type ComponentType, type FormEvent } from "react";
@@ -52,6 +54,7 @@ import { CountList } from "./count-list.js";
 import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
 import { SectionCard } from "./section-card.js";
+import { useWeatherAt } from "@/features/weather/index.js";
 import { DraftBanner, DraftSavedNote, FormProgress, type ProgressItem } from "./form-aids.js";
 import { draftKey, useFormDraft } from "../hooks/use-form-draft.js";
 import { PermitRequests } from "./tomorrow-requests.js";
@@ -162,14 +165,6 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
   const { control, handleSubmit, formState, setValue, getValues, reset } = form;
   const draft = useFormDraft(form, draftKey("morning", projectId, contractor.id, date));
 
-  // Auto-fetch site weather for Thung Song (TMD / Open-Meteo station at site coordinates)
-  const [siteWeather, setSiteWeather] = useState<{
-    weather: WeatherCondition;
-    weatherLabel: string;
-    temperatureC: number;
-    humidityPct: number;
-    windSpeedKmh: number;
-  } | null>(null);
   const [weatherAccepted, setWeatherAccepted] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   // Copy from the latest morning report: `copied` keeps the form as it was, for undo.
@@ -178,62 +173,6 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
   const [copied, setCopied] = useState<{ date: string; snapshot: MorningFormValues } | null>(null);
   const [confirmCopy, setConfirmCopy] = useState<DailyReport | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadWeather() {
-      try {
-        const res = await fetch(
-          "https://api.open-meteo.com/v1/forecast?latitude=8.0980&longitude=99.6680&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia%2FBangkok"
-        );
-        if (res.ok && !cancelled) {
-          const data = await res.json();
-          const cur = data.current || {};
-          const code = cur.weather_code ?? 1;
-          const temp = Math.round(cur.temperature_2m ?? 32);
-          const hum = Math.round(cur.relative_humidity_2m ?? 65);
-          const wind = Math.round((cur.wind_speed_10m ?? 7) * 10) / 10;
-
-          let mapped: WeatherCondition = "normal";
-          let label = "ปกติ / มีเมฆบางส่วน";
-          if (code >= 95) {
-            mapped = "thunderstorm";
-            label = "ฝนฟ้าคะนอง";
-          } else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
-            mapped = "rain";
-            label = "มีฝนตก";
-          } else if (wind >= 25) {
-            mapped = "windy";
-            label = "ลมแรง";
-          } else if (code === 0 || temp >= 34) {
-            mapped = "hot";
-            label = "แดดแรง / อากาศร้อนจัด";
-          }
-
-          setSiteWeather({
-            weather: mapped,
-            weatherLabel: label,
-            temperatureC: temp,
-            humidityPct: hum,
-            windSpeedKmh: wind,
-          });
-        }
-      } catch {
-        if (!cancelled) {
-          setSiteWeather({
-            weather: "hot",
-            weatherLabel: "แดดแรง / ท้องฟ้าโปร่ง",
-            temperatureC: 32,
-            humidityPct: 65,
-            windSpeedKmh: 6.5,
-          });
-        }
-      }
-    }
-    loadWeather();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // The sent morning report of the day the contractor picked (null if it is gone or not sent).
   const morningReportOf = (day: string) =>
@@ -304,6 +243,33 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
     void startCopy(autoCopyFrom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Recorded site weather (API, hourly) at the report's start time — real data or nothing, never a guess.
+  const weatherStart = useWatch({ control, name: "startTime" }) || "08:00";
+  const weatherAt = useWeatherAt(projectId, date, weatherStart);
+  const recorded = weatherAt.data?.data.hour ?? null;
+  const siteWeather = recorded
+    ? {
+        weather: weatherConditionOf(recorded),
+        weatherLabel: weatherCodeLabel(recorded.weatherCode),
+        temperatureC: Math.round(recorded.temperatureC ?? 0),
+        humidityPct: recorded.humidityPct ?? 0,
+        windSpeedKmh: recorded.windKmh ?? 0,
+        at: new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(recorded.hour)),
+      }
+    : null;
+  // Auto-fill once, only into an empty weather section of a report not sent yet (never over the contractor's choice).
+  const weatherFilled = useRef(false);
+  useEffect(() => {
+    if (!siteWeather || weatherFilled.current || report?.morningStatus === "submitted") return;
+    weatherFilled.current = true;
+    if (getValues("weather") || getValues("temperatureC")) return;
+    setValue("weather", siteWeather.weather, { shouldValidate: true });
+    setValue("temperatureC", siteWeather.temperatureC, { shouldValidate: true });
+    setValue("humidityPct", siteWeather.humidityPct, { shouldValidate: true });
+    setWeatherAccepted(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteWeather?.weather, siteWeather?.temperatureC]);
 
   const handleApplyWeather = () => {
     if (!siteWeather) return;
@@ -583,11 +549,11 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
                 <Stack direction="row" spacing={1} alignItems="center">
                   <WbSunnyOutlinedIcon color="primary" fontSize="small" />
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    ข้อมูลสภาพอากาศหน้างานอัตโนมัติ (สถานีตรวจวัด ต.ที่วัง อ.ทุ่งสง)
+                    สภาพอากาศที่บันทึกไว้ เวลา {siteWeather.at} น.
                   </Typography>
                   <Chip
                     size="small"
-                    label="กรมอุตุฯ / Live"
+                    label="บันทึกรายชั่วโมง"
                     color="info"
                     variant="outlined"
                     sx={{ height: 20, fontSize: "0.8rem", fontWeight: 700 }}
@@ -598,8 +564,8 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {weatherAccepted
-                    ? "✓ ยืนยันข้อมูลเรียบร้อยแล้ว — บันทึกลงในฟอร์มอัตโนมัติ (สามารถกดเปลี่ยนปุ่มด้านล่างได้หากสภาพอากาศจริงต่างออกไป)"
-                    : "สภาพอากาศหน้างานปัจจุบันตรงตามนี้หรือไม่? หากตรงตามนี้กดปุ่มเพื่อกรอกลงฟอร์มอัตโนมัติได้ทันที"}
+                    ? "กรอกให้อัตโนมัติแล้ว — ถ้าหน้างานจริงต่างไป เลือกใหม่ด้านล่างได้ · ข้อมูล Open-Meteo ตามพิกัดไซต์"
+                    : "ใช้ค่านี้กรอกลงฟอร์ม หรือเลือกเองด้านล่าง · ข้อมูล Open-Meteo ตามพิกัดไซต์"}
                 </Typography>
               </Stack>
 
@@ -610,7 +576,7 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
                 onClick={handleApplyWeather}
                 sx={{ textTransform: "none", fontWeight: 700, minWidth: 210, flexShrink: 0 }}
               >
-                {weatherAccepted ? "✓ ข้อมูลตรงตามนี้ (บันทึกแล้ว)" : "ตรงตามนี้ (กรอกอัตโนมัติ)"}
+                {weatherAccepted ? "ใช้ค่านี้แล้ว" : "ใช้ค่านี้"}
               </Button>
             </Stack>
           </Box>

@@ -23,6 +23,11 @@ export const apiEnvSchema = z.object({
   // Trial mode: contractors may re-send the morning/evening report (and edit photos) any
   // number of times instead of locking after submit. Off = normal locking.
   ALLOW_RESUBMIT: boolFromString.default(false),
+  // Hourly site-weather pull inside the API process (HH:05 Asia/Bangkok, plus once at start).
+  WEATHER_CRON: boolFromString.default(true),
+  // Bearer secret for POST /api/v1/internal/weather/sync (external schedulers); unset = endpoint off.
+  // A blank `CRON_SECRET=` line counts as unset.
+  CRON_SECRET: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().trim().min(16).optional()),
   // Canonical URL for links; WEB_ORIGIN may contain multiple CORS origins.
   WEB_URL: z.string().url().optional(),
   WEB_ORIGIN: z.string().default("http://localhost:5173"),
