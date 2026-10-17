@@ -192,15 +192,13 @@ export const eveningBody = t.Object({
     }),
     { maxItems: 20 },
   ),
-  // Tomorrow Forecast Activities (paper form R003).
-  forecasts: t.Optional(
-    t.Array(
-      t.Object({
-        buildingId: t.String({ format: "uuid" }),
-        description: t.String({ minLength: 1, maxLength: 300 }),
-      }),
-      { maxItems: 20 },
-    ),
+  // Tomorrow Forecast Activities (paper form R003) — required, at least 1.
+  forecasts: t.Array(
+    t.Object({
+      buildingId: t.String({ format: "uuid" }),
+      description: t.String({ minLength: 1, maxLength: 300 }),
+    }),
+    { minItems: 1, maxItems: 20 },
   ),
   // Materials on site today (paper form "Add Material on site").
   materials: t.Array(

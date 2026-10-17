@@ -402,6 +402,7 @@ function validateTomorrow(
   roads: RoadUsageInput[],
   forecasts: { buildingId: string; description: string }[],
 ) {
+  if (forecasts.length === 0) throw new ValidationError("เพิ่มแผนงานพรุ่งนี้อย่างน้อย 1 รายการ");
   for (const f of forecasts) {
     if (!f.description.trim()) throw new ValidationError("Describe each forecast activity");
   }

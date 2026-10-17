@@ -1,4 +1,5 @@
-import { inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
+import { readFile } from "node:fs/promises";
 import { BUILDINGS, RETIRED_BUILDING_CODES, type BuildingCode } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { coordinationMaps } from "@/db/schema/coordination.schema.js";
@@ -6,12 +7,14 @@ import {
   buildingMarkers,
   buildings,
   contractors,
+  droneLogs,
   projectContractors,
   projects,
   sitePlans,
   zoneMapAreas,
   zones,
 } from "@/db/schema/index.js";
+import { getStorage } from "@/shared/storage/index.js";
 
 const PROJECT_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -241,7 +244,66 @@ await db
 // Dedicated coordination image; does not change WBS or facility marker backgrounds.
 await db.insert(coordinationMaps).values({ projectId: PROJECT_ID, imagePath: "/site-plan/STS_KY_Layout_Plan.png", width: 6542, height: 4951 }).onConflictDoNothing();
 
+// --- Demo drone photo logs (dev seed only) ---
+// Real site photos committed at apps/web/public/drone; the seed uploads their
+// bytes to object storage and points drone_logs at them, so /progress shows a
+// baseline + comparison round out of the box. Re-runs skip existing keys;
+// storage failures warn instead of failing the whole seed.
+const DEMO_DRONE_FLIGHTS = [
+  {
+    file: "flight-2026-09-05.jpg",
+    logDate: "2026-09-05",
+    title: "บินสำรวจรอบกันยายน — ภาพรวมไซต์งาน",
+    description: "ภาพถ่ายทางอากาศรอบที่ 1: โซน Boiler, TG, ACC และงานโยธา",
+    capturedBy: "EPS Drone Team",
+    tags: ["overview"],
+  },
+  {
+    file: "flight-2026-10-01.jpg",
+    logDate: "2026-10-01",
+    title: "บินสำรวจรอบตุลาคม — เปรียบเทียบความก้าวหน้า",
+    description: "ภาพถ่ายทางอากาศรอบที่ 2 สำหรับเลื่อนเปรียบเทียบกับรอบกันยายน",
+    capturedBy: "EPS Drone Team",
+    tags: ["overview", "comparison"],
+  },
+];
+
+const existingDroneKeys = new Set(
+  (await db.select({ objectKey: droneLogs.objectKey }).from(droneLogs).where(eq(droneLogs.projectId, PROJECT_ID))).map(
+    (r) => r.objectKey,
+  ),
+);
+let demoDrone = 0;
+try {
+  const storage = getStorage();
+  for (const f of DEMO_DRONE_FLIGHTS) {
+    const objectKey = `demo/drone/${f.file}`;
+    if (existingDroneKeys.has(objectKey)) continue;
+    const bytes = await readFile(new URL(`../../../../web/public/drone/${f.file}`, import.meta.url));
+    await storage.upload({ key: objectKey, body: new Uint8Array(bytes), contentType: "image/jpeg" });
+    await db
+      .insert(droneLogs)
+      .values({
+        projectId: PROJECT_ID,
+        logDate: f.logDate,
+        title: f.title,
+        description: f.description,
+        capturedBy: f.capturedBy,
+        tags: f.tags,
+        objectKey,
+        fileName: f.file,
+        contentType: "image/jpeg",
+        sizeBytes: bytes.length,
+        createdBy: null,
+      })
+      .onConflictDoNothing({ target: droneLogs.objectKey });
+    demoDrone++;
+  }
+} catch (err) {
+  console.warn("seed: skipping demo drone logs (storage unavailable):", err instanceof Error ? err.message : err);
+}
+
 console.log(
-  `seed ok: 1 project, ${SITE_CONTRACTORS.length} site contractors, 21 zones, 1 site plan, 16 areas, ${BUILDINGS.length} buildings + markers — no users (bootstrap the first admin with scripts/bootstrap-admin.ts), no sample reports`,
+  `seed ok: 1 project, ${SITE_CONTRACTORS.length} site contractors, 21 zones, 1 site plan, 16 areas, ${BUILDINGS.length} buildings + markers, ${demoDrone} demo drone logs — no users (bootstrap the first admin with scripts/bootstrap-admin.ts), no sample reports`,
 );
 process.exit(0);

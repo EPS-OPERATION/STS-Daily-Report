@@ -130,7 +130,7 @@ export interface EveningInput {
   roadUsage: RoadUsageInput[];
   materials: MaterialInput[];
   // Tomorrow Forecast Activities: planned work for date + 1 (description + area).
-  forecasts?: { buildingId: string; description: string }[];
+  forecasts: { buildingId: string; description: string }[];
 }
 
 export interface PhotoUploadInput {

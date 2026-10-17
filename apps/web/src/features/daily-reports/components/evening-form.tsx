@@ -137,7 +137,10 @@ export function EveningForm({
         qty: m.qty,
         unit: m.unit,
       })),
-      forecasts: (report?.forecasts ?? []).map((f) => ({ description: f.description, buildingId: f.buildingId })),
+      forecasts:
+        report?.forecasts && report.forecasts.length > 0
+          ? report.forecasts.map((f) => ({ description: f.description, buildingId: f.buildingId }))
+          : [{ description: "", buildingId: "" }],
       // Disciplines that worked this afternoon: saved evening crews, else the morning's.
       disciplines: DISCIPLINE_CODES.filter((d) =>
         (report?.crews.some((c) => c.shift === "evening") ? report.crews.filter((c) => c.shift === "evening") : (report?.crews ?? [])).some(
@@ -279,6 +282,10 @@ export function EveningForm({
   const progressRows = useWatch({ control, name: "progress" });
   const signatureName = useWatch({ control, name: "signatureName" });
   const signatureData = useWatch({ control, name: "signatureData" });
+  const forecastRows = useWatch({ control, name: "forecasts" }) ?? [];
+  const forecastsOk =
+    forecastRows.length > 0 &&
+    forecastRows.every((f) => Boolean(f?.description?.trim()) && Boolean(f?.buildingId));
   const state = (id: string, done: boolean, optional = false): ProgressItem["state"] =>
     hasError(id) ? "error" : optional ? "optional" : done ? "done" : "todo";
   const checklist: ProgressItem[] = [
@@ -286,7 +293,7 @@ export function EveningForm({
     { id: "sec-ot", label: "ล่วงเวลา (OT)", state: state("sec-ot", true, true) },
     { id: "sec-crew", label: "ผู้ปฏิบัติงานช่วงบ่าย", state: crewsOk ? state("sec-crew", true) : hasError("sec-crew") ? "error" : "todo" },
     { id: "sec-progress", label: "ผลงานจริง", state: state("sec-progress", progressRows.every((p) => typeof p.actualPercent === "number"), progressRows.length === 0) },
-    { id: "sec-tomorrow", label: "คำขอวันพรุ่งนี้", state: state("sec-tomorrow", true, true) },
+    { id: "sec-tomorrow", label: "คำขอวันพรุ่งนี้", state: state("sec-tomorrow", forecastsOk, false) },
     { id: "sec-sign", label: "ลงนามยืนยัน", state: state("sec-sign", Boolean(signatureName.trim()) && Boolean(signatureData)) },
   ];
 

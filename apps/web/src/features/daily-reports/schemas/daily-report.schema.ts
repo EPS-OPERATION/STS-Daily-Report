@@ -260,6 +260,7 @@ export const eveningSchema = z
           buildingId: z.string().min(1, "เลือกพื้นที่ / อาคาร"),
         }),
       )
+      .min(1, "เพิ่มแผนงานพรุ่งนี้อย่างน้อย 1 รายการ")
       .max(20),
   })
   .superRefine((v, ctx) => {

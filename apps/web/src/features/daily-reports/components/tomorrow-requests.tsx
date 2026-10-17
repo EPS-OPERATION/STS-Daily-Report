@@ -692,11 +692,13 @@ function ClashNote({ severe, children }: { severe?: boolean; children: React.Rea
 // Tomorrow Forecast Activities (paper form R003 table): what the crew will work on tomorrow and where.
 export function ForecastActivities({ control, buildings }: { control: Control<EveningFormValues>; buildings: Building[] }) {
   const rows = useFieldArray({ control, name: "forecasts" });
+  const { fieldState } = useController({ control, name: "forecasts" });
+  const errorMsg = fieldState.error?.message;
   return (
     <Box>
       {rows.fields.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          ยังไม่มีแผนงาน — เพิ่มงานที่จะทำพรุ่งนี้และพื้นที่ (ไม่บังคับ)
+        <Typography variant="body2" color={errorMsg ? "error" : "text.secondary"} sx={{ mb: 1, fontWeight: errorMsg ? 600 : 400 }}>
+          {errorMsg ?? "ยังไม่มีแผนงาน — เพิ่มงานที่จะทำพรุ่งนี้และพื้นที่ (บังคับ)"}
         </Typography>
       ) : null}
       <Stack spacing={1.5}>
