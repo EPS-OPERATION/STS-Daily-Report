@@ -5,10 +5,9 @@ import { assertProject } from "@/modules/projects/project.guard.js";
 import { assertRange } from "@/shared/date-range.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { getBuilding } from "@/modules/buildings/building.repository.js";
-import { ensureReport } from "@/modules/daily-reports/daily-report.repository.js";
 import { isContractorInProject } from "@/modules/site-activities/site-activity.repository.js";
 import { findMachineryConflicts, findRoadConflicts } from "./daily-request.conflicts.js";
-import { getPermitForProject, insertEpsPermitRow, updatePermitRow } from "./daily-request.repository.js";
+import { ensureReportRow, getPermitForProject, insertEpsPermitRow, updatePermitRow } from "./daily-request.repository.js";
 import { getRoadUsageForProject, listBookingsInRange, listEquipmentRequestsInRange, listForecastsInRange, listPermitDetailsInRange, listRoadUsageInRange, setRoadAdjustment } from "./daily-request.repository.js";
 
 // Daily Request page: everything requested for target dates in [from, to].
@@ -147,7 +146,7 @@ export async function createPermitService(
     throw new ValidationError("High-risk work needs a task name and an EPS supervisor", { permitType: input.permitType });
   }
 
-  const report = await ensureReport(db, projectId, input.contractorId, input.targetDate);
+  const report = await ensureReportRow(db, projectId, input.contractorId, input.targetDate);
   const id = await insertEpsPermitRow(db, {
     reportId: report.id,
     targetDate: input.targetDate,

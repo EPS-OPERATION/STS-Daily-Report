@@ -370,6 +370,18 @@ export async function updatePermitRow(
     .where(eq(dailyReportPermits.id, id));
 }
 
+// The report row a permit belongs to: an empty draft is created for (project, contractor, date) when none exists
+// yet; an existing row is never touched. Kept here (not daily-reports) so modules depend one way only.
+export async function ensureReportRow(db: Db, projectId: string, contractorId: string, reportDate: string) {
+  await db.insert(dailyReports).values({ projectId, contractorId, reportDate }).onConflictDoNothing();
+  const [row] = await db
+    .select({ id: dailyReports.id })
+    .from(dailyReports)
+    .where(and(eq(dailyReports.projectId, projectId), eq(dailyReports.contractorId, contractorId), eq(dailyReports.reportDate, reportDate)))
+    .limit(1);
+  return row!;
+}
+
 // EPS adds a permit to a contractor's report (the report row may still be a draft).
 export async function insertEpsPermitRow(
   db: Db,
