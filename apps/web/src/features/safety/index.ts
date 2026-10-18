@@ -9,3 +9,5 @@ export { MonthlyTrendChart, FindingPie } from "./components/safety-charts.js";
 export { RainLogDialog } from "./components/rain-log-dialog.js";
 export { RainLogView } from "./components/rain-log-view.js";
 export { HighRiskTasks } from "./components/high-risk-tasks.js";
+export { PermitEditDialog, type PermitEditItem } from "./components/permit-edit-dialog.js";
+

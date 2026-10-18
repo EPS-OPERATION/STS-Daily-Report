@@ -23,7 +23,6 @@ import {
   roadPlacesMeet,
   timeWindowsOverlap,
   type MachineType,
-  type PermitType,
 } from "@sts/shared";
 import { TimeSelect } from "@/components/ui/time-select.js";
 import { Controller, useController, useFieldArray, useWatch, type Control } from "react-hook-form";
@@ -33,7 +32,8 @@ import type { Building, WeeklySummary } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
 import { NumberStepper } from "./number-stepper.js";
 import { StandardItemsPanel, type StandardItem } from "@/features/report-standard-items/index.js";
-import { PERMIT_ICONS, permitLabel } from "./permit-meta.js";
+import { getPermitIcon, usePermitTypes } from "@/features/permit-types/index.js";
+import { permitLabel } from "./permit-meta.js";
 
 const ROAD_PURPOSES = ["Crane outrigger setup", "Concrete mixer staging", "Material delivery", "Heavy equipment move"];
 
@@ -457,11 +457,13 @@ export function PermitRequests({
 }) {
   const rows = useFieldArray({ control, name: "permits" });
   const permits = useWatch({ control, name: "permits" });
+  const { data: dynamicPermitTypes } = usePermitTypes(projectId);
+  const permitTypesList = dynamicPermitTypes && dynamicPermitTypes.length > 0 ? dynamicPermitTypes : PERMIT_TYPES;
   return (
     <Box>
       <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1.5 }}>
-        {PERMIT_TYPES.map((p) => {
-          const Icon = PERMIT_ICONS[p.code];
+        {permitTypesList.map((p) => {
+          const Icon = getPermitIcon("iconKey" in p ? p.iconKey : p.code);
           return (
             <Chip
               key={p.code}
@@ -488,7 +490,7 @@ export function PermitRequests({
               label: p.permitType === "other" ? (p.otherLabel ?? "").trim() : permitLabel(p.permitType),
               buildingId: p.buildingId,
               defaultCount: p.workers,
-              permitType: p.permitType,
+              permitType: p.permitType as any,
               highRisk: p.highRisk,
               taskName: p.taskName?.trim() ?? "",
               supervisorName: p.supervisorName?.trim() ?? "",
@@ -497,7 +499,14 @@ export function PermitRequests({
       />
       <Stack spacing={1.5}>
         {rows.fields.map((row, i) => (
-          <PermitRow key={row.id} index={i} control={control} buildings={buildings} onRemove={() => rows.remove(i)} />
+          <PermitRow
+            key={row.id}
+            index={i}
+            control={control}
+            buildings={buildings}
+            permitTypesList={permitTypesList}
+            onRemove={() => rows.remove(i)}
+          />
         ))}
       </Stack>
     </Box>
@@ -508,21 +517,23 @@ function PermitRow({
   index,
   control,
   buildings,
+  permitTypesList,
   onRemove,
 }: {
   index: number;
   control: Control<MorningFormValues>;
   buildings: Building[];
+  permitTypesList: readonly { code: string; label: string; labelTh?: string; iconKey?: string }[];
   onRemove: () => void;
 }) {
-  const type = useWatch({ control, name: `permits.${index}.permitType` }) as PermitType;
+  const type = useWatch({ control, name: `permits.${index}.permitType` });
   const highRisk = useWatch({ control, name: `permits.${index}.highRisk` });
   const allPermits = useWatch({ control, name: "permits" }) ?? [];
   // Same task name on several permits = one job on the Safety page (e.g. Lifting + Work at Height).
   const taskOptions = [...new Set(allPermits.filter((p, i) => i !== index && p.highRisk && p.taskName?.trim()).map((p) => p.taskName!.trim()))];
   const supervisorOptions = [...new Set(allPermits.filter((p, i) => i !== index && p.supervisorName?.trim()).map((p) => p.supervisorName!.trim()))];
-  const meta = PERMIT_TYPES.find((p) => p.code === type);
-  const Icon = PERMIT_ICONS[type] ?? PERMIT_ICONS.other;
+  const meta = permitTypesList.find((p) => p.code === type);
+  const Icon = getPermitIcon(meta?.iconKey ?? type);
   return (
     <Card variant="outlined" sx={{ borderColor: highRisk ? "error.main" : "warning.main", borderWidth: highRisk ? 2 : 1 }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>

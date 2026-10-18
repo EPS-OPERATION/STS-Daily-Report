@@ -17,9 +17,17 @@ import type {
   PositionMixRow,
   ManpowerSummary,
   DailyRequests,
+  UpdatePermitPayload,
+  CreatePermitPayload,
 } from "../types/daily-report.types.js";
 
 export const dailyReportApi = {
+  createPermit(projectId: string, body: CreatePermitPayload): Promise<{ data: unknown }> {
+    return http.post(`/projects/${projectId}/daily-reports/permits`, body);
+  },
+  updatePermit(projectId: string, id: string, body: UpdatePermitPayload): Promise<{ data: unknown }> {
+    return http.patch(`/projects/${projectId}/daily-reports/permits/${id}`, body);
+  },
   adjustRoadUsage(projectId: string, id: string, body: { startTime: string; endTime: string }): Promise<{ data: ReportRoadUsage }> {
     return http.patch(`/projects/${projectId}/daily-reports/road-usage/${id}`, body);
   },

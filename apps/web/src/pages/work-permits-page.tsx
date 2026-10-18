@@ -1,5 +1,7 @@
+import AddIcon from "@mui/icons-material/AddOutlined";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import ConstructionOutlinedIcon from "@mui/icons-material/ConstructionOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import RestartAltOutlinedIcon from "@mui/icons-material/RestartAltOutlined";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberOutlined";
 import Box from "@mui/material/Box";
@@ -9,6 +11,7 @@ import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import FormControl from "@mui/material/FormControl";
 import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -28,14 +31,14 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { BarChart } from "@mui/x-charts/BarChart";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { PERMIT_TYPES, type PermitType } from "@sts/shared";
+import { PERMIT_TYPES, isEpsStaff } from "@sts/shared";
 import dayjs, { type Dayjs } from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { QueryError } from "@/components/ui/query-error.js";
+import { useMe } from "@/features/auth/index.js";
 import {
-  PERMIT_ICONS,
   addDaysIso,
   mondayOf,
   permitLabel,
@@ -43,7 +46,9 @@ import {
   useDailyRequests,
 } from "@/features/daily-reports/index.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
-import { HighRiskTasks } from "@/features/safety/index.js";
+import { HighRiskTasks, PermitEditDialog, type PermitEditItem } from "@/features/safety/index.js";
+import { PermitTypeDialog, getPermitIcon, usePermitTypes, type PermitTypeItem } from "@/features/permit-types/index.js";
+import ButtonBase from "@mui/material/ButtonBase";
 
 // EPS work-permit board, derived from the permits contractors request in the
 // afternoon daily report (target date = the day the permit is used).
@@ -60,6 +65,11 @@ export function WorkPermitsView({
 } = {}) {
   const theme = useTheme();
   const { projectId } = useCurrentProject();
+  const me = useMe();
+  const canEdit = isEpsStaff(me.data?.data.user.role);
+  const [editingPermit, setEditingPermit] = useState<PermitEditItem | null>(null);
+  // EPS "➕": add a high-risk task on this date when the contractor's data is missing or wrong.
+  const [addingOn, setAddingOn] = useState<string | null>(null);
 
   const todayStr = todayIso();
   const tomorrowStr = addDaysIso(todayStr, 1);
@@ -70,11 +80,17 @@ export function WorkPermitsView({
 
   const [from, setFrom] = useState<Dayjs | null>(dayjs(defaultFrom ?? todayStr));
   const [to, setTo] = useState<Dayjs | null>(dayjs(defaultTo ?? todayStr));
-  const [type, setType] = useState<PermitType | "">("");
+  const [type, setType] = useState<string>("");
+  // Permit type tiles: EPS adds with the dashed ➕ tile and edits with ✎ (same pattern as the High-Risk cards).
+  // `typeDialog`: "new" = add, an item = edit. EPS also sees hidden types (faded) so they can be shown again.
+  const [typeDialog, setTypeDialog] = useState<PermitTypeItem | "new" | null>(null);
+  const { data: dynamicPermitTypes } = usePermitTypes(projectId, canEdit);
+  const permitTypesList: (PermitTypeItem | (typeof PERMIT_TYPES)[number])[] =
+    dynamicPermitTypes && dynamicPermitTypes.length > 0 ? dynamicPermitTypes : [...PERMIT_TYPES];
   const [building, setBuilding] = useState("");
   const [contractor, setContractor] = useState("");
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     if (defaultFrom) setFrom(dayjs(defaultFrom));
@@ -156,7 +172,7 @@ export function WorkPermitsView({
   );
 
   const typeCounts = useMemo(() => {
-    const m = new Map<PermitType, number>();
+    const m = new Map<string, number>();
     for (const p of forTypeCounts) m.set(p.permitType, (m.get(p.permitType) ?? 0) + 1);
     return m;
   }, [forTypeCounts]);
@@ -304,27 +320,42 @@ export function WorkPermitsView({
               งานที่มีความเสี่ยงสูงและการควบคุม (High-Risk Tasks &amp; Supervision)
             </Typography>
           </Stack>
-          <Typography variant="caption" color="text.secondary">
-            จาก Work Permit ที่ผู้รับเหมาระบุว่าเป็นงานความเสี่ยงสูง (แจ้งล่วงหน้าในรายงานบ่ายของวันก่อน)
-          </Typography>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", md: "block" } }}>
+              จาก Work Permit ที่ผู้รับเหมาระบุว่าเป็นงานความเสี่ยงสูง
+            </Typography>
+            {canEdit ? (
+              <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setAddingOn(fromIso)} sx={{ whiteSpace: "nowrap" }}>
+                เพิ่มงานเสี่ยงสูง
+              </Button>
+            ) : null}
+          </Stack>
         </Box>
         <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-          <HighRiskTasks projectId={projectId} from={fromIso} to={toIso} selectedContractorCodes={selectedContractorCodes} />
+          <HighRiskTasks
+            projectId={projectId}
+            from={fromIso}
+            to={toIso}
+            selectedContractorCodes={selectedContractorCodes}
+            onEdit={canEdit ? setEditingPermit : undefined}
+            onAdd={canEdit ? setAddingOn : undefined}
+          />
         </CardContent>
       </Card>
 
       {query.isError && <QueryError error={query.error as Error} onRetry={() => void query.refetch()} />}
 
-      {/* Side-by-Side: Left = Permit Types & Chart, Right = Register Table */}
+      {/* Row: Permit Types beside the contractor chart, then the register full width (all columns visible) */}
       <Grid container spacing={2}>
-        {/* Left Column: Types & Contractor Chart */}
-        <Grid size={{ xs: 12, lg: 4.5 }}>
-          <Card variant="outlined" sx={{ borderRadius: 2, mb: 2 }}>
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <Card variant="outlined" sx={{ borderRadius: 2, height: "100%" }}>
             <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.25 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  ประเภทใบอนุญาต (Permit Types)
-                </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.25, flexWrap: "wrap", gap: 1 }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    ประเภทใบอนุญาต (Permit Types)
+                  </Typography>
+                </Stack>
                 <Chip
                   size="small"
                   label={`ทั้งหมด ${permits.length} ใบ`}
@@ -336,15 +367,20 @@ export function WorkPermitsView({
               </Box>
 
               <Grid container spacing={1}>
-                {PERMIT_TYPES.map((t) => {
-                  const Icon = PERMIT_ICONS[t.code];
+                {permitTypesList.map((t) => {
+                  const Icon = getPermitIcon("iconKey" in t ? t.iconKey : t.code);
                   const n = typeCounts.get(t.code) ?? 0;
                   const active = type === t.code;
+                  const item = "id" in t ? t : null;
+                  const hidden = item ? !item.isActive : false;
                   return (
                     <Grid key={t.code} size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
                       <Box
                         onClick={() => setType(active ? "" : t.code)}
                         sx={{
+                          position: "relative",
+                          height: "100%",
+                          opacity: hidden ? 0.5 : 1,
                           cursor: "pointer",
                           p: 1,
                           textAlign: "center",
@@ -356,12 +392,27 @@ export function WorkPermitsView({
                           "&:hover": { borderColor: "primary.main", transform: "translateY(-1px)" },
                         }}
                       >
-                        <Icon sx={{ fontSize: 22, color: n > 0 ? "warning.main" : "text.disabled", mb: 0.25 }} />
+                        {canEdit && item ? (
+                          <Tooltip title="แก้ไขประเภทนี้">
+                            <IconButton
+                              size="small"
+                              aria-label={`แก้ไขประเภท ${t.label}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTypeDialog(item);
+                              }}
+                              sx={{ position: "absolute", top: 2, right: 2, p: 0.25, bgcolor: "#fff", border: "1px solid", borderColor: "divider" }}
+                            >
+                              <EditOutlinedIcon sx={{ fontSize: 15, color: "primary.main" }} />
+                            </IconButton>
+                          </Tooltip>
+                        ) : null}
+                        <Icon sx={{ fontSize: 24, color: n > 0 ? "warning.main" : "text.disabled", mb: 0.25 }} />
                         <Typography
                           variant="caption"
                           sx={{
                             display: "block",
-                            fontSize: "0.72rem",
+                            fontSize: "0.8rem",
                             fontWeight: active ? 700 : 500,
                             lineHeight: 1.15,
                             color: active ? "primary.dark" : "text.secondary",
@@ -370,6 +421,7 @@ export function WorkPermitsView({
                           }}
                         >
                           {t.label}
+                          {hidden ? " (ซ่อน)" : ""}
                         </Typography>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700, color: n > 0 ? "text.primary" : "text.disabled", lineHeight: 1.2 }}>
                           {n > 0 ? n : "—"}
@@ -378,13 +430,41 @@ export function WorkPermitsView({
                     </Grid>
                   );
                 })}
+                {canEdit && projectId ? (
+                  <Grid size={{ xs: 6, sm: 3, md: 3, lg: 3 }}>
+                    <ButtonBase
+                      onClick={() => setTypeDialog("new")}
+                      aria-label="เพิ่มประเภทใบอนุญาต"
+                      sx={{
+                        width: "100%",
+                        height: "100%",
+                        minHeight: 92,
+                        borderRadius: 1.5,
+                        border: "1.5px dashed",
+                        borderColor: "#E7B67A",
+                        color: "#9A5B13",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 0.25,
+                        "&:hover": { bgcolor: "#FFF8EC" },
+                      }}
+                    >
+                      <AddIcon />
+                      <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.8rem" }}>
+                        เพิ่มประเภท
+                      </Typography>
+                    </ButtonBase>
+                  </Grid>
+                ) : null}
               </Grid>
             </CardContent>
           </Card>
+        </Grid>
 
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <Grid size={{ xs: 12, lg: 7 }}>
+          <Card variant="outlined" sx={{ borderRadius: 2, height: "100%" }}>
             <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, fontSize: "0.85rem" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
                 สัดส่วนตามผู้รับเหมา (Sub Contractors)
               </Typography>
               {chartData.length === 0 ? (
@@ -392,10 +472,11 @@ export function WorkPermitsView({
                   ไม่มีใบอนุญาตในช่วงนี้
                 </Typography>
               ) : (
-                <Box sx={{ height: Math.min(180, Math.max(100, chartData.length * 28 + 25)), width: "100%" }}>
+                <Box sx={{ height: Math.min(260, Math.max(150, chartData.length * 40 + 30)), width: "100%" }}>
                   <BarChart
                     layout="horizontal"
-                    yAxis={[{ scaleType: "band", data: chartData.map(([c]) => c), tickLabelStyle: { fontSize: 11 } }]}
+                    xAxis={[{ tickMinStep: 1 }]}
+                    yAxis={[{ scaleType: "band", data: chartData.map(([c]) => c), tickLabelStyle: { fontSize: 13, fontWeight: 600 } }]}
                     series={[
                       {
                         data: chartData.map(([, n]) => n),
@@ -403,7 +484,7 @@ export function WorkPermitsView({
                         valueFormatter: (v: number | null) => `${v ?? 0}`,
                       },
                     ]}
-                    margin={{ left: 42, right: 16, top: 4, bottom: 20 }}
+                    margin={{ left: 48, right: 16, top: 4, bottom: 20 }}
                   />
                 </Box>
               )}
@@ -411,8 +492,7 @@ export function WorkPermitsView({
           </Card>
         </Grid>
 
-        {/* Right Column: Permit Register Table */}
-        <Grid size={{ xs: 12, lg: 7.5 }}>
+        <Grid size={12}>
           <Card variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
             <Box sx={{ px: 2, py: 1, bgcolor: "grey.50", borderBottom: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <Stack direction="row" spacing={1} alignItems="center">
@@ -438,7 +518,7 @@ export function WorkPermitsView({
               )}
             </Box>
 
-            <TableContainer sx={{ maxHeight: 340, overflowY: "auto" }}>
+            <TableContainer sx={{ maxHeight: 460, overflowY: "auto" }}>
               {query.isLoading ? (
                 <Box sx={{ p: 2 }}>
                   <Skeleton variant="rounded" height={160} />
@@ -447,54 +527,74 @@ export function WorkPermitsView({
                 <Table size="small" stickyHeader aria-label="Work permit register">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>วันที่</TableCell>
-                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>ผู้รับเหมา</TableCell>
-                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>ประเภทงาน</TableCell>
-                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>รายละเอียดงาน</TableCell>
-                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>อาคาร</TableCell>
-                      <TableCell align="right" sx={{ fontSize: "0.775rem", fontWeight: 700 }}>คน</TableCell>
-                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>ความเสี่ยงสูง</TableCell>
-                      <TableCell sx={{ fontSize: "0.775rem", fontWeight: 700 }}>ผู้ควบคุม (EPS)</TableCell>
+                      <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>วันที่</TableCell>
+                      <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>ผู้รับเหมา</TableCell>
+                      <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>ประเภทงาน</TableCell>
+                      <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>รายละเอียดงาน</TableCell>
+                      <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>อาคาร</TableCell>
+                      <TableCell align="right" sx={{ fontSize: "0.875rem", fontWeight: 700 }}>คน</TableCell>
+                      <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>ความเสี่ยงสูง</TableCell>
+                      <TableCell sx={{ fontSize: "0.875rem", fontWeight: 700 }}>ผู้ควบคุม (EPS)</TableCell>
+                      {canEdit && (
+                        <TableCell align="center" sx={{ fontSize: "0.875rem", fontWeight: 700, width: 48 }}>
+                          แก้ไข
+                        </TableCell>
+                      )}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((p) => (
                       <TableRow key={p.id} hover>
-                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
                           {dayjs(p.targetDate).format("D MMM YYYY")}
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
                           <Tooltip title={p.contractorName || namesByCode.get(p.contractorCode) || ""}>
                             <Typography component="span" sx={{ fontSize: "inherit", fontWeight: 600 }}>
                               {p.contractorCode}
                             </Typography>
                           </Tooltip>
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
                           {p.permitType === "other" ? p.otherLabel || permitLabel("other") : permitLabel(p.permitType)}
                         </TableCell>
                         <TableCell
                           title={p.taskName ?? ""}
-                          sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.775rem" }}
+                          sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.875rem" }}
                         >
                           {p.taskName || "—"}
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
                           {p.buildingName || p.buildingCode || "—"}
                         </TableCell>
-                        <TableCell align="right" sx={{ fontSize: "0.775rem" }}>
+                        <TableCell align="right" sx={{ fontSize: "0.875rem" }}>
                           {p.workers}
                         </TableCell>
-                        <TableCell sx={{ fontSize: "0.775rem" }}>
+                        <TableCell sx={{ fontSize: "0.875rem" }}>
                           {p.highRisk ? (
-                            <Chip size="small" color="warning" label="High risk" sx={{ height: 20, fontSize: "0.7rem" }} />
+                            <Chip size="small" color="warning" label="High risk" sx={{ height: 22, fontSize: "0.75rem" }} />
                           ) : (
                             "—"
                           )}
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
+                        <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
                           {p.supervisorName || "—"}
                         </TableCell>
+                        {canEdit && (
+                          <TableCell align="center" sx={{ p: 0.5, whiteSpace: "nowrap" }}>
+                            <Tooltip title="แก้ไขข้อมูลใบอนุญาตทำงาน">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={() => setEditingPermit(p)}
+                                aria-label="แก้ไขใบอนุญาต"
+                                sx={{ p: 0.5 }}
+                              >
+                                <EditOutlinedIcon sx={{ fontSize: 18 }} />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -519,7 +619,7 @@ export function WorkPermitsView({
                 count={rows.length}
                 page={page}
                 rowsPerPage={rowsPerPage}
-                rowsPerPageOptions={[5, 10, 20]}
+                rowsPerPageOptions={[10, 20, 50]}
                 onPageChange={(_, v) => setPage(v)}
                 onRowsPerPageChange={(e) => setRowsPerPage(Number(e.target.value))}
                 sx={{ borderTop: 1, borderColor: "divider" }}
@@ -528,6 +628,21 @@ export function WorkPermitsView({
           </Card>
         </Grid>
       </Grid>
+
+      {addingOn && projectId ? (
+        <PermitEditDialog open projectId={projectId} permit={null} createOn={addingOn} onClose={() => setAddingOn(null)} />
+      ) : null}
+      {editingPermit && projectId ? (
+        <PermitEditDialog
+          open={Boolean(editingPermit)}
+          projectId={projectId}
+          permit={editingPermit}
+          onClose={() => setEditingPermit(null)}
+        />
+      ) : null}
+      {typeDialog && projectId ? (
+        <PermitTypeDialog projectId={projectId} item={typeDialog === "new" ? null : typeDialog} onClose={() => setTypeDialog(null)} />
+      ) : null}
     </Box>
   );
 }
@@ -535,3 +650,4 @@ export function WorkPermitsView({
 export function WorkPermitsPage() {
   return <WorkPermitsView hideHeader={false} />;
 }
+

@@ -136,11 +136,14 @@ export function TodayRequestsPage() {
   const forecasts = allForecasts.filter(keep);
   // Print / CSV: every request in the range for the chosen contractors, one table per kind.
   const who = (r: { contractorCode: string; contractorName?: string }) => `${r.contractorCode} ${r.contractorName ?? contractorNames.get(r.contractorCode) ?? ""}`.trim();
+  // The evening form no longer asks for machines/equipment: their blocks only show when older requests fall in range.
+  const hasMachines = machines.length > 0;
+  const hasEquipment = equipment.length > 0;
   const requestSections = (): ExportSection[] => [
-    { title: "เครื่องจักร (Machinery)", head: ["วันที่", "ผู้รับเหมา", "เครื่องจักร", "หมายเลข", "เวลา", "พื้นที่", "วัตถุประสงค์"],
-      rows: machines.map((m) => [m.targetDate, who(m), m.machineType, m.unitTag, m.startTime && m.endTime ? `${m.startTime}–${m.endTime}` : "ทั้งวัน", `${m.buildingCode} ${m.buildingName}`, m.purpose]) },
-    { title: "อุปกรณ์ (Equipment)", head: ["วันที่", "ผู้รับเหมา", "อุปกรณ์", "จำนวน", "พื้นที่", "วัตถุประสงค์"],
-      rows: equipment.map((e) => [e.targetDate, who(e), e.equipmentType, e.qty, `${e.buildingCode} ${e.buildingName}`, e.purpose]) },
+    ...(hasMachines ? [{ title: "เครื่องจักร (Machinery)", head: ["วันที่", "ผู้รับเหมา", "เครื่องจักร", "หมายเลข", "เวลา", "พื้นที่", "วัตถุประสงค์"],
+      rows: machines.map((m) => [m.targetDate, who(m), m.machineType, m.unitTag, m.startTime && m.endTime ? `${m.startTime}–${m.endTime}` : "ทั้งวัน", `${m.buildingCode} ${m.buildingName}`, m.purpose]) }] : []),
+    ...(hasEquipment ? [{ title: "อุปกรณ์ (Equipment)", head: ["วันที่", "ผู้รับเหมา", "อุปกรณ์", "จำนวน", "พื้นที่", "วัตถุประสงค์"],
+      rows: equipment.map((e) => [e.targetDate, who(e), e.equipmentType, e.qty, `${e.buildingCode} ${e.buildingName}`, e.purpose]) }] : []),
     { title: "ขอใช้ / ปิดถนน (Road usage)", head: ["วันที่", "ผู้รับเหมา", "ถนน", "เวลา", "วัตถุประสงค์", "สถานะ"],
       rows: roads.map((r) => [r.targetDate, who(r), r.roadLocation, `${r.startTime}–${r.endTime}`, r.purpose, [r.conflict ? "ชนกัน" : "", r.adjusted ? `EPS ปรับเวลา (ขอ ${r.requestedStartTime}–${r.requestedEndTime})` : ""].filter(Boolean).join(" · ")]) },
     { title: "QAQC (ขอตรวจ)", head: ["วันที่ตรวจ", "เวลา", "ผู้รับเหมา", "ประเภท", "งาน", "พื้นที่", "สถานะ", "ผล"],
@@ -295,7 +298,9 @@ export function TodayRequestsPage() {
             </Alert>
           ) : null}
           <Typography variant="body2" color="text.secondary">
-            {machines.length} machine · {equipment.length} equipment · {roads.length} road · {inspections.length} RFI
+            {[hasMachines && `${machines.length} machine`, hasEquipment && `${equipment.length} equipment`, `${roads.length} road`, `${inspections.length} RFI`]
+              .filter(Boolean)
+              .join(" · ")}
           </Typography>
           {isRange ? (
             <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
@@ -318,8 +323,8 @@ export function TodayRequestsPage() {
                   <TableHead>
                     <TableRow>
                       <TableCell>วันที่</TableCell>
-                      <TableCell align="right">เครื่องจักร</TableCell>
-                      <TableCell align="right">เครื่องมือ</TableCell>
+                      {hasMachines ? <TableCell align="right">เครื่องจักร</TableCell> : null}
+                      {hasEquipment ? <TableCell align="right">เครื่องมือ</TableCell> : null}
                       <TableCell align="right">ถนน</TableCell>
                       <TableCell align="right">ชนกัน</TableCell>
                       <TableCell align="right">RFI</TableCell>
@@ -340,8 +345,8 @@ export function TodayRequestsPage() {
                         sx={{ cursor: "pointer", fontVariantNumeric: "tabular-nums" }}
                       >
                         <TableCell>{dayjs(d.date).format("ddd D MMM")}</TableCell>
-                        <TableCell align="right">{d.machines}</TableCell>
-                        <TableCell align="right">{d.equipment}</TableCell>
+                        {hasMachines ? <TableCell align="right">{d.machines}</TableCell> : null}
+                        {hasEquipment ? <TableCell align="right">{d.equipment}</TableCell> : null}
                         <TableCell align="right">{d.roads}</TableCell>
                         <TableCell align="right">
                           {d.clashes > 0 ? <Chip size="small" color="error" label={d.clashes} sx={{ height: 20 }} /> : "—"}
@@ -370,6 +375,7 @@ export function TodayRequestsPage() {
             </Stack>
           ) : null}
 
+          {hasMachines ? (
           <Section title="Machine request">
             <SimpleTable
               empty="ไม่มีการจองเครื่องจักร"
@@ -388,7 +394,9 @@ export function TodayRequestsPage() {
               }))}
             />
           </Section>
+          ) : null}
 
+          {hasEquipment ? (
           <Section title="Equipment request">
             <SimpleTable
               empty="ไม่มีการขอเครื่องมือ/อุปกรณ์"
@@ -407,6 +415,7 @@ export function TodayRequestsPage() {
               }))}
             />
           </Section>
+          ) : null}
 
           <Section title="Road usage">
             <RoadTimelines

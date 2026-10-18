@@ -12,8 +12,9 @@ import { getStorage } from "@/shared/storage/index.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { listRoadSegments } from "@/modules/site-coordination/coordination.repository.js";
 import { listRequests } from "@/modules/inspection-requests/inspection-request.repository.js";
+import { getBuilding } from "@/modules/buildings/building.repository.js";
 import { findMachineryConflicts, findRoadConflicts } from "./daily-report.conflicts.js";
-import { getRoadUsageForProject, setRoadAdjustment } from "./daily-report.repository.js";
+import { getPermitForProject, getRoadUsageForProject, insertEpsPermitRow, setRoadAdjustment, updatePermitRow } from "./daily-report.repository.js";
 import {
   countPhotos,
   deletePhoto,
@@ -1115,4 +1116,114 @@ export async function adjustRoadUsageService(auth: AuthContext, projectId: strin
   const updated = await getRoadUsageForProject(db, projectId, id);
   if (!updated) throw new NotFoundError("Road usage booking not found", { id });
   return updated;
+}
+
+// EPS only: update work permit details (role checked by isEpsStaff).
+export async function updatePermitService(
+  auth: AuthContext,
+  projectId: string,
+  id: string,
+  input: {
+    targetDate?: string;
+    buildingId?: string;
+    permitType?: PermitType;
+    otherLabel?: string | null;
+    workers?: number;
+    highRisk?: boolean;
+    taskName?: string | null;
+    supervisorName?: string | null;
+  },
+) {
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can edit work permits");
+  await assertProject(projectId);
+  const db = getDb();
+  const existing = await getPermitForProject(db, projectId, id);
+  if (!existing) throw new NotFoundError("Work permit not found", { id });
+
+  const nextTargetDate = input.targetDate ?? existing.targetDate;
+  const nextBuildingId = input.buildingId ?? existing.buildingId;
+  const nextPermitType = (input.permitType ?? existing.permitType) as PermitType;
+  const nextOtherLabel = input.otherLabel !== undefined ? input.otherLabel : existing.otherLabel;
+  const nextWorkers = input.workers !== undefined ? input.workers : existing.workers;
+  const nextHighRisk = input.highRisk !== undefined ? input.highRisk : existing.highRisk;
+  const nextTaskName = input.taskName !== undefined ? input.taskName : existing.taskName;
+  const nextSupervisorName = input.supervisorName !== undefined ? input.supervisorName : existing.supervisorName;
+
+  if (nextWorkers <= 0) throw new ValidationError("Workers must be greater than 0");
+  if (nextPermitType === "other" && !nextOtherLabel?.trim()) {
+    throw new ValidationError("Describe the permit when type is Other");
+  }
+  if (nextHighRisk && (!nextTaskName?.trim() || !nextSupervisorName?.trim())) {
+    throw new ValidationError("High-risk work needs a task name and an EPS supervisor", { permitType: nextPermitType });
+  }
+
+  if (input.buildingId && input.buildingId !== existing.buildingId) {
+    const b = await getBuilding(db, input.buildingId);
+    if (!b || b.projectId !== projectId) throw new ValidationError("Invalid building", { buildingId: input.buildingId });
+  }
+
+  await updatePermitRow(db, id, {
+    targetDate: nextTargetDate,
+    buildingId: nextBuildingId,
+    permitType: nextPermitType,
+    otherLabel: nextPermitType === "other" ? (nextOtherLabel?.trim() || null) : null,
+    workers: nextWorkers,
+    highRisk: nextHighRisk,
+    taskName: nextHighRisk ? (nextTaskName?.trim() || null) : (nextTaskName?.trim() || null),
+    supervisorName: nextHighRisk ? (nextSupervisorName?.trim() || null) : (nextSupervisorName?.trim() || null),
+  });
+
+  const updated = await getPermitForProject(db, projectId, id);
+  if (!updated) throw new NotFoundError("Work permit not found", { id });
+  return updated;
+}
+
+// EPS only: add a permit / high-risk task the contractor left out or got wrong. It goes on that
+// contractor's report for the target date (a draft row is created when none exists yet).
+export async function createPermitService(
+  auth: AuthContext,
+  projectId: string,
+  input: {
+    contractorId: string;
+    targetDate: string;
+    buildingId: string;
+    permitType: PermitType;
+    otherLabel?: string | null;
+    workers: number;
+    highRisk: boolean;
+    taskName?: string | null;
+    supervisorName?: string | null;
+  },
+) {
+  if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can add work permits");
+  await assertProject(projectId);
+  const db = getDb();
+  if (!(await isContractorInProject(db, projectId, input.contractorId))) {
+    throw new ValidationError("Contractor is not assigned to this project", { contractorId: input.contractorId });
+  }
+  const b = await getBuilding(db, input.buildingId);
+  if (!b || b.projectId !== projectId) throw new ValidationError("Invalid building", { buildingId: input.buildingId });
+  const otherLabel = input.permitType === "other" ? input.otherLabel?.trim() || null : null;
+  if (input.permitType === "other" && !otherLabel) throw new ValidationError("Describe the permit when type is Other");
+  const taskName = input.taskName?.trim() || null;
+  const supervisorName = input.supervisorName?.trim() || null;
+  if (input.highRisk && (!taskName || !supervisorName)) {
+    throw new ValidationError("High-risk work needs a task name and an EPS supervisor", { permitType: input.permitType });
+  }
+
+  const report = await ensureReport(db, projectId, input.contractorId, input.targetDate);
+  const id = await insertEpsPermitRow(db, {
+    reportId: report.id,
+    targetDate: input.targetDate,
+    buildingId: input.buildingId,
+    permitType: input.permitType,
+    otherLabel,
+    workers: input.workers,
+    highRisk: input.highRisk,
+    taskName,
+    supervisorName,
+  });
+  const created = await getPermitForProject(db, projectId, id);
+  if (!created) throw new NotFoundError("Work permit not found", { id });
+  return created;
 }

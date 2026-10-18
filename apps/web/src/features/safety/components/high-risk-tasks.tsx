@@ -1,17 +1,24 @@
+import AddIcon from "@mui/icons-material/AddOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import ButtonBase from "@mui/material/ButtonBase";
 import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { PermitType } from "@sts/shared";
 import dayjs from "dayjs";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { EmptySection } from "@/components/ui/empty-state.js";
 import { ContractorBadge, PERMIT_ICONS, permitLabel, useDailyRequests } from "@/features/daily-reports/index.js";
+import type { PermitEditItem } from "./permit-edit-dialog.js";
 
 export interface HighRiskTask {
   key: string;
@@ -23,6 +30,8 @@ export interface HighRiskTask {
   permitTypes: PermitType[];
   buildings: string[];
   workers: number;
+  /** The permits behind the card (one per permit type), for editing. */
+  permits: PermitEditItem[];
 }
 
 // "งานที่มีความเสี่ยงสูงและการควบคุม": permits the contractor marked high-risk in the afternoon
@@ -33,11 +42,17 @@ export function HighRiskTasks({
   from,
   to,
   selectedContractorCodes,
+  onEdit,
+  onAdd,
 }: {
   projectId: string | null;
   from: string;
   to: string;
   selectedContractorCodes?: Set<string>;
+  /** EPS only: the ✎ on a card opens the permit edit dialog. */
+  onEdit?: (permit: PermitEditItem) => void;
+  /** EPS only: the dashed ➕ card at the end of each day adds a task on that day. */
+  onAdd?: (date: string) => void;
 }) {
   const query = useDailyRequests(projectId, from, to);
 
@@ -60,10 +75,12 @@ export function HighRiskTasks({
             permitTypes: [],
             buildings: [],
             workers: 0,
+            permits: [],
           })
           .get(key)!;
       if (p.supervisorName && !t.supervisors.includes(p.supervisorName)) t.supervisors.push(p.supervisorName);
       if (!t.permitTypes.includes(p.permitType)) t.permitTypes.push(p.permitType);
+      t.permits.push(p);
       if (!t.buildings.includes(p.buildingName)) t.buildings.push(p.buildingName);
       // The same crew usually holds every permit of the job — show the largest, not the sum.
       t.workers = Math.max(t.workers, p.workers);
@@ -85,20 +102,29 @@ export function HighRiskTasks({
 
   const multiDay = byDate.length > 1 || from !== to;
   return (
-    <Stack spacing={1.5} sx={{ maxHeight: 220, overflowY: "auto", pr: 0.5 }}>
+    <Stack spacing={1.5} sx={{ maxHeight: 340, overflowY: "auto", pr: 0.5 }}>
       {byDate.map(([date, tasks]) => (
         <Box key={date}>
           {multiDay ? (
-            <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.75, display: "block", color: "text.secondary" }}>
+            // Day header stays at the top while its cards scroll under it.
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 700, py: 0.5, mb: 0.5, color: "text.secondary", position: "sticky", top: 0, zIndex: 1, bgcolor: "background.paper" }}
+            >
               {dayjs(date).format("ddd D MMM YYYY")} · {tasks.length} งาน
             </Typography>
           ) : null}
           <Grid container spacing={1.25}>
             {tasks.map((t) => (
               <Grid key={t.key} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                <TaskCard task={t} />
+                <TaskCard task={t} onEdit={onEdit} />
               </Grid>
             ))}
+            {onAdd ? (
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                <AddCard onClick={() => onAdd(date)} />
+              </Grid>
+            ) : null}
           </Grid>
         </Box>
       ))}
@@ -106,10 +132,42 @@ export function HighRiskTasks({
   );
 }
 
-function TaskCard({ task }: { task: HighRiskTask }) {
+function AddCard({ onClick }: { onClick: () => void }) {
+  return (
+    <ButtonBase
+      onClick={onClick}
+      aria-label="เพิ่มงานความเสี่ยงสูงวันนี้"
+      sx={{
+        width: "100%",
+        height: "100%",
+        minHeight: 120,
+        borderRadius: 1.5,
+        border: "1.5px dashed",
+        borderColor: "#E7B67A",
+        color: "#9A5B13",
+        display: "flex",
+        flexDirection: "column",
+        gap: 0.5,
+        "&:hover": { bgcolor: "#FFF8EC" },
+      }}
+    >
+      <AddIcon />
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+        เพิ่มงานเสี่ยงสูง
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        ผู้รับเหมาไม่ได้แจ้ง / แจ้งผิด
+      </Typography>
+    </ButtonBase>
+  );
+}
+
+function TaskCard({ task, onEdit }: { task: HighRiskTask; onEdit?: (permit: PermitEditItem) => void }) {
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
   return (
     <Box
       sx={{
+        position: "relative",
         height: "100%",
         p: 1.25,
         borderRadius: 1.5,
@@ -122,6 +180,34 @@ function TaskCard({ task }: { task: HighRiskTask }) {
         gap: 0.75,
       }}
     >
+      {onEdit ? (
+        <>
+          <Tooltip title="แก้ไขงานนี้">
+            <IconButton
+              size="small"
+              aria-label={`แก้ไข ${task.taskName}`}
+              onClick={(e) => (task.permits.length === 1 ? onEdit(task.permits[0]!) : setMenu(e.currentTarget))}
+              sx={{ position: "absolute", top: 4, right: 4, bgcolor: "#fff", border: "1px solid #F2D4A6", "&:hover": { bgcolor: "#fff" } }}
+            >
+              <EditOutlinedIcon sx={{ fontSize: 18, color: "primary.main" }} />
+            </IconButton>
+          </Tooltip>
+          {/* One job can hold several permits (e.g. Lifting + Work at Height): pick which one to edit. */}
+          <Menu anchorEl={menu} open={Boolean(menu)} onClose={() => setMenu(null)}>
+            {task.permits.map((p) => (
+              <MenuItem
+                key={p.id}
+                onClick={() => {
+                  setMenu(null);
+                  onEdit(p);
+                }}
+              >
+                แก้ไข {permitLabel(p.permitType)} · {p.workers} คน
+              </MenuItem>
+            ))}
+          </Menu>
+        </>
+      ) : null}
       {/* header: warning icons per permit type */}
       <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
         {task.permitTypes.map((p) => {
@@ -136,22 +222,22 @@ function TaskCard({ task }: { task: HighRiskTask }) {
           );
         })}
       </Stack>
-      <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", textAlign: "center", lineHeight: 1.25 }} noWrap title={task.taskName}>
+      <Typography sx={{ fontWeight: 700, fontSize: "1rem", textAlign: "center", lineHeight: 1.25, px: onEdit ? 3.5 : 0 }} noWrap title={task.taskName}>
         {task.taskName}
       </Typography>
       <Box sx={{ alignSelf: "center", px: 1, py: 0.25, borderRadius: 1, bgcolor: "#F3E3C8", textAlign: "center" }}>
-        <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>
+        <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.8rem" }}>
           ผู้ควบคุม (EPS) : {task.supervisors.join(", ") || "—"}
         </Typography>
       </Box>
       <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap justifyContent="center">
         {task.permitTypes.map((p) => (
-          <Chip key={p} size="small" label={permitLabel(p)} variant="outlined" sx={{ height: 20, fontSize: 10, borderColor: "#E7B67A", bgcolor: "#fff" }} />
+          <Chip key={p} size="small" label={permitLabel(p)} variant="outlined" sx={{ height: 22, fontSize: 11, borderColor: "#E7B67A", bgcolor: "#fff" }} />
         ))}
       </Stack>
       <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="center" sx={{ mt: "auto", pt: 0.25 }}>
         <ContractorBadge code={task.contractorCode} />
-        <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: "0.75rem" }}>
+        <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: "0.8rem" }}>
           {task.buildings.join(", ")} · {task.workers} คน
         </Typography>
       </Stack>

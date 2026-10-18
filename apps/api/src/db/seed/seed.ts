@@ -1,6 +1,6 @@
 import { eq, inArray, sql } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
-import { BUILDINGS, RETIRED_BUILDING_CODES, type BuildingCode, DEFAULT_SITE_LOCATION } from "@sts/shared";
+import { BUILDINGS, RETIRED_BUILDING_CODES, type BuildingCode, DEFAULT_SITE_LOCATION, PERMIT_TYPES } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { coordinationMaps } from "@/db/schema/coordination.schema.js";
 import {
@@ -8,6 +8,7 @@ import {
   buildings,
   contractors,
   droneLogs,
+  permitTypes,
   projectContractors,
   projects,
   sitePlans,
@@ -244,6 +245,22 @@ await db
   .insert(projectContractors)
   .values(SITE_CONTRACTORS.map((c) => ({ projectId: PROJECT_ID, contractorId: c.id })))
   .onConflictDoNothing();
+
+// --- Seed dynamic permit types (default 7 types) ---
+await db
+  .insert(permitTypes)
+  .values(
+    PERMIT_TYPES.map((p, idx) => ({
+      projectId: PROJECT_ID,
+      code: p.code,
+      label: p.label,
+      labelTh: p.labelTh,
+      iconKey: p.code,
+      sortOrder: (idx + 1) * 10,
+      isActive: true,
+    })),
+  )
+  .onConflictDoNothing({ target: [permitTypes.projectId, permitTypes.code] });
 
 // (Sample daily reports, QAQC inspection requests and safety findings were
 // removed on 2026-10-11 so the seeded database is deploy-ready. Restore from

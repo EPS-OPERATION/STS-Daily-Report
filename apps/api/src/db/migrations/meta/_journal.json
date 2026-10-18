@@ -253,6 +253,20 @@
       "when": 1792229665506,
       "tag": "0035_white_anita_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792327455328,
+      "tag": "0036_left_marauders",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792328456499,
+      "tag": "0037_slim_ravenous",
+      "breakpoints": true
     }
   ]
 }

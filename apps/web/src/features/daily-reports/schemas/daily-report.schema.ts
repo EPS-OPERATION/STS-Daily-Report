@@ -3,7 +3,6 @@ import {
   DISCIPLINE_CODES,
   INSPECTION_TYPE_CODES,
   MACHINE_TYPES,
-  PERMIT_TYPE_CODES,
   POSITION_CODES,
   READINESS_CODES,
   WEATHER_CODES,
@@ -120,7 +119,7 @@ export const equipmentRequestSchema = z.object({
 
 export const permitSchema = z
   .object({
-    permitType: z.enum(asTuple(PERMIT_TYPE_CODES), { errorMap: () => ({ message: "เลือกประเภทใบอนุญาต" }) }),
+    permitType: z.string().trim().min(1, "เลือกประเภทใบอนุญาต"),
     otherLabel: z.string().trim().max(120).optional(),
     buildingId: z.string().min(1, "เลือกอาคาร"),
     workers: z.number().int().min(1, "อย่างน้อย 1 คน").max(5000),

@@ -321,6 +321,30 @@ export interface PermitPayload {
   supervisorName?: string;
 }
 
+export interface CreatePermitPayload {
+  contractorId: string;
+  targetDate: string;
+  buildingId: string;
+  permitType: PermitType;
+  otherLabel?: string | null;
+  workers: number;
+  highRisk: boolean;
+  taskName?: string | null;
+  supervisorName?: string | null;
+}
+
+export interface UpdatePermitPayload {
+  targetDate?: string;
+  buildingId?: string;
+  permitType?: PermitType;
+  otherLabel?: string | null;
+  workers?: number;
+  highRisk?: boolean;
+  taskName?: string | null;
+  supervisorName?: string | null;
+}
+
+
 export interface MorningPayload {
   date: string;
   contractorId: string;

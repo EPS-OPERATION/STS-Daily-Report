@@ -19,12 +19,18 @@ import {
   submitMorningService,
   uploadPhotoService,
   weeklySummaryService,
+  adjustRoadUsageService,
+  updatePermitService,
+  createPermitService,
 } from "./daily-report.service.js";
 import {
   currentReportQuery,
   eveningBody,
   materialsQuery,
   morningBody,
+  permitParams,
+  permitUpdateBody,
+  permitCreateBody,
   photoParams,
   photoUploadBody,
   projectIdParams,
@@ -39,7 +45,6 @@ import {
   roadUsageParams,
   siteDayQuery,
 } from "./daily-report.schema.js";
-import { adjustRoadUsageService } from "./daily-report.service.js";
 
 export const dailyReportRoutes = new Elysia()
   // Aggregated, contractor-level data only (no signatures/photos) — open read like other summaries.
@@ -111,6 +116,19 @@ export const dailyReportRoutes = new Elysia()
     "/projects/:projectId/daily-reports/road-usage/:id",
     async ({ params, body, auth }) => ok(await adjustRoadUsageService(auth, params.projectId, params.id, body)),
     { params: roadUsageParams, body: roadAdjustBody },
+  )
+  .post(
+    "/projects/:projectId/daily-reports/permits",
+    async ({ params, body, auth, set }) => {
+      set.status = 201;
+      return ok(await createPermitService(auth, params.projectId, body));
+    },
+    { params: projectIdParams, body: permitCreateBody },
+  )
+  .patch(
+    "/projects/:projectId/daily-reports/permits/:id",
+    async ({ params, body, auth }) => ok(await updatePermitService(auth, params.projectId, params.id, body)),
+    { params: permitParams, body: permitUpdateBody },
   )
   .post(
     "/projects/:projectId/daily-reports/draft",
