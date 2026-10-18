@@ -24,13 +24,9 @@ import { PERMIT_TYPES } from "@sts/shared";
 import dayjs, { type Dayjs } from "dayjs";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  BuildingSelect,
-  ContractorBadge,
-  useBuildings,
-  useCreatePermit,
-  useUpdatePermit,
-} from "@/features/daily-reports/index.js";
+import { BuildingSelect, useBuildings } from "@/features/buildings/index.js";
+import { ContractorBadge } from "@/features/contractors/index.js";
+import { useCreatePermit, useUpdatePermit } from "@/features/daily-requests/index.js";
 import { useProjectContractors } from "@/features/projects/index.js";
 import { getPermitIcon, usePermitTypes } from "@/features/permit-types/index.js";
 import { HttpError } from "@/services/http/client.js";

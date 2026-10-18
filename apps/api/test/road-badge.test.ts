@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { normalizeRoadName, roadBadgeState, roadClashPairs } from "@sts/shared";
-import { carryRoadAdjustments, roadSignature, type AdjustedRoadRequest } from "../src/modules/daily-reports/daily-report.road.js";
+import { carryRoadAdjustments, roadSignature, type AdjustedRoadRequest } from "../src/modules/daily-requests/daily-request.road.js";
 
 describe("road badge", () => {
   it("shows the clash until EPS changes the time, then edited (or still clashing)", () => {

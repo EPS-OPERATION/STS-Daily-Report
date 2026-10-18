@@ -1,0 +1,292 @@
+import Box from "@mui/material/Box";
+import { PERMIT_TYPES, POSITIONS, WEATHER_CONDITIONS, type PermitType } from "@sts/shared";
+import { type PrintReport } from "../types/daily-report.types.js";
+import { overtimeSummary } from "../utils/overtime.js";
+import { sumOf, thaiShortDate } from "./print-shared.js";
+
+// R003 layout with only what was reported: tables keep their filled rows, parts with no data are left out.
+export function FormSheet({ r }: { r: PrintReport }) {
+  const w = r.weather;
+  const eveningDone = r.eveningStatus === "submitted";
+  const operatedDays = r.safetyRecord.daysSinceLastAccident;
+  const permitsToday = r.permitsToday;
+  const permitWorkers = (type: PermitType) => permitsToday.filter((p) => p.permitType === type).reduce((s, p) => s + p.workers, 0);
+  const otherPermits = permitsToday.filter((p) => p.permitType === "other");
+  const permitLines = PERMIT_TYPES.filter((p) => p.code !== "other" && permitWorkers(p.code) > 0);
+  const activities = r.allocations;
+  const forecast = r.forecasts;
+  const activityRows = Math.max(activities.length, forecast.length);
+  const behind = r.allocations.filter((a) => a.countermeasure);
+  const morningTotal = sumOf(r.positions);
+  const eveningTotal = eveningDone ? r.eveningHeadcount : 0;
+  const hasWeather = Boolean(w) || r.temperatureC !== null || r.humidityPct !== null;
+  const hasManpower = morningTotal > 0 || eveningTotal > 0;
+  const hasPermits = permitLines.length + otherPermits.length > 0;
+  const hasTime = Boolean(r.startTime || r.endTime || r.workHours);
+  const otLabel = r.overtime?.length ? overtimeSummary(r).replace(/^OT /, "") : r.otHours ? `${r.otHours} hr.` : null;
+  const weatherLabel = WEATHER_CONDITIONS.find((c) => c.code === w)?.label;
+
+  return (
+    <Box>
+      <table className="f">
+        <tbody>
+          <tr>
+            <td rowSpan={2} style={{ width: "28%" }}>
+              {/* logo-eps.png is a 447px square with the mark at x52–388, y184–260: crop the padding. */}
+              <div style={{ width: 200, height: 45, overflow: "hidden", position: "relative", margin: "2px 0" }}>
+                <img src="/brand/logo-eps.png" alt="EPS" style={{ position: "absolute", width: 266, height: 266, left: -31, top: -110 }} />
+              </div>
+              <div style={{ fontSize: 10 }}>บริษัทอีโค่ แพลนท์ เซอร์วิสเซส จำกัด</div>
+            </td>
+            <td rowSpan={2} className="c blue" style={{ width: "34%" }}>
+              <div className="b" style={{ fontSize: 18 }}>รายงานประจำวัน</div>
+              <div>(Daily Request &amp; Report)</div>
+            </td>
+            <td className="c b">
+              {r.contractorName || r.contractorCode} ({r.contractorCode})
+            </td>
+          </tr>
+          <tr>
+            <td className="c">
+              {r.disciplines.length ? r.disciplines.join(" · ") : "-"} · {thaiShortDate(r.reportDate)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <table className="f">
+        <tbody>
+          <tr>
+            <td>Project Name: {r.projectName}</td>
+            {hasTime ? (
+              <td>
+                เวลาทำงาน {r.startTime ?? "-"}–{r.endTime ?? "-"}
+                {r.workHours ? ` (${r.workHours} ชม.)` : ""}
+              </td>
+            ) : null}
+            {otLabel ? <td>Total OT: {otLabel}</td> : null}
+          </tr>
+        </tbody>
+      </table>
+      <table className="f">
+        <tbody>
+          <tr>
+            {hasWeather ? <td className="c b blue">Weather report during the construction</td> : null}
+            <td className="c b blue">สถิติความปลอดภัย (Safety Record)</td>
+          </tr>
+          <tr>
+            {hasWeather ? (
+              <td style={{ verticalAlign: "top" }}>
+                {weatherLabel ? <div>☑ {weatherLabel}</div> : null}
+                {r.temperatureC !== null || r.humidityPct !== null ? (
+                  <div>
+                    {r.temperatureC !== null ? `อุณหภูมิ ${r.temperatureC}°C` : ""}
+                    {r.temperatureC !== null && r.humidityPct !== null ? " · " : ""}
+                    {r.humidityPct !== null ? `ความชื้น ${r.humidityPct}%` : ""}
+                  </div>
+                ) : null}
+              </td>
+            ) : null}
+            <td style={{ verticalAlign: "top" }}>
+              <div>
+                เกิดอุบัติเหตุมาแล้ว (Last Accident Occurred): <b>{r.safetyRecord.accidents}</b> ครั้ง
+              </div>
+              <div>
+                เราทำงานมาแล้ว (We have operated): <b>{operatedDays}</b> วัน
+              </div>
+              {r.accidentOccurred !== null ? (
+                <div style={{ color: r.accidentOccurred ? "#c00" : undefined }}>
+                  วันนี้: {r.accidentOccurred ? `เกิดอุบัติเหตุ — ${r.accidentNote ?? ""}` : "ไม่เกิดอุบัติเหตุ"}
+                </div>
+              ) : null}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      {hasManpower || hasPermits ? (
+        // Alone, the manpower or permit box keeps its half width (a full-width table spreads the numbers apart).
+        <table className="f" style={{ width: hasManpower && hasPermits ? "100%" : "50%" }}>
+          <tbody>
+              <tr>
+                {hasManpower ? <td className="c b blue">ประเภท/จำนวนผู้ปฏิบัติงาน (Manpower)</td> : null}
+                {hasPermits ? <td className="c b blue">Today Work Permit</td> : null}
+              </tr>
+              <tr>
+                {hasManpower ? (
+                  <td style={{ verticalAlign: "top", padding: 0 }}>
+                    <table className="f" style={{ border: 0 }}>
+                      <thead>
+                        <tr>
+                          <th>ตำแหน่ง</th>
+                          {morningTotal > 0 ? <th style={{ width: 56 }}>เช้า</th> : null}
+                          {eveningTotal > 0 ? <th style={{ width: 56 }}>บ่าย</th> : null}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {POSITIONS.filter(
+                          (p) =>
+                            (morningTotal > 0 && r.positions.some((x) => x.position === p.code)) ||
+                            (eveningTotal > 0 && r.eveningPositions.some((x) => x.position === p.code)),
+                        ).map((p) => (
+                          <tr key={p.code}>
+                            <td>{p.labelTh}</td>
+                            {morningTotal > 0 ? <td className="c">{r.positions.find((x) => x.position === p.code)?.headcount ?? "-"}</td> : null}
+                            {eveningTotal > 0 ? <td className="c">{r.eveningPositions.find((x) => x.position === p.code)?.headcount ?? "-"}</td> : null}
+                          </tr>
+                        ))}
+                        <tr className="b blue">
+                          <td>Today manpower</td>
+                          {morningTotal > 0 ? <td className="c">{morningTotal}</td> : null}
+                          {eveningTotal > 0 ? <td className="c">{eveningTotal}</td> : null}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                ) : null}
+                {hasPermits ? (
+                  <td style={{ verticalAlign: "top" }}>
+                    {permitLines.map((p) => (
+                      <div key={p.code}>
+                        ☑ {p.label} — {permitWorkers(p.code)} คน
+                      </div>
+                    ))}
+                    {otherPermits.map((p) => (
+                      <div key={p.id}>
+                        ☑ {p.otherLabel ?? "Other"} — {p.workers} คน
+                      </div>
+                    ))}
+                  </td>
+                ) : null}
+              </tr>
+          </tbody>
+        </table>
+      ) : null}
+      {hasPermits || hasWeather ? (
+        <div style={{ fontSize: 10, padding: "1px 0" }}>
+          * หากความเร็วลม ≥ 14 mph: หยุดงานที่สูง, งานยก และหากมีฝน 90% / Wet Surfaces หยุดงานที่สูง ยก เชื่อมไฟฟ้า
+        </div>
+      ) : null}
+
+      {activityRows > 0 ? (
+        <table className="f" style={{ marginTop: 4 }}>
+          <colgroup>
+            <col style={{ width: 42 }} />
+            <col />
+            <col style={{ width: 38 }} />
+            <col style={{ width: 46 }} />
+            <col style={{ width: 52 }} />
+            <col style={{ width: 52 }} />
+            <col style={{ width: 42 }} />
+            <col style={{ width: "28%" }} />
+            <col style={{ width: 52 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th colSpan={6}>Today Activities</th>
+              <th colSpan={3}>Tomorrow Forecast Activities</th>
+            </tr>
+            <tr>
+              <th>Item</th>
+              <th>Description of work done</th>
+              <th>คน</th>
+              <th>Plan</th>
+              <th>Status</th>
+              <th>Area</th>
+              <th>Item</th>
+              <th>Description</th>
+              <th>Area</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: activityRows }, (_, i) => {
+              const a = activities[i];
+              const f = forecast[i];
+              const low = a && a.planPercent !== null && (a.actualPercent ?? 0) < a.planPercent;
+              return (
+                <tr key={i}>
+                  <td className="c">{a ? i + 1 : ""}</td>
+                  <td>{a?.workDescription ?? ""}</td>
+                  <td className="c">{a?.headcount ?? ""}</td>
+                  <td className="c">{a && a.planPercent !== null ? `${a.planPercent}%` : ""}</td>
+                  <td className="c" style={{ color: low ? "#b45309" : undefined, fontWeight: low ? 700 : undefined }}>
+                    {a && a.actualPercent !== null ? `${a.actualPercent}%` : ""}
+                  </td>
+                  <td className="c">{a?.buildingCode ?? ""}</td>
+                  <td className="c">{f ? i + 1 : ""}</td>
+                  <td>{f?.description ?? ""}</td>
+                  <td className="c">{f?.buildingCode ?? ""}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : null}
+      {behind.length > 0 ? (
+        <table className="f">
+          <tbody>
+            <tr>
+              <td className="b" style={{ verticalAlign: "top" }}>
+                กรณีไม่ได้ตามแผนงานรายวัน โปรดระบุสาเหตุและแผนแก้ไข (Countermeasure):
+                {behind.map((a) => (
+                  <div key={a.id} style={{ fontWeight: 400 }}>
+                    [{a.buildingCode}] {a.countermeasure}
+                  </div>
+                ))}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      ) : null}
+
+      {r.equipment.length > 0 ? (
+        <table className="f" style={{ marginTop: 4 }}>
+          <thead>
+            <tr>
+              <th>เครื่องมือ และเครื่องจักร (Machine type)</th>
+              <th style={{ width: 56 }}>Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.equipment.map((e, i) => (
+              <tr key={i}>
+                <td>
+                  {i + 1}. {e.equipmentType}
+                </td>
+                <td className="c">{e.qty}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+    </Box>
+  );
+}
+
+// Signatures close the report, after the summary.
+export function SignatureBlock({ r }: { r: PrintReport }) {
+  const eveningDone = r.eveningStatus === "submitted";
+  return (
+    <>
+      <table className="f" style={{ marginTop: 8, breakInside: "avoid" }}>
+        <tbody>
+          <tr>
+            <td style={{ width: "50%", height: 96, verticalAlign: "top" }}>
+              <div className="b">Prepared by Contractor:</div>
+              {r.signatureData ? <img src={r.signatureData} alt="signature" style={{ height: 44 }} /> : <div style={{ height: 44 }} />}
+              <div>Name {r.signatureName ?? ""}</div>
+            </td>
+            <td style={{ height: 96, verticalAlign: "top" }}>
+              <div className="b">Checked by EPS:</div>
+              <div style={{ height: 44 }} />
+              <div>Name</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div style={{ fontSize: 10, textAlign: "right", color: "#555" }}>
+        Safety: R003/20260702
+        {r.morningStatus !== "submitted" ? " · ยังไม่ส่งรายงานเช้า" : ""}
+        {!eveningDone ? " · ยังไม่ส่งรายงานบ่าย" : ""}
+      </div>
+    </>
+  );
+}

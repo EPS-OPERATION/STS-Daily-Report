@@ -14,7 +14,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMe } from "@/features/auth/hooks/use-me.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
-import { usePlanZones } from "@/features/site-plan/index.js";
+import { usePlanZones } from "@/features/site-plan/hooks/use-site-plan.js";
 import { buildCommands } from "./command-registry.js";
 import { useCommandPalette } from "./use-command-palette.js";
 

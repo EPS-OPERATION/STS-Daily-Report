@@ -8,3 +8,6 @@ export { ContractorTable } from "./components/contractor-table.js";
 export { ContractorDialog } from "./components/contractor-form.js";
 export { ContractorDetail } from "./components/contractor-detail.js";
 export { contractorFormSchema, type ContractorFormValues } from "./schemas/contractor.schema.js";
+export { ContractorBadge } from "./components/contractor-badge.js";
+export { type ContractorFilterItem, ContractorFilterPopover } from "./components/contractor-filter-popover.js";
+export { contractorColorMap } from "./utils/contractor-colors.js";

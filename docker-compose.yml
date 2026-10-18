@@ -67,6 +67,9 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api/v1}
     container_name: sts-web
+    environment:
+      # The dev web container calls the API on another origin: allow it in the CSP (production stays same-origin).
+      CSP_CONNECT_EXTRA: ${CSP_CONNECT_EXTRA:-http://localhost:3001 http://localhost:3000}
     restart: unless-stopped
     profiles: ["app"]
     depends_on:

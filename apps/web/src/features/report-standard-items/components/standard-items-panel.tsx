@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { HttpError } from "@/services/http/client.js";
 import { useDeleteReportStandardItem, useReportStandardItems, useSaveReportStandardItems } from "../hooks/use-report-standard-items.js";
 import type { StandardItem, StandardItemBuilding, StandardItemDraft } from "../types/report-standard-item.types.js";
+import { Frame } from "@/components/ui/frame.js";
 
 const failMessage = (e: unknown) => (e instanceof HttpError ? e.message : "ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง");
 
@@ -100,7 +101,7 @@ export function StandardItemsPanel({
         รายการมาตรฐาน{list.data ? ` (${items.length})` : ""}
       </Button>
       {open ? (
-        <Box sx={{ mt: 1, border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+        <Frame sx={{ mt: 1 }}>
           {list.isPending ? (
             <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
               กำลังโหลด…
@@ -138,7 +139,7 @@ export function StandardItemsPanel({
               เพิ่มเข้าวันนี้{chosen.length > 0 ? ` (${chosen.length})` : ""}
             </Button>
           </Stack>
-        </Box>
+        </Frame>
       ) : null}
     </Box>
   );

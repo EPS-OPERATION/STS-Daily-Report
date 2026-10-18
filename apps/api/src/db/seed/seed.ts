@@ -269,8 +269,9 @@ await db
 // Dedicated coordination image; does not change WBS or facility marker backgrounds.
 await db.insert(coordinationMaps).values({ projectId: PROJECT_ID, imagePath: "/site-plan/STS_KY_Layout_Plan.png", width: 6542, height: 4951 }).onConflictDoNothing();
 
-// --- Demo drone photo logs (dev seed only) ---
-// Real site photos committed at apps/web/public/drone; the seed uploads their
+// --- Demo drone photo logs (dev/staging only) ---
+// Skipped when NODE_ENV=production or SEED_DEMO=false. Real site photos committed at apps/api/seed-assets/drone
+// (not part of the web bundle); the seed uploads their
 // bytes to object storage and points drone_logs at them, so /progress shows a
 // baseline + comparison round out of the box. Re-runs skip existing keys;
 // storage failures warn instead of failing the whole seed.
@@ -299,12 +300,13 @@ const existingDroneKeys = new Set(
   ),
 );
 let demoDrone = 0;
+const withDemo = process.env.SEED_DEMO !== "false" && process.env.NODE_ENV !== "production";
 try {
   const storage = getStorage();
-  for (const f of DEMO_DRONE_FLIGHTS) {
+  for (const f of withDemo ? DEMO_DRONE_FLIGHTS : []) {
     const objectKey = `demo/drone/${f.file}`;
     if (existingDroneKeys.has(objectKey)) continue;
-    const bytes = await readFile(new URL(`../../../../web/public/drone/${f.file}`, import.meta.url));
+    const bytes = await readFile(new URL(`../../../seed-assets/drone/${f.file}`, import.meta.url));
     await storage.upload({ key: objectKey, body: new Uint8Array(bytes), contentType: "image/jpeg" });
     await db
       .insert(droneLogs)

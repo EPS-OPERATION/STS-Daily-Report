@@ -1,10 +1,6 @@
 import { useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -12,10 +8,11 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import CloudUploadIcon from "@mui/icons-material/CloudUploadOutlined";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternateOutlined";
-import dayjs from "dayjs";
 import { toast } from "sonner";
 import { HttpError } from "@/services/http/client.js";
 import { useUploadDroneLog } from "../hooks/use-drone-logs.js";
+import { FormDialog } from "@/components/ui/form-dialog.js";
+import { toIsoDate } from "@/lib/dates.js";
 
 interface DroneUploadDialogProps {
   open: boolean;
@@ -27,7 +24,7 @@ interface DroneUploadDialogProps {
 export function DroneUploadDialog({ open, onClose, projectId, onSaved }: DroneUploadDialogProps) {
   const upload = useUploadDroneLog(projectId);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [date, setDate] = useState<string>(dayjs().format("YYYY-MM-DD"));
+  const [date, setDate] = useState<string>(toIsoDate());
   const [title, setTitle] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [capturedBy, setCapturedBy] = useState<string>("EPS QAQC Team");
@@ -35,7 +32,7 @@ export function DroneUploadDialog({ open, onClose, projectId, onSaved }: DroneUp
   const [file, setFile] = useState<File | null>(null);
 
   const reset = () => {
-    setDate(dayjs().format("YYYY-MM-DD"));
+    setDate(toIsoDate());
     setTitle("");
     setDescription("");
     setCapturedBy("EPS QAQC Team");
@@ -73,13 +70,29 @@ export function DroneUploadDialog({ open, onClose, projectId, onSaved }: DroneUp
   };
 
   return (
-    <Dialog open={open} onClose={close} maxWidth="sm" fullWidth>
-      <form onSubmit={handleSubmit}>
-        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+    <FormDialog
+      open={open}
+      title={
+        <Stack component="span" direction="row" spacing={1} alignItems="center">
           <AddPhotoAlternateIcon color="primary" />
-          บันทึกภาพถ่ายโดรนรอบใหม่ (Add Drone Photo Log)
-        </DialogTitle>
-        <DialogContent dividers>
+          <span>บันทึกภาพถ่ายโดรนรอบใหม่ (Add Drone Photo Log)</span>
+        </Stack>
+      }
+      onClose={close}
+      busy={upload.isPending}
+      dividers
+      onSubmit={handleSubmit}
+      actions={
+        <>
+          <Button onClick={close} color="inherit" disabled={upload.isPending}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="contained" disabled={!file || upload.isPending}>
+            {upload.isPending ? "Uploading…" : "Save photos"}
+          </Button>
+        </>
+      }
+    >
           <Stack spacing={2.5}>
             <Box
               sx={{
@@ -169,16 +182,6 @@ export function DroneUploadDialog({ open, onClose, projectId, onSaved }: DroneUp
               </Alert>
             ) : null}
           </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={close} color="inherit" disabled={upload.isPending}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="contained" disabled={!file || upload.isPending}>
-            {upload.isPending ? "Uploading…" : "Save photos"}
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
+    </FormDialog>
   );
 }

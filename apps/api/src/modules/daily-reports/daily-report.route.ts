@@ -1,95 +1,30 @@
 import { Elysia } from "elysia";
 import { requireAuth } from "@/middleware/require-auth.js";
 import { ok } from "@/shared/http/response.js";
-import { ValidationError } from "@/shared/errors/app-error.js";
+import { projectIdParams } from "@/shared/http/params.js";
 import {
   deletePhotoService,
   ensureDraftService,
   getCurrentReportService,
-  manpowerSummaryService,
-  materialsService,
-  siteDayService,
-  dailyRequestsService,
-  manpowerTrendService,
-  positionMixService,
   listReviewQueueService,
   printReportService,
   reviewReportService,
-  submitEveningService,
-  submitMorningService,
   uploadPhotoService,
-  weeklySummaryService,
-  adjustRoadUsageService,
-  updatePermitService,
-  createPermitService,
 } from "./daily-report.service.js";
+import { submitEveningService, submitMorningService } from "./daily-report.submit.js";
 import {
   currentReportQuery,
   eveningBody,
-  materialsQuery,
   morningBody,
-  permitParams,
-  permitUpdateBody,
-  permitCreateBody,
   photoParams,
   photoUploadBody,
-  projectIdParams,
   reportIdParams,
   reportKeyBody,
   reviewBody,
   reviewQueueQuery,
-  weeklySummaryQuery,
-  manpowerTrendQuery,
-  dateRangeQuery,
-  roadAdjustBody,
-  roadUsageParams,
-  siteDayQuery,
 } from "./daily-report.schema.js";
 
 export const dailyReportRoutes = new Elysia()
-  // Aggregated, contractor-level data only (no signatures/photos) — open read like other summaries.
-  .get(
-    "/projects/:projectId/weekly-summary",
-    async ({ params, query }) => ok(await weeklySummaryService(params.projectId, query.weekStart)),
-    { params: projectIdParams, query: weeklySummaryQuery },
-  )
-  // Chart data for the weekly meeting page (aggregates only, open like the weekly summary).
-  .get(
-    "/projects/:projectId/position-mix",
-    async ({ params, query }) => ok(await positionMixService(params.projectId, query.from, query.to)),
-    { params: projectIdParams, query: dateRangeQuery },
-  )
-  .get(
-    "/projects/:projectId/daily-requests",
-    async ({ params, query }) => ok(await dailyRequestsService(params.projectId, query.from, query.to)),
-    { params: projectIdParams, query: dateRangeQuery },
-  )
-  // EPS materials dashboard (aggregated rows only, open like the weekly summary).
-  .get(
-    "/projects/:projectId/daily-reports/materials",
-    async ({ params, query }) => ok(await materialsService(params.projectId, query)),
-    { params: projectIdParams, query: materialsQuery },
-  )
-  .get(
-    "/projects/:projectId/site-day",
-    async ({ params, query }) => {
-      const from = query.from ?? query.date ?? query.to;
-      const to = query.to ?? query.date ?? query.from;
-      if (!from || !to) throw new ValidationError("Give date, or from and to");
-      return ok(await siteDayService(params.projectId, from <= to ? from : to, from <= to ? to : from));
-    },
-    { params: projectIdParams, query: siteDayQuery },
-  )
-  .get(
-    "/projects/:projectId/manpower-summary",
-    async ({ params, query }) => ok(await manpowerSummaryService(params.projectId, query.from, query.to)),
-    { params: projectIdParams, query: dateRangeQuery },
-  )
-  .get(
-    "/projects/:projectId/manpower-trend",
-    async ({ params, query }) => ok(await manpowerTrendService(params.projectId, query.until, query.weeks ?? 12)),
-    { params: projectIdParams, query: manpowerTrendQuery },
-  )
   .use(requireAuth)
   .get(
     "/projects/:projectId/daily-reports/review-queue",
@@ -111,24 +46,6 @@ export const dailyReportRoutes = new Elysia()
     "/projects/:projectId/daily-reports/evening",
     async ({ params, body, auth }) => ok(await submitEveningService(auth, params.projectId, body)),
     { params: projectIdParams, body: eveningBody },
-  )
-  .patch(
-    "/projects/:projectId/daily-reports/road-usage/:id",
-    async ({ params, body, auth }) => ok(await adjustRoadUsageService(auth, params.projectId, params.id, body)),
-    { params: roadUsageParams, body: roadAdjustBody },
-  )
-  .post(
-    "/projects/:projectId/daily-reports/permits",
-    async ({ params, body, auth, set }) => {
-      set.status = 201;
-      return ok(await createPermitService(auth, params.projectId, body));
-    },
-    { params: projectIdParams, body: permitCreateBody },
-  )
-  .patch(
-    "/projects/:projectId/daily-reports/permits/:id",
-    async ({ params, body, auth }) => ok(await updatePermitService(auth, params.projectId, params.id, body)),
-    { params: permitParams, body: permitUpdateBody },
   )
   .post(
     "/projects/:projectId/daily-reports/draft",

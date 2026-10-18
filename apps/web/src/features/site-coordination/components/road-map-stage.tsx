@@ -9,7 +9,7 @@ import { COORDINATION_MAX, COORDINATION_MIN, type CoordinationData, type Coordin
 import type Konva from "konva";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Circle, Image as CanvasImage, Layer, Line, Stage, Text } from "react-konva";
-import { RouteMarks } from "./coordination-canvas.js";
+import { RouteMarks } from "./route-marks.js";
 
 export interface RoadLine {
   id: string;

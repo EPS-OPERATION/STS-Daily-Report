@@ -1,22 +1,13 @@
+import { ACCIDENT_CATEGORY_CODES, DISCIPLINE_CODES, MACHINE_TYPES, PERMIT_TYPE_CODES, PHOTO_CATEGORIES, POSITION_CODES, WEATHER_CODES } from "@sts/shared";
 import { t } from "elysia";
-import {
-  ACCIDENT_CATEGORY_CODES,
-  DISCIPLINE_CODES,
-  MACHINE_TYPES,
-  PERMIT_TYPE_CODES,
-  PHOTO_CATEGORIES,
-  POSITION_CODES,
-  WEATHER_CODES,
-} from "@sts/shared";
-import { DATE_RE, TIME_RE } from "@/modules/site-activities/site-activity.schema.js";
+import { hhmm, isoDate } from "@/shared/http/params.js";
 
-const isoDate = t.String({ pattern: DATE_RE });
-const hhmm = t.String({ pattern: TIME_RE });
-const count = t.Integer({ minimum: 0, maximum: 5000 });
+export const count = t.Integer({ minimum: 0, maximum: 5000 });
+
 const percent = t.Integer({ minimum: 0, maximum: 100 });
 
-export const projectIdParams = t.Object({ projectId: t.String({ format: "uuid" }) });
 export const reportIdParams = t.Object({ reportId: t.String({ format: "uuid" }) });
+
 export const photoParams = t.Object({
   reportId: t.String({ format: "uuid" }),
   photoId: t.String({ format: "uuid" }),
@@ -26,8 +17,6 @@ export const currentReportQuery = t.Object({
   date: isoDate,
   contractorId: t.Optional(t.String({ format: "uuid" })),
 });
-
-export const weeklySummaryQuery = t.Object({ weekStart: isoDate });
 
 export const reviewQueueQuery = t.Object({
   date: t.Optional(isoDate),
@@ -211,61 +200,7 @@ export const eveningBody = t.Object({
   ),
 });
 
-export const materialsQuery = t.Object({
-  from: t.Optional(isoDate),
-  to: t.Optional(isoDate),
-  search: t.Optional(t.String({ maxLength: 120 })),
-  contractorId: t.Optional(t.String({ format: "uuid" })),
-  page: t.Optional(t.String()),
-  pageSize: t.Optional(t.String()),
-});
-
 export const photoUploadBody = t.Object({
   category: t.Union(PHOTO_CATEGORIES.map((c) => t.Literal(c))),
   file: t.File({ type: "image", maxSize: "10m" }),
 });
-
-// `date` = single day (kept for old links); `from`/`to` = range.
-export const siteDayQuery = t.Object({ date: t.Optional(isoDate), from: t.Optional(isoDate), to: t.Optional(isoDate) });
-
-export const dateRangeQuery = t.Object({ from: isoDate, to: isoDate });
-
-export const manpowerTrendQuery = t.Object({
-  until: isoDate,
-  weeks: t.Optional(t.Numeric({ minimum: 2, maximum: 52 })),
-});
-
-// EPS settles a road booking's time (the service checks the role).
-export const roadUsageParams = t.Object({ projectId: t.String({ format: "uuid" }), id: t.String({ format: "uuid" }) });
-export const roadAdjustBody = t.Object({ startTime: hhmm, endTime: hhmm }, { additionalProperties: false });
-
-// EPS updates a work permit (the service checks the role).
-export const permitParams = t.Object({ projectId: t.String({ format: "uuid" }), id: t.String({ format: "uuid" }) });
-export const permitCreateBody = t.Object(
-  {
-    contractorId: t.String({ format: "uuid" }),
-    targetDate: isoDate,
-    buildingId: t.String({ format: "uuid" }),
-    permitType: t.Union(PERMIT_TYPE_CODES.map((p) => t.Literal(p))),
-    otherLabel: t.Optional(t.Nullable(t.String({ maxLength: 200 }))),
-    workers: t.Integer({ minimum: 1, maximum: 500 }),
-    highRisk: t.Boolean(),
-    taskName: t.Optional(t.Nullable(t.String({ maxLength: 200 }))),
-    supervisorName: t.Optional(t.Nullable(t.String({ maxLength: 120 }))),
-  },
-  { additionalProperties: false },
-);
-export const permitUpdateBody = t.Object(
-  {
-    targetDate: t.Optional(isoDate),
-    buildingId: t.Optional(t.String({ format: "uuid" })),
-    permitType: t.Optional(t.Union(PERMIT_TYPE_CODES.map((p) => t.Literal(p)))),
-    otherLabel: t.Optional(t.Nullable(t.String({ maxLength: 200 }))),
-    workers: t.Optional(t.Integer({ minimum: 1, maximum: 500 })),
-    highRisk: t.Optional(t.Boolean()),
-    taskName: t.Optional(t.Nullable(t.String({ maxLength: 200 }))),
-    supervisorName: t.Optional(t.Nullable(t.String({ maxLength: 120 }))),
-  },
-  { additionalProperties: false },
-);
-

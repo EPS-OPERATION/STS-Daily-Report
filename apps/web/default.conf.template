@@ -1,0 +1,23 @@
+server {
+  listen 80;
+  root /usr/share/nginx/html;
+  index index.html;
+  absolute_redirect off;
+
+  include /etc/nginx/conf.d/security-headers.inc;
+
+  # SPA fallback for react-router. index.html must be revalidated every time so a
+  # rebuild shows up on the next refresh (the hashed assets below stay cached).
+  location / {
+    include /etc/nginx/conf.d/security-headers.inc;
+    add_header Cache-Control "no-cache";
+    # No `$uri/`: public/site-plan/ is a real directory, and /site-plan must reach the SPA, not a 301 + 403.
+    try_files $uri /index.html;
+  }
+
+  location ~* \.(js|css|png|jpg|jpeg|svg|ico|woff2?)$ {
+    include /etc/nginx/conf.d/security-headers.inc;
+    expires 30d;
+    add_header Cache-Control "public, immutable";
+  }
+}

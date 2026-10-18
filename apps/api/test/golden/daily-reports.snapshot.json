@@ -1,0 +1,2874 @@
+{
+  "current-unauth": {
+    "status": 401,
+    "body": {
+      "error": {
+        "code": "AUTH_REQUIRED",
+        "message": "Authentication required"
+      }
+    }
+  },
+  "draft": {
+    "status": 200,
+    "body": {
+      "data": {
+        "id": "u1",
+        "projectId": "u2",
+        "contractorId": "u3",
+        "reportDate": "2026-03-10",
+        "startTime": null,
+        "endTime": null,
+        "workHours": null,
+        "disciplines": [],
+        "weather": null,
+        "temperatureC": null,
+        "humidityPct": null,
+        "thaiMale": 0,
+        "thaiFemale": 0,
+        "foreignMale": 0,
+        "foreignFemale": 0,
+        "morningStatus": "draft",
+        "morningSubmittedAt": null,
+        "morningSubmittedBy": null,
+        "morningUpdatedAt": null,
+        "eveningThaiMale": null,
+        "eveningThaiFemale": null,
+        "eveningForeignMale": null,
+        "eveningForeignFemale": null,
+        "otHours": null,
+        "otManHours": null,
+        "accidentOccurred": null,
+        "accidentNote": null,
+        "accidentCategory": null,
+        "eveningStatus": "draft",
+        "eveningSubmittedAt": null,
+        "eveningSubmittedBy": null,
+        "eveningUpdatedAt": null,
+        "signatureName": null,
+        "signedAt": null,
+        "reviewStatus": "pending",
+        "reviewNote": null,
+        "reviewedBy": null,
+        "reviewedAt": null,
+        "createdAt": "<ts>",
+        "updatedAt": "<ts>",
+        "totalHeadcount": 0,
+        "manDays": 0,
+        "manHours": 0,
+        "hasSignature": false,
+        "positions": [],
+        "eveningPositions": [],
+        "crews": [],
+        "eveningHeadcount": 0,
+        "equipment": [],
+        "allocations": [],
+        "machinery": [],
+        "equipmentRequests": [],
+        "permits": [],
+        "roadUsage": [],
+        "materials": [],
+        "forecasts": [],
+        "overtime": [],
+        "requestsForDate": "2026-03-11",
+        "photos": [],
+        "roadConflicts": [],
+        "machineryConflicts": []
+      }
+    }
+  },
+  "morning-invalid": {
+    "status": 400,
+    "body": {
+      "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "{\n  \"type\": \"validation\",\n  \"on\": \"body\",\n  \"property\": \"/contractorId\",\n  \"message\": \"Expected required property\",\n  \"summary\": \"Property 'contractorId' is missing\",\n  \"expected\": {\n    \"type\": \"Could not create expected value\",\n    \"message\": \"String types with patterns must specify a default value\",\n    \"error\": {\n      \"schema\": {\n        \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\",\n        \"type\": \"string\"\n      }\n    }\n  },\n  \"found\": {\n    \"date\": \"2026-03-10\"\n  },\n  \"errors\": [\n    {\n      \"type\": 45,\n      \"schema\": {\n        \"format\": \"uuid\",\n        \"type\": \"string\"\n      },\n      \"path\": \"/contractorId\",\n      \"message\": \"Expected required property\",\n      \"errors\": [],\n      \"summary\": \"Property 'contractorId' is missing\"\n    },\n    {\n      \"type\": 45,\n      \"schema\": {\n        \"pattern\": \"^([01]\\\\d|2[0-3]):[0-5]\\\\d$\",\n        \"type\": \"string\"\n      },\n      \"path\": \"/startTime\",\n      \"message\": \"Expected required property\",\n      \"errors\": [],\n      \"summary\": \"Property 'startTime' is missing\"\n    },\n    {\n      \"type\": 45,\n      \"schema\": {\n        \"pattern\": \"^([01]\\\\d|2[0-3]):[0-5]\\\\d$\",\n        \"type\": \"string\"\n      },\n      \"path\": \"/endTime\",\n      \"message\": \"Expected required property\",\n      \"errors\": [],\n      \"summary\": \"Property 'endTime' is missing\"\n    },\n    {\n      \"type\": 45,\n      \"schema\": {\n        \"minimum\": 0,\n        \"maximum\": 24,\n        \"multipleOf\": 0.5,\n        \"type\": \"number\"\n      },\n      \"path\": \"/workHours\",\n      \"message\": \"Expected required property\",\n      \"errors\": [],\n      \"summary\": \"Property 'workHours' is missing\"\n    },\n    {\n      \"type\": 45,\n      \"schema\": {\n        \"anyOf\": [\n          {\n            \"const\": \"thunderstorm\",\n            \"type\": \"string\"\n          },\n          {\n            \"const\": \"rain\",\n            \"type\": \"string\"\n          },\n          {\n            \"const\": \"hot\",\n            \"type\": \"string\"\n          },\n          {\n            \"const\": \"windy\",\n            \"type\": \"string\"\n          },\n          {\n            \"const\": \"normal\",\n            \"type\": \"string\"\n          }\n        ]\n      },\n      \"path\": \"/weather\",\n      \"message\": \"Expected required property\",\n      \"errors\": [],\n      \"summary\": \"Property 'weather' is missing\"\n    },\n    {\n      \"type\": 45,\n      \"schema\": {\n        \"maxItems\": 30,\n        \"type\": \"array\",\n        \"items\": {\n          \"type\": \"object\",\n          \"required\": [\n            \"equipmentType\",\n            \"qty\"\n          ],\n          \"properties\": {\n            \"equipmentType\": {\n              \"minLength\": 1,\n              \"maxLength\": 120,\n              \"type\": \"string\"\n            },\n            \"qty\": {\n              \"minimum\": 1,\n              \"maximum\": 500,\n              \"anyOf\": [\n                {\n                  \"format\": \"integer\",\n                  \"default\": 0,\n                  \"type\": \"string\"\n                },\n                {\n                  \"minimum\": 1,\n                  \"maximum\": 500,\n                  \"type\": \"integer\"\n                }\n              ]\n            }\n          }\n        }\n      },\n      \"path\": \"/equipment\",\n      \"message\": \"Expected required property\",\n      \"errors\": [],\n      \"summary\": \"Property 'equipment' is missing\"\n    },\n    {\n      \"type\": 45,\n      \"schema\": {\n        \"minItems\": 1,\n        \"maxItems\": 3,\n        \"type\": \"array\",\n        \"items\": {\n          \"type\": \"object\",\n          \"required\": [\n            \"discipline\",\n            \"positions\",\n            \"thaiMale\",\n            \"thaiFemale\",\n            \"foreignMale\",\n            \"foreignFemale\",\n            \"allocations\"\n          ],\n          \"properties\": {\n            \"discipline\": {\n              \"anyOf\": [\n                {\n                  \"const\": \"CE\",\n                  \"type\": \"string\"\n                },\n                {\n                  \"const\": \"ME\",\n                  \"type\": \"string\"\n                },\n                {\n                  \"const\": \"EE\",\n                  \"type\": \"string\"\n                }\n              ]\n            },\n            \"positions\": {\n              \"minItems\": 1,\n              \"maxItems\": 16,\n              \"type\": \"array\",\n              \"items\": {\n                \"type\": \"object\",\n                \"required\": [\n                  \"position\",\n                  \"headcount\"\n                ],\n                \"properties\": {\n                  \"position\": {\n                    \"anyOf\": [\n                      {\n                        \"const\": \"worker\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"foreman\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"engineer\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"safety_officer\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"welder\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"site_manager\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"supervisor\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"surveyor\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"qaqc\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"crane_operator\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"driver\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"fire_watch\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"store_controller\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"admin\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"maid\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"other\",\n                        \"type\": \"string\"\n                      }\n                    ]\n                  },\n                  \"headcount\": {\n                    \"minimum\": 1,\n                    \"maximum\": 5000,\n                    \"anyOf\": [\n                      {\n                        \"format\": \"integer\",\n                        \"default\": 0,\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"minimum\": 1,\n                        \"maximum\": 5000,\n                        \"type\": \"integer\"\n                      }\n                    ]\n                  }\n                }\n              }\n            },\n            \"thaiMale\": {\n              \"minimum\": 0,\n              \"maximum\": 5000,\n              \"anyOf\": [\n                {\n                  \"format\": \"integer\",\n                  \"default\": 0,\n                  \"type\": \"string\"\n                },\n                {\n                  \"minimum\": 0,\n                  \"maximum\": 5000,\n                  \"type\": \"integer\"\n                }\n              ]\n            },\n            \"thaiFemale\": {\n              \"minimum\": 0,\n              \"maximum\": 5000,\n              \"anyOf\": [\n                {\n                  \"format\": \"integer\",\n                  \"default\": 0,\n                  \"type\": \"string\"\n                },\n                {\n                  \"minimum\": 0,\n                  \"maximum\": 5000,\n                  \"type\": \"integer\"\n                }\n              ]\n            },\n            \"foreignMale\": {\n              \"minimum\": 0,\n              \"maximum\": 5000,\n              \"anyOf\": [\n                {\n                  \"format\": \"integer\",\n                  \"default\": 0,\n                  \"type\": \"string\"\n                },\n                {\n                  \"minimum\": 0,\n                  \"maximum\": 5000,\n                  \"type\": \"integer\"\n                }\n              ]\n            },\n            \"foreignFemale\": {\n              \"minimum\": 0,\n              \"maximum\": 5000,\n              \"anyOf\": [\n                {\n                  \"format\": \"integer\",\n                  \"default\": 0,\n                  \"type\": \"string\"\n                },\n                {\n                  \"minimum\": 0,\n                  \"maximum\": 5000,\n                  \"type\": \"integer\"\n                }\n              ]\n            },\n            \"allocations\": {\n              \"minItems\": 1,\n              \"maxItems\": 32,\n              \"type\": \"array\",\n              \"items\": {\n                \"type\": \"object\",\n                \"required\": [\n                  \"buildingId\",\n                  \"headcount\",\n                  \"workDescription\"\n                ],\n                \"properties\": {\n                  \"buildingId\": {\n                    \"format\": \"uuid\",\n                    \"type\": \"string\"\n                  },\n                  \"headcount\": {\n                    \"minimum\": 1,\n                    \"maximum\": 5000,\n                    \"anyOf\": [\n                      {\n                        \"format\": \"integer\",\n                        \"default\": 0,\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"minimum\": 1,\n                        \"maximum\": 5000,\n                        \"type\": \"integer\"\n                      }\n                    ]\n                  },\n                  \"workDescription\": {\n                    \"minLength\": 1,\n                    \"maxLength\": 500,\n                    \"type\": \"string\"\n                  },\n                  \"startTime\": {\n                    \"pattern\": \"^([01]\\\\d|2[0-3]):[0-5]\\\\d$\",\n                    \"type\": \"string\"\n                  },\n                  \"endTime\": {\n                    \"pattern\": \"^([01]\\\\d|2[0-3]):[0-5]\\\\d$\",\n                    \"type\": \"string\"\n                  },\n                  \"planPercent\": {\n                    \"minimum\": 0,\n                    \"maximum\": 100,\n                    \"anyOf\": [\n                      {\n                        \"format\": \"integer\",\n                        \"default\": 0,\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"minimum\": 0,\n                        \"maximum\": 100,\n                        \"type\": \"integer\"\n                      }\n                    ]\n                  }\n                }\n              }\n            }\n          }\n        }\n      },\n      \"path\": \"/crews\",\n      \"message\": \"Expected required property\",\n      \"errors\": [],\n      \"summary\": \"Property 'crews' is missing\"\n    },\n    {\n      \"type\": 54,\n      \"schema\": {\n        \"format\": \"uuid\",\n        \"type\": \"string\"\n      },\n      \"path\": \"/contractorId\",\n      \"message\": \"Expected string\",\n      \"errors\": [],\n      \"summary\": \"Expected property 'contractorId' to be string but found: undefined\"\n    },\n    {\n      \"type\": 54,\n      \"schema\": {\n        \"pattern\": \"^([01]\\\\d|2[0-3]):[0-5]\\\\d$\",\n        \"type\": \"string\"\n      },\n      \"path\": \"/startTime\",\n      \"message\": \"Expected string\",\n      \"errors\": [],\n      \"summary\": \"Expected property 'startTime' to be string but found: undefined\"\n    },\n    {\n      \"type\": 54,\n      \"schema\": {\n        \"pattern\": \"^([01]\\\\d|2[0-3]):[0-5]\\\\d$\",\n        \"type\": \"string\"\n      },\n      \"path\": \"/endTime\",\n      \"message\": \"Expected string\",\n      \"errors\": [],\n      \"summary\": \"Expected property 'endTime' to be string but found: undefined\"\n    },\n    {\n      \"summary\": \"Expected number\",\n      \"type\": 41,\n      \"schema\": {\n        \"minimum\": 0,\n        \"maximum\": 24,\n        \"multipleOf\": 0.5,\n        \"type\": \"number\"\n      },\n      \"path\": \"/workHours\",\n      \"message\": \"Expected number\",\n      \"errors\": []\n    },\n    {\n      \"type\": 62,\n      \"schema\": {\n        \"anyOf\": [\n          {\n            \"const\": \"thunderstorm\",\n            \"type\": \"string\"\n          },\n          {\n            \"const\": \"rain\",\n            \"type\": \"string\"\n          },\n          {\n            \"const\": \"hot\",\n            \"type\": \"string\"\n          },\n          {\n            \"const\": \"windy\",\n            \"type\": \"string\"\n          },\n          {\n            \"const\": \"normal\",\n            \"type\": \"string\"\n          }\n        ]\n      },\n      \"path\": \"/weather\",\n      \"message\": \"Expected union value\",\n      \"errors\": [\n        {\n          \"iterator\": {}\n        },\n        {\n          \"iterator\": {}\n        },\n        {\n          \"iterator\": {}\n        },\n        {\n          \"iterator\": {}\n        },\n        {\n          \"iterator\": {}\n        }\n      ],\n      \"summary\": \"Property 'weather' should be one of: 'string', 'string', 'string', 'string', 'string'\"\n    },\n    {\n      \"summary\": \"Expected array\",\n      \"type\": 6,\n      \"schema\": {\n        \"maxItems\": 30,\n        \"type\": \"array\",\n        \"items\": {\n          \"type\": \"object\",\n          \"required\": [\n            \"equipmentType\",\n            \"qty\"\n          ],\n          \"properties\": {\n            \"equipmentType\": {\n              \"minLength\": 1,\n              \"maxLength\": 120,\n              \"type\": \"string\"\n            },\n            \"qty\": {\n              \"minimum\": 1,\n              \"maximum\": 500,\n              \"anyOf\": [\n                {\n                  \"format\": \"integer\",\n                  \"default\": 0,\n                  \"type\": \"string\"\n                },\n                {\n                  \"minimum\": 1,\n                  \"maximum\": 500,\n                  \"type\": \"integer\"\n                }\n              ]\n            }\n          }\n        }\n      },\n      \"path\": \"/equipment\",\n      \"message\": \"Expected array\",\n      \"errors\": []\n    },\n    {\n      \"summary\": \"Expected array\",\n      \"type\": 6,\n      \"schema\": {\n        \"minItems\": 1,\n        \"maxItems\": 3,\n        \"type\": \"array\",\n        \"items\": {\n          \"type\": \"object\",\n          \"required\": [\n            \"discipline\",\n            \"positions\",\n            \"thaiMale\",\n            \"thaiFemale\",\n            \"foreignMale\",\n            \"foreignFemale\",\n            \"allocations\"\n          ],\n          \"properties\": {\n            \"discipline\": {\n              \"anyOf\": [\n                {\n                  \"const\": \"CE\",\n                  \"type\": \"string\"\n                },\n                {\n                  \"const\": \"ME\",\n                  \"type\": \"string\"\n                },\n                {\n                  \"const\": \"EE\",\n                  \"type\": \"string\"\n                }\n              ]\n            },\n            \"positions\": {\n              \"minItems\": 1,\n              \"maxItems\": 16,\n              \"type\": \"array\",\n              \"items\": {\n                \"type\": \"object\",\n                \"required\": [\n                  \"position\",\n                  \"headcount\"\n                ],\n                \"properties\": {\n                  \"position\": {\n                    \"anyOf\": [\n                      {\n                        \"const\": \"worker\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"foreman\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"engineer\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"safety_officer\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"welder\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"site_manager\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"supervisor\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"surveyor\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"qaqc\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"crane_operator\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"driver\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"fire_watch\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"store_controller\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"admin\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"maid\",\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"const\": \"other\",\n                        \"type\": \"string\"\n                      }\n                    ]\n                  },\n                  \"headcount\": {\n                    \"minimum\": 1,\n                    \"maximum\": 5000,\n                    \"anyOf\": [\n                      {\n                        \"format\": \"integer\",\n                        \"default\": 0,\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"minimum\": 1,\n                        \"maximum\": 5000,\n                        \"type\": \"integer\"\n                      }\n                    ]\n                  }\n                }\n              }\n            },\n            \"thaiMale\": {\n              \"minimum\": 0,\n              \"maximum\": 5000,\n              \"anyOf\": [\n                {\n                  \"format\": \"integer\",\n                  \"default\": 0,\n                  \"type\": \"string\"\n                },\n                {\n                  \"minimum\": 0,\n                  \"maximum\": 5000,\n                  \"type\": \"integer\"\n                }\n              ]\n            },\n            \"thaiFemale\": {\n              \"minimum\": 0,\n              \"maximum\": 5000,\n              \"anyOf\": [\n                {\n                  \"format\": \"integer\",\n                  \"default\": 0,\n                  \"type\": \"string\"\n                },\n                {\n                  \"minimum\": 0,\n                  \"maximum\": 5000,\n                  \"type\": \"integer\"\n                }\n              ]\n            },\n            \"foreignMale\": {\n              \"minimum\": 0,\n              \"maximum\": 5000,\n              \"anyOf\": [\n                {\n                  \"format\": \"integer\",\n                  \"default\": 0,\n                  \"type\": \"string\"\n                },\n                {\n                  \"minimum\": 0,\n                  \"maximum\": 5000,\n                  \"type\": \"integer\"\n                }\n              ]\n            },\n            \"foreignFemale\": {\n              \"minimum\": 0,\n              \"maximum\": 5000,\n              \"anyOf\": [\n                {\n                  \"format\": \"integer\",\n                  \"default\": 0,\n                  \"type\": \"string\"\n                },\n                {\n                  \"minimum\": 0,\n                  \"maximum\": 5000,\n                  \"type\": \"integer\"\n                }\n              ]\n            },\n            \"allocations\": {\n              \"minItems\": 1,\n              \"maxItems\": 32,\n              \"type\": \"array\",\n              \"items\": {\n                \"type\": \"object\",\n                \"required\": [\n                  \"buildingId\",\n                  \"headcount\",\n                  \"workDescription\"\n                ],\n                \"properties\": {\n                  \"buildingId\": {\n                    \"format\": \"uuid\",\n                    \"type\": \"string\"\n                  },\n                  \"headcount\": {\n                    \"minimum\": 1,\n                    \"maximum\": 5000,\n                    \"anyOf\": [\n                      {\n                        \"format\": \"integer\",\n                        \"default\": 0,\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"minimum\": 1,\n                        \"maximum\": 5000,\n                        \"type\": \"integer\"\n                      }\n                    ]\n                  },\n                  \"workDescription\": {\n                    \"minLength\": 1,\n                    \"maxLength\": 500,\n                    \"type\": \"string\"\n                  },\n                  \"startTime\": {\n                    \"pattern\": \"^([01]\\\\d|2[0-3]):[0-5]\\\\d$\",\n                    \"type\": \"string\"\n                  },\n                  \"endTime\": {\n                    \"pattern\": \"^([01]\\\\d|2[0-3]):[0-5]\\\\d$\",\n                    \"type\": \"string\"\n                  },\n                  \"planPercent\": {\n                    \"minimum\": 0,\n                    \"maximum\": 100,\n                    \"anyOf\": [\n                      {\n                        \"format\": \"integer\",\n                        \"default\": 0,\n                        \"type\": \"string\"\n                      },\n                      {\n                        \"minimum\": 0,\n                        \"maximum\": 100,\n                        \"type\": \"integer\"\n                      }\n                    ]\n                  }\n                }\n              }\n            }\n          }\n        }\n      },\n      \"path\": \"/crews\",\n      \"message\": \"Expected array\",\n      \"errors\": []\n    }\n  ]\n}",
+        "details": {
+          "date": "2026-03-10"
+        }
+      }
+    }
+  },
+  "morning": {
+    "status": 200,
+    "body": {
+      "data": {
+        "id": "u1",
+        "projectId": "u2",
+        "contractorId": "u3",
+        "reportDate": "2026-03-10",
+        "startTime": "08:00",
+        "endTime": "17:00",
+        "workHours": 8,
+        "disciplines": [
+          "CE"
+        ],
+        "weather": "normal",
+        "temperatureC": 33,
+        "humidityPct": 60,
+        "thaiMale": 6,
+        "thaiFemale": 1,
+        "foreignMale": 1,
+        "foreignFemale": 0,
+        "morningStatus": "submitted",
+        "morningSubmittedAt": "<ts>",
+        "morningSubmittedBy": "u4",
+        "morningUpdatedAt": null,
+        "eveningThaiMale": null,
+        "eveningThaiFemale": null,
+        "eveningForeignMale": null,
+        "eveningForeignFemale": null,
+        "otHours": null,
+        "otManHours": null,
+        "accidentOccurred": null,
+        "accidentNote": null,
+        "accidentCategory": null,
+        "eveningStatus": "draft",
+        "eveningSubmittedAt": null,
+        "eveningSubmittedBy": null,
+        "eveningUpdatedAt": null,
+        "signatureName": null,
+        "signedAt": null,
+        "reviewStatus": "pending",
+        "reviewNote": null,
+        "reviewedBy": null,
+        "reviewedAt": null,
+        "createdAt": "<ts>",
+        "updatedAt": "<ts>",
+        "totalHeadcount": 8,
+        "manDays": 8,
+        "manHours": 64,
+        "hasSignature": false,
+        "positions": [
+          {
+            "position": "foreman",
+            "headcount": 2
+          },
+          {
+            "position": "worker",
+            "headcount": 6
+          }
+        ],
+        "eveningPositions": [],
+        "crews": [
+          {
+            "shift": "morning",
+            "discipline": "CE",
+            "positions": [
+              {
+                "position": "foreman",
+                "headcount": 2
+              },
+              {
+                "position": "worker",
+                "headcount": 6
+              }
+            ],
+            "thaiMale": 6,
+            "thaiFemale": 1,
+            "foreignMale": 1,
+            "foreignFemale": 0
+          }
+        ],
+        "eveningHeadcount": 0,
+        "equipment": [
+          {
+            "equipmentType": "Welding machine",
+            "qty": 2
+          }
+        ],
+        "allocations": [
+          {
+            "id": "u5",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "discipline": "CE",
+            "headcount": 5,
+            "workDescription": "Rebar tying",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "dayShare": 0.444,
+            "planPercent": 40,
+            "actualPercent": null,
+            "countermeasure": null
+          },
+          {
+            "id": "u7",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "discipline": "CE",
+            "headcount": 3,
+            "workDescription": "Formwork",
+            "startTime": null,
+            "endTime": null,
+            "dayShare": 1,
+            "planPercent": 60,
+            "actualPercent": null,
+            "countermeasure": null
+          }
+        ],
+        "machinery": [],
+        "equipmentRequests": [],
+        "permits": [
+          {
+            "id": "u9",
+            "targetDate": "2026-03-10",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "permitType": "hot_work",
+            "otherLabel": null,
+            "workers": 4,
+            "highRisk": true,
+            "taskName": "Welding",
+            "supervisorName": "QA Sup"
+          }
+        ],
+        "roadUsage": [],
+        "materials": [],
+        "forecasts": [],
+        "overtime": [],
+        "requestsForDate": "2026-03-11",
+        "photos": [],
+        "roadConflicts": [],
+        "machineryConflicts": []
+      }
+    }
+  },
+  "current-after-morning": {
+    "status": 200,
+    "body": {
+      "data": {
+        "contractor": {
+          "id": "u3",
+          "code": "<qa>",
+          "name": "Snapshot QA contractor <qa>",
+          "projectId": "u2"
+        },
+        "report": {
+          "id": "u1",
+          "projectId": "u2",
+          "contractorId": "u3",
+          "reportDate": "2026-03-10",
+          "startTime": "08:00",
+          "endTime": "17:00",
+          "workHours": 8,
+          "disciplines": [
+            "CE"
+          ],
+          "weather": "normal",
+          "temperatureC": 33,
+          "humidityPct": 60,
+          "thaiMale": 6,
+          "thaiFemale": 1,
+          "foreignMale": 1,
+          "foreignFemale": 0,
+          "morningStatus": "submitted",
+          "morningSubmittedAt": "<ts>",
+          "morningSubmittedBy": "u4",
+          "morningUpdatedAt": null,
+          "eveningThaiMale": null,
+          "eveningThaiFemale": null,
+          "eveningForeignMale": null,
+          "eveningForeignFemale": null,
+          "otHours": null,
+          "otManHours": null,
+          "accidentOccurred": null,
+          "accidentNote": null,
+          "accidentCategory": null,
+          "eveningStatus": "draft",
+          "eveningSubmittedAt": null,
+          "eveningSubmittedBy": null,
+          "eveningUpdatedAt": null,
+          "signatureName": null,
+          "signedAt": null,
+          "reviewStatus": "pending",
+          "reviewNote": null,
+          "reviewedBy": null,
+          "reviewedAt": null,
+          "createdAt": "<ts>",
+          "updatedAt": "<ts>",
+          "totalHeadcount": 8,
+          "manDays": 8,
+          "manHours": 64,
+          "hasSignature": false,
+          "positions": [
+            {
+              "position": "foreman",
+              "headcount": 2
+            },
+            {
+              "position": "worker",
+              "headcount": 6
+            }
+          ],
+          "eveningPositions": [],
+          "crews": [
+            {
+              "shift": "morning",
+              "discipline": "CE",
+              "positions": [
+                {
+                  "position": "foreman",
+                  "headcount": 2
+                },
+                {
+                  "position": "worker",
+                  "headcount": 6
+                }
+              ],
+              "thaiMale": 6,
+              "thaiFemale": 1,
+              "foreignMale": 1,
+              "foreignFemale": 0
+            }
+          ],
+          "eveningHeadcount": 0,
+          "equipment": [
+            {
+              "equipmentType": "Welding machine",
+              "qty": 2
+            }
+          ],
+          "allocations": [
+            {
+              "id": "u5",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "discipline": "CE",
+              "headcount": 5,
+              "workDescription": "Rebar tying",
+              "startTime": "08:00",
+              "endTime": "12:00",
+              "dayShare": 0.444,
+              "planPercent": 40,
+              "actualPercent": null,
+              "countermeasure": null
+            },
+            {
+              "id": "u7",
+              "buildingId": "u8",
+              "buildingCode": "ZQ1",
+              "buildingName": "QA building 1",
+              "discipline": "CE",
+              "headcount": 3,
+              "workDescription": "Formwork",
+              "startTime": null,
+              "endTime": null,
+              "dayShare": 1,
+              "planPercent": 60,
+              "actualPercent": null,
+              "countermeasure": null
+            }
+          ],
+          "machinery": [],
+          "equipmentRequests": [],
+          "permits": [
+            {
+              "id": "u9",
+              "targetDate": "2026-03-10",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "permitType": "hot_work",
+              "otherLabel": null,
+              "workers": 4,
+              "highRisk": true,
+              "taskName": "Welding",
+              "supervisorName": "QA Sup"
+            }
+          ],
+          "roadUsage": [],
+          "materials": [],
+          "forecasts": [],
+          "overtime": [],
+          "requestsForDate": "2026-03-11",
+          "photos": [],
+          "roadConflicts": [],
+          "machineryConflicts": []
+        },
+        "plannedToday": {
+          "machinery": [],
+          "permits": [
+            {
+              "id": "u9",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "permitType": "hot_work",
+              "otherLabel": null,
+              "workers": 4
+            }
+          ],
+          "roads": [],
+          "equipment": [],
+          "inspections": []
+        }
+      }
+    }
+  },
+  "evening-invalid": {
+    "status": 400,
+    "body": {
+      "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "{\n  \"type\": \"validation\",\n  \"on\": \"body\",\n  \"property\": \"/forecasts\",\n  \"message\": \"Expected array length to be greater or equal to 1\",\n  \"summary\": \"Expected array length to be greater or equal to 1\",\n  \"expected\": {\n    \"type\": \"Could not create expected value\",\n    \"message\": \"String types with patterns must specify a default value\",\n    \"error\": {\n      \"schema\": {\n        \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\",\n        \"type\": \"string\"\n      }\n    }\n  },\n  \"found\": {\n    \"date\": \"2026-03-10\",\n    \"contractorId\": \"u3\",\n    \"otHours\": 2,\n    \"overtime\": [\n      {\n        \"buildingId\": \"u6\",\n        \"task\": \"Pour prep\",\n        \"workers\": 3,\n        \"hours\": 2\n      }\n    ],\n    \"accidentOccurred\": false,\n    \"crews\": [\n      {\n        \"discipline\": \"CE\",\n        \"positions\": [\n          {\n            \"position\": \"foreman\",\n            \"headcount\": 2\n          },\n          {\n            \"position\": \"worker\",\n            \"headcount\": 6\n          }\n        ],\n        \"thaiMale\": 6,\n        \"thaiFemale\": 1,\n        \"foreignMale\": 1,\n        \"foreignFemale\": 0\n      }\n    ],\n    \"progress\": [\n      {\n        \"allocationId\": \"u5\",\n        \"actualPercent\": 20,\n        \"countermeasure\": \"Add crew tomorrow\"\n      },\n      {\n        \"allocationId\": \"u7\",\n        \"actualPercent\": 70\n      }\n    ],\n    \"signatureName\": \"QA Foreman\",\n    \"signatureData\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\",\n    \"machinery\": [\n      {\n        \"buildingId\": \"u6\",\n        \"machineType\": \"Mobile Crane 25T\",\n        \"unitTag\": \"C-1\",\n        \"startTime\": \"08:00\",\n        \"endTime\": \"12:00\",\n        \"purpose\": \"Lift rebar\"\n      }\n    ],\n    \"equipmentRequests\": [\n      {\n        \"buildingId\": \"u8\",\n        \"equipmentType\": \"Scaffold\",\n        \"qty\": 10,\n        \"purpose\": \"Access\"\n      }\n    ],\n    \"permits\": [\n      {\n        \"buildingId\": \"u8\",\n        \"permitType\": \"height\",\n        \"workers\": 3\n      }\n    ],\n    \"roadUsage\": [\n      {\n        \"buildingId\": \"u6\",\n        \"roadLocation\": \"Main road A\",\n        \"startTime\": \"09:00\",\n        \"endTime\": \"11:00\",\n        \"purpose\": \"Concrete delivery\"\n      }\n    ],\n    \"forecasts\": [],\n    \"materials\": [\n      {\n        \"name\": \"Rebar 12mm\",\n        \"qty\": 120,\n        \"unit\": \"pcs\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"summary\": \"Expected array length to be greater or equal to 1\",\n      \"type\": 4,\n      \"schema\": {\n        \"minItems\": 1,\n        \"maxItems\": 20,\n        \"type\": \"array\",\n        \"items\": {\n          \"type\": \"object\",\n          \"required\": [\n            \"buildingId\",\n            \"description\"\n          ],\n          \"properties\": {\n            \"buildingId\": {\n              \"format\": \"uuid\",\n              \"type\": \"string\"\n            },\n            \"description\": {\n              \"minLength\": 1,\n              \"maxLength\": 300,\n              \"type\": \"string\"\n            }\n          }\n        }\n      },\n      \"path\": \"/forecasts\",\n      \"value\": [],\n      \"message\": \"Expected array length to be greater or equal to 1\",\n      \"errors\": []\n    }\n  ]\n}",
+        "details": {
+          "date": "2026-03-10",
+          "contractorId": "u3",
+          "otHours": 2,
+          "overtime": [
+            {
+              "buildingId": "u6",
+              "task": "Pour prep",
+              "workers": 3,
+              "hours": 2
+            }
+          ],
+          "accidentOccurred": false,
+          "crews": [
+            {
+              "discipline": "CE",
+              "positions": [
+                {
+                  "position": "foreman",
+                  "headcount": 2
+                },
+                {
+                  "position": "worker",
+                  "headcount": 6
+                }
+              ],
+              "thaiMale": 6,
+              "thaiFemale": 1,
+              "foreignMale": 1,
+              "foreignFemale": 0
+            }
+          ],
+          "progress": [
+            {
+              "allocationId": "u5",
+              "actualPercent": 20,
+              "countermeasure": "Add crew tomorrow"
+            },
+            {
+              "allocationId": "u7",
+              "actualPercent": 70
+            }
+          ],
+          "signatureName": "QA Foreman",
+          "signatureData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+          "machinery": [
+            {
+              "buildingId": "u6",
+              "machineType": "Mobile Crane 25T",
+              "unitTag": "C-1",
+              "startTime": "08:00",
+              "endTime": "12:00",
+              "purpose": "Lift rebar"
+            }
+          ],
+          "equipmentRequests": [
+            {
+              "buildingId": "u8",
+              "equipmentType": "Scaffold",
+              "qty": 10,
+              "purpose": "Access"
+            }
+          ],
+          "permits": [
+            {
+              "buildingId": "u8",
+              "permitType": "height",
+              "workers": 3
+            }
+          ],
+          "roadUsage": [
+            {
+              "buildingId": "u6",
+              "roadLocation": "Main road A",
+              "startTime": "09:00",
+              "endTime": "11:00",
+              "purpose": "Concrete delivery"
+            }
+          ],
+          "forecasts": [],
+          "materials": [
+            {
+              "name": "Rebar 12mm",
+              "qty": 120,
+              "unit": "pcs"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "evening": {
+    "status": 200,
+    "body": {
+      "data": {
+        "id": "u1",
+        "projectId": "u2",
+        "contractorId": "u3",
+        "reportDate": "2026-03-10",
+        "startTime": "08:00",
+        "endTime": "17:00",
+        "workHours": 8,
+        "disciplines": [
+          "CE"
+        ],
+        "weather": "normal",
+        "temperatureC": 33,
+        "humidityPct": 60,
+        "thaiMale": 6,
+        "thaiFemale": 1,
+        "foreignMale": 1,
+        "foreignFemale": 0,
+        "morningStatus": "submitted",
+        "morningSubmittedAt": "<ts>",
+        "morningSubmittedBy": "u4",
+        "morningUpdatedAt": null,
+        "eveningThaiMale": 6,
+        "eveningThaiFemale": 1,
+        "eveningForeignMale": 1,
+        "eveningForeignFemale": 0,
+        "otHours": 2,
+        "otManHours": 6,
+        "accidentOccurred": false,
+        "accidentNote": null,
+        "accidentCategory": null,
+        "eveningStatus": "submitted",
+        "eveningSubmittedAt": "<ts>",
+        "eveningSubmittedBy": "u4",
+        "eveningUpdatedAt": null,
+        "signatureName": "QA Foreman",
+        "signedAt": "<ts>",
+        "reviewStatus": "pending",
+        "reviewNote": null,
+        "reviewedBy": null,
+        "reviewedAt": null,
+        "createdAt": "<ts>",
+        "updatedAt": "<ts>",
+        "totalHeadcount": 8,
+        "manDays": 8,
+        "manHours": 70,
+        "hasSignature": true,
+        "positions": [
+          {
+            "position": "foreman",
+            "headcount": 2
+          },
+          {
+            "position": "worker",
+            "headcount": 6
+          }
+        ],
+        "eveningPositions": [
+          {
+            "position": "foreman",
+            "headcount": 2
+          },
+          {
+            "position": "worker",
+            "headcount": 6
+          }
+        ],
+        "crews": [
+          {
+            "shift": "morning",
+            "discipline": "CE",
+            "positions": [
+              {
+                "position": "foreman",
+                "headcount": 2
+              },
+              {
+                "position": "worker",
+                "headcount": 6
+              }
+            ],
+            "thaiMale": 6,
+            "thaiFemale": 1,
+            "foreignMale": 1,
+            "foreignFemale": 0
+          },
+          {
+            "shift": "evening",
+            "discipline": "CE",
+            "positions": [
+              {
+                "position": "foreman",
+                "headcount": 2
+              },
+              {
+                "position": "worker",
+                "headcount": 6
+              }
+            ],
+            "thaiMale": 6,
+            "thaiFemale": 1,
+            "foreignMale": 1,
+            "foreignFemale": 0
+          }
+        ],
+        "eveningHeadcount": 8,
+        "equipment": [
+          {
+            "equipmentType": "Welding machine",
+            "qty": 2
+          }
+        ],
+        "allocations": [
+          {
+            "id": "u5",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "discipline": "CE",
+            "headcount": 5,
+            "workDescription": "Rebar tying",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "dayShare": 0.444,
+            "planPercent": 40,
+            "actualPercent": 20,
+            "countermeasure": "Add crew tomorrow"
+          },
+          {
+            "id": "u7",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "discipline": "CE",
+            "headcount": 3,
+            "workDescription": "Formwork",
+            "startTime": null,
+            "endTime": null,
+            "dayShare": 1,
+            "planPercent": 60,
+            "actualPercent": 70,
+            "countermeasure": null
+          }
+        ],
+        "machinery": [
+          {
+            "id": "u10",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "machineType": "Mobile Crane 25T",
+            "unitTag": "C-1",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "purpose": "Lift rebar"
+          }
+        ],
+        "equipmentRequests": [
+          {
+            "id": "u11",
+            "targetDate": "2026-03-11",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "equipmentType": "Scaffold",
+            "qty": 10,
+            "purpose": "Access",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "permits": [
+          {
+            "id": "u9",
+            "targetDate": "2026-03-10",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "permitType": "hot_work",
+            "otherLabel": null,
+            "workers": 4,
+            "highRisk": true,
+            "taskName": "Welding",
+            "supervisorName": "QA Sup"
+          }
+        ],
+        "roadUsage": [
+          {
+            "id": "u12",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "roadLocation": "Main road A",
+            "startTime": "09:00",
+            "endTime": "11:00",
+            "requestedStartTime": "09:00",
+            "requestedEndTime": "11:00",
+            "adjusted": false,
+            "adjustedAt": null,
+            "adjustedByName": null,
+            "purpose": "Concrete delivery",
+            "segmentIds": [],
+            "route": null,
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "materials": [
+          {
+            "materialName": "Rebar 12mm",
+            "qty": 120,
+            "unit": "pcs"
+          }
+        ],
+        "forecasts": [
+          {
+            "id": "u13",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "description": "Pour slab"
+          }
+        ],
+        "overtime": [
+          {
+            "id": "u14",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "task": "Pour prep",
+            "workers": 3,
+            "hours": 2
+          }
+        ],
+        "requestsForDate": "2026-03-11",
+        "photos": [],
+        "roadConflicts": [],
+        "machineryConflicts": []
+      }
+    }
+  },
+  "current-after-evening": {
+    "status": 200,
+    "body": {
+      "data": {
+        "contractor": {
+          "id": "u3",
+          "code": "<qa>",
+          "name": "Snapshot QA contractor <qa>",
+          "projectId": "u2"
+        },
+        "report": {
+          "id": "u1",
+          "projectId": "u2",
+          "contractorId": "u3",
+          "reportDate": "2026-03-10",
+          "startTime": "08:00",
+          "endTime": "17:00",
+          "workHours": 8,
+          "disciplines": [
+            "CE"
+          ],
+          "weather": "normal",
+          "temperatureC": 33,
+          "humidityPct": 60,
+          "thaiMale": 6,
+          "thaiFemale": 1,
+          "foreignMale": 1,
+          "foreignFemale": 0,
+          "morningStatus": "submitted",
+          "morningSubmittedAt": "<ts>",
+          "morningSubmittedBy": "u4",
+          "morningUpdatedAt": null,
+          "eveningThaiMale": 6,
+          "eveningThaiFemale": 1,
+          "eveningForeignMale": 1,
+          "eveningForeignFemale": 0,
+          "otHours": 2,
+          "otManHours": 6,
+          "accidentOccurred": false,
+          "accidentNote": null,
+          "accidentCategory": null,
+          "eveningStatus": "submitted",
+          "eveningSubmittedAt": "<ts>",
+          "eveningSubmittedBy": "u4",
+          "eveningUpdatedAt": null,
+          "signatureName": "QA Foreman",
+          "signedAt": "<ts>",
+          "reviewStatus": "pending",
+          "reviewNote": null,
+          "reviewedBy": null,
+          "reviewedAt": null,
+          "createdAt": "<ts>",
+          "updatedAt": "<ts>",
+          "totalHeadcount": 8,
+          "manDays": 8,
+          "manHours": 70,
+          "hasSignature": true,
+          "positions": [
+            {
+              "position": "foreman",
+              "headcount": 2
+            },
+            {
+              "position": "worker",
+              "headcount": 6
+            }
+          ],
+          "eveningPositions": [
+            {
+              "position": "foreman",
+              "headcount": 2
+            },
+            {
+              "position": "worker",
+              "headcount": 6
+            }
+          ],
+          "crews": [
+            {
+              "shift": "morning",
+              "discipline": "CE",
+              "positions": [
+                {
+                  "position": "foreman",
+                  "headcount": 2
+                },
+                {
+                  "position": "worker",
+                  "headcount": 6
+                }
+              ],
+              "thaiMale": 6,
+              "thaiFemale": 1,
+              "foreignMale": 1,
+              "foreignFemale": 0
+            },
+            {
+              "shift": "evening",
+              "discipline": "CE",
+              "positions": [
+                {
+                  "position": "foreman",
+                  "headcount": 2
+                },
+                {
+                  "position": "worker",
+                  "headcount": 6
+                }
+              ],
+              "thaiMale": 6,
+              "thaiFemale": 1,
+              "foreignMale": 1,
+              "foreignFemale": 0
+            }
+          ],
+          "eveningHeadcount": 8,
+          "equipment": [
+            {
+              "equipmentType": "Welding machine",
+              "qty": 2
+            }
+          ],
+          "allocations": [
+            {
+              "id": "u5",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "discipline": "CE",
+              "headcount": 5,
+              "workDescription": "Rebar tying",
+              "startTime": "08:00",
+              "endTime": "12:00",
+              "dayShare": 0.444,
+              "planPercent": 40,
+              "actualPercent": 20,
+              "countermeasure": "Add crew tomorrow"
+            },
+            {
+              "id": "u7",
+              "buildingId": "u8",
+              "buildingCode": "ZQ1",
+              "buildingName": "QA building 1",
+              "discipline": "CE",
+              "headcount": 3,
+              "workDescription": "Formwork",
+              "startTime": null,
+              "endTime": null,
+              "dayShare": 1,
+              "planPercent": 60,
+              "actualPercent": 70,
+              "countermeasure": null
+            }
+          ],
+          "machinery": [
+            {
+              "id": "u10",
+              "targetDate": "2026-03-11",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "machineType": "Mobile Crane 25T",
+              "unitTag": "C-1",
+              "startTime": "08:00",
+              "endTime": "12:00",
+              "purpose": "Lift rebar"
+            }
+          ],
+          "equipmentRequests": [
+            {
+              "id": "u11",
+              "targetDate": "2026-03-11",
+              "buildingId": "u8",
+              "buildingCode": "ZQ1",
+              "buildingName": "QA building 1",
+              "equipmentType": "Scaffold",
+              "qty": 10,
+              "purpose": "Access",
+              "contractorId": "u3",
+              "contractorCode": "<qa>",
+              "contractorName": "Snapshot QA contractor <qa>"
+            }
+          ],
+          "permits": [
+            {
+              "id": "u9",
+              "targetDate": "2026-03-10",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "permitType": "hot_work",
+              "otherLabel": null,
+              "workers": 4,
+              "highRisk": true,
+              "taskName": "Welding",
+              "supervisorName": "QA Sup"
+            }
+          ],
+          "roadUsage": [
+            {
+              "id": "u12",
+              "targetDate": "2026-03-11",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "roadLocation": "Main road A",
+              "startTime": "09:00",
+              "endTime": "11:00",
+              "requestedStartTime": "09:00",
+              "requestedEndTime": "11:00",
+              "adjusted": false,
+              "adjustedAt": null,
+              "adjustedByName": null,
+              "purpose": "Concrete delivery",
+              "segmentIds": [],
+              "route": null,
+              "contractorId": "u3",
+              "contractorCode": "<qa>",
+              "contractorName": "Snapshot QA contractor <qa>"
+            }
+          ],
+          "materials": [
+            {
+              "materialName": "Rebar 12mm",
+              "qty": 120,
+              "unit": "pcs"
+            }
+          ],
+          "forecasts": [
+            {
+              "id": "u13",
+              "targetDate": "2026-03-11",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "description": "Pour slab"
+            }
+          ],
+          "overtime": [
+            {
+              "id": "u14",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "task": "Pour prep",
+              "workers": 3,
+              "hours": 2
+            }
+          ],
+          "requestsForDate": "2026-03-11",
+          "photos": [],
+          "roadConflicts": [],
+          "machineryConflicts": []
+        },
+        "plannedToday": {
+          "machinery": [],
+          "permits": [
+            {
+              "id": "u9",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "permitType": "hot_work",
+              "otherLabel": null,
+              "workers": 4
+            }
+          ],
+          "roads": [],
+          "equipment": [],
+          "inspections": []
+        }
+      }
+    }
+  },
+  "current-eps": {
+    "status": 200,
+    "body": {
+      "data": {
+        "contractor": {
+          "id": "u3",
+          "code": "<qa>",
+          "name": "Snapshot QA contractor <qa>",
+          "projectId": "u2"
+        },
+        "report": {
+          "id": "u1",
+          "projectId": "u2",
+          "contractorId": "u3",
+          "reportDate": "2026-03-10",
+          "startTime": "08:00",
+          "endTime": "17:00",
+          "workHours": 8,
+          "disciplines": [
+            "CE"
+          ],
+          "weather": "normal",
+          "temperatureC": 33,
+          "humidityPct": 60,
+          "thaiMale": 6,
+          "thaiFemale": 1,
+          "foreignMale": 1,
+          "foreignFemale": 0,
+          "morningStatus": "submitted",
+          "morningSubmittedAt": "<ts>",
+          "morningSubmittedBy": "u4",
+          "morningUpdatedAt": null,
+          "eveningThaiMale": 6,
+          "eveningThaiFemale": 1,
+          "eveningForeignMale": 1,
+          "eveningForeignFemale": 0,
+          "otHours": 2,
+          "otManHours": 6,
+          "accidentOccurred": false,
+          "accidentNote": null,
+          "accidentCategory": null,
+          "eveningStatus": "submitted",
+          "eveningSubmittedAt": "<ts>",
+          "eveningSubmittedBy": "u4",
+          "eveningUpdatedAt": null,
+          "signatureName": "QA Foreman",
+          "signedAt": "<ts>",
+          "reviewStatus": "pending",
+          "reviewNote": null,
+          "reviewedBy": null,
+          "reviewedAt": null,
+          "createdAt": "<ts>",
+          "updatedAt": "<ts>",
+          "totalHeadcount": 8,
+          "manDays": 8,
+          "manHours": 70,
+          "hasSignature": true,
+          "positions": [
+            {
+              "position": "foreman",
+              "headcount": 2
+            },
+            {
+              "position": "worker",
+              "headcount": 6
+            }
+          ],
+          "eveningPositions": [
+            {
+              "position": "foreman",
+              "headcount": 2
+            },
+            {
+              "position": "worker",
+              "headcount": 6
+            }
+          ],
+          "crews": [
+            {
+              "shift": "morning",
+              "discipline": "CE",
+              "positions": [
+                {
+                  "position": "foreman",
+                  "headcount": 2
+                },
+                {
+                  "position": "worker",
+                  "headcount": 6
+                }
+              ],
+              "thaiMale": 6,
+              "thaiFemale": 1,
+              "foreignMale": 1,
+              "foreignFemale": 0
+            },
+            {
+              "shift": "evening",
+              "discipline": "CE",
+              "positions": [
+                {
+                  "position": "foreman",
+                  "headcount": 2
+                },
+                {
+                  "position": "worker",
+                  "headcount": 6
+                }
+              ],
+              "thaiMale": 6,
+              "thaiFemale": 1,
+              "foreignMale": 1,
+              "foreignFemale": 0
+            }
+          ],
+          "eveningHeadcount": 8,
+          "equipment": [
+            {
+              "equipmentType": "Welding machine",
+              "qty": 2
+            }
+          ],
+          "allocations": [
+            {
+              "id": "u5",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "discipline": "CE",
+              "headcount": 5,
+              "workDescription": "Rebar tying",
+              "startTime": "08:00",
+              "endTime": "12:00",
+              "dayShare": 0.444,
+              "planPercent": 40,
+              "actualPercent": 20,
+              "countermeasure": "Add crew tomorrow"
+            },
+            {
+              "id": "u7",
+              "buildingId": "u8",
+              "buildingCode": "ZQ1",
+              "buildingName": "QA building 1",
+              "discipline": "CE",
+              "headcount": 3,
+              "workDescription": "Formwork",
+              "startTime": null,
+              "endTime": null,
+              "dayShare": 1,
+              "planPercent": 60,
+              "actualPercent": 70,
+              "countermeasure": null
+            }
+          ],
+          "machinery": [
+            {
+              "id": "u10",
+              "targetDate": "2026-03-11",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "machineType": "Mobile Crane 25T",
+              "unitTag": "C-1",
+              "startTime": "08:00",
+              "endTime": "12:00",
+              "purpose": "Lift rebar"
+            }
+          ],
+          "equipmentRequests": [
+            {
+              "id": "u11",
+              "targetDate": "2026-03-11",
+              "buildingId": "u8",
+              "buildingCode": "ZQ1",
+              "buildingName": "QA building 1",
+              "equipmentType": "Scaffold",
+              "qty": 10,
+              "purpose": "Access",
+              "contractorId": "u3",
+              "contractorCode": "<qa>",
+              "contractorName": "Snapshot QA contractor <qa>"
+            }
+          ],
+          "permits": [
+            {
+              "id": "u9",
+              "targetDate": "2026-03-10",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "permitType": "hot_work",
+              "otherLabel": null,
+              "workers": 4,
+              "highRisk": true,
+              "taskName": "Welding",
+              "supervisorName": "QA Sup"
+            }
+          ],
+          "roadUsage": [
+            {
+              "id": "u12",
+              "targetDate": "2026-03-11",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "roadLocation": "Main road A",
+              "startTime": "09:00",
+              "endTime": "11:00",
+              "requestedStartTime": "09:00",
+              "requestedEndTime": "11:00",
+              "adjusted": false,
+              "adjustedAt": null,
+              "adjustedByName": null,
+              "purpose": "Concrete delivery",
+              "segmentIds": [],
+              "route": null,
+              "contractorId": "u3",
+              "contractorCode": "<qa>",
+              "contractorName": "Snapshot QA contractor <qa>"
+            }
+          ],
+          "materials": [
+            {
+              "materialName": "Rebar 12mm",
+              "qty": 120,
+              "unit": "pcs"
+            }
+          ],
+          "forecasts": [
+            {
+              "id": "u13",
+              "targetDate": "2026-03-11",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "description": "Pour slab"
+            }
+          ],
+          "overtime": [
+            {
+              "id": "u14",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "task": "Pour prep",
+              "workers": 3,
+              "hours": 2
+            }
+          ],
+          "requestsForDate": "2026-03-11",
+          "photos": [],
+          "roadConflicts": [],
+          "machineryConflicts": []
+        },
+        "plannedToday": {
+          "machinery": [],
+          "permits": [
+            {
+              "id": "u9",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "permitType": "hot_work",
+              "otherLabel": null,
+              "workers": 4
+            }
+          ],
+          "roads": [],
+          "equipment": [],
+          "inspections": []
+        }
+      }
+    }
+  },
+  "current-eps-other-contractor": {
+    "status": 403,
+    "body": {
+      "error": {
+        "code": "FORBIDDEN",
+        "message": "You are not a member of this contractor",
+        "details": {
+          "contractorId": "u15"
+        }
+      }
+    }
+  },
+  "review-queue": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "id": "u1",
+          "hasReport": true,
+          "contractorId": "u3",
+          "contractorCode": "<qa>",
+          "contractorName": "Snapshot QA contractor <qa>",
+          "reportDate": "2026-03-10",
+          "morningStatus": "submitted",
+          "eveningStatus": "submitted",
+          "totalHeadcount": 8,
+          "eveningHeadcount": 8,
+          "morningSubmittedAt": "<ts>",
+          "morningUpdatedAt": null,
+          "eveningSubmittedAt": "<ts>",
+          "eveningUpdatedAt": null,
+          "updatedAt": "<ts>",
+          "startTime": "08:00",
+          "endTime": "17:00",
+          "workHours": 8,
+          "otHours": 2
+        }
+      ]
+    }
+  },
+  "review-queue-contractor": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "id": "u1",
+          "hasReport": true,
+          "contractorId": "u3",
+          "contractorCode": "<qa>",
+          "contractorName": "Snapshot QA contractor <qa>",
+          "reportDate": "2026-03-10",
+          "morningStatus": "submitted",
+          "eveningStatus": "submitted",
+          "totalHeadcount": 8,
+          "eveningHeadcount": 8,
+          "morningSubmittedAt": "<ts>",
+          "morningUpdatedAt": null,
+          "eveningSubmittedAt": "<ts>",
+          "eveningUpdatedAt": null,
+          "updatedAt": "<ts>",
+          "startTime": "08:00",
+          "endTime": "17:00",
+          "workHours": 8,
+          "otHours": 2
+        }
+      ]
+    }
+  },
+  "print-eps": {
+    "status": 200,
+    "body": {
+      "data": {
+        "id": "u1",
+        "projectId": "u2",
+        "contractorId": "u3",
+        "reportDate": "2026-03-10",
+        "startTime": "08:00",
+        "endTime": "17:00",
+        "workHours": 8,
+        "disciplines": [
+          "CE"
+        ],
+        "weather": "normal",
+        "temperatureC": 33,
+        "humidityPct": 60,
+        "thaiMale": 6,
+        "thaiFemale": 1,
+        "foreignMale": 1,
+        "foreignFemale": 0,
+        "morningStatus": "submitted",
+        "morningSubmittedAt": "<ts>",
+        "morningSubmittedBy": "u4",
+        "morningUpdatedAt": null,
+        "eveningThaiMale": 6,
+        "eveningThaiFemale": 1,
+        "eveningForeignMale": 1,
+        "eveningForeignFemale": 0,
+        "otHours": 2,
+        "otManHours": 6,
+        "accidentOccurred": false,
+        "accidentNote": null,
+        "accidentCategory": null,
+        "eveningStatus": "submitted",
+        "eveningSubmittedAt": "<ts>",
+        "eveningSubmittedBy": "u4",
+        "eveningUpdatedAt": null,
+        "signatureName": "QA Foreman",
+        "signedAt": "<ts>",
+        "reviewStatus": "pending",
+        "reviewNote": null,
+        "reviewedBy": null,
+        "reviewedAt": null,
+        "createdAt": "<ts>",
+        "updatedAt": "<ts>",
+        "totalHeadcount": 8,
+        "manDays": 8,
+        "manHours": 70,
+        "hasSignature": true,
+        "positions": [
+          {
+            "position": "foreman",
+            "headcount": 2
+          },
+          {
+            "position": "worker",
+            "headcount": 6
+          }
+        ],
+        "eveningPositions": [
+          {
+            "position": "foreman",
+            "headcount": 2
+          },
+          {
+            "position": "worker",
+            "headcount": 6
+          }
+        ],
+        "crews": [
+          {
+            "shift": "morning",
+            "discipline": "CE",
+            "positions": [
+              {
+                "position": "foreman",
+                "headcount": 2
+              },
+              {
+                "position": "worker",
+                "headcount": 6
+              }
+            ],
+            "thaiMale": 6,
+            "thaiFemale": 1,
+            "foreignMale": 1,
+            "foreignFemale": 0
+          },
+          {
+            "shift": "evening",
+            "discipline": "CE",
+            "positions": [
+              {
+                "position": "foreman",
+                "headcount": 2
+              },
+              {
+                "position": "worker",
+                "headcount": 6
+              }
+            ],
+            "thaiMale": 6,
+            "thaiFemale": 1,
+            "foreignMale": 1,
+            "foreignFemale": 0
+          }
+        ],
+        "eveningHeadcount": 8,
+        "equipment": [
+          {
+            "equipmentType": "Welding machine",
+            "qty": 2
+          }
+        ],
+        "allocations": [
+          {
+            "id": "u5",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "discipline": "CE",
+            "headcount": 5,
+            "workDescription": "Rebar tying",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "dayShare": 0.444,
+            "planPercent": 40,
+            "actualPercent": 20,
+            "countermeasure": "Add crew tomorrow"
+          },
+          {
+            "id": "u7",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "discipline": "CE",
+            "headcount": 3,
+            "workDescription": "Formwork",
+            "startTime": null,
+            "endTime": null,
+            "dayShare": 1,
+            "planPercent": 60,
+            "actualPercent": 70,
+            "countermeasure": null
+          }
+        ],
+        "machinery": [
+          {
+            "id": "u10",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "machineType": "Mobile Crane 25T",
+            "unitTag": "C-1",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "purpose": "Lift rebar"
+          }
+        ],
+        "equipmentRequests": [
+          {
+            "id": "u11",
+            "targetDate": "2026-03-11",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "equipmentType": "Scaffold",
+            "qty": 10,
+            "purpose": "Access",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "permits": [
+          {
+            "id": "u9",
+            "targetDate": "2026-03-10",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "permitType": "hot_work",
+            "otherLabel": null,
+            "workers": 4,
+            "highRisk": true,
+            "taskName": "Welding",
+            "supervisorName": "QA Sup"
+          }
+        ],
+        "roadUsage": [
+          {
+            "id": "u12",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "roadLocation": "Main road A",
+            "startTime": "09:00",
+            "endTime": "11:00",
+            "requestedStartTime": "09:00",
+            "requestedEndTime": "11:00",
+            "adjusted": false,
+            "adjustedAt": null,
+            "adjustedByName": null,
+            "purpose": "Concrete delivery",
+            "segmentIds": [],
+            "route": null,
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "materials": [
+          {
+            "materialName": "Rebar 12mm",
+            "qty": 120,
+            "unit": "pcs"
+          }
+        ],
+        "forecasts": [
+          {
+            "id": "u13",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "description": "Pour slab"
+          }
+        ],
+        "overtime": [
+          {
+            "id": "u14",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "task": "Pour prep",
+            "workers": 3,
+            "hours": 2
+          }
+        ],
+        "requestsForDate": "2026-03-11",
+        "photos": [],
+        "roadConflicts": [],
+        "machineryConflicts": [],
+        "signatureData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+        "projectName": "Snapshot QA <qa>",
+        "contractorCode": "<qa>",
+        "contractorName": "Snapshot QA contractor <qa>",
+        "permitsToday": [
+          {
+            "id": "u9",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "permitType": "hot_work",
+            "otherLabel": null,
+            "workers": 4
+          }
+        ],
+        "inspections": [],
+        "safetyRecord": {
+          "accidents": 0,
+          "daysSinceLastAccident": 1,
+          "lastAccidentDate": null
+        }
+      }
+    }
+  },
+  "print-contractor": {
+    "status": 200,
+    "body": {
+      "data": {
+        "id": "u1",
+        "projectId": "u2",
+        "contractorId": "u3",
+        "reportDate": "2026-03-10",
+        "startTime": "08:00",
+        "endTime": "17:00",
+        "workHours": 8,
+        "disciplines": [
+          "CE"
+        ],
+        "weather": "normal",
+        "temperatureC": 33,
+        "humidityPct": 60,
+        "thaiMale": 6,
+        "thaiFemale": 1,
+        "foreignMale": 1,
+        "foreignFemale": 0,
+        "morningStatus": "submitted",
+        "morningSubmittedAt": "<ts>",
+        "morningSubmittedBy": "u4",
+        "morningUpdatedAt": null,
+        "eveningThaiMale": 6,
+        "eveningThaiFemale": 1,
+        "eveningForeignMale": 1,
+        "eveningForeignFemale": 0,
+        "otHours": 2,
+        "otManHours": 6,
+        "accidentOccurred": false,
+        "accidentNote": null,
+        "accidentCategory": null,
+        "eveningStatus": "submitted",
+        "eveningSubmittedAt": "<ts>",
+        "eveningSubmittedBy": "u4",
+        "eveningUpdatedAt": null,
+        "signatureName": "QA Foreman",
+        "signedAt": "<ts>",
+        "reviewStatus": "pending",
+        "reviewNote": null,
+        "reviewedBy": null,
+        "reviewedAt": null,
+        "createdAt": "<ts>",
+        "updatedAt": "<ts>",
+        "totalHeadcount": 8,
+        "manDays": 8,
+        "manHours": 70,
+        "hasSignature": true,
+        "positions": [
+          {
+            "position": "foreman",
+            "headcount": 2
+          },
+          {
+            "position": "worker",
+            "headcount": 6
+          }
+        ],
+        "eveningPositions": [
+          {
+            "position": "foreman",
+            "headcount": 2
+          },
+          {
+            "position": "worker",
+            "headcount": 6
+          }
+        ],
+        "crews": [
+          {
+            "shift": "morning",
+            "discipline": "CE",
+            "positions": [
+              {
+                "position": "foreman",
+                "headcount": 2
+              },
+              {
+                "position": "worker",
+                "headcount": 6
+              }
+            ],
+            "thaiMale": 6,
+            "thaiFemale": 1,
+            "foreignMale": 1,
+            "foreignFemale": 0
+          },
+          {
+            "shift": "evening",
+            "discipline": "CE",
+            "positions": [
+              {
+                "position": "foreman",
+                "headcount": 2
+              },
+              {
+                "position": "worker",
+                "headcount": 6
+              }
+            ],
+            "thaiMale": 6,
+            "thaiFemale": 1,
+            "foreignMale": 1,
+            "foreignFemale": 0
+          }
+        ],
+        "eveningHeadcount": 8,
+        "equipment": [
+          {
+            "equipmentType": "Welding machine",
+            "qty": 2
+          }
+        ],
+        "allocations": [
+          {
+            "id": "u5",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "discipline": "CE",
+            "headcount": 5,
+            "workDescription": "Rebar tying",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "dayShare": 0.444,
+            "planPercent": 40,
+            "actualPercent": 20,
+            "countermeasure": "Add crew tomorrow"
+          },
+          {
+            "id": "u7",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "discipline": "CE",
+            "headcount": 3,
+            "workDescription": "Formwork",
+            "startTime": null,
+            "endTime": null,
+            "dayShare": 1,
+            "planPercent": 60,
+            "actualPercent": 70,
+            "countermeasure": null
+          }
+        ],
+        "machinery": [
+          {
+            "id": "u10",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "machineType": "Mobile Crane 25T",
+            "unitTag": "C-1",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "purpose": "Lift rebar"
+          }
+        ],
+        "equipmentRequests": [
+          {
+            "id": "u11",
+            "targetDate": "2026-03-11",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "equipmentType": "Scaffold",
+            "qty": 10,
+            "purpose": "Access",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "permits": [
+          {
+            "id": "u9",
+            "targetDate": "2026-03-10",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "permitType": "hot_work",
+            "otherLabel": null,
+            "workers": 4,
+            "highRisk": true,
+            "taskName": "Welding",
+            "supervisorName": "QA Sup"
+          }
+        ],
+        "roadUsage": [
+          {
+            "id": "u12",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "roadLocation": "Main road A",
+            "startTime": "09:00",
+            "endTime": "11:00",
+            "requestedStartTime": "09:00",
+            "requestedEndTime": "11:00",
+            "adjusted": false,
+            "adjustedAt": null,
+            "adjustedByName": null,
+            "purpose": "Concrete delivery",
+            "segmentIds": [],
+            "route": null,
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "materials": [
+          {
+            "materialName": "Rebar 12mm",
+            "qty": 120,
+            "unit": "pcs"
+          }
+        ],
+        "forecasts": [
+          {
+            "id": "u13",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "description": "Pour slab"
+          }
+        ],
+        "overtime": [
+          {
+            "id": "u14",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "task": "Pour prep",
+            "workers": 3,
+            "hours": 2
+          }
+        ],
+        "requestsForDate": "2026-03-11",
+        "photos": [],
+        "roadConflicts": [],
+        "machineryConflicts": [],
+        "signatureData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+        "projectName": "Snapshot QA <qa>",
+        "contractorCode": "<qa>",
+        "contractorName": "Snapshot QA contractor <qa>",
+        "permitsToday": [
+          {
+            "id": "u9",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "permitType": "hot_work",
+            "otherLabel": null,
+            "workers": 4
+          }
+        ],
+        "inspections": [],
+        "safetyRecord": {
+          "accidents": 0,
+          "daysSinceLastAccident": 1,
+          "lastAccidentDate": null
+        }
+      }
+    }
+  },
+  "road-adjust-contractor": {
+    "status": 403,
+    "body": {
+      "error": {
+        "code": "FORBIDDEN",
+        "message": "Only EPS staff can change road usage times"
+      }
+    }
+  },
+  "road-adjust-eps": {
+    "status": 200,
+    "body": {
+      "data": {
+        "id": "u12",
+        "targetDate": "2026-03-11",
+        "buildingId": "u6",
+        "buildingCode": "ZQ0",
+        "buildingName": "QA building 0",
+        "roadLocation": "Main road A",
+        "startTime": "09:30",
+        "endTime": "10:30",
+        "requestedStartTime": "09:00",
+        "requestedEndTime": "11:00",
+        "adjusted": true,
+        "adjustedAt": "<ts>",
+        "adjustedByName": "<qa>-eps@example.test",
+        "purpose": "Concrete delivery",
+        "segmentIds": [],
+        "route": null,
+        "contractorId": "u3",
+        "contractorCode": "<qa>",
+        "contractorName": "Snapshot QA contractor <qa>"
+      }
+    }
+  },
+  "review-reject-no-note": {
+    "status": 400,
+    "body": {
+      "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "Give the contractor a note describing what to fix"
+      }
+    }
+  },
+  "review-approve": {
+    "status": 200,
+    "body": {
+      "data": {
+        "id": "u1",
+        "projectId": "u2",
+        "contractorId": "u3",
+        "reportDate": "2026-03-10",
+        "startTime": "08:00",
+        "endTime": "17:00",
+        "workHours": 8,
+        "disciplines": [
+          "CE"
+        ],
+        "weather": "normal",
+        "temperatureC": 33,
+        "humidityPct": 60,
+        "thaiMale": 6,
+        "thaiFemale": 1,
+        "foreignMale": 1,
+        "foreignFemale": 0,
+        "morningStatus": "submitted",
+        "morningSubmittedAt": "<ts>",
+        "morningSubmittedBy": "u4",
+        "morningUpdatedAt": null,
+        "eveningThaiMale": 6,
+        "eveningThaiFemale": 1,
+        "eveningForeignMale": 1,
+        "eveningForeignFemale": 0,
+        "otHours": 2,
+        "otManHours": 6,
+        "accidentOccurred": false,
+        "accidentNote": null,
+        "accidentCategory": null,
+        "eveningStatus": "submitted",
+        "eveningSubmittedAt": "<ts>",
+        "eveningSubmittedBy": "u4",
+        "eveningUpdatedAt": null,
+        "signatureName": "QA Foreman",
+        "signedAt": "<ts>",
+        "reviewStatus": "approved",
+        "reviewNote": "ok",
+        "reviewedBy": "u16",
+        "reviewedAt": "<ts>",
+        "createdAt": "<ts>",
+        "updatedAt": "<ts>",
+        "totalHeadcount": 8,
+        "manDays": 8,
+        "manHours": 70,
+        "hasSignature": true,
+        "positions": [
+          {
+            "position": "foreman",
+            "headcount": 2
+          },
+          {
+            "position": "worker",
+            "headcount": 6
+          }
+        ],
+        "eveningPositions": [
+          {
+            "position": "foreman",
+            "headcount": 2
+          },
+          {
+            "position": "worker",
+            "headcount": 6
+          }
+        ],
+        "crews": [
+          {
+            "shift": "morning",
+            "discipline": "CE",
+            "positions": [
+              {
+                "position": "foreman",
+                "headcount": 2
+              },
+              {
+                "position": "worker",
+                "headcount": 6
+              }
+            ],
+            "thaiMale": 6,
+            "thaiFemale": 1,
+            "foreignMale": 1,
+            "foreignFemale": 0
+          },
+          {
+            "shift": "evening",
+            "discipline": "CE",
+            "positions": [
+              {
+                "position": "foreman",
+                "headcount": 2
+              },
+              {
+                "position": "worker",
+                "headcount": 6
+              }
+            ],
+            "thaiMale": 6,
+            "thaiFemale": 1,
+            "foreignMale": 1,
+            "foreignFemale": 0
+          }
+        ],
+        "eveningHeadcount": 8,
+        "equipment": [
+          {
+            "equipmentType": "Welding machine",
+            "qty": 2
+          }
+        ],
+        "allocations": [
+          {
+            "id": "u5",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "discipline": "CE",
+            "headcount": 5,
+            "workDescription": "Rebar tying",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "dayShare": 0.444,
+            "planPercent": 40,
+            "actualPercent": 20,
+            "countermeasure": "Add crew tomorrow"
+          },
+          {
+            "id": "u7",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "discipline": "CE",
+            "headcount": 3,
+            "workDescription": "Formwork",
+            "startTime": null,
+            "endTime": null,
+            "dayShare": 1,
+            "planPercent": 60,
+            "actualPercent": 70,
+            "countermeasure": null
+          }
+        ],
+        "machinery": [
+          {
+            "id": "u10",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "machineType": "Mobile Crane 25T",
+            "unitTag": "C-1",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "purpose": "Lift rebar"
+          }
+        ],
+        "equipmentRequests": [
+          {
+            "id": "u11",
+            "targetDate": "2026-03-11",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "equipmentType": "Scaffold",
+            "qty": 10,
+            "purpose": "Access",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "permits": [
+          {
+            "id": "u9",
+            "targetDate": "2026-03-10",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "permitType": "hot_work",
+            "otherLabel": null,
+            "workers": 4,
+            "highRisk": true,
+            "taskName": "Welding",
+            "supervisorName": "QA Sup"
+          }
+        ],
+        "roadUsage": [
+          {
+            "id": "u12",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "roadLocation": "Main road A",
+            "startTime": "09:30",
+            "endTime": "10:30",
+            "requestedStartTime": "09:00",
+            "requestedEndTime": "11:00",
+            "adjusted": true,
+            "adjustedAt": "<ts>",
+            "adjustedByName": "<qa>-eps@example.test",
+            "purpose": "Concrete delivery",
+            "segmentIds": [],
+            "route": null,
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "materials": [
+          {
+            "materialName": "Rebar 12mm",
+            "qty": 120,
+            "unit": "pcs"
+          }
+        ],
+        "forecasts": [
+          {
+            "id": "u13",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "description": "Pour slab"
+          }
+        ],
+        "overtime": [
+          {
+            "id": "u14",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "task": "Pour prep",
+            "workers": 3,
+            "hours": 2
+          }
+        ],
+        "requestsForDate": "2026-03-11",
+        "photos": [],
+        "roadConflicts": [],
+        "machineryConflicts": []
+      }
+    }
+  },
+  "weekly-summary": {
+    "status": 200,
+    "body": {
+      "data": {
+        "weekStart": "2026-03-09",
+        "weekEnd": "2026-03-15",
+        "days": [
+          "2026-03-09",
+          "2026-03-10",
+          "2026-03-11",
+          "2026-03-12",
+          "2026-03-13",
+          "2026-03-14",
+          "2026-03-15"
+        ],
+        "buildings": [
+          {
+            "id": "u6",
+            "code": "ZQ0",
+            "name": "QA building 0",
+            "nameTh": null,
+            "weekManDays": 2.2,
+            "peakHeadcount": 2.2,
+            "cells": [
+              {
+                "date": "2026-03-09",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              },
+              {
+                "date": "2026-03-10",
+                "headcount": 2.2,
+                "contractors": [
+                  {
+                    "id": "u3",
+                    "code": "<qa>",
+                    "name": "Snapshot QA contractor <qa>",
+                    "headcount": 2.2
+                  }
+                ],
+                "permits": [
+                  {
+                    "type": "hot_work",
+                    "workers": 4
+                  }
+                ],
+                "level": "low"
+              },
+              {
+                "date": "2026-03-11",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              },
+              {
+                "date": "2026-03-12",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              },
+              {
+                "date": "2026-03-13",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              },
+              {
+                "date": "2026-03-14",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              },
+              {
+                "date": "2026-03-15",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              }
+            ]
+          },
+          {
+            "id": "u8",
+            "code": "ZQ1",
+            "name": "QA building 1",
+            "nameTh": null,
+            "weekManDays": 3,
+            "peakHeadcount": 3,
+            "cells": [
+              {
+                "date": "2026-03-09",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              },
+              {
+                "date": "2026-03-10",
+                "headcount": 3,
+                "contractors": [
+                  {
+                    "id": "u3",
+                    "code": "<qa>",
+                    "name": "Snapshot QA contractor <qa>",
+                    "headcount": 3
+                  }
+                ],
+                "permits": [],
+                "level": "low"
+              },
+              {
+                "date": "2026-03-11",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              },
+              {
+                "date": "2026-03-12",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              },
+              {
+                "date": "2026-03-13",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              },
+              {
+                "date": "2026-03-14",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              },
+              {
+                "date": "2026-03-15",
+                "headcount": 0,
+                "contractors": [],
+                "permits": [],
+                "level": "none"
+              }
+            ]
+          }
+        ],
+        "machinery": [
+          {
+            "id": "u10",
+            "targetDate": "2026-03-11",
+            "machineType": "Mobile Crane 25T",
+            "unitTag": "C-1",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "purpose": "Lift rebar",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "conflict": null
+          }
+        ],
+        "conflicts": [],
+        "roads": [
+          {
+            "id": "u12",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "roadLocation": "Main road A",
+            "startTime": "09:30",
+            "endTime": "10:30",
+            "requestedStartTime": "09:00",
+            "requestedEndTime": "11:00",
+            "adjusted": true,
+            "adjustedAt": "<ts>",
+            "adjustedByName": "<qa>-eps@example.test",
+            "purpose": "Concrete delivery",
+            "segmentIds": [],
+            "route": null,
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>",
+            "conflict": false
+          }
+        ],
+        "equipmentRequests": [
+          {
+            "id": "u11",
+            "targetDate": "2026-03-11",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "equipmentType": "Scaffold",
+            "qty": 10,
+            "purpose": "Access",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "requests": {
+          "draft": 0,
+          "requested": 0,
+          "confirmed": 0,
+          "inspected": 0,
+          "closed": 0
+        },
+        "totals": {
+          "manDays": 5.2,
+          "manHours": 70,
+          "permitWorkers": 4,
+          "bookings": 1,
+          "conflicts": 0,
+          "possibleConflicts": 0,
+          "roadConflicts": 0
+        }
+      }
+    }
+  },
+  "position-mix": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "contractorId": "u3",
+          "contractorCode": "<qa>",
+          "position": "foreman",
+          "totalHeadcount": 2,
+          "avgPerDay": 2
+        },
+        {
+          "contractorId": "u3",
+          "contractorCode": "<qa>",
+          "position": "worker",
+          "totalHeadcount": 6,
+          "avgPerDay": 6
+        }
+      ]
+    }
+  },
+  "daily-requests": {
+    "status": 200,
+    "body": {
+      "data": {
+        "from": "2026-03-10",
+        "to": "2026-03-11",
+        "machinery": [
+          {
+            "id": "u10",
+            "targetDate": "2026-03-11",
+            "machineType": "Mobile Crane 25T",
+            "unitTag": "C-1",
+            "startTime": "08:00",
+            "endTime": "12:00",
+            "purpose": "Lift rebar",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "conflict": null
+          }
+        ],
+        "equipmentRequests": [
+          {
+            "id": "u11",
+            "targetDate": "2026-03-11",
+            "buildingId": "u8",
+            "buildingCode": "ZQ1",
+            "buildingName": "QA building 1",
+            "equipmentType": "Scaffold",
+            "qty": 10,
+            "purpose": "Access",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "roads": [
+          {
+            "id": "u12",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "roadLocation": "Main road A",
+            "startTime": "09:30",
+            "endTime": "10:30",
+            "requestedStartTime": "09:00",
+            "requestedEndTime": "11:00",
+            "adjusted": true,
+            "adjustedAt": "<ts>",
+            "adjustedByName": "<qa>-eps@example.test",
+            "purpose": "Concrete delivery",
+            "segmentIds": [],
+            "route": null,
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>",
+            "conflict": false
+          }
+        ],
+        "permits": [
+          {
+            "id": "u9",
+            "targetDate": "2026-03-10",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "permitType": "hot_work",
+            "otherLabel": null,
+            "workers": 4,
+            "highRisk": true,
+            "taskName": "Welding",
+            "supervisorName": "QA Sup",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ],
+        "forecasts": [
+          {
+            "id": "u13",
+            "targetDate": "2026-03-11",
+            "buildingId": "u6",
+            "buildingCode": "ZQ0",
+            "buildingName": "QA building 0",
+            "description": "Pour slab",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>"
+          }
+        ]
+      }
+    }
+  },
+  "materials": {
+    "status": 200,
+    "body": {
+      "data": {
+        "data": [
+          {
+            "id": "u17",
+            "reportDate": "2026-03-10",
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "contractorName": "Snapshot QA contractor <qa>",
+            "materialName": "Rebar 12mm",
+            "qty": 120,
+            "unit": "pcs"
+          }
+        ],
+        "summary": [
+          {
+            "materialName": "Rebar 12mm",
+            "unit": "pcs",
+            "entries": 1,
+            "totalQty": 120
+          }
+        ],
+        "meta": {
+          "page": 1,
+          "pageSize": 20,
+          "total": 1
+        }
+      }
+    }
+  },
+  "site-day": {
+    "status": 200,
+    "body": {
+      "data": {
+        "date": "2026-03-10",
+        "from": "2026-03-10",
+        "to": "2026-03-10",
+        "reportedDays": 1,
+        "buildings": [
+          {
+            "id": "u6",
+            "code": "ZQ0",
+            "name": "QA building 0",
+            "nameTh": null,
+            "headcount": 5,
+            "avgDaily": 2,
+            "contractors": [
+              "<qa>"
+            ],
+            "activities": [
+              {
+                "reportDate": "2026-03-10",
+                "buildingId": "u6",
+                "contractorCode": "<qa>",
+                "contractorName": "Snapshot QA contractor <qa>",
+                "headcount": 5,
+                "dayShare": 0.444,
+                "startTime": "08:00",
+                "endTime": "12:00",
+                "workDescription": "Rebar tying",
+                "planPercent": 40,
+                "actualPercent": 20
+              }
+            ],
+            "machinery": [],
+            "equipment": [],
+            "roads": [],
+            "permits": [
+              {
+                "targetDate": "2026-03-10",
+                "buildingId": "u6",
+                "permitType": "hot_work",
+                "workers": 4
+              }
+            ],
+            "inspections": []
+          },
+          {
+            "id": "u8",
+            "code": "ZQ1",
+            "name": "QA building 1",
+            "nameTh": null,
+            "headcount": 3,
+            "avgDaily": 3,
+            "contractors": [
+              "<qa>"
+            ],
+            "activities": [
+              {
+                "reportDate": "2026-03-10",
+                "buildingId": "u8",
+                "contractorCode": "<qa>",
+                "contractorName": "Snapshot QA contractor <qa>",
+                "headcount": 3,
+                "dayShare": 1,
+                "startTime": null,
+                "endTime": null,
+                "workDescription": "Formwork",
+                "planPercent": 60,
+                "actualPercent": 70
+              }
+            ],
+            "machinery": [],
+            "equipment": [],
+            "roads": [],
+            "permits": [],
+            "inspections": []
+          }
+        ]
+      }
+    }
+  },
+  "site-day-range": {
+    "status": 200,
+    "body": {
+      "data": {
+        "date": "2026-03-10",
+        "from": "2026-03-10",
+        "to": "2026-03-11",
+        "reportedDays": 1,
+        "buildings": [
+          {
+            "id": "u6",
+            "code": "ZQ0",
+            "name": "QA building 0",
+            "nameTh": null,
+            "headcount": 2.2,
+            "avgDaily": 2,
+            "contractors": [
+              "<qa>"
+            ],
+            "activities": [
+              {
+                "reportDate": "2026-03-10",
+                "buildingId": "u6",
+                "contractorCode": "<qa>",
+                "contractorName": "Snapshot QA contractor <qa>",
+                "headcount": 5,
+                "dayShare": 0.444,
+                "startTime": "08:00",
+                "endTime": "12:00",
+                "workDescription": "Rebar tying",
+                "planPercent": 40,
+                "actualPercent": 20
+              }
+            ],
+            "machinery": [
+              {
+                "id": "u10",
+                "targetDate": "2026-03-11",
+                "machineType": "Mobile Crane 25T",
+                "unitTag": "C-1",
+                "startTime": "08:00",
+                "endTime": "12:00",
+                "purpose": "Lift rebar",
+                "contractorId": "u3",
+                "contractorCode": "<qa>",
+                "contractorName": "Snapshot QA contractor <qa>",
+                "buildingId": "u6",
+                "buildingCode": "ZQ0",
+                "buildingName": "QA building 0",
+                "conflict": false
+              }
+            ],
+            "equipment": [],
+            "roads": [
+              {
+                "id": "u12",
+                "targetDate": "2026-03-11",
+                "buildingId": "u6",
+                "buildingCode": "ZQ0",
+                "buildingName": "QA building 0",
+                "roadLocation": "Main road A",
+                "startTime": "09:30",
+                "endTime": "10:30",
+                "requestedStartTime": "09:00",
+                "requestedEndTime": "11:00",
+                "adjusted": true,
+                "adjustedAt": "<ts>",
+                "adjustedByName": "<qa>-eps@example.test",
+                "purpose": "Concrete delivery",
+                "segmentIds": [],
+                "route": null,
+                "contractorId": "u3",
+                "contractorCode": "<qa>",
+                "contractorName": "Snapshot QA contractor <qa>"
+              }
+            ],
+            "permits": [
+              {
+                "targetDate": "2026-03-10",
+                "buildingId": "u6",
+                "permitType": "hot_work",
+                "workers": 4
+              }
+            ],
+            "inspections": []
+          },
+          {
+            "id": "u8",
+            "code": "ZQ1",
+            "name": "QA building 1",
+            "nameTh": null,
+            "headcount": 3,
+            "avgDaily": 3,
+            "contractors": [
+              "<qa>"
+            ],
+            "activities": [
+              {
+                "reportDate": "2026-03-10",
+                "buildingId": "u8",
+                "contractorCode": "<qa>",
+                "contractorName": "Snapshot QA contractor <qa>",
+                "headcount": 3,
+                "dayShare": 1,
+                "startTime": null,
+                "endTime": null,
+                "workDescription": "Formwork",
+                "planPercent": 60,
+                "actualPercent": 70
+              }
+            ],
+            "machinery": [],
+            "equipment": [
+              {
+                "id": "u11",
+                "targetDate": "2026-03-11",
+                "buildingId": "u8",
+                "buildingCode": "ZQ1",
+                "buildingName": "QA building 1",
+                "equipmentType": "Scaffold",
+                "qty": 10,
+                "purpose": "Access",
+                "contractorId": "u3",
+                "contractorCode": "<qa>",
+                "contractorName": "Snapshot QA contractor <qa>"
+              }
+            ],
+            "roads": [],
+            "permits": [],
+            "inspections": []
+          }
+        ]
+      }
+    }
+  },
+  "manpower-summary": {
+    "status": 200,
+    "body": {
+      "data": {
+        "from": "2026-03-01",
+        "to": "2026-03-31",
+        "contractors": [
+          {
+            "contractorId": "u3",
+            "contractorCode": "<qa>",
+            "manDays": 8,
+            "manHours": 70,
+            "reportedDays": 1,
+            "thaiMale": 6,
+            "thaiFemale": 1,
+            "foreignMale": 1,
+            "foreignFemale": 0
+          }
+        ],
+        "daily": [
+          {
+            "date": "2026-03-10",
+            "contractorCode": "<qa>",
+            "headcount": 8
+          }
+        ],
+        "byBuilding": [
+          {
+            "buildingId": "u6",
+            "code": "ZQ0",
+            "name": "QA building 0",
+            "contractors": {
+              "<qa>": 2.2
+            }
+          },
+          {
+            "buildingId": "u8",
+            "code": "ZQ1",
+            "name": "QA building 1",
+            "contractors": {
+              "<qa>": 3
+            }
+          }
+        ],
+        "totals": {
+          "manDays": 8,
+          "manHours": 70,
+          "reportedDays": 1,
+          "avgDaily": 8
+        }
+      }
+    }
+  },
+  "manpower-trend": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "weekStart": "2026-03-09",
+          "weekEnd": "2026-03-15",
+          "reportedDays": 1,
+          "manDays": 8,
+          "avgDaily": 8
+        },
+        {
+          "weekStart": "2026-03-16",
+          "weekEnd": "2026-03-22",
+          "reportedDays": 0,
+          "manDays": 0,
+          "avgDaily": null
+        },
+        {
+          "weekStart": "2026-03-23",
+          "weekEnd": "2026-03-29",
+          "reportedDays": 0,
+          "manDays": 0,
+          "avgDaily": null
+        },
+        {
+          "weekStart": "2026-03-30",
+          "weekEnd": "2026-04-05",
+          "reportedDays": 0,
+          "manDays": 0,
+          "avgDaily": null
+        }
+      ]
+    }
+  }
+}

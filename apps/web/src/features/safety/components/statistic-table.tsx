@@ -2,6 +2,8 @@ import Box from "@mui/material/Box";
 import { ACCIDENT_CATEGORIES } from "@sts/shared";
 import dayjs from "dayjs";
 import type { SafetyStats } from "../types/safety.types.js";
+import { shortDate } from "@/lib/dates.js";
+import { formatNumber } from "@/lib/format.js";
 
 const BLUE = "#5bc8f2";
 const INK = "#0b1fd1";
@@ -67,27 +69,27 @@ export function StatisticTable({ stats, compact }: { stats: SafetyStats; compact
         })}
         <tr>
           <td colSpan={4} style={{ color: GREEN, fontWeight: 600 }}>
-            Days Without an Accident (accumulate) : {stats.daysWithoutAccident.toLocaleString()} Days
+            Days Without an Accident (accumulate) : {formatNumber(stats.daysWithoutAccident)} Days
           </td>
         </tr>
         <tr>
           <td colSpan={4} style={{ color: GREEN, fontWeight: 600 }}>
-            Highest Days Without Accident : {stats.highestDaysWithoutAccident.toLocaleString()} Days
+            Highest Days Without Accident : {formatNumber(stats.highestDaysWithoutAccident)} Days
           </td>
         </tr>
         <tr>
           <td colSpan={4} style={{ background: BLUE, color: INK }}>
-            Last Accident Loss Time Injury : {stats.lastLti ? dayjs(stats.lastLti).format("D MMM YYYY") : "-"}
+            Last Accident Loss Time Injury : {stats.lastLti ? shortDate(stats.lastLti) : "-"}
           </td>
         </tr>
         <tr>
           <td colSpan={4} style={{ background: BLUE, color: INK }}>
-            Manhour record ({period}) : {stats.manHoursPeriod.toLocaleString()} Hrs.
+            Manhour record ({period}) : {formatNumber(stats.manHoursPeriod)} Hrs.
           </td>
         </tr>
         <tr>
           <td colSpan={4} style={{ background: BLUE, color: INK }}>
-            Total acc. (Start – {dayjs(stats.to).format("D MMM YYYY")}) : {stats.manHoursTotal.toLocaleString()} Hrs.
+            Total acc. (Start – {shortDate(stats.to)}) : {formatNumber(stats.manHoursTotal)} Hrs.
           </td>
         </tr>
       </tbody>

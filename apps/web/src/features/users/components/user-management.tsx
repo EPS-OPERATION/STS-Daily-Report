@@ -1,10 +1,6 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
@@ -17,6 +13,7 @@ import { USER_ROLES, isEpsStaff, type UserRole } from "@sts/shared";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { QueryError } from "@/components/ui/query-error.js";
+import { FormDialog } from "@/components/ui/form-dialog.js";
 import { useMe } from "@/features/auth/index.js";
 import { ContractorPicker } from "@/features/auth/components/contractor-picker.js";
 import { useCurrentProject } from "@/features/projects/index.js";
@@ -101,21 +98,16 @@ export function UserManagement() {
         localeText={{ noRowsLabel: status === "pending" ? "No registrations awaiting approval" : "No users found" }} /></Box>
     </Stack>
     {decision && <UserDecisionDialog key={`${decision.user.id}-${decision.action}`} {...decision} projectId={projectId ?? undefined} onClose={() => setDecision(null)} />}
-    <Dialog open={Boolean(linkTarget)} onClose={link.isPending ? undefined : () => { setLinkTarget(null); link.reset(); }} fullWidth maxWidth="sm">
-      <DialogTitle>Link contractor</DialogTitle>
-      <DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
+    <FormDialog open={Boolean(linkTarget)} title="Link contractor" onClose={() => { setLinkTarget(null); link.reset(); }} busy={link.isPending} actions={<>
+        <Button color="inherit" disabled={link.isPending} onClick={() => { setLinkTarget(null); link.reset(); }}>Cancel</Button>
+        <Button variant="contained" disabled={!linkContractorId || link.isPending} onClick={() => linkTarget && link.mutate({ id: linkTarget.id, contractorId: linkContractorId, projectId: projectId ?? undefined }, { onSuccess: () => setLinkTarget(null) })}>{link.isPending ? "Linking…" : "Link contractor"}</Button>
+      </>}><Stack spacing={2} sx={{ pt: 1 }}>
         <Typography>{linkTarget?.email} · {linkTarget?.username}</Typography>
         {link.isError && <Alert severity="error">{link.error.message}</Alert>}
         <ContractorPicker value={linkContractorId} onChange={setLinkContractorId} allowOther={false} projectId={projectId ?? undefined} disabled={link.isPending} />
         <Typography color="text.secondary">Links this account to the selected contractor in the current project. The user can then submit daily reports.</Typography>
-      </Stack></DialogContent>
-      <DialogActions>
-        <Button color="inherit" disabled={link.isPending} onClick={() => { setLinkTarget(null); link.reset(); }}>Cancel</Button>
-        <Button variant="contained" disabled={!linkContractorId || link.isPending} onClick={() => linkTarget && link.mutate({ id: linkTarget.id, contractorId: linkContractorId, projectId: projectId ?? undefined }, { onSuccess: () => setLinkTarget(null) })}>{link.isPending ? "Linking…" : "Link contractor"}</Button>
-      </DialogActions>
-    </Dialog>
-    <Dialog open={Boolean(resetUser)} onClose={reset.isPending ? undefined : () => { setResetUser(null); reset.reset(); }} fullWidth maxWidth="sm">
-      <DialogTitle>Reset password</DialogTitle><DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
+      </Stack></FormDialog>
+    <FormDialog open={Boolean(resetUser)} title="Reset password" onClose={() => { setResetUser(null); reset.reset(); }} busy={reset.isPending} actions={<><Button color="inherit" disabled={reset.isPending} onClick={() => { setResetUser(null); reset.reset(); }}>Close</Button>{!reset.data && <Button disabled={reset.isPending || !resetUser} onClick={() => resetUser && reset.mutate(resetUser.id)}>{reset.isPending ? "Generating…" : "Generate link"}</Button>}</>}><Stack spacing={2} sx={{ pt: 1 }}>
         <Typography>{resetUser?.email}</Typography>
         {reset.isError && <Alert severity="error">{reset.error.message}</Alert>}
         {reset.data ? <>
@@ -124,7 +116,6 @@ export function UserManagement() {
           {copyError && <Alert severity="warning">Clipboard unavailable. Select and copy the link above.</Alert>}
           <Button onClick={async () => { try { await navigator.clipboard.writeText(reset.data!.data.url); setCopied(true); } catch { setCopyError(true); } }}>{copied ? "Copied" : "Copy link"}</Button>
         </> : <Typography color="text.secondary">Generate a link valid for 60 minutes. The user chooses their password; existing sessions are revoked when the password is changed.</Typography>}
-      </Stack></DialogContent><DialogActions><Button color="inherit" disabled={reset.isPending} onClick={() => { setResetUser(null); reset.reset(); }}>Close</Button>{!reset.data && <Button disabled={reset.isPending || !resetUser} onClick={() => resetUser && reset.mutate(resetUser.id)}>{reset.isPending ? "Generating…" : "Generate link"}</Button>}</DialogActions>
-    </Dialog>
+      </Stack></FormDialog>
   </Box>;
 }

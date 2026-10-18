@@ -12,6 +12,7 @@ import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
 import { areaLabel, ICON_LABELS } from "../types/icon-labels.js";
 import { EmptySection } from "@/components/ui/empty-state.js";
+import { TOKENS } from "@/app/theme/tokens.js";
 import { MachineGlyph } from "./machine-icon.js";
 
 // Every job of the day under the map (same contractor filter as the map), so the detail behind
@@ -68,7 +69,7 @@ export function CoordinationJobList({
       ) : null}
       {rows.map((item, i) => {
         const c = byId.get(item.contractorId);
-        const color = c?.color ?? "#64748B";
+        const color = c?.color ?? TOKENS.neutral;
         const active = item.id === selectedId;
         return (
           <Stack

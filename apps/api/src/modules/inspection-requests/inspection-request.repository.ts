@@ -1,5 +1,5 @@
 import { and, asc, between, eq, inArray } from "drizzle-orm";
-import { buildings, contractors, inspectionRequests } from "@/db/schema/index.js";
+import { buildings, contractors, dailyReports, inspectionRequests } from "@/db/schema/index.js";
 import type { Db } from "@/db/client.js";
 
 const columns = {
@@ -66,4 +66,21 @@ export async function updateRequest(db: Db, id: string, values: Partial<typeof i
 
 export async function deleteRequest(db: Db, id: string) {
   await db.delete(inspectionRequests).where(eq(inspectionRequests.id, id));
+}
+
+// Requests planned for a report date go straight to QAQC once that day's evening report is sent.
+export async function isEveningReportSent(db: Db, projectId: string, contractorId: string, reportDate: string) {
+  const rows = await db
+    .select({ id: dailyReports.id })
+    .from(dailyReports)
+    .where(
+      and(
+        eq(dailyReports.projectId, projectId),
+        eq(dailyReports.contractorId, contractorId),
+        eq(dailyReports.reportDate, reportDate),
+        eq(dailyReports.eveningStatus, "submitted"),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
 }

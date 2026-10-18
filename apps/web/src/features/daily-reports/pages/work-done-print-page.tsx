@@ -1,0 +1,216 @@
+import Box from "@mui/material/Box";
+import dayjs from "dayjs";
+import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+import { ALL_BUILDINGS, filterWorkDone, workDoneItemsFromSiteDay } from "../utils/work-done.js";
+import { ALL_CONTRACTORS } from "../utils/submission.js";
+import { todayIso } from "@/lib/dates.js";
+import { useReviewQueue } from "../hooks/use-daily-report-queries.js";
+import { type ReviewQueueRow } from "../types/daily-report.types.js";
+import { type WorkDoneItem } from "../components/work-done-summary-table.js";
+import { useCurrentProject } from "@/features/projects/index.js";
+import { useSiteDay } from "@/features/site-plan/index.js";
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+import { PRINT_BLUE } from "@/components/print/print-tokens.js";
+import { PrintMessage, PrintSheet, usePrintWhenReady } from "@/components/print/print-sheet.js";
+const BLUE = PRINT_BLUE;
+const MIN_ROWS = 25; // paper form has 25 numbered lines
+
+// Buddhist-era date as on the paper forms (12/10/69).
+const thaiShortDate = (iso: string) => {
+  const d = dayjs(iso);
+  return `${d.date()}/${d.month() + 1}/${String(d.year() + 543).slice(-2)}`;
+};
+const pct = (n: number | null) => (n === null ? "-" : `${n.toFixed(2)}%`);
+
+// Printable Work Done report (A4 portrait, one sheet per day): every Today Activity the table shows
+// for the same range + contractor + building + search, Plan vs Actual, and the EPC / Owner Engineer
+// signature block left blank for wet signatures. Opens the print dialog — choose "Save as PDF".
+export function WorkDonePrintPage() {
+  const [params] = useSearchParams();
+  const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : todayIso();
+  const rawTo = ISO_DATE.test(params.get("to") ?? "") ? params.get("to")! : rawFrom;
+  const from = rawFrom <= rawTo ? rawFrom : rawTo;
+  const to = rawFrom <= rawTo ? rawTo : rawFrom;
+  const contractor = params.get("contractor") || ALL_CONTRACTORS;
+  const building = params.get("building") || ALL_BUILDINGS;
+  const search = params.get("q") ?? "";
+
+  const current = useCurrentProject();
+  const projectId = params.get("projectId") || current.projectId;
+  const projectName = current.projects.find((p) => p.id === projectId)?.name ?? "";
+  const siteDay = useSiteDay(projectId, from, to);
+  const reports = useReviewQueue(projectId, { from, to });
+
+  const days = useMemo(() => {
+    const items = filterWorkDone(workDoneItemsFromSiteDay(siteDay.data?.data?.buildings ?? []), { contractor, building, search });
+    const byDay = new Map<string, WorkDoneItem[]>();
+    for (const it of items) byDay.set(it.reportDate, [...(byDay.get(it.reportDate) ?? []), it]);
+    return [...byDay]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, rows]) => ({
+        date,
+        rows: rows.sort((a, b) => a.contractorCode.localeCompare(b.contractorCode) || a.buildingName.localeCompare(b.buildingName)),
+      }));
+  }, [siteDay.data, contractor, building, search]);
+
+  const ready = Boolean(siteDay.data && reports.data);
+
+  usePrintWhenReady(ready && days.length > 0, `Work done ${from}${from === to ? "" : `_${to}`}`);
+
+  if (siteDay.isError || reports.isError) {
+    return (
+      <PrintMessage tone="error">โหลดข้อมูลไม่สำเร็จ — ไม่มีสิทธิ์เข้าถึงหรือการเชื่อมต่อขัดข้อง</PrintMessage>
+    );
+  }
+  if (!ready) {
+    return (
+      <PrintMessage tone="busy">กำลังเตรียมรายงาน…</PrintMessage>
+    );
+  }
+  if (days.length === 0) {
+    return (
+      <PrintMessage>ไม่มีรายการเนื้องานในช่วงและตัวกรองที่เลือก</PrintMessage>
+    );
+  }
+
+  const queue = reports.data?.data ?? [];
+  return (
+    <PrintSheet page="A4 portrait" margin="8mm" css={`
+        .sheet { break-after: page; font-size: 10px; line-height: 1.25; padding: 4px; }
+        .sheet:last-child { break-after: auto; }
+        .f { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .f td, .f th { border: 1px solid #222; padding: 2px 5px; vertical-align: middle; overflow-wrap: anywhere; }
+        .f th { background: ${BLUE}; font-weight: 700; text-align: center; }
+        .f thead { display: table-header-group; }
+        .f tr { break-inside: avoid; }
+        .c { text-align: center; } .r { text-align: right; font-variant-numeric: tabular-nums; } .b { font-weight: 700; }
+        .sub { display: block; font-size: 8px; font-weight: 400; color: #333; }
+      `} hint={<>{days.length} วัน ({days.length} แผ่น) — ในหน้าต่างพิมพ์ เลือก "Save as PDF"</>}>
+      
+      {days.map(({ date, rows }) => (
+        <DaySheet key={date} date={date} rows={rows} reports={queue} projectName={projectName} />
+      ))}
+    </PrintSheet>
+  );
+}
+
+function DaySheet({ date, rows, reports, projectName }: { date: string; rows: WorkDoneItem[]; reports: ReviewQueueRow[]; projectName: string }) {
+  // Header summary from the reports of the contractors on this sheet.
+  const codes = new Set(rows.map((r) => r.contractorCode));
+  const day = reports.filter((r) => r.reportDate === date && r.hasReport && codes.has(r.contractorCode));
+  const starts = day.map((r) => r.startTime).filter((t): t is string => Boolean(t)).sort();
+  const ends = day.map((r) => r.endTime).filter((t): t is string => Boolean(t)).sort();
+  const hours = Math.max(0, ...day.map((r) => r.workHours ?? 0));
+  const ot = Math.max(0, ...day.map((r) => r.otHours ?? 0));
+  const manpower = day.reduce((s, r) => s + (r.totalHeadcount || r.eveningHeadcount), 0);
+  const lines = Array.from({ length: Math.max(MIN_ROWS, rows.length) }, (_, i) => rows[i] ?? null);
+
+  return (
+    <Box className="sheet">
+      <table className="f">
+        <tbody>
+          <tr>
+            <td style={{ width: "24%" }} rowSpan={2}>
+              {/* logo-eps.png is a 447px square with the mark at x52–388, y184–260: crop the padding. */}
+              <div style={{ width: 170, height: 38, overflow: "hidden", position: "relative" }}>
+                <img src="/brand/logo-eps.png" alt="EPS" style={{ position: "absolute", width: 226, height: 226, left: -26, top: -93 }} />
+              </div>
+              <div style={{ fontSize: 8 }}>บริษัทอีโค่ แพลนท์ เซอร์วิสเซส จำกัด</div>
+            </td>
+            <td className="c b" style={{ fontSize: 14, background: BLUE }} rowSpan={2}>
+              รายงานผลงานประจำวัน
+              <span className="sub" style={{ fontSize: 10 }}>(Daily Work Done Report)</span>
+            </td>
+            <td style={{ width: "26%" }}>
+              Date: <b>{thaiShortDate(date)}</b> ({dayjs(date).format("ddd D MMM YYYY")})
+            </td>
+          </tr>
+          <tr>
+            <td>Project: {projectName || "-"}</td>
+          </tr>
+        </tbody>
+      </table>
+      <table className="f" style={{ marginTop: -1 }}>
+        <tbody>
+          <tr>
+            <td>Time start: <b>{starts[0] ?? "-"}</b></td>
+            <td>Time finish: <b>{ends.at(-1) ?? "-"}</b></td>
+            <td>Working time: <b>{hours || "-"}</b> hr.</td>
+            <td>OT: <b>{ot || "-"}</b> hr.</td>
+            <td>Manpower: <b>{manpower || "-"}</b> คน</td>
+            <td>ผู้รับเหมา: <b>{codes.size}</b> ราย</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table className="f" style={{ marginTop: 4 }}>
+        <colgroup>
+          <col style={{ width: 44 }} />
+          <col />
+          <col style={{ width: 72 }} />
+          <col style={{ width: 72 }} />
+        </colgroup>
+        <thead>
+          <tr>
+            <th rowSpan={2}>
+              Items/<span className="sub">ลำดับที่</span>
+            </th>
+            <th rowSpan={2}>Description of work done</th>
+            <th colSpan={2}>Qty of Works</th>
+          </tr>
+          <tr>
+            <th>
+              Plan<span className="sub">แผนงาน</span>
+            </th>
+            <th>
+              Actual<span className="sub">ทำได้จริง</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((r, i) => (
+            <tr key={r?.id ?? `blank-${i}`} style={{ height: 17 }}>
+              <td className="c">{i + 1}</td>
+              <td>{r ? `[${r.contractorCode}] ${r.workDescription} บริเวณ ${r.buildingName}` : ""}</td>
+              <td className="r">{r ? pct(r.planPercent) : ""}</td>
+              <td className="r" style={{ color: r && r.planPercent !== null && r.actualPercent !== null && r.actualPercent < r.planPercent ? "#b45309" : undefined }}>
+                {r ? pct(r.actualPercent) : ""}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Signatures: left blank for wet signatures */}
+      <table className="f" style={{ marginTop: -1, breakInside: "avoid" }}>
+        <tbody>
+          <tr>
+            <td colSpan={2} className="c b" style={{ background: BLUE }}>
+              EPC
+            </td>
+            <td className="c b" style={{ background: BLUE }}>
+              OWNER ENGINEER
+            </td>
+          </tr>
+          <tr>
+            <td className="b">PREPARED BY : EPS</td>
+            <td className="b">CHECKED BY : EPS</td>
+            <td className="b">APPROVED BY :</td>
+          </tr>
+          <tr style={{ height: 46 }}>
+            {[0, 1, 2].map((k) => (
+              <td key={k} style={{ verticalAlign: "bottom" }}>
+                Signature ..........................................
+                <br />
+                Name ...............................................
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+      <div style={{ fontSize: 8, textAlign: "right", color: "#555", marginTop: 2 }}>STS Daily Report · พิมพ์เมื่อ {dayjs().format("D/M/YYYY HH:mm")}</div>
+    </Box>
+  );
+}
