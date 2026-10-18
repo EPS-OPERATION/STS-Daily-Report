@@ -1,9 +1,11 @@
 import { getEnv } from "@/config/env.js";
 import { closeDb } from "@/db/client.js";
+import { flushSentry, initSentry } from "@/observability/sentry.js";
 import { buildApp } from "./app.js";
 import { startWeatherCron } from "@/modules/weather/index.js";
 
 const env = getEnv();
+initSentry(env);
 const app = buildApp();
 
 app.listen(env.API_PORT, () => {
@@ -20,7 +22,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     if (stopping) return;
     stopping = true;
     console.log(`${signal} received, shutting down`);
-    void app.stop().finally(() => closeDb().finally(() => process.exit(0)));
+    void app.stop().finally(() => closeDb().finally(() => flushSentry().finally(() => process.exit(0))));
   });
 }
 

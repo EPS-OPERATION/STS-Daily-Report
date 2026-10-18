@@ -5,6 +5,11 @@ const boolFromString = z
   .transform((v) => v === true || v === "true" || v === "1")
   .pipe(z.boolean());
 
+// A blank `NAME=` line counts as unset.
+const blankToUndefined = (v: unknown) => (typeof v === "string" && v.trim() === "" ? undefined : v);
+const optionalText = z.preprocess(blankToUndefined, z.string().trim().min(1).optional());
+const optionalUrl = z.preprocess(blankToUndefined, z.string().trim().url().optional());
+
 export const apiEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_PORT: z.coerce.number().int().positive().default(3000),
@@ -36,6 +41,12 @@ export const apiEnvSchema = z.object({
   // Bearer secret for POST /api/v1/internal/weather/sync (external schedulers); unset = endpoint off.
   // A blank `CRON_SECRET=` line counts as unset.
   CRON_SECRET: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().trim().min(16).optional()),
+  // Optional error reporting to any Sentry-protocol server (Sentry, GlitchTip, Bugsink). Unset = off.
+  SENTRY_DSN: optionalUrl,
+  SENTRY_ENVIRONMENT: optionalText,
+  SENTRY_RELEASE: optionalText,
+  // Optional dead-man's-switch (Healthchecks.io style): pinged after each successful hourly weather sync, `<url>/fail` after a failed one.
+  WEATHER_HEARTBEAT_URL: optionalUrl,
   // Behind a trusted reverse proxy / Vercel: take the client IP from X-Forwarded-For (rate limits). Off when the API is exposed directly.
   TRUST_PROXY: boolFromString.default(false),
   // Canonical URL for links; WEB_ORIGIN may contain multiple CORS origins.

@@ -3,6 +3,7 @@ import { coordinationRoutes } from "@/modules/site-coordination/index.js";
 import { Elysia } from "elysia";
 import { API_PREFIX, HEALTH_PATH } from "@/config/constants.js";
 import { getEnv } from "@/config/env.js";
+import { dbIsReady } from "@/db/health.js";
 import { isPublicApi } from "@/config/public-api.js";
 import { authRoutes } from "@/auth/index.js";
 import { buildingRoutes } from "@/modules/buildings/index.js";
@@ -48,6 +49,12 @@ export function buildApp() {
       if (!(await resolveAuthIdentity(token))) throw new AuthRequiredError();
     })
     .get(HEALTH_PATH, () => ({ status: "ok" }))
+    // Readiness for uptime monitors: 503 when Postgres is unreachable (liveness above never touches it).
+    .get(`${HEALTH_PATH}/ready`, async ({ set }) => {
+      const ready = await dbIsReady();
+      set.status = ready ? 200 : 503;
+      return { status: ready ? "ok" : "unavailable", db: ready ? "ok" : "down" };
+    })
     .group(API_PREFIX, (group) =>
       group.use(weatherCronRoutes).use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(reportSummaryRoutes).use(dailyRequestRoutes).use(inspectionRequestRoutes).use(safetyRoutes).use(coordinationRoutes).use(droneRoutes).use(reportStandardItemRoutes).use(weatherRoutes),
     )

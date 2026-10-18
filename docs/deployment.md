@@ -73,7 +73,7 @@ are **not published**; `migrate` is a one-shot that runs before the API.
    docker compose --env-file .env.prod -f compose.prod.yml exec -e EPS_BOOTSTRAP_EMAIL=you@company.com -e EPS_BOOTSTRAP_PASSWORD='...' api bun scripts/bootstrap-admin.ts
    ```
 5. Backups: `scripts/backup.sh [dir] [keep_days]` writes a `pg_dump` (custom format) and a MinIO volume tarball. Run it from cron
-   and copy the directory **off the server**. Restore the database with
+   and send it **off the server** (encrypted, with restic: §4; without `.env.backup` the files stay on the box). Restore the database with
    `docker compose ... exec -T postgres pg_restore -U sts -d sts --no-owner --clean --if-exists < sts-<stamp>.dump`
    (verified on a scratch database: identical row counts).
 6. Updates: `git pull && docker compose --env-file .env.prod -f compose.prod.yml up -d --build` (migrations run automatically).
@@ -103,3 +103,63 @@ Cut-over:
 3. Switch env: `DATABASE_URL` (new host), `STORAGE_PROVIDER=minio` + `MINIO_*`, `WEATHER_CRON=true`; delete the `pg_cron` job.
 4. Rehearse once on a copy, then freeze writes briefly for the final dump (small database: minutes). Users keep their
    passwords; sessions can simply be re-created by logging in again.
+
+## 4. Monitoring and backups
+Everything here is optional in code (blank = off), but production should have all of it. Test each piece by hand once before trusting it.
+
+### Uptime (outside the server)
+Create an HTTP monitor in an external service (UptimeRobot, Better Stack, ...) on `https://<APP_DOMAIN>/health/ready` every 5 minutes: it answers
+`200 {"status":"ok","db":"ok"}`, or `503` when Postgres is unreachable (`/health` is only liveness and never touches the database).
+Add a second monitor on the web root. Run the monitor somewhere other than this server, or it goes down with it. Read the plan's terms
+before using a free tier for work.
+
+### Error tracking
+The API and the web app report to any Sentry-protocol server (Sentry, GlitchTip, Bugsink): change the DSN, not the code.
+
+| Where | Variable | Notes |
+|---|---|---|
+| API | `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE` | runtime; blank = off |
+| Web | `VITE_SENTRY_DSN`, `VITE_SENTRY_ENVIRONMENT` | **build time**: Vercel env vars, or `SENTRY_WEB_DSN` in `.env.prod`; rebuild after changing |
+| Web CSP | `SENTRY_CSP_ORIGIN` (VPS) / `connect-src` in `vercel.json` (Vercel) | the tracker's origin, e.g. `https://errors.example.com` |
+
+- The API reports unexpected failures only (the ones that become a 500). Expected errors (401/403/404/409/validation) are not reported. The same
+  failures are always written to the process log with method and path (never the query string), so `docker compose logs api` shows them too.
+- The web app reports the route error screen and any uncaught error. Dropped on purpose: cookies, request bodies, auth headers, the user, and every
+  query string (reset-password links carry a token). Flaky-network `Failed to fetch` errors from phones are ignored; a failed dynamic import is not.
+- Auth routes report only the error type. On other routes a database error message can contain a row value; use a tracker you host if that matters.
+- Web stack traces stay minified (no source-map upload is set up).
+
+### Heartbeats (dead-man's switch)
+Create checks in Healthchecks.io (or any service with the same ping URLs: `<url>` = success, `<url>/start`, `<url>/fail`) and put the URLs in the env:
+
+| Check | Variable | Expected period |
+|---|---|---|
+| Hourly weather sync | `WEATHER_HEARTBEAT_URL` (API env) | hourly, grace 30 min. Pinged after each sync, `/fail` when a project failed; works with the in-process job and with `POST /internal/weather/sync` |
+| Backup | `HC_PING_URL` in `.env.backup` | as scheduled below, grace 2 h |
+| Restore drill | `HC_RESTORE_PING_URL` in `.env.backup` | monthly, grace 1 day |
+
+### Backups (VPS)
+`scripts/backup.sh` takes a `pg_dump` and the MinIO data. With `.env.backup` it also sends both, encrypted and incremental, to an S3-compatible bucket
+(Cloudflare R2, Backblaze B2, ...) using [restic](https://restic.net), prunes old snapshots (14 daily, 8 weekly, 6 monthly by default), checks the
+repository weekly and pings the heartbeat. Without it, the files stay on the server.
+
+1. On the server: install restic (`apt install restic`), create a private bucket and an access key limited to it.
+2. `cp .env.backup.example .env.backup`, fill it in (shell syntax: keep the quotes), and keep a copy of `RESTIC_PASSWORD` in the team password manager:
+   without it the backups cannot be read.
+3. Create the repository once: `set -a; . ./.env.backup; set +a; restic init`.
+4. Run `scripts/backup.sh` by hand and look at `restic snapshots`.
+5. Schedule it in the server's time zone (reports are entered in the morning and the evening, so twice a day is a sensible start):
+   ```cron
+   15 13,23 * * * cd /opt/sts && scripts/backup.sh >> /var/log/sts-backup.log 2>&1
+   30 3 1 * *     cd /opt/sts && scripts/restore-check.sh >> /var/log/sts-restore-check.log 2>&1
+   ```
+6. `scripts/restore-check.sh` restores the newest offsite dump into a throwaway Postgres container and prints row counts next to production.
+
+Restore after losing the server (new server with the stack from §2 running but empty):
+```sh
+set -a; . ./.env.backup; set +a
+restic restore latest --host sts --tag postgres --target /tmp/restore       # then pg_restore as in §2 step 5
+restic dump latest /minio-data.tar --host sts --tag minio | docker run --rm -i -v sts_miniodata:/data alpine tar xf - -C /data
+```
+Staging on Supabase Free has no backups at all (Pro: daily, 7 days). Until then, dump it yourself from time to time:
+`pg_dump --no-owner --no-privileges -Fc -f staging.dump "$MIGRATE_DATABASE_URL"`.

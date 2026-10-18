@@ -7,7 +7,8 @@
 	handle /api/* {
 		reverse_proxy api:3000
 	}
-	handle /health {
+	# /health = liveness, /health/ready = database check (what the uptime monitor should call).
+	handle /health* {
 		reverse_proxy api:3000
 	}
 	handle {

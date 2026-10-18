@@ -40,6 +40,7 @@ check "deep link /site-plan serves the SPA (no bad redirect)" "$(status "$WEB_BA
 
 echo "== api: $API_ORIGIN"
 check "GET /health" "$("${CURL[@]}" "$API_ORIGIN/health")" '"status":"ok"'
+check "GET /health/ready (database reachable)" "$("${CURL[@]}" "$API_ORIGIN/health/ready")" '"db":"ok"'
 check "GET /auth/config is public" "$(status "$API/auth/config")" "200"
 if [ "$EXPECT_AUTH" = "true" ]; then
   check "GET /projects without a session is refused" "$(status "$API/projects")" "401"

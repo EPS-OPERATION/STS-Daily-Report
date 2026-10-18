@@ -1,4 +1,5 @@
 import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
+import { useEffect } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
@@ -6,6 +7,7 @@ import Typography from "@mui/material/Typography";
 import { Link as RouterLink, isRouteErrorResponse, useNavigate, useRouteError } from "react-router-dom";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { SUPPORT_CONTACT } from "@/config.js";
+import { reportError } from "@/lib/error-reporting.js";
 
 // Shared route error UI (router `errorElement`): render errors, loader/action
 // failures. Standalone — never inside AppLayout, so it still renders when the
@@ -15,6 +17,10 @@ export function RouteErrorBoundary() {
   const navigate = useNavigate();
 
   const status = isRouteErrorResponse(error) ? error.status : null;
+  // Send the failure to the error tracker (no-op when none is configured); a missing page is not an error.
+  useEffect(() => {
+    if (status !== 404) reportError(error);
+  }, [error, status]);
   const title = status === 404 ? "Page not found" : "Something went wrong";
   const description =
     status === 404

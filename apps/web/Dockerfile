@@ -5,6 +5,11 @@ WORKDIR /app
 # Same-origin by default (reverse proxy routes /api to the API); pass a full URL to point elsewhere.
 ARG VITE_API_URL=/api/v1
 ENV VITE_API_URL=${VITE_API_URL}
+# Optional error reporting (Sentry-protocol DSN). Blank = off. Baked into the bundle at build time.
+ARG VITE_SENTRY_DSN=""
+ARG VITE_SENTRY_ENVIRONMENT=""
+ENV VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
+ENV VITE_SENTRY_ENVIRONMENT=${VITE_SENTRY_ENVIRONMENT}
 
 COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/package.json

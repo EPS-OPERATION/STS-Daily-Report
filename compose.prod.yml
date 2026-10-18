@@ -73,6 +73,10 @@ services:
       TRUST_PROXY: "true"
       WEATHER_CRON: "true"
       CRON_SECRET: ${CRON_SECRET:-}
+      # Optional monitoring (blank = off): error tracker DSN and a Healthchecks.io-style ping URL for the hourly weather job.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: production
+      WEATHER_HEARTBEAT_URL: ${WEATHER_HEARTBEAT_URL:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -90,6 +94,11 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         VITE_API_URL: /api/v1
+        VITE_SENTRY_DSN: ${SENTRY_WEB_DSN:-}
+        VITE_SENTRY_ENVIRONMENT: production
+    environment:
+      # The browser must be allowed to send reports to the tracker (CSP connect-src): its origin, e.g. https://errors.example.com
+      CSP_CONNECT_EXTRA: ${SENTRY_CSP_ORIGIN:-}
     restart: unless-stopped
 
   caddy:

@@ -280,4 +280,6 @@ select cron.schedule('sts-weather-hourly', '5 * * * *', $$
 $$);
 ```
 
+Set `WEATHER_HEARTBEAT_URL` (Healthchecks.io-style) to be alerted when the hourly job stops: it is pinged after every sync (`/fail` after a failed one).
+
 Reads also refresh data older than 30 minutes, so the chart never shows a gap even if a run is missed.

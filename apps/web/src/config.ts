@@ -6,10 +6,15 @@ const DEFAULT_API_URL = import.meta.env.MODE === "development" ? "http://localho
 
 const schema = z.object({
   VITE_API_URL: z.string().default(DEFAULT_API_URL),
+  // Optional error reporting (Sentry-protocol DSN). Blank = off. A DSN is public by design (it can only submit events).
+  VITE_SENTRY_DSN: z.string().default(""),
+  VITE_SENTRY_ENVIRONMENT: z.string().default(""),
 });
 
 const parsed = schema.safeParse({
   VITE_API_URL: import.meta.env["VITE_API_URL"] || undefined,
+  VITE_SENTRY_DSN: import.meta.env["VITE_SENTRY_DSN"] || undefined,
+  VITE_SENTRY_ENVIRONMENT: import.meta.env["VITE_SENTRY_ENVIRONMENT"] || undefined,
 });
 
 if (!parsed.success) {
@@ -21,4 +26,6 @@ export const SUPPORT_CONTACT = { tel: "092-5917878", email: "QAQCSystem01@scg.co
 
 export const config = {
   apiUrl: parsed.success ? parsed.data.VITE_API_URL : DEFAULT_API_URL,
+  sentryDsn: parsed.success ? parsed.data.VITE_SENTRY_DSN : "",
+  sentryEnvironment: parsed.success ? parsed.data.VITE_SENTRY_ENVIRONMENT : "",
 };
