@@ -20,6 +20,7 @@ import { sitePlanRoutes } from "@/modules/site-plans/index.js";
 import { zoneRoutes } from "@/modules/zones/index.js";
 import { userRoutes } from "@/modules/users/index.js";
 import { reportStandardItemRoutes } from "@/modules/report-standard-items/index.js";
+import { permitTypeRoutes } from "@/modules/permit-types/index.js";
 import { weatherCronRoutes, weatherRoutes } from "@/modules/weather/index.js";
 import { errorPlugin } from "@/plugins/errors.js";
 import { securityHeaders } from "@/plugins/security-headers.js";
@@ -56,7 +57,7 @@ export function buildApp() {
       return { status: ready ? "ok" : "unavailable", db: ready ? "ok" : "down" };
     })
     .group(API_PREFIX, (group) =>
-      group.use(weatherCronRoutes).use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(reportSummaryRoutes).use(dailyRequestRoutes).use(inspectionRequestRoutes).use(safetyRoutes).use(coordinationRoutes).use(droneRoutes).use(reportStandardItemRoutes).use(weatherRoutes),
+      group.use(weatherCronRoutes).use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(reportSummaryRoutes).use(dailyRequestRoutes).use(inspectionRequestRoutes).use(safetyRoutes).use(coordinationRoutes).use(droneRoutes).use(reportStandardItemRoutes).use(permitTypeRoutes).use(weatherRoutes),
     )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;

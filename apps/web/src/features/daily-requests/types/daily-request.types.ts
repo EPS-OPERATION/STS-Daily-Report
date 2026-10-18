@@ -120,3 +120,28 @@ export interface WeeklyBooking {
   buildingName: string;
   conflict: "conflict" | "possible" | null;
 }
+
+// EPS adds a permit the contractor left out (goes on that contractor's report for the date).
+export interface CreatePermitPayload {
+  contractorId: string;
+  targetDate: string;
+  buildingId: string;
+  permitType: PermitType;
+  otherLabel?: string | null;
+  workers: number;
+  highRisk: boolean;
+  taskName?: string | null;
+  supervisorName?: string | null;
+}
+
+// EPS fixes a permit; kept when the contractor re-sends the report.
+export interface UpdatePermitPayload {
+  targetDate?: string;
+  buildingId?: string;
+  permitType?: PermitType;
+  otherLabel?: string | null;
+  workers?: number;
+  highRisk?: boolean;
+  taskName?: string | null;
+  supervisorName?: string | null;
+}

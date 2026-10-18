@@ -1,5 +1,5 @@
 import { DISCIPLINE_CODES, addDays, allocationDayShares, overtimeTotals } from "@sts/shared";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import { dailyReportAllocations, dailyReportCrews, dailyReportEquipment, dailyReportEquipmentRequests, dailyReportForecasts, dailyReportMachinery, dailyReportMaterials, dailyReportOvertime, dailyReportPermits, dailyReportPositions, dailyReportRoadUsage, dailyReports, inspectionRequests } from "@/db/schema/index.js";
 import { listAdjustedRoads } from "@/modules/daily-requests/daily-request.repository.js";
@@ -93,7 +93,28 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
       .delete(dailyReportCrews)
       .where(and(eq(dailyReportCrews.reportId, reportId), eq(dailyReportCrews.shift, "morning")));
     await tx.delete(dailyReportEquipment).where(eq(dailyReportEquipment.reportId, reportId));
-    await tx.delete(dailyReportPermits).where(eq(dailyReportPermits.reportId, reportId));
+    // Permits EPS added or edited stay; the contractor's copy of the same permit (building + type) is dropped.
+    const epsPermits = await tx
+      .select({ buildingId: dailyReportPermits.buildingId, permitType: dailyReportPermits.permitType, otherLabel: dailyReportPermits.otherLabel })
+      .from(dailyReportPermits)
+      .where(
+        and(
+          eq(dailyReportPermits.reportId, reportId),
+          or(eq(dailyReportPermits.epsAdded, true), isNotNull(dailyReportPermits.epsEditedAt)),
+        ),
+      );
+    const permitKey = (p: { buildingId: string; permitType: string; otherLabel?: string | null }) =>
+      `${p.buildingId}|${p.permitType}|${p.permitType === "other" ? (p.otherLabel ?? "").trim().toLowerCase() : ""}`;
+    const keptPermits = new Set(epsPermits.map(permitKey));
+    await tx
+      .delete(dailyReportPermits)
+      .where(
+        and(
+          eq(dailyReportPermits.reportId, reportId),
+          eq(dailyReportPermits.epsAdded, false),
+          sql`${dailyReportPermits.epsEditedAt} IS NULL`,
+        ),
+      );
 
     const morning = crewRows(reportId, "morning", input.crews);
     await tx.insert(dailyReportCrews).values(morning.crews);
@@ -103,9 +124,10 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
         .insert(dailyReportEquipment)
         .values(input.equipment.map((e) => ({ reportId, equipmentType: e.equipmentType.trim(), qty: e.qty })));
     }
-    if (input.permits && input.permits.length > 0) {
+    const contractorPermits = (input.permits ?? []).filter((p) => !keptPermits.has(permitKey(p)));
+    if (contractorPermits.length > 0) {
       await tx.insert(dailyReportPermits).values(
-        input.permits.map((p) => ({
+        contractorPermits.map((p) => ({
           reportId,
           targetDate: input.date,
           buildingId: p.buildingId,

@@ -11,8 +11,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { ISO_DATE } from "../components/print-shared.js";
 import { PrintStyles } from "../components/print-shared.js";
-import { FormSheet } from "../components/form-sheet.js";
-import { SummarySheet } from "../components/summary-sheet.js";
+import { ReportSheet } from "../components/summary-sheet.js";
 
 // Printable EPS "Daily Request & Report" (form R003/20260702) filled from the submitted
 // morning + evening data, plus a second page with what the paper form has no room for
@@ -63,8 +62,7 @@ export function DailyReportPrintPage() {
         </Typography>
       </Stack>
 
-      <FormSheet r={r} />
-      <SummarySheet r={r} />
+      <ReportSheet r={r} />
     </Box>
   );
 }
@@ -141,14 +139,13 @@ export function DailyReportsBatchPrintPage() {
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
         <Button onClick={() => window.print()}>Print / Save as PDF</Button>
         <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
-          {ids.length} รายงาน ({ids.length * 2} หน้า){failed > 0 ? ` · โหลดไม่สำเร็จ ${failed} รายงาน` : ""} — ในหน้าต่างพิมพ์ เลือก "Save as PDF"
+          {ids.length} รายงาน{failed > 0 ? ` · โหลดไม่สำเร็จ ${failed} รายงาน` : ""} — ในหน้าต่างพิมพ์ เลือก "Save as PDF"
         </Typography>
       </Stack>
       {reports.map((q) =>
         q.data ? (
           <Fragment key={q.data.data.id}>
-            <FormSheet r={q.data.data} />
-            <SummarySheet r={q.data.data} />
+            <ReportSheet r={q.data.data} />
           </Fragment>
         ) : null,
       )}

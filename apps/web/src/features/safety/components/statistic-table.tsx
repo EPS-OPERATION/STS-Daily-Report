@@ -20,6 +20,15 @@ export function periodLabel(from: string, to: string) {
   return `${f.format("D")}–${t.format("D MMM YYYY")}`;
 }
 
+// Status face by severity, on the year count. Serious rows (LTI, Emergency): any case = ☹️.
+// Other rows: 0 = 😊, 1–2 = 😐, 3+ = ☹️.
+const SERIOUS = new Set<string>(["lti", "emergency"]);
+function statusOf(code: string, yearCount: number) {
+  if (yearCount === 0) return { emoji: "😊", label: "good" };
+  if (SERIOUS.has(code) || yearCount >= 3) return { emoji: "☹️", label: "attention" };
+  return { emoji: "😐", label: "watch" };
+}
+
 const cell = { border: "1px solid #3a3a3a", padding: "6px 10px" } as const;
 
 // "STATISTIC" table of the EPS Safety Weekly Report (same layout on screen and in the PDF).
@@ -41,16 +50,19 @@ export function StatisticTable({ stats, compact }: { stats: SafetyStats; compact
       </thead>
       <tbody>
         {ACCIDENT_CATEGORIES.map((c, i) => {
-          const row = stats.categories.find((x) => x.code === c.code)!;
+          const row = stats.categories.find((x) => x.code === c.code);
+          const periodCount = row?.period ?? 0;
+          const yearCount = row?.year ?? 0;
+          const { emoji, label: ariaLabel } = statusOf(c.code, yearCount);
           return (
             <tr key={c.code}>
               <td style={{ color: GREEN, fontWeight: 600 }}>
                 {i + 1}. {c.label}
               </td>
-              <td style={{ textAlign: "center", color: row.period ? RED : INK, fontWeight: 700 }}>{row.period}</td>
-              <td style={{ textAlign: "center", color: row.year ? RED : INK, fontWeight: 700 }}>{row.year}</td>
-              <td style={{ textAlign: "center", fontSize: font + 4 }} aria-label={row.year ? "attention" : "good"}>
-                {row.year ? "😟" : "😊"}
+              <td style={{ textAlign: "center", color: periodCount > 0 ? RED : INK, fontWeight: 700 }}>{periodCount}</td>
+              <td style={{ textAlign: "center", color: yearCount > 0 ? RED : INK, fontWeight: 700 }}>{yearCount}</td>
+              <td style={{ textAlign: "center", fontSize: font + 4 }} aria-label={ariaLabel}>
+                {emoji}
               </td>
             </tr>
           );
@@ -81,6 +93,13 @@ export function StatisticTable({ stats, compact }: { stats: SafetyStats; compact
           </td>
         </tr>
       </tbody>
+      <tfoot>
+        <tr>
+          <td colSpan={4} style={{ border: 0, padding: "4px 2px", fontSize: font - 2, color: "#555" }}>
+            Status (ตามจำนวนทั้งปี): 😊 ไม่มีเหตุ · 😐 Non-LTI / Property Damage / Near miss 1–2 ครั้ง · ☹️ 3 ครั้งขึ้นไป หรือมี LTI / Emergency แม้ 1 ครั้ง
+          </td>
+        </tr>
+      </tfoot>
     </Box>
   );
 }

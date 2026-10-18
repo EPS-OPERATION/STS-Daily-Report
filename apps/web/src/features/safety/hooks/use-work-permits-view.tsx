@@ -1,9 +1,12 @@
 import { useTheme } from "@mui/material/styles";
-import { type PermitType } from "@sts/shared";
+import { PERMIT_TYPES, isEpsStaff } from "@sts/shared";
 import dayjs, { type Dayjs } from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { addDaysIso, mondayOf, todayIso } from "@/lib/dates.js";
+import { useMe } from "@/features/auth/index.js";
 import { useDailyRequests } from "@/features/daily-requests/index.js";
+import { usePermitTypes, type PermitTypeItem } from "@/features/permit-types/index.js";
+import type { PermitEditItem } from "../components/permit-edit-dialog.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 
 
@@ -21,6 +24,17 @@ export function useWorkPermitsView({
 } = {}) {
   const theme = useTheme();
   const { projectId } = useCurrentProject();
+  const me = useMe();
+  const canEdit = isEpsStaff(me.data?.data.user.role);
+  // EPS: ✎ on a high-risk card / register row, ➕ to add a high-risk task on a day.
+  const [editingPermit, setEditingPermit] = useState<PermitEditItem | null>(null);
+  const [addingOn, setAddingOn] = useState<string | null>(null);
+  // Permit type tiles: EPS adds with the dashed ➕ tile and edits with ✎ (same pattern as the High-Risk cards).
+  // "new" = add, an item = edit. EPS also sees hidden types (faded) so they can be shown again.
+  const [typeDialog, setTypeDialog] = useState<PermitTypeItem | "new" | null>(null);
+  const { data: dynamicPermitTypes } = usePermitTypes(projectId, canEdit);
+  const permitTypesList: (PermitTypeItem | (typeof PERMIT_TYPES)[number])[] =
+    dynamicPermitTypes && dynamicPermitTypes.length > 0 ? dynamicPermitTypes : [...PERMIT_TYPES];
 
   const todayStr = todayIso();
   const tomorrowStr = addDaysIso(todayStr, 1);
@@ -31,11 +45,11 @@ export function useWorkPermitsView({
 
   const [from, setFrom] = useState<Dayjs | null>(dayjs(defaultFrom ?? todayStr));
   const [to, setTo] = useState<Dayjs | null>(dayjs(defaultTo ?? todayStr));
-  const [type, setType] = useState<PermitType | "">("");
+  const [type, setType] = useState<string>("");
   const [building, setBuilding] = useState("");
   const [contractor, setContractor] = useState("");
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     if (defaultFrom) setFrom(dayjs(defaultFrom));
@@ -117,7 +131,7 @@ export function useWorkPermitsView({
   );
 
   const typeCounts = useMemo(() => {
-    const m = new Map<PermitType, number>();
+    const m = new Map<string, number>();
     for (const p of forTypeCounts) m.set(p.permitType, (m.get(p.permitType) ?? 0) + 1);
     return m;
   }, [forTypeCounts]);
@@ -149,6 +163,14 @@ export function useWorkPermitsView({
   return {
     theme,
     projectId,
+    canEdit,
+    editingPermit,
+    setEditingPermit,
+    addingOn,
+    setAddingOn,
+    typeDialog,
+    setTypeDialog,
+    permitTypesList,
     todayStr,
     tomorrowStr,
     mondayStr,

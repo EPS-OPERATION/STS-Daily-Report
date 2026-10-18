@@ -280,14 +280,15 @@ export const dailyReportPermits = pgTable(
     highRisk: boolean("high_risk").notNull().default(false),
     taskName: text("task_name"),
     supervisorName: text("supervisor_name"),
+    // EPS fixes: a permit EPS added (shown even before the contractor sends the report) or edited.
+    // Both are kept when the contractor re-sends the morning report.
+    epsAdded: boolean("eps_added").notNull().default(false),
+    epsEditedAt: timestamp("eps_edited_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check("daily_report_permits_workers_check", sql`${t.workers} > 0`),
-    check(
-      "daily_report_permits_type_check",
-      sql`${t.permitType} IN ('hot_work', 'height', 'lifting', 'loto', 'confined_space', 'live_electrical', 'other')`,
-    ),
+    check("daily_report_permits_type_check", sql`char_length(${t.permitType}) > 0`),
     index("daily_report_permits_report_idx").on(t.reportId),
     index("daily_report_permits_target_idx").on(t.targetDate),
   ],

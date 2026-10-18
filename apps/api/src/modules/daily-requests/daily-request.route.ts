@@ -2,8 +2,8 @@ import { Elysia } from "elysia";
 import { requireAuth } from "@/middleware/require-auth.js";
 import { ok } from "@/shared/http/response.js";
 import { dateRangeQuery, projectIdParams } from "@/shared/http/params.js";
-import { adjustRoadUsageService, dailyRequestsService } from "./daily-request.service.js";
-import { roadAdjustBody, roadUsageParams } from "./daily-request.schema.js";
+import { adjustRoadUsageService, createPermitService, dailyRequestsService, updatePermitService } from "./daily-request.service.js";
+import { permitCreateBody, permitParams, permitUpdateBody, roadAdjustBody, roadUsageParams } from "./daily-request.schema.js";
 
 export const dailyRequestRoutes = new Elysia()
   .get(
@@ -16,4 +16,18 @@ export const dailyRequestRoutes = new Elysia()
     "/projects/:projectId/daily-reports/road-usage/:id",
     async ({ params, body, auth }) => ok(await adjustRoadUsageService(auth, params.projectId, params.id, body)),
     { params: roadUsageParams, body: roadAdjustBody },
+  )
+  // EPS adds a permit / high-risk task the contractor left out, or fixes one.
+  .post(
+    "/projects/:projectId/daily-reports/permits",
+    async ({ params, body, auth, set }) => {
+      set.status = 201;
+      return ok(await createPermitService(auth, params.projectId, body));
+    },
+    { params: projectIdParams, body: permitCreateBody },
+  )
+  .patch(
+    "/projects/:projectId/daily-reports/permits/:id",
+    async ({ params, body, auth }) => ok(await updatePermitService(auth, params.projectId, params.id, body)),
+    { params: permitParams, body: permitUpdateBody },
   );

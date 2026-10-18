@@ -123,4 +123,42 @@ describe("Daily Report Business Logic Invariants", () => {
       expect(isValidWindow("10:00", "10:00")).toBe(false);
     });
   });
+
+  describe("Work Permit Validation Rules", () => {
+    function validatePermit(permit: {
+      permitType: string;
+      otherLabel?: string | null;
+      workers: number;
+      highRisk: boolean;
+      taskName?: string | null;
+      supervisorName?: string | null;
+    }): { valid: boolean; error?: string } {
+      if (permit.workers <= 0) return { valid: false, error: "Workers must be greater than 0" };
+      if (permit.permitType === "other" && !permit.otherLabel?.trim()) {
+        return { valid: false, error: "Describe the permit when type is Other" };
+      }
+      if (permit.highRisk && (!permit.taskName?.trim() || !permit.supervisorName?.trim())) {
+        return { valid: false, error: "High-risk work needs a task name and an EPS supervisor" };
+      }
+      return { valid: true };
+    }
+
+    it("requires otherLabel when permitType is other", () => {
+      expect(validatePermit({ permitType: "other", otherLabel: "", workers: 2, highRisk: false }).valid).toBe(false);
+      expect(validatePermit({ permitType: "other", otherLabel: "งานเชื่อมใต้น้ำ", workers: 2, highRisk: false }).valid).toBe(true);
+    });
+
+    it("requires taskName and supervisorName when highRisk is true", () => {
+      expect(validatePermit({ permitType: "hot_work", workers: 3, highRisk: true, taskName: "", supervisorName: "สุชิต" }).valid).toBe(false);
+      expect(validatePermit({ permitType: "hot_work", workers: 3, highRisk: true, taskName: "งานเชื่อมท่อ", supervisorName: "" }).valid).toBe(false);
+      expect(validatePermit({ permitType: "hot_work", workers: 3, highRisk: true, taskName: "งานเชื่อมท่อ", supervisorName: "สุชิต" }).valid).toBe(true);
+    });
+
+    it("enforces workers headcount > 0", () => {
+      expect(validatePermit({ permitType: "height", workers: 0, highRisk: false }).valid).toBe(false);
+      expect(validatePermit({ permitType: "height", workers: -1, highRisk: false }).valid).toBe(false);
+      expect(validatePermit({ permitType: "height", workers: 5, highRisk: false }).valid).toBe(true);
+    });
+  });
 });
+

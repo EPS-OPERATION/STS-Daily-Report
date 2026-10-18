@@ -33,7 +33,7 @@ import { QaqcSection } from "../components/qaqc-section.js";
 // same date range. Road bookings that clash between contractors are flagged red (warn only).
 export function TodayRequestsPage() {
   const ed = useTodayRequests();
-  const { view, from, to, isRange, week, rfi, data, allCodes, selectedCodes, machines, equipment, roads, inspections, loadError, forecasts, requestSections, shownDays, selectedDay, dayIndex, setDay, filterItems, setContractors, clashingRoads, rangeLabel, setView, setRange } = ed;
+  const { view, from, to, isRange, week, rfi, data, allCodes, selectedCodes, machines, equipment, hasMachines, hasEquipment, roads, inspections, loadError, forecasts, requestSections, shownDays, selectedDay, dayIndex, setDay, filterItems, setContractors, clashingRoads, rangeLabel, setView, setRange } = ed;
 
   return (
     <Box>
@@ -113,7 +113,9 @@ export function TodayRequestsPage() {
             </Alert>
           ) : null}
           <Typography variant="body2" color="text.secondary">
-            {machines.length} machine · {equipment.length} equipment · {roads.length} road · {inspections.length} RFI
+            {[hasMachines && `${machines.length} machine`, hasEquipment && `${equipment.length} equipment`, `${roads.length} road`, `${inspections.length} RFI`]
+              .filter(Boolean)
+              .join(" · ")}
           </Typography>
           <DayOverview ed={ed} />
           {isRange && shownDays.length > 0 ? (
@@ -132,9 +134,9 @@ export function TodayRequestsPage() {
             </Stack>
           ) : null}
 
-          <MachineSection ed={ed} />
+          {hasMachines ? <MachineSection ed={ed} /> : null}
 
-          <EquipmentSection ed={ed} />
+          {hasEquipment ? <EquipmentSection ed={ed} /> : null}
 
           <RoadSection ed={ed} />
 

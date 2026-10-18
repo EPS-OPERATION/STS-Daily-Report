@@ -1,0 +1,2 @@
+ALTER TABLE "daily_report_permits" ADD COLUMN "eps_added" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "daily_report_permits" ADD COLUMN "eps_edited_at" timestamp with time zone;

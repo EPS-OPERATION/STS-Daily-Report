@@ -13,7 +13,8 @@ type Rows = {
 // Print / CSV: every request in the range for the chosen contractors, one table per kind.
 export function buildRequestSections({ machines, equipment, roads, inspections, contractorNames }: Rows): ExportSection[] {
   const who = (r: { contractorCode: string; contractorName?: string }) => `${r.contractorCode} ${r.contractorName ?? contractorNames.get(r.contractorCode) ?? ""}`.trim();
-  return [
+  // Machine/equipment sheets only when there are such (older) requests in range.
+  const sections: ExportSection[] = [
     { title: "เครื่องจักร (Machinery)", head: ["วันที่", "ผู้รับเหมา", "เครื่องจักร", "หมายเลข", "เวลา", "พื้นที่", "วัตถุประสงค์"],
       rows: machines.map((m) => [m.targetDate, who(m), m.machineType, m.unitTag, m.startTime && m.endTime ? `${m.startTime}–${m.endTime}` : "ทั้งวัน", `${m.buildingCode} ${m.buildingName}`, m.purpose]) },
     { title: "อุปกรณ์ (Equipment)", head: ["วันที่", "ผู้รับเหมา", "อุปกรณ์", "จำนวน", "พื้นที่", "วัตถุประสงค์"],
@@ -23,4 +24,5 @@ export function buildRequestSections({ machines, equipment, roads, inspections, 
     { title: "QAQC (ขอตรวจ)", head: ["วันที่ตรวจ", "เวลา", "ผู้รับเหมา", "ประเภท", "งาน", "พื้นที่", "สถานะ", "ผล"],
       rows: inspections.map((i) => [i.inspectionDate, i.inspectionTime, who(i), i.inspectionType, i.workItem, [`${i.buildingCode} ${i.buildingName}`, i.location].filter(Boolean).join(" · "), i.status, i.result]) },
   ];
+  return sections.filter((x, i) => i > 1 || x.rows.length > 0);
 }

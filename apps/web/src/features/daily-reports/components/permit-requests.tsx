@@ -1,11 +1,12 @@
 import { PERMIT_TYPES, type PermitType } from "@sts/shared";
+import { getPermitIcon, usePermitTypes } from "@/features/permit-types/index.js";
 import { Controller, useFieldArray, useWatch, type Control } from "react-hook-form";
 import type { MorningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building } from "@/features/buildings/index.js";
 import { BuildingSelect } from "@/features/buildings/index.js";
 import { NumberStepper } from "./number-stepper.js";
 import { StandardItemsPanel, type StandardItem } from "@/features/report-standard-items/index.js";
-import { PERMIT_ICONS, permitLabel } from "@/features/daily-requests/index.js";
+import { permitLabel } from "@/features/daily-requests/index.js";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
@@ -43,18 +44,21 @@ export function PermitRequests({
 }) {
   const rows = useFieldArray({ control, name: "permits" });
   const permits = useWatch({ control, name: "permits" });
+  // Project permit types (EPS can add more); the built-in list until the project has its own.
+  const { data: dynamicPermitTypes } = usePermitTypes(projectId);
+  const permitTypesList = dynamicPermitTypes && dynamicPermitTypes.length > 0 ? dynamicPermitTypes : PERMIT_TYPES;
   return (
     <Box>
       <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1.5 }}>
-        {PERMIT_TYPES.map((p) => {
-          const Icon = PERMIT_ICONS[p.code];
+        {permitTypesList.map((p) => {
+          const Icon = getPermitIcon("iconKey" in p ? p.iconKey : p.code);
           return (
             <Chip
               key={p.code}
               icon={<Icon style={{ fontSize: 16 }} />}
               label={p.label}
               variant="outlined"
-              onClick={() => rows.append({ permitType: p.code, otherLabel: "", buildingId: "", workers: 1, highRisk: false, taskName: "", supervisorName: "" })}
+              onClick={() => rows.append({ permitType: p.code as PermitType, otherLabel: "", buildingId: "", workers: 1, highRisk: false, taskName: "", supervisorName: "" })}
               sx={{ minHeight: 36 }}
             />
           );
@@ -74,7 +78,7 @@ export function PermitRequests({
               label: p.permitType === "other" ? (p.otherLabel ?? "").trim() : permitLabel(p.permitType),
               buildingId: p.buildingId,
               defaultCount: p.workers,
-              permitType: p.permitType,
+              permitType: p.permitType as PermitType,
               highRisk: p.highRisk,
               taskName: p.taskName?.trim() ?? "",
               supervisorName: p.supervisorName?.trim() ?? "",
@@ -83,7 +87,7 @@ export function PermitRequests({
       />
       <Stack spacing={1.5}>
         {rows.fields.map((row, i) => (
-          <PermitRow key={row.id} index={i} control={control} buildings={buildings} onRemove={() => rows.remove(i)} />
+          <PermitRow key={row.id} index={i} control={control} buildings={buildings} permitTypesList={permitTypesList} onRemove={() => rows.remove(i)} />
         ))}
       </Stack>
     </Box>
@@ -94,11 +98,13 @@ export function PermitRow({
   index,
   control,
   buildings,
+  permitTypesList = PERMIT_TYPES,
   onRemove,
 }: {
   index: number;
   control: Control<MorningFormValues>;
   buildings: Building[];
+  permitTypesList?: readonly { code: string; label: string; labelTh?: string; iconKey?: string }[];
   onRemove: () => void;
 }) {
   const type = useWatch({ control, name: `permits.${index}.permitType` }) as PermitType;
@@ -107,8 +113,8 @@ export function PermitRow({
   // Same task name on several permits = one job on the Safety page (e.g. Lifting + Work at Height).
   const taskOptions = [...new Set(allPermits.filter((p, i) => i !== index && p.highRisk && p.taskName?.trim()).map((p) => p.taskName!.trim()))];
   const supervisorOptions = [...new Set(allPermits.filter((p, i) => i !== index && p.supervisorName?.trim()).map((p) => p.supervisorName!.trim()))];
-  const meta = PERMIT_TYPES.find((p) => p.code === type);
-  const Icon = PERMIT_ICONS[type] ?? PERMIT_ICONS.other;
+  const meta = permitTypesList.find((p) => p.code === type);
+  const Icon = getPermitIcon(meta?.iconKey ?? type);
   return (
     <Card variant="outlined" sx={{ borderColor: highRisk ? "error.main" : "warning.main", borderWidth: highRisk ? 2 : 1 }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>

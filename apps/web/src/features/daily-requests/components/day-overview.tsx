@@ -13,7 +13,7 @@ import dayjs from "dayjs";
 import type { UseTodayRequestsState } from "../hooks/use-today-requests.js";
 
 export function DayOverview({ ed }: { ed: UseTodayRequestsState }) {
-  const { isRange, clashOnly, setClashOnly, dayRows, shownDays, selectedDay, setDay } = ed;
+  const { isRange, clashOnly, setClashOnly, dayRows, shownDays, selectedDay, setDay, hasMachines, hasEquipment } = ed;
   if (!isRange) return null;
   return (
     <Frame>
@@ -36,8 +36,8 @@ export function DayOverview({ ed }: { ed: UseTodayRequestsState }) {
             <TableHead>
               <TableRow>
                 <TableCell>วันที่</TableCell>
-                <TableCell align="right">เครื่องจักร</TableCell>
-                <TableCell align="right">เครื่องมือ</TableCell>
+                {hasMachines ? <TableCell align="right">เครื่องจักร</TableCell> : null}
+                {hasEquipment ? <TableCell align="right">เครื่องมือ</TableCell> : null}
                 <TableCell align="right">ถนน</TableCell>
                 <TableCell align="right">ชนกัน</TableCell>
                 <TableCell align="right">RFI</TableCell>
@@ -58,8 +58,8 @@ export function DayOverview({ ed }: { ed: UseTodayRequestsState }) {
                   sx={{ cursor: "pointer", fontVariantNumeric: "tabular-nums" }}
                 >
                   <TableCell>{dayjs(d.date).format("ddd D MMM")}</TableCell>
-                  <TableCell align="right">{d.machines}</TableCell>
-                  <TableCell align="right">{d.equipment}</TableCell>
+                  {hasMachines ? <TableCell align="right">{d.machines}</TableCell> : null}
+                  {hasEquipment ? <TableCell align="right">{d.equipment}</TableCell> : null}
                   <TableCell align="right">{d.roads}</TableCell>
                   <TableCell align="right">
                     {d.clashes > 0 ? <StatusChip status="blocked" label={String(d.clashes)} /> : "—"}

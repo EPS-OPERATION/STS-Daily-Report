@@ -22,13 +22,13 @@ export function PrintStyles() {
     <style>{`
         @page { size: A4 portrait; margin: 8mm; }
         @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-        .sheet { break-after: page; font-size: 10px; line-height: 1.25; }
+        .sheet { break-after: page; font-size: 12px; line-height: 1.3; }
         .sheet:last-child { break-after: auto; }
         .f { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .f td, .f th { border: 1px solid #222; padding: 2px 4px; vertical-align: middle; overflow-wrap: anywhere; }
         .f th { background: ${BLUE}; font-weight: 700; text-align: center; }
         .c { text-align: center; } .b { font-weight: 700; } .blue { background: ${BLUE}; }
-        .photo { height: 78px; object-fit: cover; width: 100%; display: block; }
+        .photo { height: 96px; object-fit: cover; width: 100%; display: block; }
         .gap { height: 6px; }
       `}</style>
   );
@@ -36,7 +36,7 @@ export function PrintStyles() {
 
 export function Heading({ children }: { children: React.ReactNode }) {
   return (
-    <div className="b" style={{ margin: "8px 0 3px", fontSize: 11, borderBottom: "1.5px solid #0B4D8B", color: "#0B4D8B" }}>
+    <div className="b" style={{ margin: "10px 0 4px", fontSize: 14, borderBottom: "1.5px solid #0B4D8B", color: "#0B4D8B" }}>
       {children}
     </div>
   );

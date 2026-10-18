@@ -81,6 +81,9 @@ export function useTodayRequests() {
   const keep = (r: { contractorCode: string }) => selectedCodes.has(r.contractorCode);
   const machines = allMachines.filter(keep);
   const equipment = allEquipment.filter(keep);
+  // The evening form no longer asks for machines/equipment: their blocks only show when older requests fall in range.
+  const hasMachines = machines.length > 0;
+  const hasEquipment = equipment.length > 0;
   const roads = allRoads.filter(keep);
   // In a range every row needs its date; one day stays uncluttered.
   const dayCol = (_d: string): ReactNode[] => [];
@@ -176,6 +179,8 @@ export function useTodayRequests() {
     keep,
     machines,
     equipment,
+    hasMachines,
+    hasEquipment,
     roads,
     dayCol,
     dayHead,

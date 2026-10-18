@@ -1,9 +1,12 @@
-import { and, asc, between, eq, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, between, eq, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { Db, QueryDb } from "@/db/client.js";
 import { reportSent } from "@/db/report-filters.js";
 import { buildings, contractors, dailyReportEquipmentRequests, dailyReportForecasts, dailyReportMachinery, dailyReportPermits, dailyReportRoadUsage, dailyReports, users } from "@/db/schema/index.js";
 import type { AdjustedRoadRequest } from "./daily-request.road.js";
 import type { BookingRow, RoadRow } from "./daily-request.type.js";
+
+// A permit EPS added counts even when the contractor has not sent that day's report yet.
+const permitShown = or(reportSent, eq(dailyReportPermits.epsAdded, true));
 
 export async function listMachinery(db: Db, reportId: string) {
   return db
@@ -246,7 +249,7 @@ export async function listPermitsInRange(db: Db, projectId: string, from: string
     })
     .from(dailyReportPermits)
     .innerJoin(dailyReports, eq(dailyReportPermits.reportId, dailyReports.id))
-    .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReportPermits.targetDate, from, to)));
+    .where(and(eq(dailyReports.projectId, projectId), permitShown, between(dailyReportPermits.targetDate, from, to)));
 }
 
 // Tomorrow Forecast Activities raised by one report.
@@ -303,6 +306,8 @@ export async function listPermitDetailsInRange(db: Db, projectId: string, from: 
       highRisk: dailyReportPermits.highRisk,
       taskName: dailyReportPermits.taskName,
       supervisorName: dailyReportPermits.supervisorName,
+      epsAdded: dailyReportPermits.epsAdded,
+      epsEdited: isNotNull(dailyReportPermits.epsEditedAt),
       contractorId: dailyReports.contractorId,
       contractorCode: contractors.code,
       contractorName: contractors.name,
@@ -311,8 +316,80 @@ export async function listPermitDetailsInRange(db: Db, projectId: string, from: 
     .innerJoin(dailyReports, eq(dailyReportPermits.reportId, dailyReports.id))
     .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
     .innerJoin(buildings, eq(dailyReportPermits.buildingId, buildings.id))
-    .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReportPermits.targetDate, from, to)))
+    .where(and(eq(dailyReports.projectId, projectId), permitShown, between(dailyReportPermits.targetDate, from, to)))
     .orderBy(asc(dailyReportPermits.targetDate), asc(contractors.code));
+}
+
+export async function getPermitForProject(db: Db, projectId: string, id: string) {
+  const rows = await db
+    .select({
+      id: dailyReportPermits.id,
+      reportId: dailyReportPermits.reportId,
+      targetDate: dailyReportPermits.targetDate,
+      buildingId: dailyReportPermits.buildingId,
+      buildingCode: buildings.code,
+      buildingName: buildings.name,
+      permitType: dailyReportPermits.permitType,
+      otherLabel: dailyReportPermits.otherLabel,
+      workers: dailyReportPermits.workers,
+      highRisk: dailyReportPermits.highRisk,
+      taskName: dailyReportPermits.taskName,
+      supervisorName: dailyReportPermits.supervisorName,
+      contractorId: dailyReports.contractorId,
+      contractorCode: contractors.code,
+      contractorName: contractors.name,
+      projectId: dailyReports.projectId,
+    })
+    .from(dailyReportPermits)
+    .innerJoin(dailyReports, eq(dailyReportPermits.reportId, dailyReports.id))
+    .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
+    .innerJoin(buildings, eq(dailyReportPermits.buildingId, buildings.id))
+    .where(and(eq(dailyReportPermits.id, id), eq(dailyReports.projectId, projectId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+// EPS edit: stamped so the contractor re-sending the morning report keeps it.
+export async function updatePermitRow(
+  db: Db,
+  id: string,
+  data: {
+    targetDate?: string;
+    buildingId?: string;
+    permitType?: string;
+    otherLabel?: string | null;
+    workers?: number;
+    highRisk?: boolean;
+    taskName?: string | null;
+    supervisorName?: string | null;
+  },
+) {
+  await db
+    .update(dailyReportPermits)
+    .set({ ...data, epsEditedAt: new Date() })
+    .where(eq(dailyReportPermits.id, id));
+}
+
+// EPS adds a permit to a contractor's report (the report row may still be a draft).
+export async function insertEpsPermitRow(
+  db: Db,
+  data: {
+    reportId: string;
+    targetDate: string;
+    buildingId: string;
+    permitType: string;
+    otherLabel: string | null;
+    workers: number;
+    highRisk: boolean;
+    taskName: string | null;
+    supervisorName: string | null;
+  },
+) {
+  const [row] = await db
+    .insert(dailyReportPermits)
+    .values({ ...data, epsAdded: true, epsEditedAt: new Date() })
+    .returning({ id: dailyReportPermits.id });
+  return row!.id;
 }
 
 // EPS time change: only the adjusted window is written; the contractor's request stays in start/end.
