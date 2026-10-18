@@ -2513,6 +2513,8 @@
             "highRisk": true,
             "taskName": "Welding",
             "supervisorName": "QA Sup",
+            "epsAdded": false,
+            "epsEdited": false,
             "contractorId": "u3",
             "contractorCode": "<qa>",
             "contractorName": "Snapshot QA contractor <qa>"
