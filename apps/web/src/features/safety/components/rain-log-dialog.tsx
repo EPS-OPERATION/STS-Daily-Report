@@ -6,7 +6,6 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -17,12 +16,8 @@ import dayjs from "dayjs";
 import { useEffect, useState, type ReactNode } from "react";
 import { addDaysIso, todayIso } from "@/features/daily-reports/index.js";
 import type { RainLogEntry, RainLogInput } from "../types/rain-log.types.js";
+import { TimeSelect } from "@/components/ui/time-select.js";
 
-// 24-hour clock in 15-minute steps across the working day (no AM/PM to get wrong on site).
-const TIMES = Array.from({ length: (21 - 5) * 4 + 1 }, (_, i) => {
-  const m = 5 * 60 + i * 15;
-  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-});
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const fromMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const nowSlot = () => {
@@ -136,12 +131,12 @@ export function RainLogDialog({ open, entry, projectId, onClose, onSave }: RainL
 
           <Step n={2} title="ฝนตก / หยุดงาน ช่วงเวลา">
             <Stack direction="row" spacing={1.5} alignItems="flex-start">
-              <TimeSelect label="เริ่ม" value={startTime} onChange={(v) => {
+              <TimeSelect label="เวลาเริ่ม" fullWidth={false} sx={{ width: 150 }} value={startTime} onChange={(v) => {
                 const keep = Math.max(15, windowMin);
                 setStartTime(v);
                 setEndTime(fromMin(Math.min(toMin("21:00"), toMin(v) + keep)));
               }} />
-              <TimeSelect label="หยุดถึง" value={endTime} onChange={setEndTime} error={valid ? undefined : "ต้องหลังเวลาเริ่ม"} />
+              <TimeSelect label="เวลาสิ้นสุด" fullWidth={false} sx={{ width: 150 }} value={endTime} onChange={setEndTime} after={startTime} error={!valid} helperText={valid ? undefined : "ต้องหลังเวลาเริ่ม"} />
             </Stack>
           </Step>
 
@@ -211,16 +206,3 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   );
 }
 
-function TimeSelect({ label, value, onChange, error }: { label: string; value: string; onChange: (v: string) => void; error?: string }) {
-  const options = TIMES.includes(value) ? TIMES : [...TIMES, value].sort();
-  return (
-    <TextField select size="small" label={label} value={value} onChange={(e) => onChange(e.target.value)} error={Boolean(error)} helperText={error} sx={{ width: 140 }}
-      slotProps={{ select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 320 } } } } } }}>
-      {options.map((t) => (
-        <MenuItem key={t} value={t} sx={{ fontVariantNumeric: "tabular-nums" }}>
-          {t} น.
-        </MenuItem>
-      ))}
-    </TextField>
-  );
-}

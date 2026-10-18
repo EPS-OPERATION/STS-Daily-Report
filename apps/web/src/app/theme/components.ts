@@ -47,13 +47,71 @@ export const components: Components<Omit<Theme, "components">> = {
   MuiButton: {
     defaultProps: { variant: "contained", disableElevation: true },
     styleOverrides: {
-      root: { borderRadius: 6, fontWeight: 600 },
-      sizeMedium: { minHeight: 40 },
+      root: {
+        borderRadius: 6,
+        fontWeight: 600,
+        minHeight: 40,
+        height: 40,
+        boxSizing: "border-box",
+      },
+      sizeSmall: {
+        minHeight: 40,
+        height: 40,
+        padding: "0 14px",
+        fontSize: "0.875rem",
+      },
+      sizeMedium: {
+        minHeight: 40,
+        height: 40,
+        padding: "0 16px",
+        fontSize: "0.875rem",
+      },
+      sizeLarge: {
+        minHeight: 40,
+        height: 40,
+        padding: "0 20px",
+        fontSize: "0.9375rem",
+      },
     },
   },
-  // Small toggles sit in toolbars next to 40px date fields and buttons; keep them the same height.
+  MuiButtonGroup: {
+    styleOverrides: {
+      root: {
+        minHeight: 40,
+        height: 40,
+      },
+      grouped: {
+        minHeight: 40,
+        height: 40,
+      },
+    },
+  },
+  // All toggle buttons and groups consistently 40px high alongside inputs and buttons
   MuiToggleButton: {
-    styleOverrides: { sizeSmall: { minHeight: 40 } },
+    styleOverrides: {
+      root: {
+        borderRadius: 6,
+        fontWeight: 600,
+        minHeight: 40,
+        height: 40,
+        boxSizing: "border-box",
+      },
+      sizeSmall: { minHeight: 40, height: 40 },
+      sizeMedium: { minHeight: 40, height: 40 },
+      sizeLarge: { minHeight: 40, height: 40 },
+    },
+  },
+  MuiToggleButtonGroup: {
+    styleOverrides: {
+      root: {
+        minHeight: 40,
+        height: 40,
+      },
+      grouped: {
+        minHeight: 40,
+        height: 40,
+      },
+    },
   },
   MuiIconButton: {
     styleOverrides: { root: { borderRadius: 8 } },

@@ -135,7 +135,7 @@ export function RainHistoryCompare({
           title="ข้อมูลจากการกรอกด้วย EPS (Actual)"
           note={`ฝนตกจนหยุดงานหน้างาน · ${logs.length} ครั้ง · หยุดงานรวม ${loggedHours} ชม.`}
           action={
-            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={onAdd} sx={{ whiteSpace: "nowrap" }}>
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={onAdd} sx={{ whiteSpace: "nowrap" }}>
               บันทึกฝนตก
             </Button>
           }

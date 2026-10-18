@@ -25,9 +25,9 @@ import {
   type MachineType,
   type PermitType,
 } from "@sts/shared";
-import { useState } from "react";
+import { TimeSelect } from "@/components/ui/time-select.js";
 import { Controller, useController, useFieldArray, useWatch, type Control } from "react-hook-form";
-import { RoadRoutePicker } from "./road-route-picker.js";
+import { RoadPickField, RoadPickMap, useRoadPick } from "./road-pick.js";
 import type { EveningFormValues, MorningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building, WeeklySummary } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
@@ -327,10 +327,20 @@ function RoadRow({
   onRemove: () => void;
 }) {
   const v = useWatch({ control, name: `roadUsage.${index}` });
-  const [picking, setPicking] = useState(false);
   const segmentIds = useController({ control, name: `roadUsage.${index}.segmentIds` });
   const route = useController({ control, name: `roadUsage.${index}.route` });
   const roadName = useController({ control, name: `roadUsage.${index}.roadLocation` });
+  const pickState = useRoadPick({
+    projectId: ctx.projectId,
+    date: ctx.targetDate,
+    segmentIds: segmentIds.field.value,
+    onChange: (p) => {
+      segmentIds.field.onChange(p.segmentIds);
+      route.field.onChange(p.route);
+      roadName.field.onChange(p.name);
+    },
+  });
+  const hasRegister = pickState.hasRegister;
   const knownRoads = [...new Set((ctx.others?.roads ?? []).map((r) => r.roadLocation))];
   const clashes = (ctx.others?.roads ?? []).filter(
     (r) =>
@@ -344,8 +354,14 @@ function RoadRow({
   return (
     <Card variant="outlined" sx={{ borderColor: clashes.length ? "error.main" : "divider" }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems="flex-start">
+        <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
         <Grid container spacing={1.5}>
-          <Grid size={{ xs: 10, sm: 11 }}>
+          <Grid size={12} sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+            {hasRegister ? (
+              <RoadPickField state={pickState} error={roadName.fieldState.error?.message} />
+            ) : (
             <Controller
               name={`roadUsage.${index}.roadLocation`}
               control={control}
@@ -362,44 +378,16 @@ function RoadRow({
                 />
               )}
             />
+            )}
             <datalist id={`roads-${index}`}>
               {knownRoads.map((r) => (
                 <option key={r} value={r} />
               ))}
             </datalist>
-          </Grid>
-          <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "flex-end" }}>
-            <IconButton aria-label="Delete road request" onClick={onRemove}>
+            </Box>
+            <IconButton aria-label="Delete road request" onClick={onRemove} sx={{ flexShrink: 0, mt: 0.25 }}>
               <DeleteOutlineOutlinedIcon />
             </IconButton>
-          </Grid>
-          <Grid size={12}>
-            {/* Where on the map: register segments in driving order, or a temporary road drawn by hand. */}
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-              <Button size="small" variant={route.field.value ? "outlined" : "contained"} disableElevation startIcon={<AddRoadOutlinedIcon />} onClick={() => setPicking(true)}>
-                {route.field.value ? "แก้เส้นทางบนแผนที่" : "เลือกเส้นทางบนแผนที่"}
-              </Button>
-              <Typography variant="caption" color={route.field.value ? "text.primary" : "text.secondary"}>
-                {route.field.value
-                  ? segmentIds.field.value.length ? `${segmentIds.field.value.length} ช่วงจากทะเบียนถนน · มีลูกศรบอกทาง` : "ถนนชั่วคราว (วาดเอง)"
-                  : "ยังไม่ได้ระบุบนแผนที่"}
-              </Typography>
-            </Stack>
-            {picking ? (
-              <RoadRoutePicker
-                open
-                projectId={ctx.projectId}
-                date={ctx.targetDate}
-                color="#0B4D8B"
-                initial={{ segmentIds: segmentIds.field.value, route: route.field.value }}
-                onClose={() => setPicking(false)}
-                onApply={(c) => {
-                  segmentIds.field.onChange(c.segmentIds);
-                  route.field.onChange(c.route);
-                  if (c.name) roadName.field.onChange(c.name);
-                }}
-              />
-            ) : null}
           </Grid>
           <Grid size={12}>
             <Controller
@@ -428,6 +416,13 @@ function RoadRow({
             <TimeWindow control={control} base={`roadUsage.${index}`} order={5} />
           </Box>
         </Grid>
+        </Box>
+        {hasRegister ? (
+          <Box sx={{ width: { xs: "100%", md: 360 }, flexShrink: 0 }}>
+            <RoadPickMap state={pickState} route={route.field.value} />
+          </Box>
+        ) : null}
+        </Stack>
         {clashes.length ? (
           <ClashNote severe>
             ถนนนี้ถูกขอใช้ช่วงเวลาเดียวกัน: {clashes.map((r) => `${r.contractorCode} ${r.startTime}–${r.endTime} (${r.purpose})`).join(", ")}
@@ -650,23 +645,21 @@ function TimeWindow({
   base: `machinery.${number}` | `roadUsage.${number}`;
   order?: number;
 }) {
+  const start = useWatch({ control, name: `${base}.startTime` }) as string | undefined;
   return (
     <>
       {(["startTime", "endTime"] as const).map((k) => (
-        <Grid key={k} size={{ xs: 6, sm: 3 }} order={order ? { sm: order } : undefined}>
+        <Grid key={k} size={6} order={order ? { sm: order } : undefined}>
           <Controller
             name={`${base}.${k}`}
             control={control}
             render={({ field, fieldState }) => (
-              <TextField
-                value={field.value as string}
+              <TimeSelect
+                label={k === "startTime" ? "เวลาเริ่ม" : "เวลาสิ้นสุด"}
+                value={(field.value as string) ?? ""}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
-                type="time"
-                label={k === "startTime" ? "Start" : "End"}
-                size="small"
-                fullWidth
-                slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 900 } }}
+                after={k === "endTime" ? start : undefined}
                 error={Boolean(fieldState.error)}
                 helperText={fieldState.error?.message}
               />

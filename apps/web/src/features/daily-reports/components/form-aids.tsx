@@ -28,10 +28,10 @@ export function DraftBanner({ savedAt, onRestore, onDiscard }: { savedAt: string
         บันทึกไว้ในเครื่องนี้ {timeOf(savedAt)}
       </Typography>
       <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-        <Button variant="contained" size="small" disableElevation onClick={onRestore} sx={{ minHeight: 36, whiteSpace: "nowrap" }}>
+        <Button variant="contained" disableElevation onClick={onRestore} sx={{ whiteSpace: "nowrap" }}>
           กรอกต่อจากร่าง
         </Button>
-        <Button color="inherit" size="small" onClick={onDiscard} sx={{ minHeight: 36, whiteSpace: "nowrap" }}>
+        <Button color="inherit" onClick={onDiscard} sx={{ whiteSpace: "nowrap" }}>
           ทิ้งร่าง
         </Button>
       </Stack>

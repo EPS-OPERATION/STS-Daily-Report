@@ -133,11 +133,13 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
     ? coordinationRouteClashes(data.items.map((i) => (working && i.id === working.id ? { ...i, ...working.input } : i)), data.map.width, data.map.height)
     : new Map<string, string[]>();
   const clashCodes = (id: string) => (clashes.get(id) ?? []).map(codeOf).filter(Boolean);
-  // Road requests for this day, drawn as arrows with the company and time (same filters as jobs).
+  // Road requests for this day with the company and time (same filters as jobs).
   const roadLines = display.roads ? (data?.roads ?? [])
     .filter((r) => !contractorIds || contractorIds.has(r.contractorId))
     .map((r) => ({
       id: r.id, points: r.route, alert: r.clash,
+      // "<request>:<road>" = a register road picked for the request (no direction); else a drawn route.
+      arrows: !r.id.includes(":"),
       color: data?.contractors.find((c) => c.id === r.contractorId)?.color ?? "#0B4D8B",
       label: `${codeOf(r.contractorId)} ${r.startTime}–${r.endTime}${r.clash ? " · ชนกัน" : ""}`,
     })) : [];
