@@ -2,7 +2,8 @@
 #   docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=... -t sts-web .
 FROM oven/bun:1.3 AS build
 WORKDIR /app
-ARG VITE_API_URL=http://localhost:3000/api/v1
+# Same-origin by default (reverse proxy routes /api to the API); pass a full URL to point elsewhere.
+ARG VITE_API_URL=/api/v1
 ENV VITE_API_URL=${VITE_API_URL}
 
 COPY package.json bun.lock ./

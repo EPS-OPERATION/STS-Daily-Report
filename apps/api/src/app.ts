@@ -3,6 +3,7 @@ import { coordinationRoutes } from "@/modules/site-coordination/index.js";
 import { Elysia } from "elysia";
 import { API_PREFIX, HEALTH_PATH } from "@/config/constants.js";
 import { getEnv } from "@/config/env.js";
+import { isPublicApi } from "@/config/public-api.js";
 import { authRoutes } from "@/auth/index.js";
 import { buildingRoutes } from "@/modules/buildings/index.js";
 import { contractorRoutes } from "@/modules/contractors/index.js";
@@ -23,10 +24,6 @@ import { errorPlugin } from "@/plugins/errors.js";
 import { resolveAuthIdentity } from "@/auth/auth.service.js";
 import { AuthRequiredError } from "@/shared/errors/app-error.js";
 
-const PUBLIC_API = new Set([
-  `POST ${API_PREFIX}/auth/login`, `GET ${API_PREFIX}/auth/config`, `POST ${API_PREFIX}/auth/logout`,
-  `POST ${API_PREFIX}/auth/register`, `POST ${API_PREFIX}/auth/reset-password`, `GET ${API_PREFIX}/auth/registration-options`,
-]);
 
 export function buildApp() {
   // Credentialed browser auth: allow only configured frontend origins, never "*".
@@ -43,7 +40,7 @@ export function buildApp() {
       const env = getEnv();
       if (env.NODE_ENV !== "production" || request.method === "OPTIONS") return;
       const path = new URL(request.url).pathname;
-      if (!path.startsWith(API_PREFIX) || PUBLIC_API.has(`${request.method} ${path.replace(/\/$/, "")}`)) return;
+      if (!path.startsWith(API_PREFIX) || isPublicApi(request.method, path)) return;
       const jar = (cookie as Record<string, { value?: unknown } | undefined>)[env.SESSION_COOKIE_NAME];
       const token = typeof jar?.value === "string" ? jar.value : undefined;
       if (!(await resolveAuthIdentity(token))) throw new AuthRequiredError();

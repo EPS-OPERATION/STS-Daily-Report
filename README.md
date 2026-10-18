@@ -260,6 +260,10 @@ The integration check uses isolated generated QA projects/companies/users and re
 IDs in `finally`. Browser/tool limitations and the manual walkthrough are recorded in
 [`docs/map-coordination-verification.md`](docs/map-coordination-verification.md).
 
+## Deployment
+
+Staging (Vercel + Supabase) and the VPS checklist: see `docs/deployment.md`.
+
 ## Hourly site weather
 
 The API stores site weather per hour in `weather_hourly` (Open-Meteo model data for the project's coordinates).

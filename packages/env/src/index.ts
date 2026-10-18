@@ -9,6 +9,9 @@ export const apiEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  // Migrations need a session-capable connection (Supabase: session pooler :5432 or direct), not the
+  // transaction pooler used by the running API. Unset = DATABASE_URL.
+  MIGRATE_DATABASE_URL: z.string().min(1).optional(),
   MINIO_ENDPOINT: z.string().default("localhost"),
   MINIO_PORT: z.coerce.number().int().positive().default(9000),
   MINIO_ACCESS_KEY: z.string().default("minioadmin"),
