@@ -16,6 +16,9 @@ if (!parsed.success) {
   console.error("Invalid web env", parsed.error.flatten().fieldErrors);
 }
 
+// Shown on the error screen so people know whom to call when something breaks.
+export const SUPPORT_CONTACT = { tel: "092-5917878", email: "QAQCSystem01@scg.com" } as const;
+
 export const config = {
   apiUrl: parsed.success ? parsed.data.VITE_API_URL : DEFAULT_API_URL,
 };
