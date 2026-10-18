@@ -46,6 +46,13 @@ SMOKE_EMAIL=admin@company.com SMOKE_PASSWORD=... CRON_SECRET=... scripts/smoke.s
 ```
 Use the same command after a VPS deploy. A failing line names exactly what is wrong.
 
+### Automatic deploys (CI/CD)
+A push to `dev` runs `.github/workflows/ci.yml`: the `verify` job (typecheck, tests, arch, build, migrate+seed on an
+empty DB, golden snapshot), then — only if it passes — `deploy-staging`: `bun src/db/migrate.ts` on Supabase, then a
+POST to the Vercel Deploy Hook. `vercel.json` sets `git.deploymentEnabled.dev = false`, so Vercel never deploys `dev`
+before the migration (pull requests still get previews). One-time setup: Vercel production branch = `dev`; Deploy Hook
+for `dev`; GitHub Actions secrets `MIGRATE_DATABASE_URL` (session pooler :5432) and `VERCEL_DEPLOY_HOOK_URL`.
+
 ### Weather schedule
 `POST /api/v1/internal/weather/sync` with `Authorization: Bearer <CRON_SECRET>` hourly. Hobby crons are daily only, so
 use Supabase `pg_cron` + `pg_net` (SQL in README → "Hourly site weather"). The route is public by design and checks the

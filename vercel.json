@@ -83,5 +83,10 @@
         }
       ]
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "dev": false
+    }
+  }
 }

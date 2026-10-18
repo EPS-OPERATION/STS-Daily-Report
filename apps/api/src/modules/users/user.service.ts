@@ -1,5 +1,6 @@
 import type { AuthContext } from "@/auth/auth.types.js";
-import { findUserById } from "@/auth/auth.repository.js";
+import { findUserById, normalizeEmail } from "@/auth/auth.repository.js";
+import { hashPassword } from "@/auth/password.js";
 import { generateSessionToken, hashSessionToken } from "@/auth/session.service.js";
 import { insertResetToken, invalidateResetTokens } from "@/auth/password-reset.repository.js";
 import { getEnv } from "@/config/env.js";
@@ -8,7 +9,7 @@ import { getDb } from "@/db/client.js";
 import { assertEpsAdmin } from "@/middleware/require-eps.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
-import { activateMembership, countActiveMemberships, decideUser, listProjectIdsForContractor, listUsers, setUserRole, setUserStatus } from "./user.repository.js";
+import { activateMembership, countActiveMemberships, decideUser, insertUser, listProjectIdsForContractor, listUsers, setUserRole, setUserStatus } from "./user.repository.js";
 import type { ListUsersQuery } from "./user.type.js";
 
 // User management (approvals included) is eps_admin-only; eps_site stays operational.
@@ -104,4 +105,44 @@ export async function changeUserStatusService(auth: AuthContext, id: string, sta
     await setUserStatus(tx, id, status);
     return { id, status };
   });
+}
+
+// eps_admin: create an account directly (no registration/approval). Active at once with the password the admin
+// typed; a contractor account is linked to its company in one project straight away.
+export async function createUserService(
+  auth: AuthContext,
+  input: { email: string; username: string; displayName?: string; password: string; role: "contractor" | "eps_site" | "eps_admin"; contractorId?: string; projectId?: string },
+) {
+  assertEpsAdmin(auth);
+  const email = normalizeEmail(input.email);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ValidationError("Enter a valid email address.");
+  const username = input.username.trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,20}$/.test(username)) throw new ValidationError("Username must be 3–20 characters: a–z, 0–9, dot, underscore or hyphen.");
+  if (input.role === "contractor" && !input.contractorId) throw new ValidationError("Choose the contractor this account belongs to.");
+  if (input.role !== "contractor" && input.contractorId) throw new ValidationError("Only contractor accounts belong to a contractor.");
+  const passwordHash = await hashPassword(input.password);
+  try {
+    return await getDb().transaction(async (tx) => {
+      let projectId: string | undefined;
+      if (input.contractorId) {
+        if (!(await getContractorById(tx, input.contractorId))) throw new ValidationError("Unknown contractor");
+        projectId = await resolveContractorProject(tx, input.contractorId, input.projectId);
+      }
+      const id = await insertUser(tx, {
+        email,
+        username,
+        displayName: input.displayName?.trim() || username,
+        passwordHash,
+        role: input.role,
+        createdBy: auth.user.id,
+      });
+      if (input.contractorId && projectId) await activateMembership(tx, id, input.contractorId, projectId);
+      return { id, email, username, role: input.role, status: "active" as const, contractorId: input.contractorId ?? null, projectId: projectId ?? null };
+    });
+  } catch (error) {
+    const outer = error as { code?: string; constraint_name?: string; cause?: { code?: string; constraint_name?: string } };
+    const cause = outer.cause ?? outer;
+    if (cause.code === "23505") throw new ConflictError(cause.constraint_name?.includes("username") ? "Username is already in use." : "Email is already in use.");
+    throw error;
+  }
 }

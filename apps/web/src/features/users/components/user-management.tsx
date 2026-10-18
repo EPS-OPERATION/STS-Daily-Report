@@ -1,3 +1,4 @@
+import PersonAddOutlinedIcon from "@mui/icons-material/PersonAddOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -19,13 +20,9 @@ import { ContractorPicker } from "@/features/auth/components/contractor-picker.j
 import { useCurrentProject } from "@/features/projects/index.js";
 import { useChangeUserRole, useChangeUserStatus, useIssueResetLink, useLinkUser, useUsers } from "../hooks/use-users.js";
 import type { ManagedUser, UserStatus } from "../types/user.types.js";
+import { ROLE_LABEL } from "../utils/role-label.js";
+import { CreateUserDialog } from "./create-user-dialog.js";
 import { UserDecisionDialog } from "./user-decision-dialog.js";
-
-const ROLE_LABEL: Record<UserRole, string> = {
-  contractor: "ผู้รับเหมา",
-  eps_site: "EPS หน้างาน",
-  eps_admin: "EPS ผู้ดูแลระบบ",
-};
 
 export function UserManagement() {
   const me = useMe();
@@ -40,6 +37,7 @@ export function UserManagement() {
   const [resetUser, setResetUser] = useState<ManagedUser | null>(null);
   const [linkTarget, setLinkTarget] = useState<ManagedUser | null>(null);
   const [linkContractorId, setLinkContractorId] = useState("");
+  const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const reset = useIssueResetLink();
@@ -82,7 +80,11 @@ export function UserManagement() {
   ];
   const mutateError = changeRole.error ?? changeStatus.error;
   return <Box>
-    <PageHeader title="User management" subtitle="Review registrations, link companies, and manage accounts" />
+    <PageHeader
+      title="User management"
+      subtitle="Review registrations, link companies, and manage accounts"
+      actions={isAdmin ? <Button variant="contained" startIcon={<PersonAddOutlinedIcon />} onClick={() => setCreating(true)}>Add user</Button> : undefined}
+    />
     <Stack spacing={2}>
       <Tabs value={status} onChange={(_, value: UserStatus) => { setStatus(value); setPagination((p) => ({ ...p, page: 0 })); }} aria-label="User status" variant="scrollable">
         <Tab label="Pending registrations" value="pending" />
@@ -97,6 +99,7 @@ export function UserManagement() {
         paginationMode="server" paginationModel={pagination} onPaginationModelChange={setPagination} pageSizeOptions={[20, 50, 100]} disableRowSelectionOnClick disableColumnMenu
         localeText={{ noRowsLabel: status === "pending" ? "No registrations awaiting approval" : "No users found" }} /></Box>
     </Stack>
+    {creating && <CreateUserDialog projectId={projectId ?? undefined} onClose={() => setCreating(false)} />}
     {decision && <UserDecisionDialog key={`${decision.user.id}-${decision.action}`} {...decision} projectId={projectId ?? undefined} onClose={() => setDecision(null)} />}
     <FormDialog open={Boolean(linkTarget)} title="Link contractor" onClose={() => { setLinkTarget(null); link.reset(); }} busy={link.isPending} actions={<>
         <Button color="inherit" disabled={link.isPending} onClick={() => { setLinkTarget(null); link.reset(); }}>Cancel</Button>

@@ -8,3 +8,7 @@ export interface ManagedUser {
 export interface UserFilters { status: UserStatus; page: number; pageSize: number; search?: string; projectId?: string }
 export type UserListResponse = PaginatedResponse<ManagedUser>;
 export interface ResetLink { url: string; expiresAt: string }
+export interface CreateUserInput {
+  email: string; username: string; displayName?: string; password: string; role: UserRole; contractorId?: string; projectId?: string;
+}
+export interface CreatedUser { id: string; email: string; username: string; role: UserRole; status: "active"; contractorId: string | null; projectId: string | null }
