@@ -47,19 +47,36 @@ use Supabase `pg_cron` + `pg_net` (SQL in README → "Hourly site weather"). The
 secret itself; it answers 404 while `CRON_SECRET` is unset.
 
 ### Known limits on this stage
-- Login rate limits are per network peer: behind Vercel everyone may share one peer.
-- No security headers (HSTS/CSP) yet, no CI, no error tracking.
-- The `public/drone` demo images ship with the web build.
+- Set `TRUST_PROXY=true` on the API so login/registration rate limits use the real client IP (X-Forwarded-For), not Vercel's.
+- Security headers (CSP, HSTS, nosniff, frame-ancestors) come from `vercel.json` `headers`; confirm they appear on the first deploy (`curl -I`). The API adds its own nosniff/no-store headers.
+- Demo drone photos live in `apps/api/seed-assets/drone` (not in the web bundle); `db:seed` skips them when `NODE_ENV=production` or `SEED_DEMO=false`.
+- CI (`.github/workflows/ci.yml`) runs typecheck, tests, `check:arch`, build, migrate+seed on an empty Postgres, and the golden API snapshot.
 
-## 2. Production: own VPS (to do)
-Not written yet; the checklist:
-- `compose.prod.yml`: postgres + (minio **or** keep Supabase Storage) + api + web, secrets from env, **no DB/MinIO ports published**, `restart: unless-stopped`.
-- Reverse proxy with automatic HTTPS (Caddy or Traefik) in front of web+api on one domain.
-- One-shot migrate container, then API; bootstrap admin once.
-- Backups: `pg_dump` on a schedule off-box, plus the MinIO volume; test a restore.
-- Firewall: only 80/443 (+ SSH); log rotation; non-root containers.
-- `WEATHER_CRON=true` works here (the process is long-lived).
-- Moving data from staging: `pg_dump` the database, copy the bucket objects to MinIO under the same keys (keys are stored in the DB).
+## 2. Production: own VPS
+Tested locally end to end (HTTPS via Caddy, migrations, login with a `Secure` cookie, photo upload, signed photo URL on the
+public files host, backup + restore). Files: `compose.prod.yml`, `Caddyfile`, `.env.prod.example`, `scripts/backup.sh`.
+
+Stack: Caddy (80/443, automatic certificates) → `web` (nginx, security headers) and `api` (`/api/*`); `postgres` and `minio`
+are **not published**; `migrate` is a one-shot that runs before the API.
+
+1. DNS: `A` records for `APP_DOMAIN` and `FILES_DOMAIN` (photos are served from the second host) to the VPS. Open only 80/443 + SSH.
+2. `cp .env.prod.example .env.prod` and fill in the domains and long random passwords. Never commit `.env.prod`.
+3. `docker compose --env-file .env.prod -f compose.prod.yml up -d --build`
+4. First time only, seed master data (no demo data in production) and create the administrator:
+   ```sh
+   docker compose --env-file .env.prod -f compose.prod.yml exec api bun src/db/seed/seed.ts
+   docker compose --env-file .env.prod -f compose.prod.yml exec -e EPS_BOOTSTRAP_EMAIL=you@company.com -e EPS_BOOTSTRAP_PASSWORD='...' api bun scripts/bootstrap-admin.ts
+   ```
+5. Backups: `scripts/backup.sh [dir] [keep_days]` writes a `pg_dump` (custom format) and a MinIO volume tarball. Run it from cron
+   and copy the directory **off the server**. Restore the database with
+   `docker compose ... exec -T postgres pg_restore -U sts -d sts --no-owner --clean --if-exists < sts-<stamp>.dump`
+   (verified on a scratch database: identical row counts).
+6. Updates: `git pull && docker compose --env-file .env.prod -f compose.prod.yml up -d --build` (migrations run automatically).
+7. The weather job runs inside the API (`WEATHER_CRON=true`); `CRON_SECRET` is optional here.
+8. Rate limits and X-Forwarded-For: `TRUST_PROXY=true` is set in `compose.prod.yml` because only Caddy can reach the API.
+   Never enable it when the API is reachable directly.
+
+Moving data from staging: `pg_dump` + `pg_restore` the database (§3) and `apps/api/scripts/copy-storage.ts` for the files.
 
 ## 3. Leaving Supabase for plain Postgres (checked against the code)
 The app only needs **plain PostgreSQL + object storage**. Nothing Supabase-specific is in the schema or migrations:
@@ -76,7 +93,8 @@ Cut-over:
    (the `drizzle` schema holds the migration journal). Restore into the new Postgres with `pg_restore --no-owner`.
    Use the same or a newer Postgres major version than the dump (see the Supabase dashboard).
 2. Copy storage objects to MinIO with the **same keys** (keys live in `daily_report_photos.object_key` and `drone_logs.object_key`):
-   list the bucket, download, upload to MinIO. Needs a small script (not written yet).
+   `SRC_PROVIDER=supabase SRC_SUPABASE_URL=... SRC_SUPABASE_SERVICE_ROLE_KEY=... SRC_BUCKET=sts bun --env-file=../../.env apps/api/scripts/copy-storage.ts [--dry-run]`
+   (run from `apps/api`; it reads the keys from the restored database, so restore the database first; re-runnable; tested between two MinIO buckets).
 3. Switch env: `DATABASE_URL` (new host), `STORAGE_PROVIDER=minio` + `MINIO_*`, `WEATHER_CRON=true`; delete the `pg_cron` job.
 4. Rehearse once on a copy, then freeze writes briefly for the final dump (small database: minutes). Users keep their
    passwords; sessions can simply be re-created by logging in again.

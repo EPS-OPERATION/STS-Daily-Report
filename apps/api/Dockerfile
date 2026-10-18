@@ -17,8 +17,8 @@ COPY packages ./packages
 COPY apps/api ./apps/api
 WORKDIR /app/apps/api
 
-# Default is development auth (local-email). Production requires a real
-# AUTH_PROVIDER — startup refuses local-email when NODE_ENV=production.
 ENV API_PORT=3000
 EXPOSE 3000
+# Run unprivileged (the base image ships a `bun` user).
+USER bun
 CMD ["bun", "src/index.ts"]

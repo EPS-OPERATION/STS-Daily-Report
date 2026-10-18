@@ -1,0 +1,21 @@
+# One domain for the app (web + /api) and one for signed photo URLs (MinIO). Caddy gets and renews the
+# certificates itself. For a local trial use APP_DOMAIN=localhost FILES_DOMAIN=files.localhost (internal CA).
+{$APP_DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+	handle /health {
+		reverse_proxy api:3000
+	}
+	handle {
+		reverse_proxy web:80
+	}
+}
+
+{$FILES_DOMAIN} {
+	# The Host header is kept, so MinIO sees the host the URL was signed for.
+	reverse_proxy minio:9000
+}

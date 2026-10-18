@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { normalizePagination } from "@sts/shared";
 import { getEnv } from "@/config/env.js";
+import { clientIp } from "./client-ip.js";
 import { requireAuth } from "@/middleware/require-auth.js";
 import { ok, paginated } from "@/shared/http/response.js";
 import { limitAuthAttempts, loadMe, loginWithPassword, logoutSession, registerUser, registrationOptions } from "./auth.service.js";
@@ -30,13 +31,13 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     return paginated(rows, p.page, p.pageSize, total);
   }, { query: listContractorsQuery })
   .post("/register", async ({ body, set, server, request }) => {
-    await limitAuthAttempts("register", server?.requestIP(request)?.address ?? "unknown", 100);
+    await limitAuthAttempts("register", clientIp(request.headers, server?.requestIP(request)?.address, getEnv().TRUST_PROXY), 100);
     const result = await registerUser(body);
     set.status = 201;
     return ok(result);
   }, { body: registerBody })
   .post("/reset-password", async ({ body, server, request }) => {
-    await limitAuthAttempts("reset", server?.requestIP(request)?.address ?? "unknown", 60);
+    await limitAuthAttempts("reset", clientIp(request.headers, server?.requestIP(request)?.address, getEnv().TRUST_PROXY), 60);
     return ok(await resetPassword(body.token, body.password));
   }, { body: resetPasswordBody })
   .post("/login", async ({ body, cookie, set }) => {

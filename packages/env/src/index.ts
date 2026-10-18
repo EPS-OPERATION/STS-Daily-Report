@@ -18,6 +18,11 @@ export const apiEnvSchema = z.object({
   MINIO_SECRET_KEY: z.string().default("minioadmin"),
   MINIO_BUCKET: z.string().default("sts"),
   MINIO_USE_SSL: boolFromString.default(false),
+  // Browser-facing MinIO address used to sign photo URLs (the internal MINIO_ENDPOINT is unreachable from browsers
+  // on a VPS). Unset = same as the internal one. Example: files.example.com / 443 / true.
+  MINIO_PUBLIC_ENDPOINT: z.string().optional(),
+  MINIO_PUBLIC_PORT: z.coerce.number().int().positive().optional(),
+  MINIO_PUBLIC_USE_SSL: boolFromString.optional(),
   // "minio" (local docker) or "supabase" (Supabase Storage REST, used on Vercel).
   STORAGE_PROVIDER: z.enum(["minio", "supabase"]).default("minio"),
   SUPABASE_URL: z.string().optional(),
@@ -31,6 +36,8 @@ export const apiEnvSchema = z.object({
   // Bearer secret for POST /api/v1/internal/weather/sync (external schedulers); unset = endpoint off.
   // A blank `CRON_SECRET=` line counts as unset.
   CRON_SECRET: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().trim().min(16).optional()),
+  // Behind a trusted reverse proxy / Vercel: take the client IP from X-Forwarded-For (rate limits). Off when the API is exposed directly.
+  TRUST_PROXY: boolFromString.default(false),
   // Canonical URL for links; WEB_ORIGIN may contain multiple CORS origins.
   WEB_URL: z.string().url().optional(),
   WEB_ORIGIN: z.string().default("http://localhost:5173"),

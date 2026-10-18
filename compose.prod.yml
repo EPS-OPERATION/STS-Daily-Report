@@ -1,0 +1,117 @@
+# Production stack for our own VPS: Caddy (HTTPS) → web + api, Postgres, MinIO. Nothing but Caddy is published.
+#   cp .env.prod.example .env.prod   # fill in the secrets and domains
+#   docker compose --env-file .env.prod -f compose.prod.yml up -d --build
+# First time only: create the administrator (see docs/deployment.md §2).
+name: sts
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sts
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: sts
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sts -d sts"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # One-shot: apply migrations, then exit. The API waits for it.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: "no"
+    command: ["bun", "src/db/migrate.ts"]
+    environment:
+      DATABASE_URL: postgresql://sts:${POSTGRES_PASSWORD}@postgres:5432/sts
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: "3000"
+      DATABASE_URL: postgresql://sts:${POSTGRES_PASSWORD}@postgres:5432/sts
+      STORAGE_PROVIDER: minio
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: sts
+      # Browsers load photos from https://FILES_DOMAIN (Caddy → MinIO); URLs are signed for that host.
+      MINIO_PUBLIC_ENDPOINT: ${FILES_DOMAIN:?set FILES_DOMAIN}
+      MINIO_PUBLIC_PORT: "443"
+      MINIO_PUBLIC_USE_SSL: "true"
+      WEB_ORIGIN: https://${APP_DOMAIN:?set APP_DOMAIN}
+      WEB_URL: https://${APP_DOMAIN}
+      TRUST_PROXY: "true"
+      WEATHER_CRON: "true"
+      CRON_SECRET: ${CRON_SECRET:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      FILES_DOMAIN: ${FILES_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  pgdata:
+  miniodata:
+  caddy_data:
+  caddy_config:

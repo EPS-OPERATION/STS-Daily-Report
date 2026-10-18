@@ -21,6 +21,7 @@ import { userRoutes } from "@/modules/users/index.js";
 import { reportStandardItemRoutes } from "@/modules/report-standard-items/index.js";
 import { weatherCronRoutes, weatherRoutes } from "@/modules/weather/index.js";
 import { errorPlugin } from "@/plugins/errors.js";
+import { securityHeaders } from "@/plugins/security-headers.js";
 import { resolveAuthIdentity } from "@/auth/auth.service.js";
 import { AuthRequiredError } from "@/shared/errors/app-error.js";
 
@@ -34,6 +35,7 @@ export function buildApp() {
   const app = new Elysia()
     .use(cors({ origin: origins, credentials: true }))
     .use(errorPlugin)
+    .use(securityHeaders)
     // Hosted (production): every API call needs a session except the login itself.
     // Locally some summary reads stay open, as before.
     .onBeforeHandle(async ({ request, cookie }) => {

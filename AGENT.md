@@ -39,7 +39,7 @@
 - `bun dev | dev:web | dev:api`, `bun build | build:web | build:api`, `bun typecheck`, `bun test`, `bun check:arch` (วนกันของ feature/module)
 - `bun db:generate | db:migrate | db:push | db:studio | db:seed` (ผ่าน `apps/api`)
 - `bun docker:up | docker:down | docker:logs`; regression API รายงาน (ต้องมี DB local): `cd apps/api && bun --env-file=../../.env scripts/snapshot-daily-reports.ts test/golden/daily-reports.snapshot.json --check` (seed project QA แล้วลบ; ไม่ใส่ `--check` = เขียน golden ใหม่ เมื่อเปลี่ยน response ตั้งใจ)
-- Setup: `cp .env.example .env && bun install && bun docker:up && bun db:migrate && bun db:seed && bun dev`
+- Setup: `cp .env.example .env && bun install && bun docker:up && bun db:migrate && bun db:seed && bun dev` · Deploy: `docs/deployment.md` (Vercel+Supabase staging; VPS = `compose.prod.yml` + `Caddyfile` + `.env.prod.example`, `scripts/backup.sh`, `apps/api/scripts/copy-storage.ts` Supabase→MinIO); CI = `.github/workflows/ci.yml`; prod env: `TRUST_PROXY`, `MINIO_PUBLIC_*`, `MIGRATE_DATABASE_URL`; headers/CSP: `apps/web/security-headers.conf` + `vercel.json` (เพิ่มโดเมนภายนอกต้องแก้ CSP ทั้งสองที่)
 
 ## Conventions ที่สังเกตได้
 
