@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import type { CoordinationInput, CoordinationPoint } from "@sts/shared";
 import type { QueryDb } from "@/db/client.js";
 import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItems, coordinationMaps, coordinationRoadSegments, dailyReportRoadUsage, dailyReports, projectContractors, users } from "@/db/schema/index.js";
@@ -76,8 +76,17 @@ const segmentColumns = { id: coordinationRoadSegments.id, road: coordinationRoad
 export async function listRoadSegments(db: QueryDb, projectId: string) {
   return db.select(segmentColumns).from(coordinationRoadSegments).where(eq(coordinationRoadSegments.projectId, projectId)).orderBy(asc(coordinationRoadSegments.road), asc(coordinationRoadSegments.name));
 }
-export async function findRoadSegmentByName(db: QueryDb, projectId: string, name: string) {
-  const [row] = await db.select(segmentColumns).from(coordinationRoadSegments).where(and(eq(coordinationRoadSegments.projectId, projectId), sql`lower(${coordinationRoadSegments.name}) = lower(${name})`)).limit(1);
+// Another piece with this name (case-insensitive), other than `exceptId`.
+export async function findRoadSegmentByName(db: QueryDb, projectId: string, name: string, exceptId?: string) {
+  const [row] = await db
+    .select(segmentColumns)
+    .from(coordinationRoadSegments)
+    .where(and(
+      eq(coordinationRoadSegments.projectId, projectId),
+      sql`lower(${coordinationRoadSegments.name}) = lower(${name})`,
+      exceptId ? ne(coordinationRoadSegments.id, exceptId) : undefined,
+    ))
+    .limit(1);
   return row ?? null;
 }
 export async function getRoadSegment(db: QueryDb, projectId: string, id: string) {

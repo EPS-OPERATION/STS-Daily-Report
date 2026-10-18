@@ -129,7 +129,7 @@ export function RoadRegister() {
                 <TextField size="small" label="ชื่อช่วง" placeholder="R2 Boiler–ACC" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} fullWidth slotProps={{ htmlInput: { maxLength: 80 } }} />
               </Stack>
               <Typography variant="caption" color={pointsError ? "warning.dark" : "text.secondary"}>
-                {pointsError ?? `${form.points.length} จุด · ชื่อช่วงต้องไม่ซ้ำ ผู้รับเหมาจะเห็นชื่อนี้`}
+                {pointsError ?? `${form.points.length} จุด · ผู้รับเหมาจะเห็นชื่อนี้ · ถนนเดียวกันที่ถูกตัดเป็นหลายส่วน ใช้รหัสและชื่อเดิมได้`}
               </Typography>
               <FormControlLabel control={<Switch checked={form.closed} onChange={(e) => setForm({ ...form, closed: e.target.checked })} />} label="ปิดถนน (ผู้รับเหมาเลือกไม่ได้)" />
               <Stack direction="row" spacing={1}>
