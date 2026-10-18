@@ -16,6 +16,7 @@ import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
+import TablePagination from "@mui/material/TablePagination";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
@@ -40,7 +41,7 @@ import { SubmissionHistory } from "../components/submission-history.js";
 // contractor every day, so missing reports are visible. No approval step (history only).
 export function DailyReportsPage() {
   const ed = useDailyReportsPage();
-  const { from, to, isRange, viewMode, search, setSearch, contractor, setContractor, filter, setFilter, detail, setDetail, projectId, history, inspections, setRange, queue, contractorNames, allCodes, selectedCodes, setContractors, filterItems, workDoneItems, rfiByDay, counts, workContractorNames, rows, exportSummaryPdf, loadError, loading, shiftChip, dateRangeLabel } = ed;
+  const { from, to, isRange, viewMode, search, setSearch, contractor, setContractor, filter, setFilter, detail, setDetail, projectId, history, inspections, setRange, queue, contractorNames, allCodes, selectedCodes, setContractors, filterItems, workDoneItems, rfiByDay, counts, workContractorNames, rows, pagedRows, currentHistoryPage, setHistoryPage, historyPerPage, setHistoryPerPage, exportSummaryPdf, loadError, loading, shiftChip, dateRangeLabel } = ed;
 
   return (
     <Box>
@@ -110,6 +111,7 @@ export function DailyReportsPage() {
                     key={value}
                     label={label}
                     clickable
+                    sx={{ height: 40 }}
                     color={filter === value ? "primary" : "default"}
                     variant={filter === value ? "filled" : "outlined"}
                     onClick={() => setFilter(value)}
@@ -183,7 +185,7 @@ export function DailyReportsPage() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {rows.map((r) => {
+                          {pagedRows.map((r) => {
                             const people = r.totalHeadcount || r.eveningHeadcount;
                             const openable = Boolean(r.id);
                             return (
@@ -237,6 +239,22 @@ export function DailyReportsPage() {
                       </Table>
                     </TableContainer>
                   )}
+
+                  {rows.length > 0 ? (
+                    <TablePagination
+                      component="div"
+                      count={rows.length}
+                      page={currentHistoryPage}
+                      onPageChange={(_, p) => setHistoryPage(p)}
+                      rowsPerPage={historyPerPage}
+                      onRowsPerPageChange={(e) => {
+                        setHistoryPerPage(Number(e.target.value));
+                        setHistoryPage(0);
+                      }}
+                      rowsPerPageOptions={[25, 50, 100]}
+                      labelRowsPerPage="แถวต่อหน้า"
+                    />
+                  ) : null}
 
                   <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
                     แสดง {rows.length} จาก {queue.length} รายการ · คลิกแถวที่ส่งแล้วเพื่อดูรายละเอียด

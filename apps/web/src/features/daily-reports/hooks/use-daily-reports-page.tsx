@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import { CHART_OTHER } from "@/app/theme/chart-palette.js";
@@ -128,6 +128,17 @@ export function useDailyReportsPage() {
 
   const rows = useMemo(() => filterSubmissions(visibleQueue, { filter, contractor, search }), [visibleQueue, filter, contractor, search]);
 
+  // Submission History paging (client-side): back to the first page whenever the result set changes.
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyPerPage, setHistoryPerPage] = useState(25);
+  useEffect(() => setHistoryPage(0), [filter, contractor, search, from, to]);
+  const lastPage = Math.max(0, Math.ceil(rows.length / historyPerPage) - 1);
+  const currentHistoryPage = Math.min(historyPage, lastPage);
+  const pagedRows = useMemo(
+    () => rows.slice(currentHistoryPage * historyPerPage, (currentHistoryPage + 1) * historyPerPage),
+    [rows, currentHistoryPage, historyPerPage],
+  );
+
   // Summary PDF of exactly what the table shows (opens the print page in a new tab).
   const exportSummaryPdf = () => {
     const p = new URLSearchParams({ from, to, filter });
@@ -191,6 +202,11 @@ export function useDailyReportsPage() {
     counts,
     workContractorNames,
     rows,
+    pagedRows,
+    currentHistoryPage,
+    setHistoryPage,
+    historyPerPage,
+    setHistoryPerPage,
     exportSummaryPdf,
     loadError,
     loading,
