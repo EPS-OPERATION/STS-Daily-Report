@@ -1,0 +1,430 @@
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import Grid from "@mui/material/Grid";
+import LinearProgress from "@mui/material/LinearProgress";
+import Paper from "@mui/material/Paper";
+import Skeleton from "@mui/material/Skeleton";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
+import { useSearchParams } from "react-router-dom";
+import { PageHeader } from "@/components/ui/page-header.js";
+import { QueryError } from "@/components/ui/query-error.js";
+import { useContractors, contractorColorMap } from "@/features/contractors/index.js";
+import { ContractorFilterPopover, type ContractorFilterItem } from "@/features/contractors/index.js";
+import { ManDayByContractorChart, ManpowerByBuildingChart, NationalityByContractorChart, PositionByContractorChart } from "@/features/report-summaries/index.js";
+import { addDaysIso, mondayOf, todayIso } from "@/lib/dates.js";
+import { useManpowerSummary, usePositionMix } from "@/features/report-summaries/index.js";
+import { useCurrentProject } from "@/features/projects/index.js";
+import { HttpError } from "@/services/http/client.js";
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_DAYS = 62; // server limit per query
+
+// Manpower analytics from contractor morning reports (deck p.20/24/25 + v2 notes):
+// pick any date range on the calendar; charts by day, building, position, nationality;
+// with Excel-style checkbox filter for contractors.
+export function ManpowerPage() {
+  const [params, setParams] = useSearchParams();
+  const today = todayIso();
+  const defaultFrom = mondayOf(today);
+  const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : defaultFrom;
+  const rawTo = ISO_DATE.test(params.get("to") ?? "") ? params.get("to")! : addDaysIso(defaultFrom, 6);
+  const from = rawFrom <= rawTo ? rawFrom : rawTo;
+  const to = rawFrom <= rawTo ? rawTo : rawFrom;
+  const span = dayjs(to).diff(dayjs(from), "day") + 1;
+  const tooLong = span > MAX_DAYS;
+  const days = tooLong ? [] : Array.from({ length: span }, (_, i) => addDaysIso(from, i));
+
+  const { projectId } = useCurrentProject();
+  const queryProject = tooLong ? null : projectId;
+  const summary = useManpowerSummary(queryProject, from, to);
+  const positions = usePositionMix(queryProject, from, to);
+  const contractorsList = useContractors({ page: 1, pageSize: 100 });
+
+  const setRange = (f: string, t: string) => {
+    const p = new URLSearchParams(params);
+    p.set("from", f);
+    p.set("to", t);
+    setParams(p, { replace: true });
+  };
+  const thisWeek = () => setRange(mondayOf(today), addDaysIso(mondayOf(today), 6));
+  const thisMonth = () =>
+    setRange(dayjs(today).startOf("month").format("YYYY-MM-DD"), dayjs(today).endOf("month").format("YYYY-MM-DD"));
+
+  const data = summary.data?.data;
+  const error = summary.error instanceof HttpError ? summary.error : null;
+
+  // Contractor code to name mapping
+  const contractorNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of contractorsList.data?.data ?? []) {
+      map.set(c.code, c.name);
+    }
+    return map;
+  }, [contractorsList.data?.data]);
+
+  // All distinct contractor codes in current data scope
+  const allCodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of data?.contractors ?? []) set.add(c.contractorCode);
+    for (const r of positions.data?.data ?? []) set.add(r.contractorCode);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [data?.contractors, positions.data?.data]);
+
+  const colors = useMemo(() => contractorColorMap(allCodes), [allCodes]);
+
+  // Read selected contractors from URL query or default to all
+  const selectedCodes = useMemo<Set<string>>(() => {
+    const raw = params.get("contractors");
+    if (raw === null) return new Set(allCodes);
+    if (!raw.trim()) return new Set<string>();
+    const list = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => allCodes.includes(s));
+    return new Set(list);
+  }, [params, allCodes]);
+
+  const updateContractorSelection = (next: Set<string>) => {
+    const p = new URLSearchParams(params);
+    if (next.size === allCodes.length || next.size === 0) {
+      p.delete("contractors");
+    } else {
+      p.set("contractors", Array.from(next).sort().join(","));
+    }
+    setParams(p, { replace: true });
+  };
+
+  const removeContractor = (code: string) => {
+    const next = new Set(selectedCodes);
+    next.delete(code);
+    updateContractorSelection(next);
+  };
+
+  const selectAllContractors = () => {
+    updateContractorSelection(new Set(allCodes));
+  };
+
+  // Filter items for the Excel-like popover
+  const filterItems = useMemo<ContractorFilterItem[]>(() => {
+    return allCodes.map((code) => {
+      const row = data?.contractors.find((c) => c.contractorCode === code);
+      return {
+        code,
+        name: contractorNameMap.get(code),
+        manDays: row?.manDays,
+        color: colors.get(code) ?? "#666",
+      };
+    });
+  }, [allCodes, contractorNameMap, data?.contractors, colors]);
+
+  const isFiltered = selectedCodes.size > 0 && selectedCodes.size < allCodes.length;
+  const isNoneSelected = allCodes.length > 0 && selectedCodes.size === 0;
+
+  // Filtered data slices according to selected contractors
+  const filteredContractors = useMemo(() => {
+    if (!data?.contractors) return [];
+    return data.contractors.filter((c) => selectedCodes.has(c.contractorCode));
+  }, [data?.contractors, selectedCodes]);
+
+  const filteredDaily = useMemo(() => {
+    if (!data?.daily) return [];
+    return data.daily.filter((d) => selectedCodes.has(d.contractorCode));
+  }, [data?.daily, selectedCodes]);
+
+  const filteredByBuilding = useMemo(() => {
+    if (!data?.byBuilding) return [];
+    return data.byBuilding.map((b) => ({
+      ...b,
+      contractors: Object.fromEntries(
+        Object.entries(b.contractors).filter(([code]) => selectedCodes.has(code)),
+      ),
+    }));
+  }, [data?.byBuilding, selectedCodes]);
+
+  const filteredPositions = useMemo(() => {
+    if (!positions.data?.data) return [];
+    return positions.data.data.filter((r) => selectedCodes.has(r.contractorCode));
+  }, [positions.data?.data, selectedCodes]);
+
+  // Dynamic KPI totals for filtered contractors
+  const totals = useMemo(() => {
+    if (!data) return { manDays: 0, manHours: 0, avgDaily: 0, count: 0 };
+    if (!isFiltered && selectedCodes.size === allCodes.length) {
+      return {
+        manDays: data.totals.manDays,
+        manHours: data.totals.manHours,
+        avgDaily: data.totals.avgDaily,
+        count: data.contractors.length,
+      };
+    }
+    const manDays = filteredContractors.reduce((sum, c) => sum + c.manDays, 0);
+    const manHours = filteredContractors.reduce((sum, c) => sum + c.manHours, 0);
+    const byDay = new Map<string, number>();
+    for (const d of filteredDaily) {
+      byDay.set(d.date, (byDay.get(d.date) ?? 0) + d.headcount);
+    }
+    const reportedDays = [...byDay.values()].filter((v) => v > 0).length;
+    const avgDaily = reportedDays ? Math.round(manDays / reportedDays) : 0;
+    return { manDays, manHours, avgDaily, count: filteredContractors.length };
+  }, [data, isFiltered, selectedCodes.size, allCodes.length, filteredContractors, filteredDaily]);
+
+  const theme = useTheme();
+  const wide = useMediaQuery(theme.breakpoints.up("lg"));
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [panelHeight, setPanelHeight] = useState<number | null>(null);
+  // Wide screens: the four charts fill what is left of the window in a 2x2 grid, so the page never scrolls.
+  // Re-measured on resize and whenever a banner above the grid comes or goes.
+  useLayoutEffect(() => {
+    if (!wide) { setPanelHeight(null); return; }
+    const measure = () => {
+      const top = gridRef.current?.getBoundingClientRect().top;
+      if (top === undefined) return;
+      const free = window.innerHeight - (top + window.scrollY) - PAGE_BOTTOM;
+      setPanelHeight(Math.max(MIN_PANEL, Math.floor((free - ROW_GAP) / 2)));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [wide, Boolean(data), isFiltered, isNoneSelected, Boolean(error), tooLong]);
+  const chartHeight = panelHeight === null ? undefined : panelHeight - PANEL_CHROME;
+  // Charts with a legend underneath: the legend sits outside the chart's own height.
+  const legendChartHeight = chartHeight === undefined ? undefined : chartHeight - LEGEND;
+
+  return (
+    <Box>
+      <PageHeader
+        title="กำลังคน (Manpower)"
+        subtitle="จากรายงานเช้าของผู้รับเหมา · เลือกช่วงวันที่และกรองผู้รับเหมาตามต้องการ"
+        actions={
+          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+            <DatePicker
+              label="From"
+              value={dayjs(from)}
+              onChange={(v) => v?.isValid() && setRange(v.format("YYYY-MM-DD"), to)}
+              format="D MMM YYYY"
+              slotProps={{ textField: { size: "small", sx: { width: 155 } } }}
+            />
+            <DatePicker
+              label="To"
+              value={dayjs(to)}
+              minDate={dayjs(from)}
+              onChange={(v) => v?.isValid() && setRange(from, v.format("YYYY-MM-DD"))}
+              format="D MMM YYYY"
+              slotProps={{ textField: { size: "small", sx: { width: 155 } } }}
+            />
+            <Button variant="outlined" onClick={thisWeek}>
+              This week
+            </Button>
+            <Button variant="outlined" onClick={thisMonth}>
+              This month
+            </Button>
+            {allCodes.length > 0 && (
+              <ContractorFilterPopover
+                items={filterItems}
+                selectedCodes={selectedCodes}
+                onChange={updateContractorSelection}
+              />
+            )}
+          </Stack>
+        }
+      />
+
+      {tooLong ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          เลือกได้ไม่เกิน {MAX_DAYS} วันต่อครั้ง (ตอนนี้ {span} วัน) — ปรับวันที่ให้สั้นลง
+        </Alert>
+      ) : null}
+      {error ? (
+        <QueryError error={error} onRetry={() => void summary.refetch()} />
+      ) : null}
+
+      {/* Active Filter Bar (shown when filtering is applied) */}
+      {isFiltered && (
+        <Paper
+          variant="outlined"
+          sx={{
+            mb: 2,
+            p: 1.25,
+            px: 2,
+            borderRadius: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 1.5,
+            bgcolor: "action.hover",
+          }}
+        >
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <FilterAltOutlinedIcon fontSize="small" color="primary" />
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              กรองเฉพาะผู้รับเหมา ({selectedCodes.size}/{allCodes.length} เจ้า):
+            </Typography>
+            {Array.from(selectedCodes).map((code) => (
+              <Chip
+                key={code}
+                size="small"
+                label={contractorNameMap.get(code) ? `${code} (${contractorNameMap.get(code)})` : code}
+                onDelete={() => removeContractor(code)}
+                sx={{
+                  bgcolor: colors.get(code),
+                  color: "common.white",
+                  fontWeight: 700,
+                  "& .MuiChip-deleteIcon": { color: "rgba(255,255,255,0.8)", "&:hover": { color: "common.white" } },
+                }}
+              />
+            ))}
+          </Stack>
+          <Button variant="text" onClick={selectAllContractors} sx={{ fontWeight: 600 }}>
+            แสดงทั้งหมด ({allCodes.length})
+          </Button>
+        </Paper>
+      )}
+
+      {/* Empty Selection State */}
+      {isNoneSelected && (
+        <Alert
+          severity="info"
+          action={
+            <Button color="inherit" onClick={selectAllContractors}>
+              Select all
+            </Button>
+          }
+          sx={{ mb: 2 }}
+        >
+          คุณไม่ได้เลือกผู้รับเหมาใดๆ — กรุณาเลือกผู้รับเหมาอย่างน้อย 1 เจ้าเพื่อดูการวิเคราะห์กำลังคน
+        </Alert>
+      )}
+
+      {tooLong ? null : !data ? (
+        <Stack spacing={2}>
+          <Skeleton variant="rounded" height={40} />
+          <Skeleton variant="rounded" height={340} />
+        </Stack>
+      ) : (
+        <Stack spacing={wide ? 1.5 : 2.5}>
+          {summary.isFetching ? <LinearProgress sx={{ position: "fixed", top: 64, left: 0, right: 0, zIndex: 10 }} /> : null}
+
+          <Stack direction="row" flexWrap="wrap" useFlexGap columnGap={3} rowGap={0.5}>
+            <Figure label="Man-days" value={totals.manDays.toLocaleString()} />
+            <Figure label="NMH (ชม.)" value={totals.manHours.toLocaleString()} />
+            <Figure label="เฉลี่ยคน/วัน" value={totals.avgDaily.toLocaleString()} />
+            <Figure
+              label="ผู้รับเหมาที่วิเคราะห์"
+              value={isFiltered ? `${totals.count}/${allCodes.length}` : totals.count}
+            />
+          </Stack>
+
+          <Grid container spacing={wide ? 0 : 2.5} ref={gridRef} sx={wide ? { borderTop: 1, borderLeft: 1, borderColor: "divider", bgcolor: "background.paper" } : undefined}>
+            <Grid size={{ xs: 12, lg: 6 }}>
+              <ChartPanel
+                height={panelHeight}
+                title="Man-day รายวัน แยกตามผู้รับเหมา"
+                note={
+                  isFiltered
+                    ? `จำนวนคนเข้างานต่อวัน (กรองเฉพาะ ${selectedCodes.size} เจ้าที่เลือก)`
+                    : "จำนวนคนเข้างานต่อวัน (รายงานเช้า)"
+                }
+              >
+                <ManDayByContractorChart days={days} daily={filteredDaily} colors={colors} height={chartHeight} legend={chartHeight === undefined} />
+              </ChartPanel>
+            </Grid>
+            <Grid size={{ xs: 12, lg: 6 }}>
+              <ChartPanel
+                height={panelHeight}
+                title="สัญชาติ / เพศ แยกตามผู้รับเหมา"
+                note={
+                  isFiltered
+                    ? `คน-วัน รวมในช่วงที่เลือก (${selectedCodes.size} เจ้า)`
+                    : "คน-วัน รวมในช่วงที่เลือก"
+                }
+              >
+                <NationalityByContractorChart contractors={filteredContractors} height={legendChartHeight === undefined ? undefined : legendChartHeight - 22} />
+              </ChartPanel>
+            </Grid>
+
+            <Grid size={{ xs: 12, lg: 6 }}>
+              <ChartPanel
+                height={panelHeight}
+                title="กำลังคนแยกตามอาคาร"
+                note={
+                  isFiltered
+                    ? `คน-วัน รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา (${selectedCodes.size} เจ้า)`
+                    : "คน-วัน รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา"
+                }
+              >
+                <ManpowerByBuildingChart rows={filteredByBuilding} colors={colors} height={legendChartHeight} />
+              </ChartPanel>
+            </Grid>
+
+            <Grid size={{ xs: 12, lg: 6 }}>
+              <ChartPanel
+                height={panelHeight}
+                title="จำนวนคนตามตำแหน่ง แยกตามผู้รับเหมา"
+                note={
+                  isFiltered
+                    ? `จำนวนคนรวมตามตำแหน่ง ในช่วงที่เลือก (${selectedCodes.size} เจ้า)`
+                    : "จำนวนคนรวมตามตำแหน่ง ในช่วงที่เลือก"
+                }
+              >
+                {positions.data ? (
+                  <PositionByContractorChart rows={filteredPositions} colors={colors} height={legendChartHeight} />
+                ) : (
+                  <Skeleton variant="rounded" height={chartHeight ?? 320} />
+                )}
+              </ChartPanel>
+            </Grid>
+          </Grid>
+        </Stack>
+      )}
+    </Box>
+  );
+}
+
+function Figure({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <Stack direction="row" spacing={0.75} alignItems="baseline">
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="h5" component="span" sx={{ fontVariantNumeric: "tabular-nums" }}>
+        {value}
+      </Typography>
+    </Stack>
+  );
+}
+
+// Fit-to-window sizing (wide screens): main's bottom padding, the grid row gap, the smallest useful panel,
+// and the panel's own chrome (padding + title + note) taken off before the chart gets its height.
+const PAGE_BOTTOM = 26; // main bottom padding + the 1px divider lines
+const ROW_GAP = 0;
+const MIN_PANEL = 200;
+const PANEL_CHROME = 56;
+const LEGEND = 30;
+
+function ChartPanel({ title, note, height, children }: { title: string; note: string; height?: number | null; children: ReactNode }) {
+  return (
+    <Box sx={height
+      // Fitted (wide) layout: one flat surface, panels split by 1px lines — no boxes, gaps or rounded corners.
+      ? { borderRight: 1, borderBottom: 1, borderColor: "divider", p: 1.5, height, overflow: "hidden" }
+      : { border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2, height: "100%", overflow: "hidden" }}>
+      {/* Fitted panels keep the note on the title line: every pixel of height goes to the chart. */}
+      <Stack direction={height ? "row" : "column"} columnGap={1} alignItems={height ? "baseline" : "flex-start"} sx={{ minWidth: 0 }}>
+        <Typography variant="h5" noWrap sx={{ flexShrink: 0 }}>{title}</Typography>
+        <Typography variant="caption" color="text.secondary" noWrap component="p" sx={{ minWidth: 0 }} title={note}>
+          {note}
+        </Typography>
+      </Stack>
+      <Box sx={{ mt: height ? 0.5 : 1 }}>{children}</Box>
+    </Box>
+  );
+}

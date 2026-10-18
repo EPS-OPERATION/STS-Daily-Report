@@ -1,3 +1,10 @@
+import { alpha, useTheme } from "@mui/material/styles";
+import { useEffect, useRef, useState } from "react";
+import { Circle, Group, Image as CanvasImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
+import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationPoint } from "@sts/shared";
+import { COORDINATION_MAX, COORDINATION_MIN, coordinationGeometryError } from "@sts/shared";
+import { MachineIcon } from "./machine-icon.js";
+import type { MapDisplay } from "./map-filters.js";
 import AddOutlined from "@mui/icons-material/AddOutlined";
 import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
 import CheckOutlined from "@mui/icons-material/CheckOutlined";
@@ -15,15 +22,28 @@ import Popper from "@mui/material/Popper";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { alpha, useTheme } from "@mui/material/styles";
-import { useEffect, useRef, useState } from "react";
-import { Arrow, Circle, Group, Image as CanvasImage, Layer, Line, Rect, RegularPolygon, Stage, Text, Transformer } from "react-konva";
-import Konva from "konva";import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationPoint } from "@sts/shared";
-import { COORDINATION_MAX, COORDINATION_MIN, coordinationGeometryError } from "@sts/shared";
-import { MachineIcon } from "./machine-icon.js";
-import type { MapDisplay } from "./map-filters.js";
+import Konva from "konva";
+import { clamp } from "../utils/canvas-geometry.js";
+import { nearestBoundaryPoint } from "../utils/canvas-geometry.js";
+import { areaDelta } from "../utils/canvas-geometry.js";
+import { shiftPoints } from "../utils/canvas-geometry.js";
+import { scanContent } from "../utils/canvas-geometry.js";
+import { areaCentroid } from "../utils/canvas-geometry.js";
+import { routeMidpoint } from "../utils/canvas-geometry.js";
+import { RouteMarks } from "./route-marks.js";
+import { REPORT_ROOM } from "../utils/canvas-report.js";
+import { reportBounds } from "../utils/canvas-report.js";
+import { TEXT_LINE_HEIGHT } from "../utils/canvas-text.js";
+import { CAPTION_FONT } from "../utils/canvas-text.js";
+import { CAPTION_MAX_WIDTH } from "../utils/canvas-text.js";
+import { CAPTION_LINE_HEIGHT } from "../utils/canvas-text.js";
+import { CAPTION_MAX_LINES } from "../utils/canvas-text.js";
+import { NOTE_FONT } from "../utils/canvas-text.js";
+import { NOTE_LINE_HEIGHT } from "../utils/canvas-text.js";
+import { layoutTextTitle } from "../utils/canvas-text.js";
 
 export type MapTool = "move" | "polygon" | "route";
+
 interface Props {
   map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[];
   selectedId: string | null; draft: CoordinationInput | null; draftId?: string; tool: MapTool; compact?: boolean;
@@ -43,217 +63,10 @@ interface Props {
   /** `arrows`: false for a road picked from the register (no direction), true for a drawn route. */
   roads?: { id: string; points: CoordinationPoint[]; color: string; label: string; alert: boolean; arrows?: boolean }[];
 }
+
 const NO_CLASHES: ReadonlyMap<string, string[]> = new Map();
+
 const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true };
-const clamp = (n: number) => Math.max(COORDINATION_MIN, Math.min(COORDINATION_MAX, n));
-
-// Nearest point on the polygon boundary (image-pixel space): the connector line
-// attaches to the closest edge instead of a fixed corner.
-function nearestBoundaryPoint(points: CoordinationPoint[], px: number, py: number, width: number, height: number, closed = true) {
-  let best = { x: points[0]!.x * width, y: points[0]!.y * height };
-  let bestDistance = Infinity;
-  for (let i = 0; i < (closed ? points.length : points.length - 1); i++) {
-    const a = { x: points[i]!.x * width, y: points[i]!.y * height };
-    const b = { x: points[(i + 1) % points.length]!.x * width, y: points[(i + 1) % points.length]!.y * height };
-    const abx = b.x - a.x, aby = b.y - a.y;
-    const lengthSquared = abx * abx + aby * aby;
-    const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((px - a.x) * abx + (py - a.y) * aby) / lengthSquared));
-    const qx = a.x + t * abx, qy = a.y + t * aby;
-    const distance = (qx - px) ** 2 + (qy - py) ** 2;
-    if (distance < bestDistance) { bestDistance = distance; best = { x: qx, y: qy }; }
-  }
-  return best;
-}
-
-// Area dragging: during the drag the node keeps Konva's free position and only a
-// lightweight pixel offset is tracked (chip, connector and vertices follow via
-// their own props). On drop the offset is folded into the geometry points.
-function areaDelta(e: Konva.KonvaEventObject<DragEvent>, start: { x: number; y: number }, base: CoordinationPoint[], width: number, height: number) {
-  const dx = Math.max(COORDINATION_MIN - Math.min(...base.map((p) => p.x)), Math.min(COORDINATION_MAX - Math.max(...base.map((p) => p.x)), (e.target.x() - start.x) / width));
-  const dy = Math.max(COORDINATION_MIN - Math.min(...base.map((p) => p.y)), Math.min(COORDINATION_MAX - Math.max(...base.map((p) => p.y)), (e.target.y() - start.y) / height));
-  return { dx, dy };
-}
-const shiftPoints = (base: CoordinationPoint[], dx: number, dy: number) => base.map((p) => ({ x: p.x + dx, y: p.y + dy }));
-
-// Bounding box of the non-white drawing content (image pixels), scanned from a
-// downscaled copy. Used to frame the initial view on the drawing itself instead
-// of the artwork's empty margins.
-function scanContent(image: HTMLImageElement) {
-  const ratio = Math.min(1, 400 / Math.max(image.naturalWidth, image.naturalHeight));
-  const w = Math.max(1, Math.round(image.naturalWidth * ratio));
-  const h = Math.max(1, Math.round(image.naturalHeight * ratio));
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  const context = canvas.getContext("2d");
-  if (!context) return null;
-  context.drawImage(image, 0, 0, w, h);
-  const data = context.getImageData(0, 0, w, h).data;
-  let minX = w, minY = h, maxX = -1, maxY = -1;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      if (data[i + 3]! > 8 && (data[i]! + data[i + 1]! + data[i + 2]!) / 3 < 235) {
-        if (x < minX) minX = x; if (x > maxX) maxX = x;
-        if (y < minY) minY = y; if (y > maxY) maxY = y;
-      }
-    }
-  }
-  if (maxX < 0) return null;
-  return { x: (minX / w) * image.naturalWidth, y: (minY / h) * image.naturalHeight, w: ((maxX - minX + 1) / w) * image.naturalWidth, h: ((maxY - minY + 1) / h) * image.naturalHeight };
-}
-
-// Area-weighted centroid (image pixels) where the contractor chip sits.
-function areaCentroid(points: CoordinationPoint[], width: number, height: number) {
-  let twiceArea = 0, cx = 0, cy = 0;
-  for (let i = 0; i < points.length; i++) {
-    const a = { x: points[i]!.x * width, y: points[i]!.y * height };
-    const b = { x: points[(i + 1) % points.length]!.x * width, y: points[(i + 1) % points.length]!.y * height };
-    const cross = a.x * b.y - b.x * a.y;
-    twiceArea += cross; cx += (a.x + b.x) * cross; cy += (a.y + b.y) * cross;
-  }
-  if (Math.abs(twiceArea) < 1e-6) {
-    const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-    return { x: (sum.x / points.length) * width, y: (sum.y / points.length) * height };
-  }
-  return { x: cx / (3 * twiceArea), y: cy / (3 * twiceArea) };
-}
-
-// Point halfway along a route (image pixels): where its contractor chip sits.
-function routeMidpoint(points: CoordinationPoint[], width: number, height: number) {
-  const px = points.map((p) => ({ x: p.x * width, y: p.y * height }));
-  const lengths = px.slice(1).map((p, i) => Math.hypot(p.x - px[i]!.x, p.y - px[i]!.y));
-  let rest = lengths.reduce((a, b) => a + b, 0) / 2;
-  for (let i = 0; i < lengths.length; i++) {
-    if (rest <= lengths[i]! && lengths[i]! > 0) {
-      const t = rest / lengths[i]!;
-      return { x: px[i]!.x + (px[i + 1]!.x - px[i]!.x) * t, y: px[i]!.y + (px[i + 1]!.y - px[i]!.y) * t };
-    }
-    rest -= lengths[i]!;
-  }
-  return px[0] ?? { x: 0, y: 0 };
-}
-
-// Direction marks on a road route (image pixels): a start dot, small arrows along the line every
-// ~90 screen px and an arrowhead at the end, so the way the contractor drives reads at a glance.
-// Two-way roads get an arrowhead at both ends and no in-between marks (those would point one way).
-// The title sits under the midpoint chip. Never listens: the route line itself takes the clicks.
-export function RouteMarks({ points, dx, dy, color, paper, scale, title, textColor, arrowsHidden = false, twoWay = false, labelDy = 14 }: {
-  points: { x: number; y: number }[]; dx: number; dy: number; color: string; paper: string; scale: number; title: string; textColor: string;
-  /** Label only (e.g. a register road with no direction). */
-  arrowsHidden?: boolean;
-  /** Traffic both ways: arrowheads at both ends. */
-  twoWay?: boolean;
-  /** Screen px from the midpoint down to the label (stacked when labels would overlap). */
-  labelDy?: number;
-}) {
-  const step = 90 / scale;
-  const marks: { x: number; y: number; rotation: number }[] = [];
-  let next = step / 2;
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1]!, b = points[i]!;
-    const length = Math.hypot(b.x - a.x, b.y - a.y);
-    const rotation = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI + 90;
-    while (next < length) {
-      marks.push({ x: a.x + ((b.x - a.x) * next) / length, y: a.y + ((b.y - a.y) * next) / length, rotation });
-      next += step;
-    }
-    next -= length;
-  }
-  const end = points[points.length - 1]!, before = points[points.length - 2]!;
-  const start = points[0]!, after = points[1]!;
-  const mid = routeMidpoint(points.map((p) => ({ x: p.x, y: p.y })), 1, 1);
-  const label = title ? layoutTextTitle(title, { font: CAPTION_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: CAPTION_LINE_HEIGHT, maxLines: CAPTION_MAX_LINES, minWidth: 64 }) : null;
-  return <Group x={dx} y={dy} listening={false}>
-    {/* The last stretch near the arrowhead stays clear of small marks. */}
-    {!arrowsHidden && !twoWay && marks.filter((m) => Math.hypot(m.x - end.x, m.y - end.y) > 30 / scale).map((m, i) => (
-      <RegularPolygon key={i} x={m.x} y={m.y} sides={3} radius={5 / scale} rotation={m.rotation} fill={paper} />
-    ))}
-    {!arrowsHidden && !twoWay && <Circle x={points[0]!.x} y={points[0]!.y} radius={7 / scale} fill={paper} stroke={color} strokeWidth={3 / scale} />}
-    {!arrowsHidden && <Arrow points={[before.x, before.y, end.x, end.y]} pointerLength={22 / scale} pointerWidth={22 / scale} fill={color} stroke={color} strokeWidth={6 / scale} lineCap="round" />}
-    {!arrowsHidden && twoWay && <Arrow points={[after.x, after.y, start.x, start.y]} pointerLength={22 / scale} pointerWidth={22 / scale} fill={color} stroke={color} strokeWidth={6 / scale} lineCap="round" />}
-    {label && <Group x={mid.x} y={mid.y} scaleX={1 / scale} scaleY={1 / scale}>
-      <Text x={-label.width / 2} y={labelDy} width={label.width} text={label.lines.join("\n")} fontFamily="Inter" fontSize={12} fontStyle="600" lineHeight={CAPTION_LINE_HEIGHT / 12} align="center" fill={textColor} stroke={paper} strokeWidth={3} fillAfterStrokeEnabled />
-    </Group>}
-  </Group>;
-}
-
-// Report room (screen px) kept clear around the drawing: job titles and notes hang below or beside their marker.
-const REPORT_ROOM = { left: 130, right: 130, top: 40, bottom: 100 };
-
-// Report framing: the drawing content plus every job (marker and area), so nothing printed is cut off.
-function reportBounds(content: { x: number; y: number; w: number; h: number } | null, items: CoordinationItem[], map: { width: number; height: number }) {
-  let minX = content?.x ?? 0, minY = content?.y ?? 0;
-  let maxX = content ? content.x + content.w : map.width, maxY = content ? content.y + content.h : map.height;
-  for (const item of items) {
-    for (const p of [{ x: item.x, y: item.y }, ...item.geometry.points]) {
-      const px = p.x * map.width, py = p.y * map.height;
-      minX = Math.min(minX, px); maxX = Math.max(maxX, px);
-      minY = Math.min(minY, py); maxY = Math.max(maxY, py);
-    }
-  }
-  return { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) };
-}
-
-// ---- text marker sizing ------------------------------------------------------
-// Long titles auto-size the pill and wrap like a Canva text box: up to 3 lines,
-// then a trailing ellipsis. Thai strings have no word breaks, so over-long
-// tokens are hard-split by character width. The same helper also lays out the
-// caption attached under an icon marker (smaller font, max 2 lines).
-const TEXT_FONT = "700 13px Inter, sans-serif";
-const TEXT_MAX_WIDTH = 240;
-const TEXT_LINE_HEIGHT = 17;
-const TEXT_MAX_LINES = 3;
-const CAPTION_FONT = "600 12px Inter, sans-serif";
-const CAPTION_MAX_WIDTH = 200;
-const CAPTION_LINE_HEIGHT = 15;
-const CAPTION_MAX_LINES = 2;
-// Note under the title: smaller, muted, two lines max (the full note is in the side panel).
-const NOTE_FONT = "400 11px Inter, sans-serif";
-const NOTE_LINE_HEIGHT = 14;
-interface TextLayout { lines: string[]; width: number; height: number; lineHeight: number }
-let measureContext: CanvasRenderingContext2D | null = null;
-function measureText(text: string, font: string) {
-  measureContext ??= document.createElement("canvas").getContext("2d");
-  if (!measureContext) return text.length * 7;
-  measureContext.font = font;
-  return measureContext.measureText(text).width;
-}
-function layoutTextTitle(title: string, options: { font?: string; maxWidth?: number; lineHeight?: number; maxLines?: number; minWidth?: number } = {}): TextLayout {
-  const font = options.font ?? TEXT_FONT;
-  const maxWidth = options.maxWidth ?? TEXT_MAX_WIDTH;
-  const lineHeight = options.lineHeight ?? TEXT_LINE_HEIGHT;
-  const maxLines = options.maxLines ?? TEXT_MAX_LINES;
-  const minWidth = options.minWidth ?? 88;
-  const source = title.trim() || "ข้อความ";
-  const lines: string[] = [];
-  for (const token of source.split(/\s+/)) {
-    let rest = token;
-    while (measureText(rest, font) > maxWidth) {
-      let cut = rest.length;
-      while (cut > 1 && measureText(rest.slice(0, cut), font) > maxWidth) cut--;
-      const head = rest.slice(0, cut);
-      const prev = lines[lines.length - 1];
-      if (prev && measureText(`${prev} ${head}`, font) <= maxWidth) lines[lines.length - 1] = `${prev} ${head}`;
-      else lines.push(head);
-      rest = rest.slice(cut);
-    }
-    if (!rest) continue;
-    const prev = lines[lines.length - 1];
-    if (prev && measureText(`${prev} ${rest}`, font) <= maxWidth) lines[lines.length - 1] = `${prev} ${rest}`;
-    else lines.push(rest);
-  }
-  if (!lines.length) lines.push(source);
-  if (lines.length > maxLines) {
-    lines.length = maxLines;
-    let last = lines[maxLines - 1]!;
-    while (last.length > 1 && measureText(`${last}…`, font) > maxWidth) last = last.slice(0, -1);
-    lines[maxLines - 1] = `${last}…`;
-  }
-  const inner = Math.max(...lines.map((line) => measureText(line, font)));
-  const width = Math.max(minWidth, Math.min(maxWidth + 24, inner + 24));
-  const height = lines.length * lineHeight + 14;
-  return { lines, width, height, lineHeight };
-}
 
 export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, onReady, clashes = NO_CLASHES, roads = [] }: Props) {
   const theme = useTheme();

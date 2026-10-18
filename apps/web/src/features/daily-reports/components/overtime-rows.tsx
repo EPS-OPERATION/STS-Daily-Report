@@ -11,8 +11,9 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { Controller, useFieldArray, type Control } from "react-hook-form";
 import type { EveningFormValues } from "../schemas/daily-report.schema.js";
-import type { Building, ReportAllocation } from "../types/daily-report.types.js";
-import { BuildingSelect } from "./building-select.js";
+import type { Building } from "@/features/buildings/index.js";
+import type { ReportAllocation } from "../types/daily-report.types.js";
+import { BuildingSelect } from "@/features/buildings/index.js";
 import { NumberStepper } from "./number-stepper.js";
 
 // Evening OT, itemised: one row per building + task with its people and hours. No rows = no OT.

@@ -1,56 +1,17 @@
-import ExpandMoreIcon from "@mui/icons-material/ExpandMoreOutlined";
-import AddIcon from "@mui/icons-material/AddOutlined";
-import AirOutlinedIcon from "@mui/icons-material/AirOutlined";
-import FilterDramaOutlinedIcon from "@mui/icons-material/FilterDramaOutlined";
-import ThunderstormOutlinedIcon from "@mui/icons-material/ThunderstormOutlined";
-import UmbrellaOutlinedIcon from "@mui/icons-material/UmbrellaOutlined";
-import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
-import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
-import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
-
-import PercentOutlinedIcon from "@mui/icons-material/PercentOutlined";
-import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
-import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
-import Collapse from "@mui/material/Collapse";
-import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
-import Grid from "@mui/material/Grid";
-import IconButton from "@mui/material/IconButton";
-import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  DISCIPLINES,
-  DISCIPLINE_CODES,
-  SITE_EQUIPMENT_TYPES,
-  WEATHER_CONDITIONS,
-  type Discipline,
-  type PermitType,
-  type PositionCode,
-  type WeatherCondition,
-  weatherCodeLabel,
-  weatherConditionOf,
-} from "@sts/shared";
-import type { SvgIconProps } from "@mui/material/SvgIcon";
-import { useEffect, useRef, useState, type ComponentType, type FormEvent } from "react";
-import { Controller, useFieldArray, useForm, useWatch, type UseFormReturn } from "react-hook-form";
+import { DISCIPLINE_CODES, SITE_EQUIPMENT_TYPES, WEATHER_CONDITIONS, type Discipline, type PermitType, type PositionCode, weatherCodeLabel, weatherConditionOf } from "@sts/shared";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
-import { StandardItemsPanel, type StandardItem } from "@/features/report-standard-items/index.js";
+import { StandardItemsPanel } from "@/features/report-standard-items/index.js";
 import { dailyReportApi } from "../api/daily-report.api.js";
 import { useSubmitMorning } from "../hooks/use-daily-report-mutations.js";
-import { morningSchema, placementStatus, type ActivityValues, type MorningFormValues } from "../schemas/daily-report.schema.js";
-import type { Building, DailyReport, ReportContractor } from "../types/daily-report.types.js";
-import { BuildingSelect } from "./building-select.js";
+import { morningSchema, placementStatus, type MorningFormValues } from "../schemas/daily-report.schema.js";
+import type { Building } from "@/features/buildings/index.js";
+import type { DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { CopySourcePanel } from "./copy-source-button.js";
 import { CountList } from "./count-list.js";
-import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
+import { crewTotals } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
 import { SectionCard } from "./section-card.js";
 import { DisciplineChips } from "./discipline-picker.js";
@@ -58,9 +19,32 @@ import { TimeSelect } from "@/components/ui/time-select.js";
 import { useWeatherAt } from "@/features/weather/index.js";
 import { DraftBanner, DraftSavedNote, FormProgress, type ProgressItem } from "./form-aids.js";
 import { draftKey, useFormDraft } from "../hooks/use-form-draft.js";
-import { PermitRequests } from "./tomorrow-requests.js";
-import { formatThaiDate } from "../utils/dates.js";
+import { PermitRequests } from "./permit-requests.js";
+import { formatThaiDate } from "@/lib/dates.js";
 import { firstSection, scrollToSection, sectionTitle, type SectionMap } from "../utils/form-sections.js";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMoreOutlined";
+import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Collapse from "@mui/material/Collapse";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Grid from "@mui/material/Grid";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import { WEATHER_ICONS } from "./morning-helpers.js";
+import { EQUIPMENT_ITEMS } from "./morning-helpers.js";
+import { emptyCounts } from "./morning-helpers.js";
+import { disciplineLabel } from "./morning-helpers.js";
+import { hoursBetween } from "./morning-helpers.js";
+import { crewDefaults } from "./morning-helpers.js";
+import { toDefaults } from "./morning-helpers.js";
+import { CustomEquipmentList } from "./morning-equipment-list.js";
+import { MorningCrewSection } from "./morning-crew-section.js";
 
 interface MorningFormProps {
   projectId: string;
@@ -72,88 +56,6 @@ interface MorningFormProps {
   /** Opened from the home page copy button: copy this sent morning report once on open. */
   autoCopyFrom?: string;
   onAutoCopyStarted?: () => void;
-}
-
-const WEATHER_ICONS: Record<WeatherCondition, ComponentType<SvgIconProps>> = {
-  thunderstorm: ThunderstormOutlinedIcon,
-  rain: UmbrellaOutlinedIcon,
-  hot: WbSunnyOutlinedIcon,
-  windy: AirOutlinedIcon,
-  normal: FilterDramaOutlinedIcon,
-};
-
-// Fixed suggestion list (first 7 shown, rest behind "show more"). Contractors may
-// add custom names beyond this list — those ride the same record under their own key.
-const EQUIPMENT_ITEMS = SITE_EQUIPMENT_TYPES.map((e, i) => ({ key: e, label: e, primary: i < 7 }));
-
-const emptyCounts = <K extends string>(keys: readonly K[]) =>
-  Object.fromEntries(keys.map((k) => [k, 0])) as Record<K, number>;
-
-const disciplineLabel = (d: Discipline) => DISCIPLINES.find((x) => x.code === d)?.label ?? d;
-
-// Normal working hours from the shift window, minus a 1 h lunch break for full days.
-function hoursBetween(start: string, end: string): number {
-  const [sh = 0, sm = 0] = start.split(":").map(Number);
-  const [eh = 0, em = 0] = end.split(":").map(Number);
-  const diff = (eh * 60 + em - (sh * 60 + sm)) / 60;
-  if (diff <= 0) return 0;
-  return Math.round((diff > 5 ? diff - 1 : diff) * 2) / 2;
-}
-
-type CrewValues = MorningFormValues["crews"][Discipline];
-
-function crewDefaults(report: DailyReport | null, d: Discipline, copied = false): CrewValues {
-  const crew = report?.crews.find((c) => c.shift === "morning" && c.discipline === d);
-  return {
-    positions: {
-      ...emptyPositions(),
-      ...Object.fromEntries((crew?.positions ?? []).map((p) => [p.position, p.headcount])),
-    },
-    thaiMale: crew?.thaiMale ?? 0,
-    thaiFemale: crew?.thaiFemale ?? 0,
-    foreignMale: crew?.foreignMale ?? 0,
-    foreignFemale: crew?.foreignFemale ?? 0,
-    allocations: (report?.allocations ?? [])
-      .filter((a) => a.discipline === d)
-      .map((a) => ({
-        buildingId: a.buildingId,
-        headcount: a.headcount,
-        workDescription: a.workDescription,
-        // A copy keeps who works where; times and plan % are set again for today.
-        timed: !copied && Boolean(a.startTime && a.endTime),
-        startTime: (!copied && a.startTime) || "08:00",
-        endTime: (!copied && a.endTime) || "12:00",
-        hasPlan: !copied && a.planPercent !== null,
-        planPercent: copied ? 0 : (a.planPercent ?? 0),
-      })),
-  };
-}
-
-function toDefaults(report: DailyReport | null): MorningFormValues {
-  const reported = DISCIPLINE_CODES.filter((d) => report?.crews.some((c) => c.shift === "morning" && c.discipline === d));
-  return {
-    startTime: report?.startTime ?? "08:00",
-    endTime: report?.endTime ?? "17:00",
-    workHours: report?.workHours ?? 8,
-    disciplines: reported,
-    weather: (report?.weather ?? "") as WeatherCondition,
-    temperatureC: report?.temperatureC ?? null,
-    humidityPct: report?.humidityPct ?? null,
-    equipment: {
-      ...emptyCounts(SITE_EQUIPMENT_TYPES),
-      ...Object.fromEntries((report?.equipment ?? []).map((e) => [e.equipmentType, e.qty])),
-    } as Record<string, number>,
-    crews: { CE: crewDefaults(report, "CE"), ME: crewDefaults(report, "ME"), EE: crewDefaults(report, "EE") },
-    permits: (report?.permits ?? []).map((p) => ({
-      permitType: p.permitType,
-      otherLabel: p.otherLabel ?? "",
-      buildingId: p.buildingId,
-      workers: p.workers,
-      highRisk: p.highRisk ?? false,
-      taskName: p.taskName ?? "",
-      supervisorName: p.supervisorName ?? "",
-    })),
-  };
 }
 
 export function MorningForm({ projectId, date, contractor, buildings, report, onSubmitted, autoCopyFrom, onAutoCopyStarted }: MorningFormProps) {
@@ -769,404 +671,5 @@ function GoToButton({ onClick }: { onClick: () => void }) {
     <Button color="inherit" size="small" onClick={onClick} sx={{ py: 0, whiteSpace: "nowrap" }}>
       ไปที่หัวข้อ
     </Button>
-  );
-}
-
-// Machines beyond the fixed list: free-text name + count, stored under the same
-// equipment record keyed by name. Standard rows stay in CountList above.
-function CustomEquipmentList({
-  values,
-  onChange,
-}: {
-  values: Record<string, number>;
-  onChange: (next: Record<string, number>) => void;
-}) {
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const standard = new Set<string>(SITE_EQUIPMENT_TYPES);
-  const customKeys = Object.keys(values).filter((k) => !standard.has(k));
-
-  const add = () => {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setError("ระบุชื่อเครื่องจักร/อุปกรณ์");
-      return;
-    }
-    if (trimmed.length > 120) {
-      setError("ชื่อยาวเกินไป (สูงสุด 120 ตัวอักษร)");
-      return;
-    }
-    const lower = trimmed.toLowerCase();
-    if (SITE_EQUIPMENT_TYPES.some((s) => s.toLowerCase() === lower) || customKeys.some((k) => k.toLowerCase() === lower)) {
-      setError(`"${trimmed}" มีในรายการแล้ว — เพิ่มจำนวนที่รายการนั้นได้เลย`);
-      return;
-    }
-    if (Object.values(values).filter((n) => (n ?? 0) > 0).length >= 30) {
-      setError("ได้สูงสุด 30 รายการ");
-      return;
-    }
-    onChange({ ...values, [trimmed]: 1 });
-    setName("");
-    setError(null);
-  };
-
-  return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
-      <Box sx={{ px: 1.5, pt: 1.25, pb: customKeys.length > 0 ? 0.5 : 1.25 }}>
-        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-          Other (อื่นๆ)
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-          เช่น รถเครนเฉพาะทาง เครื่องปั่นไฟ — พิมพ์ชื่อแล้วกดเพิ่ม
-        </Typography>
-        <Stack direction="row" spacing={1} alignItems="flex-start">
-          <TextField
-            label="Machinery / equipment name"
-            placeholder="เช่น เครื่องปั่นไฟ 100 kVA"
-            size="small"
-            fullWidth
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              if (error) setError(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                add();
-              }
-            }}
-            error={Boolean(error)}
-            helperText={error ?? undefined}
-            slotProps={{ htmlInput: { maxLength: 120 } }}
-          />
-          <Button variant="outlined" startIcon={<AddIcon />} onClick={add} sx={{ flexShrink: 0, height: 40 }}>
-            Add
-          </Button>
-        </Stack>
-      </Box>
-      {customKeys.map((key) => (
-        <Stack
-          key={key}
-          direction="row"
-          alignItems="center"
-          spacing={1}
-          sx={{ px: 1.5, py: 0.75, borderTop: 1, borderColor: "divider", bgcolor: (values[key] ?? 0) > 0 ? "primary.light" : "background.paper" }}
-        >
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
-              {key}
-            </Typography>
-          </Box>
-          <NumberStepper label={`จำนวน ${key}`} value={values[key] ?? 0} onChange={(n) => onChange({ ...values, [key]: n })} min={0} max={500} unit="เครื่อง" />
-          <IconButton
-            size="small"
-            aria-label={`Delete ${key}`}
-            onClick={() => {
-              const next = { ...values };
-              delete next[key];
-              onChange(next);
-            }}
-            sx={{ border: 1, borderColor: "divider", width: 32, height: 32 }}
-          >
-            <DeleteOutlineOutlinedIcon fontSize="small" />
-          </IconButton>
-        </Stack>
-      ))}
-    </Box>
-  );
-}
-
-
-const newActivity = (headcount: number): ActivityValues => ({
-  buildingId: "",
-  headcount,
-  workDescription: "",
-  timed: false,
-  startTime: "08:00",
-  endTime: "12:00",
-  hasPlan: false,
-  planPercent: 0,
-});
-
-// A saved work item becomes one Today Activity row: where, what and how many. Times and plan % are set per day.
-const activityFromStandard = (i: StandardItem): ActivityValues => ({
-  ...newActivity(i.defaultCount),
-  buildingId: i.buildingId ?? "",
-  workDescription: i.label,
-});
-
-// One discipline's morning form: who works (by position + nationality/sex) and Today Activity —
-// which building, what work, how many people, optionally when and with a plan %.
-function MorningCrewSection({
-  index,
-  discipline,
-  form,
-  buildings,
-  dayStart,
-  dayEnd,
-  projectId,
-  contractorId,
-}: {
-  index: number;
-  discipline: Discipline;
-  form: UseFormReturn<MorningFormValues>;
-  buildings: Building[];
-  dayStart: string;
-  dayEnd: string;
-  projectId: string;
-  contractorId: string;
-}) {
-  const { control, setValue, getValues, formState } = form;
-  const activities = useFieldArray({ control, name: `crews.${discipline}.allocations` });
-  const crew = useWatch({ control, name: `crews.${discipline}` });
-  const t = crewTotals(crew);
-  const rows = crew.allocations ?? [];
-  const placement = placementStatus(rows, dayStart, dayEnd, t.total);
-  const problem = t.total > 0 ? placement.over : null;
-  const errors = formState.errors.crews?.[discipline];
-  const listError = errors?.allocations?.root?.message ?? errors?.allocations?.message;
-
-  // A freshly opened discipline starts with one empty activity.
-  useEffect(() => {
-    if (getValues(`crews.${discipline}.allocations`).length === 0) activities.append(newActivity(1));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <SectionCard
-      id={`sec-crew-${discipline}`}
-      index={index}
-      title={`${disciplineLabel(discipline)} — ผู้ปฏิบัติงานและ Today Activity`}
-      subtitle="จำนวนคนเข้างานวันนี้แยกตามตำแหน่ง แล้วลงรายละเอียดงานว่าทำที่ไหน กี่คน"
-    >
-      <CrewManpower
-        value={crew}
-        totalLabel={`${discipline} manpower`}
-        error={errors?.positions?.message ?? errors?.thaiMale?.message}
-        onPositions={(next) => setValue(`crews.${discipline}.positions`, next, { shouldDirty: true, shouldValidate: formState.isSubmitted })}
-        onSplit={(key, n) => setValue(`crews.${discipline}.${key}`, n, { shouldDirty: true, shouldValidate: formState.isSubmitted })}
-      />
-
-      <Typography variant="h6" sx={{ mt: 3 }}>
-        Today Activity
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        ลงรายละเอียดงานพร้อมจำนวนคนที่ทำ — ถ้าย้ายอาคารระหว่างวัน กด “ระบุเวลา” ได้ (ไม่บังคับ)
-      </Typography>
-
-      <Stack spacing={1.5}>
-        {activities.fields.map((row, i) => (
-          <ActivityRow
-            key={row.id}
-            index={i}
-            discipline={discipline}
-            form={form}
-            buildings={buildings}
-            canRemove={activities.fields.length > 1}
-            onRemove={() => activities.remove(i)}
-          />
-        ))}
-      </Stack>
-
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
-        <Typography
-          variant="body2"
-          role="status"
-          aria-live="polite"
-          sx={{
-            fontWeight: 600,
-            color: problem ? "error.main" : placement.placed === t.total && t.total > 0 ? "success.dark" : "text.secondary",
-          }}
-        >
-          {t.total === 0
-            ? "กรอกจำนวนคนด้านบนก่อน"
-            : (problem ?? (placement.placed === t.total ? `ลงงานครบ ${t.total} คนแล้ว` : `ลงงาน ${placement.placed}/${t.total} คน`))}
-        </Typography>
-        <Button
-          startIcon={<AddIcon />}
-          variant="outlined"
-          disabled={activities.fields.length >= 32}
-          onClick={() => activities.append(newActivity(1))}
-        >
-          Add activity
-        </Button>
-      </Stack>
-      {listError && listError !== problem ? (
-        <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.5 }}>
-          {listError}
-        </Typography>
-      ) : null}
-      <StandardItemsPanel
-        kind="activity"
-        projectId={projectId}
-        contractorId={contractorId}
-        buildings={buildings}
-        onApply={(items) => {
-          const have = new Set(rows.map((r) => `${r.buildingId}|${r.workDescription.trim().toLowerCase()}`));
-          const fresh = items.filter((i) => i.buildingId && !have.has(`${i.buildingId}|${i.label.trim().toLowerCase()}`));
-          activities.append(fresh.map(activityFromStandard));
-        }}
-        onSaveFromForm={() =>
-          rows
-            .filter((r) => r.buildingId && r.workDescription.trim())
-            .map((r) => ({ kind: "activity" as const, label: r.workDescription.trim(), buildingId: r.buildingId, defaultCount: r.headcount }))
-        }
-      />
-    </SectionCard>
-  );
-}
-
-function ActivityRow({
-  index,
-  discipline,
-  form,
-  buildings,
-  canRemove,
-  onRemove,
-}: {
-  index: number;
-  discipline: Discipline;
-  form: UseFormReturn<MorningFormValues>;
-  buildings: Building[];
-  canRemove: boolean;
-  onRemove: () => void;
-}) {
-  const { control, setValue } = form;
-  const path = `crews.${discipline}.allocations.${index}` as const;
-  const [timed, hasPlan, activityStart] = useWatch({ control, name: [`${path}.timed`, `${path}.hasPlan`, `${path}.startTime`] });
-
-  return (
-    <Card variant="outlined">
-      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-        <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1} alignItems="flex-start">
-            <Controller
-              name={`${path}.buildingId`}
-              control={control}
-              render={({ field, fieldState }) => (
-                <BuildingSelect label="Building" buildings={buildings} value={field.value} onChange={field.onChange} error={fieldState.error?.message} />
-              )}
-            />
-            <IconButton aria-label="Delete activity" onClick={onRemove} disabled={!canRemove} sx={{ mt: 0.5 }}>
-              <DeleteOutlineOutlinedIcon />
-            </IconButton>
-          </Stack>
-          <Controller
-            name={`${path}.workDescription`}
-            control={control}
-            render={({ field, fieldState }) => (
-              <TextField
-                {...field}
-                label="Work details"
-                placeholder="เช่น ยกติดตั้ง Structure line A–D"
-                size="small"
-                fullWidth
-                error={Boolean(fieldState.error)}
-                helperText={fieldState.error?.message}
-              />
-            )}
-          />
-          <Stack direction="row" spacing={2} alignItems="flex-end" flexWrap="wrap" useFlexGap>
-            <Controller
-              name={`${path}.headcount`}
-              control={control}
-              render={({ field, fieldState }) => (
-                <NumberStepper label="Headcount" value={field.value} onChange={field.onChange} min={1} unit="คน" error={fieldState.error?.message} />
-              )}
-            />
-            {timed ? (
-              <Stack direction="row" spacing={1} alignItems="center">
-                {(["startTime", "endTime"] as const).map((k) => (
-                  <Controller
-                    key={k}
-                    name={`${path}.${k}`}
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <TimeSelect
-                        label={k === "startTime" ? "เวลาเริ่ม" : "เวลาสิ้นสุด"}
-                        value={field.value ?? ""}
-                        onChange={field.onChange}
-                        onBlur={field.onBlur}
-                        step={30}
-                        after={k === "endTime" ? activityStart : undefined}
-                        fullWidth={false}
-                        sx={{ width: 132 }}
-                        error={Boolean(fieldState.error)}
-                        helperText={fieldState.error?.message}
-                      />
-                    )}
-                  />
-                ))}
-              </Stack>
-            ) : null}
-            {hasPlan ? (
-              <Controller
-                name={`${path}.planPercent`}
-                control={control}
-                render={({ field }) => (
-                  <NumberStepper label="แผนงาน (Plan %)" value={field.value} onChange={field.onChange} max={100} step={5} unit="%" />
-                )}
-              />
-            ) : null}
-          </Stack>
-          {/* Optional extras: time window and plan % */}
-          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ pt: 0.5 }}>
-            <Button
-              variant={timed ? "contained" : "outlined"}
-              color={timed ? "primary" : "inherit"}
-              startIcon={<ScheduleOutlinedIcon fontSize="small" sx={{ color: timed ? "common.white" : "primary.main" }} />}
-              endIcon={timed ? <CloseOutlinedIcon sx={{ fontSize: 16 }} /> : undefined}
-              onClick={() => setValue(`${path}.timed`, !timed, { shouldDirty: true, shouldValidate: true })}
-              sx={{
-                borderRadius: 2,
-                px: 1.75,
-                py: 0.75,
-                fontWeight: 700,
-                fontSize: 13,
-                textTransform: "none",
-                bgcolor: timed ? "primary.main" : "grey.50",
-                borderColor: timed ? "primary.main" : "grey.300",
-                color: timed ? "common.white" : "text.primary",
-                boxShadow: timed ? "0 2px 4px rgba(11,77,139,0.2)" : "none",
-                "&:hover": {
-                  bgcolor: timed ? "primary.dark" : "primary.light",
-                  borderColor: "primary.main",
-                  color: timed ? "common.white" : "primary.main",
-                },
-              }}
-            >
-              {timed ? "ระบุเวลา (คลิกเพื่อยกเลิก)" : "+ ระบุเวลา"}
-            </Button>
-            <Button
-              variant={hasPlan ? "contained" : "outlined"}
-              color={hasPlan ? "primary" : "inherit"}
-              startIcon={<PercentOutlinedIcon fontSize="small" sx={{ color: hasPlan ? "common.white" : "primary.main" }} />}
-              endIcon={hasPlan ? <CloseOutlinedIcon sx={{ fontSize: 16 }} /> : undefined}
-              onClick={() => setValue(`${path}.hasPlan`, !hasPlan, { shouldDirty: true })}
-              sx={{
-                borderRadius: 2,
-                px: 1.75,
-                py: 0.75,
-                fontWeight: 700,
-                fontSize: 13,
-                textTransform: "none",
-                bgcolor: hasPlan ? "primary.main" : "grey.50",
-                borderColor: hasPlan ? "primary.main" : "grey.300",
-                color: hasPlan ? "common.white" : "text.primary",
-                boxShadow: hasPlan ? "0 2px 4px rgba(11,77,139,0.2)" : "none",
-                "&:hover": {
-                  bgcolor: hasPlan ? "primary.dark" : "primary.light",
-                  borderColor: "primary.main",
-                  color: hasPlan ? "common.white" : "primary.main",
-                },
-              }}
-            >
-              {hasPlan ? "แผนงาน % (คลิกเพื่อยกเลิก)" : "+ แผนงาน %"}
-            </Button>
-          </Stack>
-        </Stack>
-      </CardContent>
-    </Card>
   );
 }

@@ -12,12 +12,13 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { POSITIONS, WEATHER_CONDITIONS } from "@sts/shared";
 import dayjs from "dayjs";
-import type { Building, DailyReport } from "../types/daily-report.types.js";
-import { permitLabel } from "./permit-meta.js";
+import type { Building } from "@/features/buildings/index.js";
+import type { DailyReport } from "../types/daily-report.types.js";
+import { permitLabel } from "@/features/daily-requests/index.js";
 import { PhotoSection } from "./photo-section.js";
-import { RequestSection } from "./request-section.js";
+import { RequestSection } from "@/features/qaqc/index.js";
 import { SectionCard } from "./section-card.js";
-import { formatThaiDate, timeWindowLabel } from "../utils/dates.js";
+import { formatThaiDate, timeWindowLabel } from "@/lib/dates.js";
 import { overtimeLines, overtimeSummary } from "../utils/overtime.js";
 
 // Read-only view once the evening shift is submitted (the day is closed).

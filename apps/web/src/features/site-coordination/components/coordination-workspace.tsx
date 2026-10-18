@@ -37,7 +37,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import { QueryError } from "@/components/ui/query-error.js";
 import { useMe } from "@/features/auth/index.js";
-import { ContractorFilterPopover } from "@/features/daily-reports/index.js";
+import { ContractorFilterPopover } from "@/features/contractors/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 import { useCoordination, useCoordinationColor, useDayLock, useDeleteCoordination, useSaveCoordination, useSaveDayNote } from "../hooks/use-coordination.js";

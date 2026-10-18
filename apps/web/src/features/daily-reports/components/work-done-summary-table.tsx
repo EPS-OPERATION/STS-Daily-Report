@@ -21,7 +21,7 @@ import FileDownloadIcon from "@mui/icons-material/FileDownloadOutlined";
 import PrintIcon from "@mui/icons-material/PrintOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import WarningAmberIcon from "@mui/icons-material/WarningAmberOutlined";
-import { ContractorBadge } from "./contractor-badge.js";
+import { ContractorBadge } from "@/features/contractors/index.js";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import { ALL_BUILDINGS, filterWorkDone } from "../utils/work-done.js";

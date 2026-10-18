@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { findRoadConflicts } from "../src/modules/daily-reports/daily-report.conflicts.js";
-import type { RoadRow } from "../src/modules/daily-reports/daily-report.type.js";
+import { findRoadConflicts } from "../src/modules/daily-requests/daily-request.conflicts.js";
+import type { RoadRow } from "../src/modules/daily-requests/daily-request.type.js";
 
 const road = (id: string, contractorId: string, roadLocation: string, startTime: string, endTime: string, targetDate = "2026-10-02"): RoadRow => ({
   id, targetDate, buildingId: "b", buildingCode: "B", buildingName: "B", roadLocation, startTime, endTime, requestedStartTime: startTime, requestedEndTime: endTime, adjusted: false, adjustedAt: null, adjustedByName: null, purpose: "x", contractorId, contractorCode: contractorId,

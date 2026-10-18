@@ -17,8 +17,10 @@ features/<domain>/
   schemas/<domain>.schema.ts  # zod form schema
   types/<domain>.types.ts
   components/*.tsx
-  index.ts                 # barrel: types, keys, api, hooks, components, schema
-pages/<domain>-page.tsx    # composes feature pieces; add route in app/router/index.tsx under AppLayout
+  pages/<x>-page.tsx       # route screens live INSIDE the feature (there is no top-level pages/ dir)
+  index.ts                 # barrel: types, keys, api, hooks, components, schema (not the pages)
+# route: add `lazy: page(() => import("@/features/<domain>/pages/<x>-page.js"), "XPage")` in app/router/index.tsx
+# (import the page by file path, never via the barrel, so it stays its own chunk)
 ```
 
 Replace the `PlaceholderPage` route when a placeholder domain (manpower, work-permits, qaqc, materials, progress,
@@ -27,6 +29,9 @@ reports) becomes real. Register navigation icons in `app/icons/navigation-icons.
 
 ## Rules
 
+- Cross-feature imports should go through the other feature's barrel (the app shell and router deep-import on purpose to keep the entry bundle small; `bun check:arch` only enforces no cycles), and arrows are one-way (leaf features such as
+  buildings/contractors/qaqc/report-summaries never import daily-reports). Report query keys share the root
+  `["daily-reports"]` from `lib/report-query-keys.ts` so one `useInvalidateReports()` refreshes them all.
 - Server state = TanStack Query only. No server data in Context, no global store. Project selection comes from
   `features/projects` `ProjectProvider`.
 - Forms: React Hook Form + `zodResolver`. Errors via MUI `Alert`/`Dialog`/Snackbar, never `alert()`.

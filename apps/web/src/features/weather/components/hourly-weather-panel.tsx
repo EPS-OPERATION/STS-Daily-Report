@@ -8,7 +8,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import type { WeatherHour } from "@sts/shared";
 import { useState, type ReactNode } from "react";
-import { addDaysIso, todayIso } from "@/features/daily-reports/index.js";
+import { addDaysIso, todayIso } from "@/lib/dates.js";
 import { useHourlyWeather } from "../hooks/use-weather.js";
 import { HourlyWeatherChart } from "./hourly-weather-chart.js";
 

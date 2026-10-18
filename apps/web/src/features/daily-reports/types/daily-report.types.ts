@@ -1,18 +1,13 @@
-import type {
-  AccidentCategory,
-  CoordinationPoint,
-  Discipline,
-  InspectionResult,
-  InspectionType,
-  MachineType,
-  PermitType,
-  PhotoCategory,
-  PositionCode,
-  Readiness,
-  RequestStatus,
-  WeatherCondition,
-  WorkloadLevel,
-} from "@sts/shared";
+import type { AccidentCategory, CoordinationPoint, Discipline, MachineType, PermitType, PhotoCategory, PositionCode, WeatherCondition } from "@sts/shared";
+import type { ReportMachinery } from "@/features/daily-requests/index.js";
+import type { ReportEquipmentRequest } from "@/features/daily-requests/index.js";
+import type { ReportPermit } from "@/features/daily-requests/index.js";
+import type { ReportRoadUsage } from "@/features/daily-requests/index.js";
+import type { ReportForecast } from "@/features/daily-requests/index.js";
+import type { ReportMachineryConflict } from "@/features/daily-requests/index.js";
+import type { PermitPayload } from "@/features/daily-requests/index.js";
+import type { InspectionRequest } from "@/features/qaqc/index.js";
+
 export type ShiftStatus = "draft" | "submitted";
 
 export type Shift = "morning" | "evening";
@@ -50,14 +45,6 @@ export interface ReviewPayload {
   note?: string;
 }
 
-export interface Building {
-  id: string;
-  code: string;
-  name: string;
-  nameTh: string | null;
-  sortOrder: number;
-}
-
 export interface ReportAllocation {
   id: string;
   discipline: Discipline;
@@ -88,47 +75,6 @@ export interface ReportCrew {
   foreignFemale: number;
 }
 
-export interface ReportMachinery {
-  id: string;
-  targetDate: string;
-  buildingId: string;
-  buildingCode: string;
-  machineType: MachineType;
-  unitTag: string | null;
-  /** null window = needed all day */
-  startTime: string | null;
-  endTime: string | null;
-  purpose: string | null;
-}
-
-export interface ReportEquipmentRequest {
-  id: string;
-  targetDate: string;
-  buildingId: string;
-  buildingCode: string;
-  buildingName: string;
-  equipmentType: string;
-  qty: number;
-  purpose: string | null;
-  contractorId: string;
-  contractorCode: string;
-  contractorName?: string;
-}
-
-export interface ReportPermit {
-  id: string;
-  targetDate: string;
-  buildingId: string;
-  buildingCode: string;
-  permitType: PermitType;
-  otherLabel: string | null;
-  workers: number;
-  /** Contractor-assessed high-risk job: task name + EPS supervisor (shown on the Safety page). */
-  highRisk: boolean;
-  taskName: string | null;
-  supervisorName: string | null;
-}
-
 export interface ReportPhoto {
   id: string;
   category: PhotoCategory;
@@ -137,31 +83,6 @@ export interface ReportPhoto {
   sizeBytes: number;
   createdAt: string;
   url: string | null;
-}
-
-export interface ReportRoadUsage {
-  id: string;
-  targetDate: string;
-  buildingId: string | null;
-  buildingCode: string | null;
-  buildingName: string | null;
-  roadLocation: string;
-  /** What EPS settled (the contractor's request until EPS changes it). */
-  startTime: string;
-  endTime: string;
-  /** The contractor's own request. */
-  requestedStartTime: string;
-  requestedEndTime: string;
-  adjusted: boolean;
-  adjustedAt: string | null;
-  adjustedByName: string | null;
-  purpose: string;
-  /** Register segments in driving order (empty = none picked) and the line through them. */
-  segmentIds: string[];
-  route: CoordinationPoint[] | null;
-  contractorId: string;
-  contractorCode: string;
-  contractorName?: string;
 }
 
 // Tomorrow Forecast Activity (paper form R003): planned work for targetDate (= report date + 1).
@@ -176,45 +97,10 @@ export interface ReportOvertime {
   hours: number;
 }
 
-export interface ReportForecast {
-  id: string;
-  targetDate: string;
-  buildingId: string;
-  buildingCode: string;
-  buildingName: string;
-  description: string;
-}
-
 export interface ReportMaterial {
   materialName: string;
   qty: number;
   unit: string;
-}
-
-export interface MaterialLogRow {
-  id: string;
-  reportDate: string;
-  contractorId: string;
-  contractorCode: string;
-  contractorName: string;
-  materialName: string;
-  qty: number;
-  unit: string;
-}
-
-export interface MaterialsSummary {
-  data: MaterialLogRow[];
-  summary: { materialName: string; unit: string; entries: number; totalQty: number }[];
-  meta: { page: number; pageSize: number; total: number };
-}
-
-export interface ReportMachineryConflict {
-  targetDate: string;
-  machineType: string;
-  unitTag: string | null;
-  severity: "conflict" | "possible";
-  bookingIds: [string, string];
-  with: { contractorCode: string; buildingCode: string; startTime: string; endTime: string }[];
 }
 
 export interface DailyReport {
@@ -311,16 +197,6 @@ export interface CurrentReportResponse {
   data: { contractor: ReportContractor; report: DailyReport | null; plannedToday: PlannedToday };
 }
 
-export interface PermitPayload {
-  buildingId: string;
-  permitType: PermitType;
-  otherLabel?: string;
-  workers: number;
-  highRisk?: boolean;
-  taskName?: string;
-  supervisorName?: string;
-}
-
 export interface MorningPayload {
   date: string;
   contractorId: string;
@@ -374,148 +250,6 @@ export interface EveningPayload {
 }
 
 // ---- weekly summary ----
-
-export interface WeeklyCell {
-  date: string;
-  headcount: number;
-  contractors: { id: string; code: string; name: string; headcount: number }[];
-  permits: { type: PermitType; workers: number }[];
-  level: WorkloadLevel;
-}
-
-export interface WeeklyBuildingRow {
-  id: string;
-  code: string;
-  name: string;
-  nameTh: string | null;
-  weekManDays: number;
-  peakHeadcount: number;
-  cells: WeeklyCell[];
-}
-
-export interface WeeklyBooking {
-  id: string;
-  targetDate: string;
-  machineType: string;
-  unitTag: string | null;
-  startTime: string | null;
-  endTime: string | null;
-  purpose: string | null;
-  contractorId: string;
-  contractorCode: string;
-  contractorName?: string;
-  buildingId: string;
-  buildingCode: string;
-  buildingName: string;
-  conflict: "conflict" | "possible" | null;
-}
-
-export interface WeeklyConflict {
-  targetDate: string;
-  machineType: string;
-  unitTag: string | null;
-  severity: "conflict" | "possible";
-  bookingIds: [string, string];
-}
-
-export interface WeeklySummary {
-  weekStart: string;
-  weekEnd: string;
-  days: string[];
-  buildings: WeeklyBuildingRow[];
-  machinery: WeeklyBooking[];
-  conflicts: WeeklyConflict[];
-  roads: (ReportRoadUsage & { conflict: boolean })[];
-  equipmentRequests: ReportEquipmentRequest[];
-  requests: Record<RequestStatus, number>;
-  totals: { manDays: number; manHours: number; permitWorkers: number; bookings: number; conflicts: number; possibleConflicts: number; roadConflicts: number };
-}
-
-// ---- Daily Request (QAQC inspection) ----
-
-export interface InspectionRequest {
-  id: string;
-  projectId: string;
-  contractorId: string;
-  contractorCode: string;
-  contractorName: string;
-  buildingId: string;
-  buildingCode: string;
-  buildingName: string;
-  reportDate: string;
-  inspectionDate: string;
-  inspectionTime: string;
-  inspectionType: InspectionType;
-  workItem: string;
-  location: string | null;
-  drawingRef: string | null;
-  readiness: Readiness;
-  status: RequestStatus;
-  result: InspectionResult | null;
-  epsNote: string | null;
-  statusChangedAt: string | null;
-  createdAt: string;
-}
-
-export interface InspectionRequestFields {
-  buildingId: string;
-  inspectionDate: string;
-  inspectionTime: string;
-  inspectionType: InspectionType;
-  workItem: string;
-  location?: string;
-  drawingRef?: string;
-  readiness: Readiness;
-}
-
-// ---- chart data (weekly meeting page) ----
-
-export interface PositionMixRow {
-  contractorId: string;
-  contractorCode: string;
-  position: string;
-  totalHeadcount?: number;
-  avgPerDay: number;
-}
-
-export interface ManpowerTrendPoint {
-  weekStart: string;
-  weekEnd: string;
-  reportedDays: number;
-  manDays: number;
-  avgDaily: number | null;
-}
-
-export interface ManpowerContractorTotals {
-  contractorId: string;
-  contractorCode: string;
-  manDays: number;
-  manHours: number;
-  reportedDays: number;
-  thaiMale: number;
-  thaiFemale: number;
-  foreignMale: number;
-  foreignFemale: number;
-}
-
-export interface ManpowerSummary {
-  from: string;
-  to: string;
-  contractors: ManpowerContractorTotals[];
-  daily: { date: string; contractorCode: string; headcount: number }[];
-  byBuilding: { buildingId: string; code: string; name: string; contractors: Record<string, number> }[];
-  totals: { manDays: number; manHours: number; reportedDays: number; avgDaily: number };
-}
-
-export interface DailyRequests {
-  from: string;
-  to: string;
-  machinery: WeeklyBooking[];
-  equipmentRequests: ReportEquipmentRequest[];
-  roads: (ReportRoadUsage & { conflict: boolean })[];
-  permits: (ReportPermit & { buildingName: string; contractorId: string; contractorCode: string; contractorName: string })[];
-  forecasts: (ReportForecast & { contractorId: string; contractorCode: string; contractorName: string })[];
-}
 
 // Everything the printed "Daily Request & Report" sheet needs (GET /daily-reports/:id/print).
 export interface PrintReport extends DailyReport {

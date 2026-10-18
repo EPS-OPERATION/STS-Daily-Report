@@ -7,6 +7,8 @@ import { authRoutes } from "@/auth/index.js";
 import { buildingRoutes } from "@/modules/buildings/index.js";
 import { contractorRoutes } from "@/modules/contractors/index.js";
 import { dailyReportRoutes } from "@/modules/daily-reports/index.js";
+import { dailyRequestRoutes } from "@/modules/daily-requests/index.js";
+import { reportSummaryRoutes } from "@/modules/report-summaries/index.js";
 import { droneRoutes } from "@/modules/drone/index.js";
 import { inspectionRequestRoutes } from "@/modules/inspection-requests/index.js";
 import { safetyRoutes } from "@/modules/safety/index.js";
@@ -48,7 +50,7 @@ export function buildApp() {
     })
     .get(HEALTH_PATH, () => ({ status: "ok" }))
     .group(API_PREFIX, (group) =>
-      group.use(weatherCronRoutes).use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(inspectionRequestRoutes).use(safetyRoutes).use(coordinationRoutes).use(droneRoutes).use(reportStandardItemRoutes).use(weatherRoutes),
+      group.use(weatherCronRoutes).use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(reportSummaryRoutes).use(dailyRequestRoutes).use(inspectionRequestRoutes).use(safetyRoutes).use(coordinationRoutes).use(droneRoutes).use(reportStandardItemRoutes).use(weatherRoutes),
     )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;

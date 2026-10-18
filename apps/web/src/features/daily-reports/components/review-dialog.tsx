@@ -34,9 +34,9 @@ import { QueryError } from "@/components/ui/query-error.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { useCurrentReport } from "../hooks/use-daily-report-queries.js";
 import type { DailyReport, ReviewQueueRow } from "../types/daily-report.types.js";
-import { formatThaiDate, timeWindowLabel } from "../utils/dates.js";
+import { formatThaiDate, timeWindowLabel } from "@/lib/dates.js";
 import { overtimeLines, overtimeSummary } from "../utils/overtime.js";
-import { permitLabel } from "./permit-meta.js";
+import { permitLabel } from "@/features/daily-requests/index.js";
 
 export function ReviewDialog({
   report,

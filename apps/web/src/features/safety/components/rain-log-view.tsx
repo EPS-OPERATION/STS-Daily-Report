@@ -12,7 +12,7 @@ import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import { KpiCard } from "@/components/ui/kpi-card.js";
-import { formatThaiDate } from "@/features/daily-reports/index.js";
+import { formatThaiDate } from "@/lib/dates.js";
 import { ActualRainChart, HourlyWeatherPanel } from "@/features/weather/index.js";
 import type { WeatherHour } from "@sts/shared";
 import { useRainLogs } from "../hooks/use-rain-logs.js";

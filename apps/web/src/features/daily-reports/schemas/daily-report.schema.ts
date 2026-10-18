@@ -1,20 +1,10 @@
-import {
-  ACCIDENT_CATEGORY_CODES,
-  DISCIPLINE_CODES,
-  INSPECTION_TYPE_CODES,
-  MACHINE_TYPES,
-  PERMIT_TYPE_CODES,
-  POSITION_CODES,
-  READINESS_CODES,
-  WEATHER_CODES,
-  allocationPeak,
-  timeWindowsOverlap,
-  type Discipline,
-} from "@sts/shared";
+import { ACCIDENT_CATEGORY_CODES, DISCIPLINE_CODES, MACHINE_TYPES, PERMIT_TYPE_CODES, POSITION_CODES, WEATHER_CODES, allocationPeak, timeWindowsOverlap, type Discipline } from "@sts/shared";
 import { z } from "zod";
 
 const count = z.number().int().min(0, "ต้องไม่ติดลบ").max(5000);
+
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "รูปแบบเวลา HH:MM");
+
 const asTuple = <T extends string>(list: readonly T[]) => list as unknown as [T, ...T[]];
 
 // Sum of a code→count record (positions / equipment).
@@ -22,6 +12,7 @@ export const sumCounts = (rec: Partial<Record<string, number>> | undefined) =>
   Object.values(rec ?? {}).reduce<number>((s, n) => s + (typeof n === "number" && Number.isFinite(n) ? n : 0), 0);
 
 const positionCounts = z.record(z.enum(asTuple(POSITION_CODES)), count);
+
 const disciplinePick = z.array(z.enum(asTuple(DISCIPLINE_CODES))).min(1, "เลือกประเภทงานอย่างน้อย 1 อย่าง");
 
 // Manpower of one discipline crew: people by position + nationality/sex split of the same people.
@@ -32,6 +23,7 @@ const crewManpower = {
   foreignMale: count,
   foreignFemale: count,
 };
+
 export const crewSchema = z.object(crewManpower);
 
 // Each selected discipline must total > 0 and its nationality/sex split must match the positions.
@@ -300,16 +292,3 @@ export const eveningSchema = z
   });
 
 export type EveningFormValues = z.infer<typeof eveningSchema>;
-
-export const requestSchema = z.object({
-  buildingId: z.string().min(1, "เลือกอาคาร"),
-  inspectionDate: z.string().min(1, "เลือกวันที่"),
-  inspectionTime: hhmm,
-  inspectionType: z.enum(asTuple(INSPECTION_TYPE_CODES)).default("other"),
-  workItem: z.string().trim().min(1, "ระบุงานที่ขอตรวจ").max(200),
-  location: z.string().trim().max(120).optional(),
-  drawingRef: z.string().trim().max(120).optional(),
-  readiness: z.enum(asTuple(READINESS_CODES)),
-});
-
-export type RequestFormValues = z.infer<typeof requestSchema>;

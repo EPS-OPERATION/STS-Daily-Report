@@ -1,4 +1,5 @@
-import type { InspectionRequest, ReportEquipmentRequest, ReportRoadUsage } from "@/features/daily-reports/index.js";
+import type { InspectionRequest } from "@/features/qaqc/index.js";
+import type { ReportEquipmentRequest, ReportRoadUsage } from "@/features/daily-requests/index.js";
 
 export type SiteMapView = "overview" | "topview" | "plan";
 export const SITE_MAP_VIEW_LIST: SiteMapView[] = ["overview", "topview", "plan"];

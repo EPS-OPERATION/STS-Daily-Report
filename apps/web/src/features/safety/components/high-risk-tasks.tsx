@@ -11,7 +11,9 @@ import type { PermitType } from "@sts/shared";
 import dayjs from "dayjs";
 import { useMemo } from "react";
 import { EmptySection } from "@/components/ui/empty-state.js";
-import { ContractorBadge, PERMIT_ICONS, permitLabel, useDailyRequests } from "@/features/daily-reports/index.js";
+import { ContractorBadge } from "@/features/contractors/index.js";
+import { PERMIT_ICONS, permitLabel } from "@/features/daily-requests/index.js";
+import { useDailyRequests } from "@/features/daily-requests/index.js";
 
 export interface HighRiskTask {
   key: string;

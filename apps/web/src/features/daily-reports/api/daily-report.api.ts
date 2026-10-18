@@ -1,33 +1,18 @@
-import type { ReportRoadUsage } from "../types/daily-report.types.js";
-import type { InspectionResult, PhotoCategory, RequestStatus } from "@sts/shared";
+import type { PhotoCategory } from "@sts/shared";
 import { http } from "@/services/http/client.js";
 import type {
-  Building,
   CurrentReportResponse,
   DailyReport,
   EveningPayload,
-  InspectionRequest,
-  InspectionRequestFields,
-  MaterialsSummary,
   MorningPayload,
   PrintReport,
   ReviewPayload,
   ReviewQueueRow,
-  WeeklySummary,
-  PositionMixRow,
-  ManpowerSummary,
-  DailyRequests,
 } from "../types/daily-report.types.js";
 
 export const dailyReportApi = {
-  adjustRoadUsage(projectId: string, id: string, body: { startTime: string; endTime: string }): Promise<{ data: ReportRoadUsage }> {
-    return http.patch(`/projects/${projectId}/daily-reports/road-usage/${id}`, body);
-  },
   printReport(reportId: string): Promise<{ data: PrintReport }> {
     return http.get(`/daily-reports/${reportId}/print`);
-  },
-  buildings(projectId: string): Promise<{ data: Building[] }> {
-    return http.get(`/projects/${projectId}/buildings`);
   },
   current(projectId: string, date: string, contractorId?: string): Promise<CurrentReportResponse> {
     const q = contractorId ? `?date=${date}&contractorId=${contractorId}` : `?date=${date}`;
@@ -52,33 +37,6 @@ export const dailyReportApi = {
   deletePhoto(reportId: string, photoId: string): Promise<null> {
     return http.delete(`/daily-reports/${reportId}/photos/${photoId}`);
   },
-  requests(
-    projectId: string,
-    filters: { from: string; to: string; by: "inspection" | "report" },
-  ): Promise<{ data: InspectionRequest[] }> {
-    return http.get(`/projects/${projectId}/inspection-requests?from=${filters.from}&to=${filters.to}&by=${filters.by}`);
-  },
-  createRequest(
-    projectId: string,
-    input: InspectionRequestFields & { contractorId: string; reportDate: string },
-  ): Promise<{ data: InspectionRequest }> {
-    return http.post(`/projects/${projectId}/inspection-requests`, input);
-  },
-  updateRequest(requestId: string, input: InspectionRequestFields): Promise<{ data: InspectionRequest }> {
-    return http.put(`/inspection-requests/${requestId}`, input);
-  },
-  deleteRequest(requestId: string): Promise<null> {
-    return http.delete(`/inspection-requests/${requestId}`);
-  },
-  transitionRequest(
-    requestId: string,
-    input: { to: RequestStatus; result?: InspectionResult; note?: string },
-  ): Promise<{ data: InspectionRequest }> {
-    return http.post(`/inspection-requests/${requestId}/transition`, input);
-  },
-  weeklySummary(projectId: string, weekStart: string): Promise<{ data: WeeklySummary }> {
-    return http.get(`/projects/${projectId}/weekly-summary?weekStart=${weekStart}`);
-  },
   // EPS review queue: one row per contractor report for a date or date range (role-scoped server-side).
   reviewQueue(
     projectId: string,
@@ -95,27 +53,5 @@ export const dailyReportApi = {
   // EPS-only decision on a submitted report (403 for contractor role).
   reviewReport(reportId: string, payload: ReviewPayload): Promise<{ data: DailyReport }> {
     return http.post(`/daily-reports/${reportId}/review`, payload);
-  },
-  positionMix(projectId: string, from: string, to: string): Promise<{ data: PositionMixRow[] }> {
-    return http.get(`/projects/${projectId}/position-mix?from=${from}&to=${to}`);
-  },
-  manpowerSummary(projectId: string, from: string, to: string): Promise<{ data: ManpowerSummary }> {
-    return http.get(`/projects/${projectId}/manpower-summary?from=${from}&to=${to}`);
-  },
-  dailyRequests(projectId: string, from: string, to: string): Promise<{ data: DailyRequests }> {
-    return http.get(`/projects/${projectId}/daily-requests?from=${from}&to=${to}`);
-  },
-  materials(
-    projectId: string,
-    filters: { from?: string; to?: string; search?: string; contractorId?: string; page: number; pageSize: number },
-  ): Promise<{ data: MaterialsSummary }> {
-    const q = new URLSearchParams();
-    if (filters.from) q.set("from", filters.from);
-    if (filters.to) q.set("to", filters.to);
-    if (filters.search) q.set("search", filters.search);
-    if (filters.contractorId) q.set("contractorId", filters.contractorId);
-    q.set("page", String(filters.page));
-    q.set("pageSize", String(filters.pageSize));
-    return http.get(`/projects/${projectId}/daily-reports/materials?${q.toString()}`);
   },
 };

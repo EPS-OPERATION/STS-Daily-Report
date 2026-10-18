@@ -7,13 +7,10 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { PERMIT_TYPES } from "@sts/shared";
 import type { ReactNode } from "react";
-import {
-  ContractorBadge,
-  RequestStatusChip,
-  formatThaiDate,
-  inspectionTypeLabel,
-  timeWindowLabel,
-} from "@/features/daily-reports/index.js";
+import { ContractorBadge } from "@/features/contractors/index.js";
+import { RequestStatusChip } from "@/features/qaqc/index.js";
+import { formatThaiDate, timeWindowLabel } from "@/lib/dates.js";
+import { inspectionTypeLabel } from "@/features/qaqc/index.js";
 import type { SiteDayBuilding } from "../types/site-map.types.js";
 
 const permitLabel = (code: string) => PERMIT_TYPES.find((p) => p.code === code)?.label ?? code;

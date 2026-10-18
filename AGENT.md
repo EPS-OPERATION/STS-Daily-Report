@@ -29,16 +29,16 @@
 
 ## Repository map
 
-- `apps/web/src`: `app/{providers,router,layouts,theme}` `pages/` `features/<domain>/` `services/http/`
-- `apps/api/src`: `config/` `db/{schema,migrations,seed}` `modules/<domain>/` `plugins/` `shared/{errors,http,storage}`
-- `packages/shared` (framework-free) `packages/env` (zod contracts) `docker-compose.yml` (pg 5432, minio 9000/9001)
-- ห้าม: `packages/*` import `apps/*`; SQL ใน route; HTTP logic ใน repository; Base*/DI framework
+- `apps/web/src`: `app/{providers,router,layouts,theme}` `features/<domain>/{api,hooks,components,pages,schemas,types,utils}` (ไม่มี `pages/` ระดับบน: หน้า route อยู่ `features/<domain>/pages/` และ router `lazy` import ตาม path) `components/{ui,field}` `lib/` (dates, `report-query-keys` = key root `daily-reports` ร่วม + `useInvalidateReports`) `services/http/`
+- `apps/api/src`: `config/` `db/{schema,migrations,seed,report-filters}` `modules/<domain>/` `plugins/` `shared/{errors,http(params),storage,date-range}`; รายงาน = 3 module: `daily-reports` (lifecycle/review/photos/print), `daily-requests` (ถนน/เครื่องจักร/ใบอนุญาต/คำขอวันถัดไป), `report-summaries` (weekly/manpower/materials/site-day)
+- `packages/shared` (framework-free; `src/{report,coordination,weather,auth}/` + index barrel) `packages/env` (zod contracts) `docker-compose.yml` (pg 5432, minio 9000/9001)
+- ห้าม: `packages/*` import `apps/*`; SQL ใน route; HTTP logic ใน repository; Base*/DI framework; feature ควร import feature อื่นผ่าน barrel `index.ts` (ข้อยกเว้นที่มีอยู่: app shell → auth/projects/site-plan import ตรงเพื่อไม่ดึง barrel หนักเข้า entry bundle; router import หน้าตรงจาก path เพื่อ code-split); dependency ต้องทางเดียว (qaqc/buildings/contractors/report-summaries/daily-requests ← daily-reports; ห้ามย้อน; ตรวจด้วย `bun check:arch`); API module ไม่ import กันวน (daily-reports → daily-requests ทางเดียว)
 
 ## คำสั่งจริง (source: root `package.json#scripts`)
 
-- `bun dev | dev:web | dev:api`, `bun build | build:web | build:api`, `bun typecheck`, `bun test`
+- `bun dev | dev:web | dev:api`, `bun build | build:web | build:api`, `bun typecheck`, `bun test`, `bun check:arch` (วนกันของ feature/module)
 - `bun db:generate | db:migrate | db:push | db:studio | db:seed` (ผ่าน `apps/api`)
-- `bun docker:up | docker:down | docker:logs`
+- `bun docker:up | docker:down | docker:logs`; regression API รายงาน (ต้องมี DB local): `cd apps/api && bun --env-file=../../.env scripts/snapshot-daily-reports.ts test/golden/daily-reports.snapshot.json --check` (seed project QA แล้วลบ; ไม่ใส่ `--check` = เขียน golden ใหม่ เมื่อเปลี่ยน response ตั้งใจ)
 - Setup: `cp .env.example .env && bun install && bun docker:up && bun db:migrate && bun db:seed && bun dev`
 
 ## Conventions ที่สังเกตได้

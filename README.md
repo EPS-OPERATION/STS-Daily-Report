@@ -26,8 +26,8 @@ No Base* classes, no DI framework, no codegen CRUD.
 ## 3. Repository structure
 
 ```text
-apps/web/src: app/{providers,router,layouts,theme} pages/ features/<domain>/{api,components,hooks,schemas,types}
-  components/{ui,site,field} mock/site-data.ts services/http/
+apps/web/src: app/{providers,router,layouts,theme} features/<domain>/{api,components,hooks,pages,schemas,types,utils}
+  components/{ui,field} lib/ services/http/
 apps/api/src: config/ db/{schema,migrations,seed} modules/contractors plugins/ shared/{errors,http,storage}
 packages/{shared,env,typescript-config}  docker-compose.yml  .env.example
 ```

@@ -1,84 +1,45 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ACCIDENT_CATEGORIES, DISCIPLINE_CODES, overtimeTotals, type MachineType, type PositionCode } from "@sts/shared";
+import { OvertimeRows } from "./overtime-rows.js";
+import { DraftBanner, DraftSavedNote, FormProgress, YesNoGate, type ProgressItem } from "./form-aids.js";
+import { draftKey, useFormDraft } from "../hooks/use-form-draft.js";
+import { useState, type FormEvent } from "react";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Link as RouterLink } from "react-router-dom";
+import { HttpError } from "@/services/http/client.js";
+import { useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
+import { useInspectionRequests } from "@/features/qaqc/index.js";
+import { useWeeklySummary } from "@/features/report-summaries/index.js";
+import { eveningSchema, type EveningFormValues } from "../schemas/daily-report.schema.js";
+import type { Building } from "@/features/buildings/index.js";
+import type { DailyReport, ReportContractor } from "../types/daily-report.types.js";
+import { addDaysIso, formatThaiDate, mondayOf } from "@/lib/dates.js";
+import { firstSection, scrollToSection, sectionTitle } from "../utils/form-sections.js";
+import { crewTotals } from "./crew-manpower.js";
+import { RequestSection } from "@/features/qaqc/index.js";
+import { SectionCard } from "./section-card.js";
+import { DisciplineChips } from "./discipline-picker.js";
+import { SignaturePad } from "./signature-pad.js";
+import { ForecastActivities } from "./forecast-activities.js";
+import { RoadUsageRequests } from "./road-usage-requests.js";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import HealthAndSafetyOutlinedIcon from "@mui/icons-material/HealthAndSafetyOutlined";
 import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
-import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
-import CardContent from "@mui/material/CardContent";
-import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
-import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  ACCIDENT_CATEGORIES,
-  DISCIPLINES,
-  DISCIPLINE_CODES,
-  overtimeTotals,
-  type Discipline,
-  type MachineType,
-  type PositionCode,
-} from "@sts/shared";
-import { OvertimeRows } from "./overtime-rows.js";
-import { DraftBanner, DraftSavedNote, FormProgress, YesNoGate, type ProgressItem } from "./form-aids.js";
-import { draftKey, useFormDraft } from "../hooks/use-form-draft.js";
 import MenuItem from "@mui/material/MenuItem";
-import { useState, type FormEvent } from "react";
-import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormReturn } from "react-hook-form";
-import { Link as RouterLink } from "react-router-dom";
-import { HttpError } from "@/services/http/client.js";
-import { useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
-import { useInspectionRequests, useWeeklySummary } from "../hooks/use-daily-report-queries.js";
-import { eveningSchema, type EveningFormValues } from "../schemas/daily-report.schema.js";
-import type { Building, DailyReport, ReportContractor } from "../types/daily-report.types.js";
-import { addDaysIso, formatThaiDate, mondayOf } from "../utils/dates.js";
-import { firstSection, scrollToSection, sectionTitle, type SectionMap } from "../utils/form-sections.js";
-import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
-import { NumberStepper } from "./number-stepper.js";
-import { RequestSection } from "./request-section.js";
-import { SectionCard } from "./section-card.js";
-import { DisciplineChips } from "./discipline-picker.js";
-import { SignaturePad } from "./signature-pad.js";
-import { ForecastActivities, RoadUsageRequests } from "./tomorrow-requests.js";
-
-const disciplineLabel = (d: Discipline) => DISCIPLINES.find((x) => x.code === d)?.label ?? d;
-
-type EveningCrew = EveningFormValues["crews"][Discipline];
-
-// Afternoon crew of one discipline: the saved evening values, else the morning crew to edit.
-function crewDefaults(report: DailyReport | null, d: Discipline): EveningCrew {
-  const crew =
-    report?.crews.find((c) => c.shift === "evening" && c.discipline === d) ??
-    report?.crews.find((c) => c.shift === "morning" && c.discipline === d);
-  return {
-    positions: {
-      ...emptyPositions(),
-      ...Object.fromEntries((crew?.positions ?? []).map((p) => [p.position, p.headcount])),
-    },
-    thaiMale: crew?.thaiMale ?? 0,
-    thaiFemale: crew?.thaiFemale ?? 0,
-    foreignMale: crew?.foreignMale ?? 0,
-    foreignFemale: crew?.foreignFemale ?? 0,
-  };
-}
-
-// Evening Daily Request (tomorrow's plan and requests). Independent of the morning shift: without a morning report there
-// is simply no plan to report actuals against. Also where tomorrow's requests are made.
-// Sections in screen order with the fields each one holds (first one with an error gets the scroll).
-const SECTIONS: SectionMap = [
-  ["sec-safety", ["accidentOccurred", "accidentNote", "accidentCategory"]],
-  ["sec-ot", ["overtime"]],
-  ["sec-crew", ["disciplines", "crews"]],
-  ["sec-progress", ["progress"]],
-  ["sec-tomorrow", ["forecasts", "machinery", "equipmentRequests", "permits", "roadUsage", "materials"]],
-  ["sec-sign", ["signatureName", "signatureData"]],
-];
+import { crewDefaults } from "./evening-helpers.js";
+import { SECTIONS } from "./evening-helpers.js";
+import { ProgressRow } from "./evening-progress-row.js";
+import { SubHeading } from "./evening-crew-block.js";
+import { EveningCrewBlock } from "./evening-crew-block.js";
 
 export function EveningForm({
   projectId,
@@ -565,145 +526,6 @@ export function EveningForm({
         </Button>
         <DraftSavedNote savedAt={draft.savedAt} />
       </Box>
-    </Box>
-  );
-}
-
-function ProgressRow({
-  index,
-  control,
-  allocation,
-}: {
-  index: number;
-  control: Control<EveningFormValues>;
-  allocation: DailyReport["allocations"][number];
-}) {
-  const actual = useWatch({ control, name: `progress.${index}.actualPercent` });
-  const plan = allocation.planPercent;
-  // Without a stated plan there is nothing to be behind — actual % only.
-  const behind = plan !== null && actual < plan;
-  const when = allocation.startTime && allocation.endTime ? ` · ${allocation.startTime}–${allocation.endTime}` : "";
-  return (
-    <Card variant="outlined" sx={{ borderColor: behind ? "warning.main" : "divider" }}>
-      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-        <Typography variant="body1" sx={{ fontWeight: 700 }}>
-          {allocation.buildingName}
-          <Chip size="small" label={allocation.discipline} sx={{ ml: 1, height: 20 }} />
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {allocation.workDescription} · {allocation.headcount} คน{when}
-        </Typography>
-        <Box sx={{ position: "relative", my: 1.5 }}>
-          <LinearProgress
-            variant="determinate"
-            value={actual}
-            color={behind ? "warning" : "success"}
-            sx={{ height: 10, borderRadius: 5 }}
-          />
-          {plan !== null ? (
-            // Plan marker
-            <Box
-              aria-hidden
-              sx={{
-                position: "absolute",
-                top: -3,
-                bottom: -3,
-                width: 2,
-                bgcolor: "text.primary",
-                left: `calc(${plan}% - 1px)`,
-              }}
-            />
-          ) : null}
-        </Box>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-end" spacing={2}>
-          <Typography variant="body2" color="text.secondary">
-            {plan !== null ? `แผน ${plan}%` : "ไม่ได้ระบุแผน"}
-          </Typography>
-          <Controller
-            name={`progress.${index}.actualPercent`}
-            control={control}
-            render={({ field }) => (
-              <NumberStepper label="ผลจริง (Status %)" value={field.value} onChange={field.onChange} max={100} step={5} unit="%" />
-            )}
-          />
-        </Stack>
-        {behind ? (
-          <Box
-            sx={{
-              mt: 1.5,
-              p: 1.5,
-              border: 1.5,
-              borderStyle: "dashed",
-              borderColor: "warning.main",
-              borderRadius: 2,
-              bgcolor: "warning.light",
-            }}
-          >
-            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 1 }}>
-              <WarningAmberOutlinedIcon sx={{ fontSize: 18, color: "warning.dark" }} />
-              <Typography variant="body2" sx={{ fontWeight: 600, color: "warning.dark" }}>
-                ต่ำกว่าแผน {(plan ?? 0) - actual}% — ระบุ Countermeasure
-              </Typography>
-            </Stack>
-            <Controller
-              name={`progress.${index}.countermeasure`}
-              control={control}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  placeholder="สาเหตุ + มาตรการแก้ไข เช่น วัสดุส่งช้า 2 ชม. เพิ่มคนพรุ่งนี้"
-                  size="small"
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  sx={{ bgcolor: "background.paper" }}
-                  error={Boolean(fieldState.error)}
-                  helperText={fieldState.error?.message}
-                />
-              )}
-            />
-          </Box>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function SubHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <Typography variant="body1" sx={{ fontWeight: 700, mb: 1 }}>
-      {children}
-    </Typography>
-  );
-}
-
-// One discipline's afternoon crew: people by position + nationality/sex split.
-function EveningCrewBlock({
-  discipline,
-  form,
-  showTitle,
-}: {
-  discipline: Discipline;
-  form: UseFormReturn<EveningFormValues>;
-  showTitle: boolean;
-}) {
-  const { control, setValue, formState } = form;
-  const crew = useWatch({ control, name: `crews.${discipline}` });
-  const errors = formState.errors.crews?.[discipline];
-  return (
-    <Box>
-      {showTitle ? (
-        <Typography variant="body1" sx={{ fontWeight: 700, mb: 1 }}>
-          {disciplineLabel(discipline)}
-        </Typography>
-      ) : null}
-      <CrewManpower
-        value={crew}
-        totalLabel={`${discipline} afternoon`}
-        error={errors?.positions?.message ?? errors?.thaiMale?.message}
-        onPositions={(next) => setValue(`crews.${discipline}.positions`, next, { shouldDirty: true, shouldValidate: formState.isSubmitted })}
-        onSplit={(key, n) => setValue(`crews.${discipline}.${key}`, n, { shouldDirty: true, shouldValidate: formState.isSubmitted })}
-      />
     </Box>
   );
 }

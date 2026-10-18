@@ -18,7 +18,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { WeatherHour } from "@sts/shared";
 import type { ReactNode } from "react";
-import { formatThaiDate } from "@/features/daily-reports/index.js";
+import { formatThaiDate } from "@/lib/dates.js";
 import { useHourlyWeather } from "@/features/weather/index.js";
 import type { RainLogEntry } from "../types/rain-log.types.js";
 

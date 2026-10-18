@@ -20,7 +20,7 @@ import { FINDING_TYPES, type FindingStatus, type FindingType } from "@sts/shared
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useBuildings } from "@/features/daily-reports/index.js";
+import { useBuildings } from "@/features/buildings/index.js";
 import { useProjectContractors } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 import { useSaveFinding } from "../hooks/use-safety.js";
