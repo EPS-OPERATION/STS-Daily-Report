@@ -23,6 +23,8 @@ jobs:
           --health-retries 10
     env:
       WEATHER_CRON: "false"
+      # Some tests import modules that read the API env at load time (e.g. weather.cron); point them at the service DB.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sts
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
