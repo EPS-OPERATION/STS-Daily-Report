@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { CoordinationAreaKind, CoordinationGeometry, CoordinationIcon, CoordinationPoint } from "@sts/shared";
 import { projects } from "./project.schema.js";
 import { projectContractors } from "./project-contractor.schema.js";
@@ -68,7 +68,8 @@ export const coordinationDayLocks = pgTable("coordination_day_locks", {
   lockedAt: timestamp("locked_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [primaryKey({ columns: [t.projectId, t.workDate] })]);
 
-// Site road register, kept by EPS: one row per road segment between junctions. points = open line in
+// Site road register, kept by EPS: one row per drawn piece of road. Pieces with the same name are one road cut
+// into parts (contractors pick the name once and book every piece); a name always belongs to one road code. points = open line in
 // map coordinates (0..1, same margin as items). Road requests in daily reports refer to these ids.
 export const coordinationRoadSegments = pgTable("coordination_road_segments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -81,7 +82,7 @@ export const coordinationRoadSegments = pgTable("coordination_road_segments", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-  uniqueIndex("coordination_road_segments_name_unique").on(t.projectId, t.name),
+  index("coordination_road_segments_name_idx").on(t.projectId, t.name),
   check("coordination_road_segments_road_check", sql`char_length(${t.road}) between 1 and 20`),
   check("coordination_road_segments_name_check", sql`char_length(${t.name}) between 1 and 80`),
 ]);

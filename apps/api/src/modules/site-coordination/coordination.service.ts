@@ -167,8 +167,11 @@ export async function saveRoadSegmentService(auth: AuthContext, projectId: strin
   await access(auth, projectId);
   const input = cleanSegment(raw);
   const db = getDb();
-  const same = await findRoadSegmentByName(db, projectId, input.name);
-  if (same && same.id !== id) throw new ConflictError(`A road segment named "${input.name}" already exists`);
+  // Same name = another piece of the same road, so the code must match (one name never spans two roads).
+  const same = await findRoadSegmentByName(db, projectId, input.name, id);
+  if (same && same.road !== input.road) {
+    throw new ConflictError(`"${input.name}" is road ${same.road} — use code ${same.road} to add another piece of it, or choose another name`);
+  }
   if (!id) return insertRoadSegment(db, projectId, input, auth.user.id);
   const row = await updateRoadSegment(db, projectId, id, input, auth.user.id);
   if (!row) throw new NotFoundError("Road segment not found");

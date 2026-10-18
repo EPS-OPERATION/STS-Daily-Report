@@ -11,6 +11,9 @@ import { TOKENS } from "@/app/theme/tokens.js";
 
 export interface RoadPickValue { segmentIds: string[]; route: CoordinationPoint[] | null; name: string }
 
+// One choice per road name: a road EPS drew in several pieces (same name) is picked and booked as a whole.
+interface RoadChoice { key: string; road: string; name: string; pieces: RoadSegment[] }
+
 const ROAD = TOKENS.muted;
 const PICKED = TOKENS.primary;
 
@@ -33,32 +36,43 @@ export function useRoadPick({
   const day = useCoordination(projectId, date);
   const map = day.data?.data.map;
   const register = useMemo(() => (roads.data?.data ?? []).filter((s) => !s.closed), [roads.data]);
-  const byId = new Map(register.map((s) => [s.id, s]));
-  const picked = segmentIds.map((id) => byId.get(id)).filter((s): s is RoadSegment => Boolean(s));
+  const choices = useMemo(() => {
+    const byName = new Map<string, RoadChoice>();
+    for (const s of register) {
+      const key = s.name.trim().toLowerCase();
+      const c = byName.get(key) ?? byName.set(key, { key, road: s.road, name: s.name, pieces: [] }).get(key)!;
+      c.pieces.push(s);
+    }
+    return [...byName.values()];
+  }, [register]);
+  const choiceOf = new Map(choices.flatMap((c) => c.pieces.map((p) => [p.id, c] as const)));
+  const chosen = new Set(segmentIds);
+  // A road counts as picked when any of its pieces is booked (older requests may hold only one piece).
+  const picked = choices.filter((c) => c.pieces.some((p) => chosen.has(p.id)));
 
-  const pick = (next: RoadSegment[]) =>
-    onChange({ segmentIds: next.map((s) => s.id), route: null, name: next.map((s) => s.name).join(", ").slice(0, 120) });
+  const pick = (next: RoadChoice[]) =>
+    onChange({ segmentIds: next.flatMap((c) => c.pieces.map((p) => p.id)), route: null, name: next.map((c) => c.name).join(", ").slice(0, 120) });
   const toggle = (id: string) => {
-    const road = byId.get(id);
-    if (road) pick(picked.some((s) => s.id === id) ? picked.filter((s) => s.id !== id) : [...picked, road]);
+    const choice = choiceOf.get(id);
+    if (choice) pick(picked.includes(choice) ? picked.filter((c) => c !== choice) : [...picked, choice]);
   };
 
-  return { register, map, picked, pick, toggle, loading: roads.isLoading || day.isLoading, hasRegister: register.length > 0 };
+  return { register, choices, map, picked, pick, toggle, loading: roads.isLoading || day.isLoading, hasRegister: register.length > 0 };
 }
 
 type RoadPickState = ReturnType<typeof useRoadPick>;
 
 export function RoadPickField({ state, error }: { state: RoadPickState; error?: string }) {
-  const { register, picked, pick, loading } = state;
+  const { choices, picked, pick, loading } = state;
   return (
     <Autocomplete
       multiple
       size="small"
-      options={register}
+      options={choices}
       value={picked}
       onChange={(_, v) => pick(v)}
       getOptionLabel={(s) => s.name}
-      isOptionEqualToValue={(a, b) => a.id === b.id}
+      isOptionEqualToValue={(a, b) => a.key === b.key}
       filterSelectedOptions
       noOptionsText={loading ? "กำลังโหลด…" : "ไม่มีถนนในทะเบียน"}
       renderOption={(props, s) => {
@@ -87,13 +101,15 @@ export function RoadPickField({ state, error }: { state: RoadPickState; error?: 
 
 // Always-visible site map: grey roads with names, the picked ones in blue. Tap a road to pick it, again to remove it.
 export function RoadPickMap({ state, height = 260 }: { state: RoadPickState; route?: CoordinationPoint[] | null; height?: number }) {
-  const { register, map, picked, toggle } = state;
+  const { choices, map, picked, toggle } = state;
   if (!map) return <BlockSkeleton height={height} />;
-  const pickedIds = new Set(picked.map((s) => s.id));
-  const lines: RoadLine[] = register.map((s) => ({
-    id: s.id, points: s.points, label: s.name,
-    color: pickedIds.has(s.id) ? PICKED : ROAD, muted: !pickedIds.has(s.id),
-  }));
+  // Every piece of a picked road lights up; the name is written once, on the first piece.
+  const lines: RoadLine[] = choices.flatMap((c) =>
+    c.pieces.map((s, i) => ({
+      id: s.id, points: s.points, label: i === 0 ? s.name : "",
+      color: picked.includes(c) ? PICKED : ROAD, muted: !picked.includes(c),
+    })),
+  );
   return (
     <Frame>
       <RoadMapStage map={map} lines={lines} height={height} onTapLine={toggle} />
