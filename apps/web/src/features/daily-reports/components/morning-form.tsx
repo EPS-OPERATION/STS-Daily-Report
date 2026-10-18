@@ -16,6 +16,7 @@ import { NumberStepper } from "./number-stepper.js";
 import { SectionCard } from "./section-card.js";
 import { DisciplineChips } from "./discipline-picker.js";
 import { TimeSelect } from "@/components/ui/time-select.js";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import { useWeatherAt } from "@/features/weather/index.js";
 import { DraftBanner, DraftSavedNote, FormProgress, type ProgressItem } from "./form-aids.js";
 import { draftKey, useFormDraft } from "../hooks/use-form-draft.js";
@@ -28,10 +29,6 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Collapse from "@mui/material/Collapse";
 import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -355,22 +352,16 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
           คัดลอกจากรายงานวันที่ {formatThaiDate(copied.date)} แล้ว — ตรวจสอบจำนวนคนและงานก่อนส่ง
         </Alert>
       ) : null}
-      <Dialog open={Boolean(confirmCopy)} onClose={() => setConfirmCopy(null)} fullWidth maxWidth="xs">
-        <DialogTitle>แทนที่ข้อมูลที่กรอกไว้วันนี้?</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">
-            คน งาน และเครื่องจักรที่กรอกไว้จะถูกแทนที่ด้วยข้อมูลจากวันที่ {confirmCopy ? formatThaiDate(confirmCopy.reportDate) : ""}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button color="inherit" onClick={() => setConfirmCopy(null)}>
-            ยกเลิก
-          </Button>
-          <Button variant="contained" disableElevation onClick={() => confirmCopy && applyCopy(confirmCopy)}>
-            คัดลอกและแทนที่
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={Boolean(confirmCopy)}
+        title="แทนที่ข้อมูลที่กรอกไว้วันนี้?"
+        description={`คน งาน และเครื่องจักรที่กรอกไว้จะถูกแทนที่ด้วยข้อมูลจากวันที่ ${confirmCopy ? formatThaiDate(confirmCopy.reportDate) : ""}`}
+        confirmLabel="คัดลอกและแทนที่"
+        cancelLabel="ยกเลิก"
+        tone="primary"
+        onConfirm={() => confirmCopy && applyCopy(confirmCopy)}
+        onClose={() => setConfirmCopy(null)}
+      />
 
       <SectionCard id="sec-general" index={1} title="ข้อมูลทั่วไป" subtitle="เวลาทำงานใช้คำนวณชั่วโมงแรงงาน (NMH)">
         <Grid container spacing={1.5} alignItems="flex-end">

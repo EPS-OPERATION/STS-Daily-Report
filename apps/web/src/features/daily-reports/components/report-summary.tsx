@@ -2,6 +2,7 @@ import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import { EmptySection } from "@/components/ui/empty-state.js";
+import { formatNumber } from "@/lib/format.js";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -18,7 +19,7 @@ import { permitLabel } from "@/features/daily-requests/index.js";
 import { PhotoSection } from "./photo-section.js";
 import { RequestSection } from "@/features/qaqc/index.js";
 import { SectionCard } from "./section-card.js";
-import { formatThaiDate, timeWindowLabel } from "@/lib/dates.js";
+import { formatThaiDate, timeWindowLabel, clockTime } from "@/lib/dates.js";
 import { overtimeLines, overtimeSummary } from "../utils/overtime.js";
 
 // Read-only view once the evening shift is submitted (the day is closed).
@@ -33,7 +34,7 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
           : report.eveningStatus === "submitted"
             ? "ส่งรายงานบ่ายแล้ว (ไม่มีรายงานเช้า)"
             : "ส่งรายงานเช้าแล้ว"}
-        {report.eveningSubmittedAt ? ` · ${dayjs(report.eveningSubmittedAt).format("HH:mm")}` : ""} — ปิดแก้ไขแล้ว (แก้ได้ถึง 12:00 น. วันถัดไป)
+        {report.eveningSubmittedAt ? ` · ${clockTime(report.eveningSubmittedAt)}` : ""} — ปิดแก้ไขแล้ว (แก้ได้ถึง 12:00 น. วันถัดไป)
       </Alert>
       <Button
         variant="outlined"
@@ -70,7 +71,7 @@ export function ReportSummary({ report, buildings }: { report: DailyReport; buil
             </Typography>
           ))}
           <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-            {report.startTime ?? "-"}–{report.endTime ?? "-"} · {report.workHours ?? 0} ชม./คน · NMH {report.manHours.toLocaleString()} ชม.
+            {report.startTime ?? "-"}–{report.endTime ?? "-"} · {report.workHours ?? 0} ชม./คน · NMH {formatNumber(report.manHours)} ชม.
             {weather ? ` · ${weather}` : ""}
             {report.temperatureC !== null ? ` ${report.temperatureC}°C` : ""}
           </Typography>

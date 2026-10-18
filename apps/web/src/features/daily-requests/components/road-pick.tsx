@@ -1,17 +1,18 @@
 import Autocomplete from "@mui/material/Autocomplete";
-import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
-import Skeleton from "@mui/material/Skeleton";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type { CoordinationPoint, RoadSegment } from "@sts/shared";
 import { useMemo } from "react";
 import { RoadMapStage, useCoordination, useRoadSegments, type RoadLine } from "@/features/site-coordination/index.js";
+import { Frame } from "@/components/ui/frame.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
+import { TOKENS } from "@/app/theme/tokens.js";
 
 export interface RoadPickValue { segmentIds: string[]; route: CoordinationPoint[] | null; name: string }
 
-const ROAD = "#94A3B8";
-const PICKED = "#0B4D8B";
+const ROAD = TOKENS.muted;
+const PICKED = TOKENS.primary;
 
 // Road request = the site roads the contractor will use or close tomorrow: any number, connected or not,
 // no direction. Pick them from the list or tap them on the map beside it (tap again to take one out).
@@ -87,19 +88,19 @@ export function RoadPickField({ state, error }: { state: RoadPickState; error?: 
 // Always-visible site map: grey roads with names, the picked ones in blue. Tap a road to pick it, again to remove it.
 export function RoadPickMap({ state, height = 260 }: { state: RoadPickState; route?: CoordinationPoint[] | null; height?: number }) {
   const { register, map, picked, toggle } = state;
-  if (!map) return <Skeleton variant="rounded" height={height} />;
+  if (!map) return <BlockSkeleton height={height} />;
   const pickedIds = new Set(picked.map((s) => s.id));
   const lines: RoadLine[] = register.map((s) => ({
     id: s.id, points: s.points, label: s.name,
     color: pickedIds.has(s.id) ? PICKED : ROAD, muted: !pickedIds.has(s.id),
   }));
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, overflow: "hidden" }}>
+    <Frame>
       <RoadMapStage map={map} lines={lines} height={height} onTapLine={toggle} />
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1, py: 0.5, borderTop: 1, borderColor: "divider" }}>
         แตะถนนเพื่อเลือก · แตะซ้ำเพื่อเอาออก
       </Typography>
-    </Box>
+    </Frame>
   );
 }
 

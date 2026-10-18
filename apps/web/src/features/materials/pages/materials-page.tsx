@@ -8,7 +8,6 @@ import Grid from "@mui/material/Grid";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
-import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -24,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { QueryError } from "@/components/ui/query-error.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
 import { useMaterials } from "@/features/report-summaries/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { useProjectContractors } from "@/features/projects/hooks/use-projects.js";
@@ -73,8 +73,8 @@ export function MaterialsPage() {
         <QueryError error={log.error as Error} onRetry={() => void log.refetch()} />
       ) : log.isPending ? (
         <Stack spacing={2}>
-          <Skeleton variant="rounded" height={90} />
-          <Skeleton variant="rounded" height={200} />
+          <BlockSkeleton height={90} />
+          <BlockSkeleton height={200} />
         </Stack>
       ) : (
         <Box>

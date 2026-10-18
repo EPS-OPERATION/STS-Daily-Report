@@ -12,6 +12,8 @@ import { RequestStatusChip } from "@/features/qaqc/index.js";
 import { formatThaiDate, timeWindowLabel } from "@/lib/dates.js";
 import { inspectionTypeLabel } from "@/features/qaqc/index.js";
 import type { SiteDayBuilding } from "../types/site-map.types.js";
+import { Panel } from "@/components/ui/panel.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
 
 const permitLabel = (code: string) => PERMIT_TYPES.find((p) => p.code === code)?.label ?? code;
 
@@ -33,7 +35,7 @@ export function BuildingDayPanel({
   const requests =
     building.machinery.length + building.equipment.length + building.roads.length + building.permits.length + building.inspections.length;
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2 }}>
+    <Panel>
       <Stack direction="row" alignItems="flex-start" spacing={1}>
         <Box sx={{ flexGrow: 1 }}>
           <Typography variant="h4">{building.name}</Typography>
@@ -62,7 +64,7 @@ export function BuildingDayPanel({
 
       <Block title="กิจกรรม / กำลังคน">
         {building.activities.length === 0 ? (
-          <Empty text="ไม่มีการจัดสรรคนลงอาคารนี้" />
+          <EmptySection dense icon={<InboxOutlined />} title="ไม่มีการจัดสรรคนลงอาคารนี้" />
         ) : (
           building.activities.map((a, i) => (
             <Stack key={i} direction="row" spacing={1} alignItems="center">
@@ -81,7 +83,7 @@ export function BuildingDayPanel({
 
       <Block title="Machine request">
         {building.machinery.length === 0 ? (
-          <Empty text="ไม่มีคำขอจองเครื่องจักร" />
+          <EmptySection dense icon={<InboxOutlined />} title="ไม่มีคำขอจองเครื่องจักร" />
         ) : (
           building.machinery.map((m) => (
             <Line key={m.id} code={m.contractorCode}>
@@ -96,7 +98,7 @@ export function BuildingDayPanel({
 
       <Block title="Equipment request">
         {building.equipment.length === 0 ? (
-          <Empty text="ไม่มีคำขอเครื่องมือ/อุปกรณ์" />
+          <EmptySection dense icon={<InboxOutlined />} title="ไม่มีคำขอเครื่องมือ/อุปกรณ์" />
         ) : (
           building.equipment.map((e) => (
             <Line key={e.id} code={e.contractorCode}>
@@ -110,7 +112,7 @@ export function BuildingDayPanel({
 
       <Block title="Road usage">
         {building.roads.length === 0 ? (
-          <Empty text="ไม่มีการขอใช้ถนน" />
+          <EmptySection dense icon={<InboxOutlined />} title="ไม่มีการขอใช้ถนน" />
         ) : (
           building.roads.map((r) => (
             <Line key={r.id} code={r.contractorCode}>
@@ -123,7 +125,7 @@ export function BuildingDayPanel({
 
       <Block title="Work permit (PTW)">
         {building.permits.length === 0 ? (
-          <Empty text="ไม่มีการขอใบอนุญาตทำงาน" />
+          <EmptySection dense icon={<InboxOutlined />} title="ไม่มีการขอใบอนุญาตทำงาน" />
         ) : (
           <Typography variant="body2">{building.permits.map((p) => `${permitLabel(p.permitType)} ${p.workers} คน`).join(" · ")}</Typography>
         )}
@@ -131,7 +133,7 @@ export function BuildingDayPanel({
 
       <Block title="QAQC (RFI)" last>
         {building.inspections.length === 0 ? (
-          <Empty text="ไม่มีคำขอตรวจ QAQC" />
+          <EmptySection dense icon={<InboxOutlined />} title="ไม่มีคำขอตรวจ QAQC" />
         ) : (
           building.inspections.map((r) => (
             <Stack key={r.id} direction="row" spacing={1} alignItems="center">
@@ -144,7 +146,7 @@ export function BuildingDayPanel({
           ))
         )}
       </Block>
-    </Box>
+    </Panel>
   );
 }
 
@@ -184,15 +186,3 @@ function Line({ code, alert, children }: { code: string; alert?: boolean; childr
   );
 }
 
-function Empty({ text }: { text: string }) {
-  return (
-    <Box sx={{ py: 1.5, px: 1.5, textAlign: "center", border: "1px dashed", borderColor: "divider", borderRadius: 2, bgcolor: "grey.50" }}>
-      <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="center">
-        <InboxOutlined sx={{ fontSize: 16, color: "text.disabled" }} />
-        <Typography variant="caption" color="text.secondary">
-          {text}
-        </Typography>
-      </Stack>
-    </Box>
-  );
-}

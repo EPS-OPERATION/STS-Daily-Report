@@ -12,7 +12,6 @@ import Grid from "@mui/material/Grid";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
-import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -34,8 +33,9 @@ import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { QueryError } from "@/components/ui/query-error.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
 import { PERMIT_ICONS, permitLabel } from "@/features/daily-requests/index.js";
-import { addDaysIso, mondayOf, todayIso } from "@/lib/dates.js";
+import { addDaysIso, mondayOf, todayIso, shortDate } from "@/lib/dates.js";
 import { useDailyRequests } from "@/features/daily-requests/index.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 import { HighRiskTasks } from "@/features/safety/index.js";
@@ -346,7 +346,7 @@ export function WorkPermitsView({
                           borderRadius: 1.5,
                           border: "1.5px solid",
                           borderColor: active ? "primary.main" : n > 0 ? "warning.light" : "divider",
-                          bgcolor: active ? "primary.50" : n > 0 ? "#FFFDF7" : "background.paper",
+                          bgcolor: active ? "primary.50" : n > 0 ? "warning.light" : "background.paper",
                           transition: "all 0.15s ease",
                           "&:hover": { borderColor: "primary.main", transform: "translateY(-1px)" },
                         }}
@@ -436,7 +436,7 @@ export function WorkPermitsView({
             <TableContainer sx={{ maxHeight: 340, overflowY: "auto" }}>
               {query.isLoading ? (
                 <Box sx={{ p: 2 }}>
-                  <Skeleton variant="rounded" height={160} />
+                  <BlockSkeleton height={160} />
                 </Box>
               ) : (
                 <Table size="small" stickyHeader aria-label="Work permit register">
@@ -456,7 +456,7 @@ export function WorkPermitsView({
                     {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((p) => (
                       <TableRow key={p.id} hover>
                         <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
-                          {dayjs(p.targetDate).format("D MMM YYYY")}
+                          {shortDate(p.targetDate)}
                         </TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap", fontSize: "0.775rem" }}>
                           <Tooltip title={p.contractorName || namesByCode.get(p.contractorCode) || ""}>

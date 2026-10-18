@@ -2,10 +2,6 @@ import AddAPhotoOutlinedIcon from "@mui/icons-material/AddAPhotoOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
@@ -13,8 +9,6 @@ import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { FINDING_TYPES, type FindingStatus, type FindingType } from "@sts/shared";
 import dayjs from "dayjs";
@@ -25,8 +19,10 @@ import { useProjectContractors } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 import { useSaveFinding } from "../hooks/use-safety.js";
 import type { FindingInput, SafetyFinding } from "../types/safety.types.js";
+import { FormDialog } from "@/components/ui/form-dialog.js";
+import { toIsoDate } from "@/lib/dates.js";
 
-const today = () => dayjs().format("YYYY-MM-DD");
+const today = () => toIsoDate();
 
 // Add / edit one line-walk finding (EPS). Photos are picked here and uploaded on Save.
 export function FindingDialog({
@@ -38,8 +34,6 @@ export function FindingDialog({
   finding: SafetyFinding | null; // null = new
   onClose: () => void;
 }) {
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const buildings = useBuildings(projectId).data?.data ?? [];
   const contractors = useProjectContractors(projectId).data?.data ?? [];
   const save = useSaveFinding(projectId);
@@ -103,9 +97,22 @@ export function FindingDialog({
   };
 
   return (
-    <Dialog open onClose={onClose} fullScreen={fullScreen} fullWidth maxWidth="md">
-      <DialogTitle>{finding ? `Line walk · item ${finding.itemNo}` : "Add line walk"}</DialogTitle>
-      <DialogContent>
+    <FormDialog
+      title={finding ? `Line walk · item ${finding.itemNo}` : "Add line walk"}
+      onClose={onClose}
+      maxWidth="md"
+      mobileFullScreen
+      actions={
+        <>
+          <Button variant="text" color="inherit" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={save.isPending}>
+            {save.isPending ? "กำลังบันทึก…" : "บันทึก"}
+          </Button>
+        </>
+      }
+    >
         <Grid container spacing={2} sx={{ pt: 1 }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
@@ -218,16 +225,7 @@ export function FindingDialog({
             {save.error instanceof HttpError ? save.error.message : "บันทึกไม่สำเร็จ"}
           </Alert>
         ) : null}
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button variant="text" color="inherit" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={submit} disabled={save.isPending}>
-          {save.isPending ? "กำลังบันทึก…" : "บันทึก"}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    </FormDialog>
   );
 }
 

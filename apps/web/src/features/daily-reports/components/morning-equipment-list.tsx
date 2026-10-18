@@ -9,6 +9,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { Frame } from "@/components/ui/frame.js";
 
 // Machines beyond the fixed list: free-text name + count, stored under the same
 // equipment record keyed by name. Standard rows stay in CountList above.
@@ -49,7 +50,7 @@ export function CustomEquipmentList({
   };
 
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+    <Frame>
       <Box sx={{ px: 1.5, pt: 1.25, pb: customKeys.length > 0 ? 0.5 : 1.25 }}>
         <Typography variant="body2" sx={{ fontWeight: 700 }}>
           Other (อื่นๆ)
@@ -111,6 +112,6 @@ export function CustomEquipmentList({
           </IconButton>
         </Stack>
       ))}
-    </Box>
+    </Frame>
   );
 }

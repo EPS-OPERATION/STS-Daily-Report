@@ -3,7 +3,6 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
-import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
@@ -15,6 +14,8 @@ import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { QueryError } from "@/components/ui/query-error.js";
+import { Panel } from "@/components/ui/panel.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
 import { WorkloadLegend } from "@/features/report-summaries/index.js";
 import { todayIso } from "@/lib/dates.js";
 import { useCurrentProject } from "@/features/projects/index.js";
@@ -128,7 +129,7 @@ export function SitePlanPage() {
       ) : null}
 
       {!map.data || !day.data ? (
-        <Skeleton variant="rounded" height={480} />
+        <BlockSkeleton height={480} />
       ) : (
         <Grid container spacing={2.5}>
           <Grid size={{ xs: 12, lg: 7 }}>
@@ -165,7 +166,7 @@ export function SitePlanPage() {
               <BuildingDayPanel building={selected} from={from} to={to} onClose={() => set({ b: null })} />
             ) : (
               // Nothing selected: the day's busiest buildings, so the panel is never empty.
-              <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2 }}>
+              <Panel>
                 <Typography variant="h5">{isRange ? "อาคารที่มีงานในช่วงนี้" : "อาคารที่มีงานวันนี้"}</Typography>
                 <Typography variant="caption" color="text.secondary">
                   แตะหมุดหรือรายการเพื่อดูรายละเอียด
@@ -194,7 +195,7 @@ export function SitePlanPage() {
                     </Typography>
                   ) : null}
                 </Stack>
-              </Box>
+              </Panel>
             )}
           </Grid>
         </Grid>

@@ -8,13 +8,8 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import InputAdornment from "@mui/material/InputAdornment";
 import Popover from "@mui/material/Popover";
-import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -36,6 +31,10 @@ import RouteOutlined from "@mui/icons-material/RouteOutlined";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import { QueryError } from "@/components/ui/query-error.js";
+import { FormDialog } from "@/components/ui/form-dialog.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
+import { shortDate } from "@/lib/dates.js";
+import { TOKENS } from "@/app/theme/tokens.js";
 import { useMe } from "@/features/auth/index.js";
 import { ContractorFilterPopover } from "@/features/contractors/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
@@ -140,7 +139,7 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
       id: r.id, points: r.route, alert: r.clash,
       // "<request>:<road>" = a register road picked for the request (no direction); else a drawn route.
       arrows: !r.id.includes(":"),
-      color: data?.contractors.find((c) => c.id === r.contractorId)?.color ?? "#0B4D8B",
+      color: data?.contractors.find((c) => c.id === r.contractorId)?.color ?? TOKENS.primary,
       label: `${codeOf(r.contractorId)} ${r.startTime}–${r.endTime}${r.clash ? " · ชนกัน" : ""}`,
     })) : [];
   const q = search.trim().toLowerCase();
@@ -345,7 +344,7 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
       <Typography variant="caption" color="text.secondary" sx={{ ml: { sm: "auto" } }}>{projects.find((p) => p.id === activeProject)?.code} · {items.length} รายการ</Typography>
     </Stack>}
     {query.isError && <QueryError error={query.error} onRetry={() => void query.refetch()} />}
-    {!data && !query.isError && <Skeleton variant="rounded" height={480} />}
+    {!data && !query.isError && <BlockSkeleton height={480} />}
     {data && <>
       {!readOnly && !data.lock && !editableCompanies.length && <Alert severity="info" sx={{ mb: 2 }}>บัญชีนี้ยังไม่ได้ผูกกับผู้รับเหมาในโครงการ จึงเพิ่มหรือแก้รายการงานไม่ได้</Alert>}
       <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, overflow: "hidden", bgcolor: "background.paper", mb: compact ? 0 : 2 }}>
@@ -389,7 +388,7 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: !compact && (display.jobList || selected) ? "minmax(0, 1fr) 360px" : "1fr" } }}>
         <Box ref={mapBoxRef} sx={{ position: "relative", minWidth: 0, scrollMarginTop: 64 }}>
           {data.lock && <DayLockStamp lock={data.lock} date={date} small={compact} />}
-          <Suspense fallback={<Skeleton variant="rounded" height={compact ? 390 : 620} />}><CoordinationCanvas map={data.map} contractors={data.contractors} items={items} selectedId={selectedId} draft={draft} draftId={working?.id} tool={tool} compact={compact}
+          <Suspense fallback={<BlockSkeleton height={compact ? 390 : 620} />}><CoordinationCanvas map={data.map} contractors={data.contractors} items={items} selectedId={selectedId} draft={draft} draftId={working?.id} tool={tool} compact={compact}
             onSelect={selectItem} onChange={patchItem} onFinish={finish}
             onDeselect={() => selectItem(null)}
             textEditing={textEditId !== null && textEditId === working?.id} onEditText={() => { if (workingRef.current) setTextEditId(workingRef.current.id); }}
@@ -422,7 +421,7 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
             <Stack direction="row" spacing={1} alignItems="center" sx={{ position: "absolute", top: 48, right: 8, maxWidth: "calc(100% - 16px)", px: 2, py: 1, bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 999, pointerEvents: "none" }}>
               <InfoOutlined sx={{ fontSize: 18, color: "info.main" }} />
               <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                ไม่มีรายการงาน{isFiltered ? "ที่ตรงกับตัวกรอง" : ""}ในวันที่ {dayjs(date).format("D MMM YYYY")}{!readOnly ? " — กด «เพิ่มรายการงาน» เพื่อเริ่มวางแผน" : ""}
+                ไม่มีรายการงาน{isFiltered ? "ที่ตรงกับตัวกรอง" : ""}ในวันที่ {shortDate(date)}{!readOnly ? " — กด «เพิ่มรายการงาน» เพื่อเริ่มวางแผน" : ""}
               </Typography>
             </Stack>
           )}
@@ -444,17 +443,18 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
         <TypePicker onPick={(icon) => { setAddAnchor(null); void createItem(icon); }} />
       </Box>
     </Popover>
-    <Dialog open={lockConfirm} onClose={dayLock.isPending ? undefined : () => setLockConfirm(false)} fullWidth maxWidth="xs">
-      <DialogTitle>ล็อกแผนวันที่ {dayjs(date).format("D MMM YYYY")}?</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2">หลังล็อก ทุกคน (รวมผู้รับเหมา) จะเพิ่ม ย้าย แก้ไข หรือลบงาน และแก้หมายเหตุประจำวันของวันนี้ไม่ได้ จนกว่า EPS จะกดปลดล็อก</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{data?.items.length ?? 0} งานบนผังวันนี้</Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button color="inherit" disabled={dayLock.isPending} onClick={() => setLockConfirm(false)}>Cancel</Button>
-        <Button variant="contained" disableElevation startIcon={<LockOutlined />} disabled={dayLock.isPending} onClick={() => void lockDay()}>Lock plan</Button>
-      </DialogActions>
-    </Dialog>
+    <ConfirmDialog
+      open={lockConfirm}
+      title={`ล็อกแผนวันที่ ${shortDate(date)}?`}
+      description="หลังล็อก ทุกคน (รวมผู้รับเหมา) จะเพิ่ม ย้าย แก้ไข หรือลบงาน และแก้หมายเหตุประจำวันของวันนี้ไม่ได้ จนกว่า EPS จะกดปลดล็อก"
+      confirmLabel="Lock plan"
+      tone="primary"
+      loading={dayLock.isPending}
+      onConfirm={() => void lockDay()}
+      onClose={() => setLockConfirm(false)}
+    >
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{data?.items.length ?? 0} งานบนผังวันนี้</Typography>
+    </ConfirmDialog>
     <ConfirmDialog
       open={Boolean(deleteTarget)}
       title="Delete work item?"
@@ -468,8 +468,21 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
     >
       {remove.isError ? <Alert severity="error" sx={{ mt: 2 }}>{remove.error.message}</Alert> : null}
     </ConfirmDialog>
-    <Dialog open={Boolean(colorTarget)} onClose={changeColor.isPending ? undefined : () => setColorTarget(null)} fullWidth maxWidth="xs">
-      <DialogTitle>Contractor color · {data?.contractors.find((c) => c.id === colorTarget)?.code}</DialogTitle><DialogContent>
+    <FormDialog
+      maxWidth="xs"
+      title={<>Contractor color · {data?.contractors.find((c) => c.id === colorTarget)?.code}</>}
+      onClose={() => setColorTarget(null)}
+      busy={changeColor.isPending}
+      open={Boolean(colorTarget)}
+      actions={
+        <>
+          <Button color="inherit" disabled={changeColor.isPending} onClick={() => setColorTarget(null)}>Cancel</Button><Button disabled={changeColor.isPending} onClick={async () => {
+        if (!colorTarget) return;
+        try { await changeColor.mutateAsync({ contractorId: colorTarget, color: chosenColor, revision: colorRevision }); setColorTarget(null); toast.success("อัปเดตสีผู้รับเหมาแล้ว"); } catch { /* Preserve the selected colour for retry. */ }
+      }}>Save color</Button>
+        </>
+      }
+    >
         {changeColor.isError && <Alert severity="error" sx={{ mb: 2 }}>{changeColor.error.message}</Alert>}
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
           <Box component="label" sx={{ position: "relative", width: 46, height: 46, borderRadius: "50%", bgcolor: chosenColor || COORDINATION_COLORS[0], border: "2px solid", borderColor: "divider", cursor: "pointer", flexShrink: 0, boxShadow: "inset 0 0 0 3px #fff" }}>
@@ -489,14 +502,10 @@ export function CoordinationWorkspace({ readOnly = false, compact = false }: { r
             const active = color.toUpperCase() === (chosenColor || "").toUpperCase();
             return <Box key={color} component="button" type="button" aria-label={`Pick color ${color}`} onClick={() => setChosenColor(color)}
               sx={{ aspectRatio: "1", p: 0, borderRadius: "50%", bgcolor: color, border: "2px solid", borderColor: active ? "text.primary" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 120ms ease", "&:hover": { transform: "scale(1.1)" } }}>
-              {active && <CheckOutlined sx={{ fontSize: 15, color: "#fff" }} />}
+              {active && <CheckOutlined sx={{ fontSize: 15, color: "common.white" }} />}
             </Box>;
           })}
         </Box>
-      </DialogContent><DialogActions><Button color="inherit" disabled={changeColor.isPending} onClick={() => setColorTarget(null)}>Cancel</Button><Button disabled={changeColor.isPending} onClick={async () => {
-        if (!colorTarget) return;
-        try { await changeColor.mutateAsync({ contractorId: colorTarget, color: chosenColor, revision: colorRevision }); setColorTarget(null); toast.success("อัปเดตสีผู้รับเหมาแล้ว"); } catch { /* Preserve the selected colour for retry. */ }
-      }}>Save color</Button></DialogActions>
-    </Dialog>
+    </FormDialog>
   </Box>;
 }

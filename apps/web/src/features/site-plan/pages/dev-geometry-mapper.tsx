@@ -11,6 +11,7 @@ import TextField from "@mui/material/TextField";
 import { useRef, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { TOKENS } from "@/app/theme/tokens.js";
 import { useCurrentProject } from "@/features/projects/context/project-context.js";
 import { usePlanZones } from "@/features/site-plan/hooks/use-site-plan.js";
 
@@ -90,13 +91,13 @@ export function DevGeometryMapper() {
                 <polygon
                   points={points.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")}
                   fill="rgba(39,135,255,0.25)"
-                  stroke="#2787FF"
+                  stroke={TOKENS.info}
                   strokeWidth={2}
                   vectorEffect="non-scaling-stroke"
                 />
               )}
               {points.map((p, i) => (
-                <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r={5} fill="#2787FF" />
+                <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r={5} fill={TOKENS.info} />
               ))}
             </svg>
           </Box>

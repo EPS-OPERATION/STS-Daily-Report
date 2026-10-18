@@ -7,20 +7,18 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
-import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { canEditReport } from "@sts/shared";
-import dayjs from "dayjs";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { FieldBottomNav } from "@/components/field/field-bottom-nav.js";
 import { EveningForm } from "@/features/daily-reports/index.js";
 import { MorningForm } from "@/features/daily-reports/index.js";
 import { ReportSummary } from "@/features/daily-reports/index.js";
-import { addDaysIso, formatThaiDate, todayIso } from "@/lib/dates.js";
+import { addDaysIso, formatThaiDate, todayIso, clockTime } from "@/lib/dates.js";
 import { useBuildings } from "@/features/buildings/index.js";
 import { useCurrentReport } from "@/features/daily-reports/index.js";
 import { type Shift } from "@/features/daily-reports/index.js";
@@ -28,6 +26,7 @@ import { useAuthConfig, useMe } from "@/features/auth/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 import { UnlinkedCompany } from "@/features/auth/components/unlinked-company.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -89,7 +88,7 @@ export function FieldReportPage() {
                 alt="EPS"
                 sx={{
                   height: 24,
-                  bgcolor: "#FFFFFF",
+                  bgcolor: "common.white",
                   borderRadius: 1,
                   px: 0.75,
                   py: 0.25,
@@ -106,7 +105,7 @@ export function FieldReportPage() {
                 size="small"
                 sx={{
                   bgcolor: "rgba(255,255,255,0.18)",
-                  color: "#FFFFFF",
+                  color: "common.white",
                   fontWeight: 600,
                   fontSize: 12,
                   maxWidth: { xs: 200, sm: 340 },
@@ -158,8 +157,8 @@ export function FieldReportPage() {
 
       {current.isLoading || buildings.isLoading || !projectId ? (
         <Stack spacing={2}>
-          <Skeleton variant="rounded" height={160} />
-          <Skeleton variant="rounded" height={280} />
+          <BlockSkeleton height={160} />
+          <BlockSkeleton height={280} />
         </Stack>
       ) : loadError ? (
         <Alert severity={loadError.status === 403 ? "warning" : "error"}>
@@ -187,7 +186,7 @@ export function FieldReportPage() {
           }}
           onSubmitted={() => {
             const isEdit = morningDone;
-            const time = dayjs().format("HH:mm");
+            const time = clockTime();
             toast.success(isEdit ? `บันทึกการแก้ไข Daily Report เรียบร้อย (เวลา ${time} น.)` : `ส่ง Daily Report เรียบร้อย (เวลา ${time} น.)`);
             navigate("/field");
           }}
@@ -209,9 +208,9 @@ export function FieldReportPage() {
             }
           >
             {report.eveningUpdatedAt
-              ? `ส่งรายงานบ่ายแล้วเมื่อ ${report.eveningSubmittedAt ? dayjs(report.eveningSubmittedAt).format("HH:mm") + " น." : ""} (แก้ไขล่าสุด ${dayjs(report.eveningUpdatedAt).format("HH:mm")} น.) — แก้ไขและส่งซ้ำได้`
+              ? `ส่งรายงานบ่ายแล้วเมื่อ ${report.eveningSubmittedAt ? clockTime(report.eveningSubmittedAt) + " น." : ""} (แก้ไขล่าสุด ${clockTime(report.eveningUpdatedAt)} น.) — แก้ไขและส่งซ้ำได้`
               : allowResubmit
-                ? `ส่งรายงานบ่ายแล้วเมื่อ ${report.eveningSubmittedAt ? dayjs(report.eveningSubmittedAt).format("HH:mm") + " น." : ""} — แก้ไขและส่งซ้ำได้`
+                ? `ส่งรายงานบ่ายแล้วเมื่อ ${report.eveningSubmittedAt ? clockTime(report.eveningSubmittedAt) + " น." : ""} — แก้ไขและส่งซ้ำได้`
                 : `ส่งรายงานบ่ายแล้ว — แก้ไขและส่งใหม่ได้ถึง ${editUntil}`}
           </Alert>
         ) : null}
@@ -224,7 +223,7 @@ export function FieldReportPage() {
           buildings={buildings.data?.data ?? []}
           onSubmitted={() => {
             const isEdit = eveningDone;
-            const time = dayjs().format("HH:mm");
+            const time = clockTime();
             toast.success(isEdit ? `บันทึกการแก้ไข Daily Request เรียบร้อย (เวลา ${time} น.)` : `ส่ง Daily Request เรียบร้อย (เวลา ${time} น.)`);
             navigate("/field");
           }}

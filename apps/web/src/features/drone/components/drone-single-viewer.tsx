@@ -85,7 +85,7 @@ export function DroneSingleViewer({ photo }: DroneSingleViewerProps) {
         <Stack direction="row" spacing={0.5} alignItems="center">
           <Tooltip title="ขยายภาพ">
             <span>
-              <IconButton
+              <IconButton aria-label="Zoom in"
                 size="small"
                 onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.25))}
                 disabled={zoomLevel >= 2.5}
@@ -99,7 +99,7 @@ export function DroneSingleViewer({ photo }: DroneSingleViewerProps) {
           </Typography>
           <Tooltip title="ย่อภาพ">
             <span>
-              <IconButton
+              <IconButton aria-label="Zoom out"
                 size="small"
                 onClick={() => setZoomLevel((z) => Math.max(1, z - 0.25))}
                 disabled={zoomLevel <= 1}
@@ -110,13 +110,13 @@ export function DroneSingleViewer({ photo }: DroneSingleViewerProps) {
           </Tooltip>
           <Tooltip title="รีเซ็ตขนาดปกติ">
             <span>
-              <IconButton size="small" onClick={() => setZoomLevel(1)} disabled={zoomLevel === 1}>
+              <IconButton aria-label="Reset zoom" size="small" onClick={() => setZoomLevel(1)} disabled={zoomLevel === 1}>
                 <RestartAltIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
           <Tooltip title={isFullscreen ? "ออกจากโหมดเต็มจอ" : "ดูแบบเต็มจอ (Fullscreen)"}>
-            <IconButton size="small" onClick={toggleFullscreen}>
+            <IconButton aria-label={isFullscreen ? "Exit full screen" : "Full screen"} size="small" onClick={toggleFullscreen}>
               {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
             </IconButton>
           </Tooltip>

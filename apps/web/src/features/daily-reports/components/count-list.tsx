@@ -9,6 +9,7 @@ import InputBase from "@mui/material/InputBase";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
+import { Frame } from "@/components/ui/frame.js";
 
 export interface CountItem {
   key: string;
@@ -43,7 +44,7 @@ export function CountList({
   const total = Object.values(values).reduce((s, n) => s + (n || 0), 0);
 
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
+    <Frame>
       {visible.map((item) => {
         const value = values[item.key] ?? 0;
         const on = value > 0;
@@ -167,6 +168,6 @@ export function CountList({
           </Typography>
         </Stack>
       ) : null}
-    </Box>
+    </Frame>
   );
 }

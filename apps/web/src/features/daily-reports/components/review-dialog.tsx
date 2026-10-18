@@ -20,7 +20,6 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import LinearProgress from "@mui/material/LinearProgress";
-import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
@@ -31,6 +30,8 @@ import { useEffect, useState } from "react";
 import { EmptySection } from "@/components/ui/empty-state.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import { QueryError } from "@/components/ui/query-error.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
+import { formatNumber } from "@/lib/format.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { useCurrentReport } from "../hooks/use-daily-report-queries.js";
 import type { DailyReport, ReviewQueueRow } from "../types/daily-report.types.js";
@@ -124,9 +125,9 @@ export function ReviewDialog({
       <DialogContent sx={{ p: 2.5 }}>
         {dataLoading ? (
           <Stack spacing={1.5} aria-busy="true">
-            <Skeleton variant="rounded" height={56} />
-            <Skeleton variant="rounded" height={160} />
-            <Skeleton variant="rounded" height={120} />
+            <BlockSkeleton height={56} />
+            <BlockSkeleton height={160} />
+            <BlockSkeleton height={120} />
           </Stack>
         ) : dataError ? (
           <QueryError error={dataError} onRetry={() => void reportQuery.refetch()} />
@@ -169,7 +170,7 @@ export function ReviewDialog({
                         ชั่วโมงคนรวม (NMH)
                       </Typography>
                       <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        {data.manHours.toLocaleString()} ชม.
+                        {formatNumber(data.manHours)} ชม.
                       </Typography>
                     </Card>
                   </Grid>

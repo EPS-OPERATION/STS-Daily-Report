@@ -5,7 +5,6 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
-import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -24,6 +23,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { QueryError } from "@/components/ui/query-error.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
+import { shortDate } from "@/lib/dates.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import {
   DroneLogCard,
@@ -115,7 +116,7 @@ export function DroneProgressPage() {
       {query.isError ? (
         <QueryError error={query.error as Error} onRetry={() => void query.refetch()} />
       ) : query.isLoading ? (
-        <Skeleton variant="rounded" height={480} />
+        <BlockSkeleton height={480} />
       ) : logs.length === 0 ? (
         <Card variant="outlined">
           <EmptyState
@@ -179,7 +180,7 @@ export function DroneProgressPage() {
                       {logs.map((l) => (
                         <Chip
                           key={l.id}
-                          label={`${dayjs(l.date).format("D MMM YYYY")} — ${l.title}`}
+                          label={`${shortDate(l.date)} — ${l.title}`}
                           clickable
                           color={singlePhoto?.id === l.id ? "primary" : "default"}
                           variant={singlePhoto?.id === l.id ? "filled" : "outlined"}
@@ -293,7 +294,7 @@ export function DroneProgressPage() {
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Delete drone log?"
-        description={deleteTarget ? `ภาพถ่ายรอบ ${dayjs(deleteTarget.date).format("D MMM YYYY")} จะถูกลบถาวร` : undefined}
+        description={deleteTarget ? `ภาพถ่ายรอบ ${shortDate(deleteTarget.date)} จะถูกลบถาวร` : undefined}
         loading={remove.isPending}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => {

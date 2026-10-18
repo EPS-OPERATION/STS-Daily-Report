@@ -7,17 +7,11 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { INSPECTION_TYPES, type InspectionType, type Readiness } from "@sts/shared";
 import dayjs from "dayjs";
@@ -34,6 +28,7 @@ import type { InspectionRequest } from "../types/inspection-request.types.js";
 import { BuildingSelect } from "@/features/buildings/index.js";
 import { RequestStatusChip } from "./request-chips.js";
 import { TimeSelect } from "@/components/ui/time-select.js";
+import { FormDialog } from "@/components/ui/form-dialog.js";
 
 export function inspectionTypeLabel(code: InspectionType) {
   return INSPECTION_TYPES.find((t) => t.code === code)?.label ?? code;
@@ -197,8 +192,6 @@ function RequestDialog({
   request: InspectionRequest | null;
   onClose: () => void;
 }) {
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const save = useSaveRequest(projectId);
   const form = useForm<RequestFormValues>({
     resolver: zodResolver(requestSchema),
@@ -238,23 +231,28 @@ function RequestDialog({
   });
 
   return (
-    <Dialog open onClose={onClose} fullScreen={fullScreen} fullWidth maxWidth="sm">
-      <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <FactCheckOutlinedIcon color="primary" />
-        {request ? "แก้ไขคำขอตรวจ" : "คำขอตรวจ QAQC (Daily Request)"}
-      </DialogTitle>
-      <DialogContent>
-        <Box
-          component="form"
-          id="request-form"
-          // React bubbles submit through the portal into the surrounding morning <form>; stop it here.
-          onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
-            e.stopPropagation();
-            void onSubmit(e);
-          }}
-          noValidate
-          sx={{ pt: 1 }}
-        >
+    <FormDialog
+      title={
+        <Stack component="span" direction="row" spacing={1} alignItems="center">
+          <FactCheckOutlinedIcon color="primary" />
+          <span>{request ? "แก้ไขคำขอตรวจ" : "คำขอตรวจ QAQC (Daily Request)"}</span>
+        </Stack>
+      }
+      onClose={onClose}
+      mobileFullScreen
+      onSubmit={(e) => void onSubmit(e)}
+      actions={
+        <>
+          <Button variant="text" color="inherit" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending ? "กำลังบันทึก…" : "บันทึกคำขอ"}
+          </Button>
+        </>
+      }
+    >
+      <Box sx={{ pt: 1 }}>
           <Grid container spacing={2}>
             <Grid size={12}>
               <Controller
@@ -343,17 +341,8 @@ function RequestDialog({
               {save.error.message}
             </Alert>
           ) : null}
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button variant="text" color="inherit" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="submit" form="request-form" disabled={save.isPending}>
-          {save.isPending ? "กำลังบันทึก…" : "บันทึกคำขอ"}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      </Box>
+    </FormDialog>
   );
 }
 

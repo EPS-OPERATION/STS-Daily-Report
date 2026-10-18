@@ -6,8 +6,9 @@ import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
+import { TOKENS } from "@/app/theme/tokens.js";
 
-const STAMP_GREEN = "#15803D";
+const STAMP_GREEN = TOKENS.success;
 
 // Green bar above the map while the day is locked (EPS stamp), with the unlock action for EPS.
 export function DayLockBanner({ lock, canUnlock, busy, onUnlock }: { lock: CoordinationDayLock; canUnlock: boolean; busy: boolean; onUnlock: () => void }) {

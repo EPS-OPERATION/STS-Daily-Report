@@ -1,40 +1,42 @@
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
+import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
 
-// Bordered section for non-table content (charts, lists, stat blocks).
-// Replaces the ad-hoc `Box border borderRadius p` pattern used across pages.
+// Bordered section for non-table content (charts, lists, stat blocks). Without `title`/`actions`
+// it is just the container, for panels that render their own header. `fill` stretches it to the
+// height of its grid cell.
 export function Panel({
   title,
   subtitle,
   actions,
+  fill = false,
   children,
   sx,
 }: {
   title?: string;
   subtitle?: string;
   actions?: ReactNode;
+  fill?: boolean;
   children: ReactNode;
   sx?: object;
 }) {
   return (
-    <Card variant="outlined" sx={{ height: "100%", ...sx }}>
-      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-        {(title || actions) && (
-          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: title ? 1.5 : 0 }}>
-            {title ? (
-              <Stack>
-                <Typography variant="h5">{title}</Typography>
-                {subtitle ? <Typography variant="caption" color="text.secondary">{subtitle}</Typography> : null}
-              </Stack>
+    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2, ...(fill ? { height: "100%" } : {}), ...sx }}>
+      {title || actions ? (
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 1.5 }}>
+          <Box>
+            {title ? <Typography variant="h5">{title}</Typography> : null}
+            {subtitle ? (
+              <Typography variant="caption" color="text.secondary">
+                {subtitle}
+              </Typography>
             ) : null}
-            {actions ? <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: "auto" }}>{actions}</Stack> : null}
-          </Stack>
-        )}
-        {children}
-      </CardContent>
-    </Card>
+          </Box>
+          {actions}
+        </Stack>
+      ) : null}
+      {children}
+    </Box>
   );
 }

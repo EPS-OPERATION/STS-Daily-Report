@@ -1,5 +1,4 @@
 import Box from "@mui/material/Box";
-import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -7,6 +6,7 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { minutesToTime, roadClashPairs, roadPlacesMeet, timeToMinutes } from "@sts/shared";
 import type { ReportRoadUsage } from "../types/daily-request.types.js";
 import { formatThaiDate } from "@/lib/dates.js";
+import { StatusChip } from "@/components/ui/status-chip.js";
 
 // One row = one booking on the road, on a shared clock. Where two contractors' bars overlap, a hatched band
 // runs down the whole chart, so the collision reads as a time, not as a colour alone.
@@ -230,7 +230,7 @@ function RoadGroup<T extends ReportRoadUsage>({ bookings, pairs, visibleIds, can
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
         <Typography variant="body2" sx={{ fontWeight: 700 }}>{first.roadLocation}</Typography>
         <Typography variant="caption" color="text.secondary">{formatThaiDate(first.targetDate)}</Typography>
-        {pairs.length > 0 ? <Chip size="small" color="error" label={`${colliding.size} clashes`} sx={{ height: 20 }} /> : null}
+        {pairs.length > 0 ? <StatusChip status="blocked" label={`${colliding.size} clashes`} /> : null}
         {pairs.length > 0 || rows.some((r) => r.requested) ? (
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ ml: { sm: "auto" } }}>
             {pairs.length > 0 ? (

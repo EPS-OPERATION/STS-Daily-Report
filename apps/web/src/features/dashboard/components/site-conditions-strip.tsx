@@ -134,7 +134,7 @@ export function SiteConditionsStrip() {
                   gap: 0.5,
                   mt: 0.5,
                   textDecoration: "underline",
-                  "&:hover": { color: "#FFFFFF" },
+                  "&:hover": { color: "common.white" },
                 }}
               >
                 🌧️ บันทึกฝนตกจริง  →

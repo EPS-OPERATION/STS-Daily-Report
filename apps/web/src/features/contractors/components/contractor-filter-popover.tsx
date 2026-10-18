@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import Box from "@mui/material/Box";
 import { MultiSelectFilter, type FilterOption } from "@/components/ui/filter-popover.js";
+import { formatNumber } from "@/lib/format.js";
 
 export interface ContractorFilterItem {
   code: string;
@@ -35,7 +36,7 @@ export function ContractorFilterPopover({
         label: item.code,
         sublabel: item.name && item.name !== item.code ? item.name : undefined,
         leading: <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: item.color, flexShrink: 0 }} />,
-        count: item.manDays !== undefined ? `${item.manDays.toLocaleString()} คน-วัน` : item.countLabel,
+        count: item.manDays !== undefined ? `${formatNumber(item.manDays)} คน-วัน` : item.countLabel,
       })),
     [items],
   );

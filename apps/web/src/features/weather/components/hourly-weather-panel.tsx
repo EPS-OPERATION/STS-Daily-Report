@@ -1,7 +1,6 @@
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
@@ -11,6 +10,8 @@ import { useState, type ReactNode } from "react";
 import { addDaysIso, todayIso } from "@/lib/dates.js";
 import { useHourlyWeather } from "../hooks/use-weather.js";
 import { HourlyWeatherChart } from "./hourly-weather-chart.js";
+import { Panel } from "@/components/ui/panel.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
 
 type Range = "today" | "yesterday" | "week";
 const RANGES: { value: Range; label: string }[] = [
@@ -47,7 +48,7 @@ export function HourlyWeatherPanel({
   const temps = hours.map((h) => h.temperatureC).filter((t): t is number => t !== null);
 
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2 }}>
+    <Panel>
       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "flex-start" }} spacing={1.5} sx={{ mb: 1.5 }}>
         <Box>
           <Typography variant="h5">อากาศหน้างานรายชั่วโมง</Typography>
@@ -75,7 +76,7 @@ export function HourlyWeatherPanel({
       {q.isError ? <Alert severity="error">โหลดข้อมูลอากาศไม่สำเร็จ</Alert> : null}
 
       {q.isLoading ? (
-        <Skeleton variant="rounded" height={420} />
+        <BlockSkeleton height={420} />
       ) : (
         <Stack spacing={2.5}>
           <Box>
@@ -102,7 +103,7 @@ export function HourlyWeatherPanel({
           ) : null}
         </Stack>
       )}
-    </Box>
+    </Panel>
   );
 }
 

@@ -1,15 +1,13 @@
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
-import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { contractorColorMap } from "@/features/contractors/index.js";
 import { todayIso } from "@/lib/dates.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { FindingPie, StatisticTable, periodLabel, useSafetyFindings, useSafetyStats } from "@/features/safety/index.js";
+import { PrintMessage, PrintSheet, usePrintWhenReady } from "@/components/print/print-sheet.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const YELLOW = "#fff5b8";
@@ -23,7 +21,6 @@ export function SafetyReportPrintPage() {
   const { projectId } = useCurrentProject();
   const stats = useSafetyStats(projectId, from, to);
   const findings = useSafetyFindings(projectId, from, to);
-  const printed = useRef(false);
 
   const s = stats.data?.data;
   const rows = findings.data?.data ?? [];
@@ -31,39 +28,22 @@ export function SafetyReportPrintPage() {
   const period = periodLabel(from, to);
   const colors = contractorColorMap(rows.map((r) => r.contractorCode ?? "ไม่ระบุ"));
 
-  useEffect(() => {
-    if (!ready || printed.current) return;
-    document.title = `Safety report ${from}${from === to ? "" : `_${to}`}`;
-    // Wait for every image (logos + photos) before printing.
-    const imgs = Array.from(document.images);
-    Promise.all(imgs.map((img) => (img.complete ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = () => r(null); })))).then(() => {
-      printed.current = true;
-      setTimeout(() => window.print(), 300);
-    });
-  }, [ready, from, to]);
+  usePrintWhenReady(ready, `Safety report ${from}${from === to ? "" : `_${to}`}`);
 
   const loadError = (stats.error as Error | null) ?? (findings.error as Error | null);
   if (loadError) {
     return (
-      <Stack alignItems="center" spacing={2} sx={{ py: 10 }}>
-        <Typography color="error">โหลดรายงานไม่สำเร็จ — {loadError.message}</Typography>
-      </Stack>
+      <PrintMessage tone="error">โหลดรายงานไม่สำเร็จ — {loadError.message}</PrintMessage>
     );
   }
   if (!ready || !s) {
     return (
-      <Stack alignItems="center" spacing={2} sx={{ py: 10 }}>
-        <CircularProgress />
-        <Typography>กำลังเตรียมรายงาน…</Typography>
-      </Stack>
+      <PrintMessage tone="busy">กำลังเตรียมรายงาน…</PrintMessage>
     );
   }
 
   return (
-    <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
-      <style>{`
-        @page { size: A4 landscape; margin: 10mm; }
-        @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    <PrintSheet page="A4 landscape" margin="10mm" css={`
         .sheet { break-after: page; padding: 4mm 2mm; }
         .sheet:last-child { break-after: auto; }
         .lw { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -71,15 +51,8 @@ export function SafetyReportPrintPage() {
         .lw th { background: ${YELLOW}; font-weight: 700; text-align: center; }
         .lw tr { break-inside: avoid; }
         .lw img { width: 150px; height: 108px; object-fit: cover; display: block; margin: 0 auto; }
-      `}</style>
-
-      <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-        <Button onClick={() => window.print()}>Print / Save as PDF</Button>
-        <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
-          ในหน้าต่างพิมพ์ เลือก "Save as PDF" / "บันทึกเป็น PDF"
-        </Typography>
-      </Stack>
-
+      `} hint={<>ในหน้าต่างพิมพ์ เลือก "Save as PDF" / "บันทึกเป็น PDF"</>}>
+      
       {/* Page 1..n: Issue Safety Line Walk */}
       <Box className="sheet">
         <Header subtitle="Issue Safety Line Walk" period={period} />
@@ -149,7 +122,7 @@ export function SafetyReportPrintPage() {
           </Box>
         </Stack>
       </Box>
-    </Box>
+    </PrintSheet>
   );
 }
 

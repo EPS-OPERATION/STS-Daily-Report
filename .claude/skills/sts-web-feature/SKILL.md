@@ -37,6 +37,8 @@ reports) becomes real. Register navigation icons in `app/icons/navigation-icons.
 - Forms: React Hook Form + `zodResolver`. Errors via MUI `Alert`/`Dialog`/Snackbar, never `alert()`.
 - Styling: theme tokens from `app/theme/` only (navy `#0B4D8B`, Inter + Noto Sans Thai, radius 6/8/10,
   border over shadow). Reuse `components/ui/` (PageHeader, KpiCard, StatusChip, EmptyState).
+- Pages stay thin (<~400 lines): state, URL params and derived data go in a `hooks/use-<page>.ts` hook returning one object; big JSX blocks become `components/*.tsx` taking `ed` (that hook's return type). Helper components never live inside a page file.
+- Shared UI first: `Panel` (bordered section), `Frame` (bordered list/table wrapper), `EmptySection`/`EmptyState`, `FormDialog` (form dialogs) / `ConfirmDialog`, `BlockSkeleton`, `components/print/PrintSheet` for print pages; never hand-roll these per feature. Colours outside `sx` come from `app/theme/tokens.ts`, never hex.
 - Status display goes through `StatusChip` (tones active/attention/blocked/idle). QAQC icon = `FactCheckOutlined`.
   Icons are Outlined (only ArrowBack/Forward/MoreVert/MoreHoriz stay filled).
 - MUI v7 Grid: `size={{ xs: 12, md: 6 }}`. DataGrid theme needs

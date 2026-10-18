@@ -1,6 +1,13 @@
 import dayjs from "dayjs";
 
-export const todayIso = () => dayjs().format("YYYY-MM-DD");
+type DateLike = Parameters<typeof dayjs>[0];
+
+// One place for the formats the app prints; no argument = now.
+export const toIsoDate = (d?: DateLike) => dayjs(d).format("YYYY-MM-DD");
+export const clockTime = (d?: DateLike) => dayjs(d).format("HH:mm");
+export const shortDate = (d?: DateLike) => dayjs(d).format("D MMM YYYY");
+
+export const todayIso = () => toIsoDate();
 
 // Monday of the week containing `iso` (Mon–Sun weeks, local calendar).
 export function mondayOf(iso: string): string {

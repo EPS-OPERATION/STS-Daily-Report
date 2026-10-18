@@ -1,10 +1,6 @@
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
-import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ALL_BUILDINGS, filterWorkDone, workDoneItemsFromSiteDay } from "../utils/work-done.js";
 import { ALL_CONTRACTORS } from "../utils/submission.js";
@@ -16,7 +12,8 @@ import { useCurrentProject } from "@/features/projects/index.js";
 import { useSiteDay } from "@/features/site-plan/index.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-import { PRINT_BLUE } from "@/features/daily-reports/utils/print-tokens.js";
+import { PRINT_BLUE } from "@/components/print/print-tokens.js";
+import { PrintMessage, PrintSheet, usePrintWhenReady } from "@/components/print/print-sheet.js";
 const BLUE = PRINT_BLUE;
 const MIN_ROWS = 25; // paper form has 25 numbered lines
 
@@ -45,7 +42,6 @@ export function WorkDonePrintPage() {
   const projectName = current.projects.find((p) => p.id === projectId)?.name ?? "";
   const siteDay = useSiteDay(projectId, from, to);
   const reports = useReviewQueue(projectId, { from, to });
-  const printed = useRef(false);
 
   const days = useMemo(() => {
     const items = filterWorkDone(workDoneItemsFromSiteDay(siteDay.data?.data?.buildings ?? []), { contractor, building, search });
@@ -61,45 +57,27 @@ export function WorkDonePrintPage() {
 
   const ready = Boolean(siteDay.data && reports.data);
 
-  useEffect(() => {
-    if (!ready || printed.current || days.length === 0) return;
-    document.title = `Work done ${from}${from === to ? "" : `_${to}`}`;
-    const imgs = Array.from(document.images);
-    Promise.all(imgs.map((img) => (img.complete ? Promise.resolve() : new Promise((r) => { img.onload = img.onerror = () => r(null); })))).then(() => {
-      printed.current = true;
-      setTimeout(() => window.print(), 300);
-    });
-  }, [ready, days.length, from, to]);
+  usePrintWhenReady(ready && days.length > 0, `Work done ${from}${from === to ? "" : `_${to}`}`);
 
   if (siteDay.isError || reports.isError) {
     return (
-      <Stack alignItems="center" sx={{ py: 10 }}>
-        <Typography color="error">โหลดข้อมูลไม่สำเร็จ — ไม่มีสิทธิ์เข้าถึงหรือการเชื่อมต่อขัดข้อง</Typography>
-      </Stack>
+      <PrintMessage tone="error">โหลดข้อมูลไม่สำเร็จ — ไม่มีสิทธิ์เข้าถึงหรือการเชื่อมต่อขัดข้อง</PrintMessage>
     );
   }
   if (!ready) {
     return (
-      <Stack alignItems="center" spacing={2} sx={{ py: 10 }}>
-        <CircularProgress />
-        <Typography>กำลังเตรียมรายงาน…</Typography>
-      </Stack>
+      <PrintMessage tone="busy">กำลังเตรียมรายงาน…</PrintMessage>
     );
   }
   if (days.length === 0) {
     return (
-      <Stack alignItems="center" sx={{ py: 10 }}>
-        <Typography>ไม่มีรายการเนื้องานในช่วงและตัวกรองที่เลือก</Typography>
-      </Stack>
+      <PrintMessage>ไม่มีรายการเนื้องานในช่วงและตัวกรองที่เลือก</PrintMessage>
     );
   }
 
   const queue = reports.data?.data ?? [];
   return (
-    <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
-      <style>{`
-        @page { size: A4 portrait; margin: 8mm; }
-        @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    <PrintSheet page="A4 portrait" margin="8mm" css={`
         .sheet { break-after: page; font-size: 10px; line-height: 1.25; padding: 4px; }
         .sheet:last-child { break-after: auto; }
         .f { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -109,19 +87,12 @@ export function WorkDonePrintPage() {
         .f tr { break-inside: avoid; }
         .c { text-align: center; } .r { text-align: right; font-variant-numeric: tabular-nums; } .b { font-weight: 700; }
         .sub { display: block; font-size: 8px; font-weight: 400; color: #333; }
-      `}</style>
-
-      <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-        <Button onClick={() => window.print()}>Print / Save as PDF</Button>
-        <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
-          {days.length} วัน ({days.length} แผ่น) — ในหน้าต่างพิมพ์ เลือก "Save as PDF"
-        </Typography>
-      </Stack>
-
+      `} hint={<>{days.length} วัน ({days.length} แผ่น) — ในหน้าต่างพิมพ์ เลือก "Save as PDF"</>}>
+      
       {days.map(({ date, rows }) => (
         <DaySheet key={date} date={date} rows={rows} reports={queue} projectName={projectName} />
       ))}
-    </Box>
+    </PrintSheet>
   );
 }
 

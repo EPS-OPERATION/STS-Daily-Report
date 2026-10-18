@@ -8,7 +8,6 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
-import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -21,6 +20,9 @@ import type { ReactNode } from "react";
 import { formatThaiDate } from "@/lib/dates.js";
 import { useHourlyWeather } from "@/features/weather/index.js";
 import type { RainLogEntry } from "../types/rain-log.types.js";
+import { Panel } from "@/components/ui/panel.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
 
 /** An hour counts as rain from this much (mm). */
 const RAIN_MM = 0.2;
@@ -95,9 +97,9 @@ export function RainHistoryCompare({
           note={`ฝนตกช่วงเวลาทำงาน ${pad(DAY_FROM)}–${pad(DAY_TO)} · ${spans.length} ครั้ง · รวม ${recordedHours} ชม.`}
         >
           {weather.isLoading ? (
-            <Skeleton variant="rounded" height={160} />
+            <BlockSkeleton height={160} />
           ) : spans.length === 0 ? (
-            <Empty text="ไม่มีฝนในเวลาทำงานช่วงนี้" />
+            <EmptySection dense title="ไม่มีฝนในเวลาทำงานช่วงนี้" />
           ) : (
             <Table size="small">
               <TableHead>
@@ -141,7 +143,7 @@ export function RainHistoryCompare({
           }
         >
           {logs.length === 0 ? (
-            <Empty text="EPS ยังไม่ได้บันทึกฝนตกช่วงนี้" />
+            <EmptySection dense title="EPS ยังไม่ได้บันทึกฝนตกช่วงนี้" />
           ) : (
             <Table size="small">
               <TableHead>
@@ -192,7 +194,7 @@ export function RainHistoryCompare({
 
 function Side({ icon, title, note, action, children }: { icon: ReactNode; title: string; note: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper", p: 2, height: "100%" }}>
+    <Panel fill>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ mb: 1.5 }}>
         <Stack direction="row" spacing={1} alignItems="flex-start">
           {icon}
@@ -208,7 +210,7 @@ function Side({ icon, title, note, action, children }: { icon: ReactNode; title:
         {action}
       </Stack>
       <Box sx={{ overflowX: "auto" }}>{children}</Box>
-    </Box>
+    </Panel>
   );
 }
 
@@ -220,12 +222,3 @@ function Th({ children, align }: { children: ReactNode; align?: "right" }) {
   );
 }
 
-function Empty({ text }: { text: string }) {
-  return (
-    <Box sx={{ py: 4, textAlign: "center", border: 1, borderStyle: "dashed", borderColor: "divider", borderRadius: 1.5 }}>
-      <Typography variant="body2" color="text.secondary">
-        {text}
-      </Typography>
-    </Box>
-  );
-}

@@ -1,9 +1,5 @@
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { roadClashPairs, timeToMinutes } from "@sts/shared";
@@ -12,6 +8,7 @@ import type { ReportRoadUsage } from "../types/daily-request.types.js";
 import { durationText, TimelineRows, type TimelineRow } from "./road-timeline.js";
 import { formatThaiDate } from "@/lib/dates.js";
 import { TimeSelect } from "@/components/ui/time-select.js";
+import { FormDialog } from "@/components/ui/form-dialog.js";
 
 const CANDIDATE = "candidate";
 
@@ -55,9 +52,24 @@ export function RoadTimeDialog({
   const rowOf = new Map(rows.map((r) => [r.id, r]));
 
   return (
-    <Dialog open onClose={saving ? undefined : onClose} fullWidth maxWidth="sm" aria-labelledby="road-time-title">
-      <DialogTitle id="road-time-title">แก้ไขเวลาการใช้ถนน</DialogTitle>
-      <DialogContent>
+    <FormDialog
+      title="แก้ไขเวลาการใช้ถนน"
+      onClose={onClose}
+      busy={saving}
+      actions={
+        <Stack direction="row" justifyContent="space-between" sx={{ width: "100%" }}>
+          <Button color="inherit" disabled={!road.adjusted || saving} onClick={onRestore}>
+            คืนเวลาที่ขอ
+          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button color="inherit" disabled={saving} onClick={onClose}>Cancel</Button>
+            <Button variant="contained" disableElevation disabled={!valid || unchanged || saving} onClick={() => onSave(start, end)}>
+              Save time
+            </Button>
+          </Stack>
+        </Stack>
+      }
+    >
         <Stack spacing={2}>
           <Stack spacing={0.25}>
             <Typography variant="body2" sx={{ fontWeight: 700 }}>
@@ -101,18 +113,6 @@ export function RoadTimeDialog({
 
           {error ? <Alert severity="error">{error}</Alert> : null}
         </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2, justifyContent: "space-between" }}>
-        <Button color="inherit" disabled={!road.adjusted || saving} onClick={onRestore}>
-          คืนเวลาที่ขอ
-        </Button>
-        <Stack direction="row" spacing={1}>
-          <Button color="inherit" disabled={saving} onClick={onClose}>Cancel</Button>
-          <Button variant="contained" disableElevation disabled={!valid || unchanged || saving} onClick={() => onSave(start, end)}>
-            Save time
-          </Button>
-        </Stack>
-      </DialogActions>
-    </Dialog>
+    </FormDialog>
   );
 }

@@ -126,7 +126,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
           display: "flex",
           alignItems: "center",
           px: collapsed ? 1.5 : 2.5,
-          bgcolor: "#FFFFFF",
+          bgcolor: "common.white",
           borderBottom: "1px solid",
           borderColor: "divider",
           justifyContent: collapsed ? "center" : "flex-start",

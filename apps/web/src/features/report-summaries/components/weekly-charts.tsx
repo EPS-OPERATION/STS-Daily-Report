@@ -19,22 +19,14 @@ import dayjs from "dayjs";
 import { CHART_OTHER, CHART_PRIMARY, CHART_SERIES } from "@/app/theme/chart-palette.js";
 import { formatThaiDate } from "@/lib/dates.js";
 import type { ManpowerSummary, PositionMixRow } from "../types/report-summary.types.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
+import { formatNumber } from "@/lib/format.js";
 
 const DAY_TH = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."];
 
 const legendBottom = {
   legend: { direction: "horizontal" as const, position: { vertical: "bottom" as const, horizontal: "center" as const } },
 };
-
-function Empty({ text, height = 280 }: { text: string; height?: number }) {
-  return (
-    <Box sx={{ height, display: "grid", placeItems: "center" }}>
-      <Typography variant="body2" color="text.secondary">
-        {text}
-      </Typography>
-    </Box>
-  );
-}
 
 function CustomStackedBarTooltip(props: ChartsTooltipProps) {
   const tooltipData = useAxesTooltip();
@@ -103,7 +95,7 @@ function CustomStackedBarTooltip(props: ChartsTooltipProps) {
                     component="td"
                     sx={{ textAlign: "right", pt: 0.75, pb: 0.5, fontWeight: 700, color: "primary.main" }}
                   >
-                    {total.toLocaleString()} คน
+                    {formatNumber(total)} คน
                   </ChartsTooltipCell>
                 </ChartsTooltipRow>
               </tbody>
@@ -133,7 +125,7 @@ export function ManDayByContractorChart({
 }) {
   // Contractors hidden by the filter chips (empty = show all).
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-  if (daily.length === 0) return <Empty text="ยังไม่มีรายงานเช้าในช่วงนี้" height={height} />;
+  if (daily.length === 0) return <EmptySection title="ยังไม่มีรายงานเช้าในช่วงนี้" height={height} />;
   const perDay = new Map<string, Map<string, number>>(); // contractor → date → headcount
   for (const r of daily) {
     const row = perDay.get(r.contractorCode) ?? new Map<string, number>();
@@ -235,7 +227,7 @@ export const TREND_DAILY_MAX_DAYS = 31;
 export function ManpowerTrendChart({ days, daily, height = 300 }: { days: string[]; daily: Array<{ date: string; headcount: number }>; height?: number }) {
   const byDay = new Map<string, number>();
   for (const d of daily) byDay.set(d.date, (byDay.get(d.date) ?? 0) + d.headcount);
-  if (byDay.size === 0) return <Empty text="ยังไม่มีข้อมูลในช่วงที่เลือก" height={height} />;
+  if (byDay.size === 0) return <EmptySection title="ยังไม่มีข้อมูลในช่วงที่เลือก" height={height} />;
 
   const weekly = days.length > TREND_DAILY_MAX_DAYS;
   const points: Array<{ key: string; label: string; value: number | null }> = [];
@@ -288,7 +280,7 @@ export function ManpowerTrendChart({ days, daily, height = 300 }: { days: string
 
 // Headcount by position, grouped by contractor (actual count in range).
 export function PositionByContractorChart({ rows, colors, height = 320 }: { rows: PositionMixRow[]; colors: Map<string, string>; height?: number }) {
-  if (rows.length === 0) return <Empty text="ยังไม่มีข้อมูลตำแหน่งในช่วงนี้" height={height} />;
+  if (rows.length === 0) return <EmptySection title="ยังไม่มีข้อมูลตำแหน่งในช่วงนี้" height={height} />;
   // Positions in the form's order, only those anyone used this week.
   const positions = POSITIONS.filter((p) => rows.some((r) => r.position === p.code));
   const codes = [...new Set(rows.map((r) => r.contractorCode))].sort((a, b) => a.localeCompare(b));
@@ -306,7 +298,7 @@ export function PositionByContractorChart({ rows, colors, height = 320 }: { rows
           const r = rows.find((row) => row.contractorCode === code && row.position === p.code);
           return r?.totalHeadcount ?? r?.avgPerDay ?? 0;
         }),
-        valueFormatter: (v: number | null) => (v ? `${v.toLocaleString()} คน` : null),
+        valueFormatter: (v: number | null) => (v ? `${formatNumber(v)} คน` : null),
       }))}
       slotProps={legendBottom}
       grid={{ horizontal: true }}
@@ -325,7 +317,7 @@ const NATIONALITY_SERIES = [
 ] as const;
 
 export function NationalityByContractorChart({ contractors, height = 300 }: { contractors: ManpowerSummary["contractors"]; height?: number }) {
-  if (contractors.length === 0) return <Empty text="ยังไม่มีข้อมูลในช่วงนี้" height={height} />;
+  if (contractors.length === 0) return <EmptySection title="ยังไม่มีข้อมูลในช่วงนี้" height={height} />;
   return (
     <BarChart
       height={height}
@@ -338,7 +330,7 @@ export function NationalityByContractorChart({ contractors, height = 300 }: { co
         stack: "total",
         color: s.color,
         data: contractors.map((c) => c[s.key]),
-        valueFormatter: (v: number | null) => (v ? `${v.toLocaleString()} คน-วัน` : null),
+        valueFormatter: (v: number | null) => (v ? `${formatNumber(v)} คน-วัน` : null),
       }))}
       slotProps={legendBottom}
       grid={{ horizontal: true }}
@@ -359,7 +351,7 @@ export function ManpowerByBuildingChart({
   height?: number;
 }) {
   const codes = [...new Set(rows.flatMap((b) => Object.keys(b.contractors)))].sort((a, b) => a.localeCompare(b));
-  if (codes.length === 0) return <Empty text="ยังไม่มีการจัดสรรคนลงอาคารในช่วงนี้" height={height} />;
+  if (codes.length === 0) return <EmptySection title="ยังไม่มีการจัดสรรคนลงอาคารในช่วงนี้" height={height} />;
   const shown = height === undefined ? rows : fitBuildings(rows, Math.max(3, Math.floor((height - 40) / BUILDING_ROW)));
   return (
     <BarChart
@@ -374,7 +366,7 @@ export function ManpowerByBuildingChart({
         stack: "total",
         color: colors.get(code) ?? CHART_OTHER,
         data: shown.map((b) => b.contractors[code] ?? 0),
-        valueFormatter: (v: number | null) => (v ? `${v.toLocaleString()} คน-วัน` : null),
+        valueFormatter: (v: number | null) => (v ? `${formatNumber(v)} คน-วัน` : null),
       }))}
       slotProps={legendBottom}
       grid={{ vertical: true }}
