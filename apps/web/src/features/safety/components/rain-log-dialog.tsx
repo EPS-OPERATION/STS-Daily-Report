@@ -2,21 +2,16 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { useEffect, useState, type ReactNode } from "react";
-import { addDaysIso, todayIso } from "@/features/daily-reports/index.js";
+import { addDaysIso, todayIso } from "@/lib/dates.js";
 import type { RainLogEntry, RainLogInput } from "../types/rain-log.types.js";
 import { TimeSelect } from "@/components/ui/time-select.js";
+import { FormDialog } from "@/components/ui/form-dialog.js";
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const fromMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -40,8 +35,6 @@ interface RainLogDialogProps {
 // Log rain that stopped work: pick the day, the start and stop time, tap why and what stopped.
 // Stoppage hours = the period; the recorder is the signed-in user.
 export function RainLogDialog({ open, entry, projectId, onClose, onSave }: RainLogDialogProps) {
-  const theme = useTheme();
-  const phone = useMediaQuery(theme.breakpoints.down("sm"));
   const isNew = entry === "new";
   const today = todayIso();
 
@@ -100,16 +93,33 @@ export function RainLogDialog({ open, entry, projectId, onClose, onSave }: RainL
   };
 
   return (
-    <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="sm" fullScreen={phone}>
-      <DialogTitle sx={{ pb: 1 }}>
-        <Typography variant="h6" component="span" sx={{ display: "block", fontWeight: 700 }}>
-          {isNew ? "บันทึกฝนตกหน้างาน" : "แก้ไขบันทึกฝนตก"}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          ฝนตกจนต้องหยุดงานช่วงไหน — ใช้เป็นหลักฐานขยายเวลา (EOT)
-        </Typography>
-      </DialogTitle>
-      <DialogContent dividers>
+    <FormDialog
+      open={open}
+      title={
+        <>
+          <Typography variant="h6" component="span" sx={{ display: "block", fontWeight: 700 }}>
+            {isNew ? "บันทึกฝนตกหน้างาน" : "แก้ไขบันทึกฝนตก"}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            ฝนตกจนต้องหยุดงานช่วงไหน — ใช้เป็นหลักฐานขยายเวลา (EOT)
+          </Typography>
+        </>
+      }
+      onClose={onClose}
+      busy={saving}
+      dividers
+      mobileFullScreen
+      actions={
+        <>
+          <Button color="inherit" onClick={onClose} disabled={saving}>
+            ยกเลิก
+          </Button>
+          <Button variant="contained" disableElevation onClick={() => void submit()} disabled={!canSave} sx={{ minWidth: 140 }}>
+            {saving ? "กำลังบันทึก…" : "บันทึก"}
+          </Button>
+        </>
+      }
+    >
         <Stack spacing={2.5}>
           <Step n={1} title="วันที่">
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -177,16 +187,7 @@ export function RainLogDialog({ open, entry, projectId, onClose, onSave }: RainL
 
           {error ? <Alert severity="error">{error}</Alert> : null}
         </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, py: 1.5 }}>
-        <Button color="inherit" onClick={onClose} disabled={saving}>
-          ยกเลิก
-        </Button>
-        <Button variant="contained" disableElevation onClick={() => void submit()} disabled={!canSave} sx={{ minWidth: 140 }}>
-          {saving ? "กำลังบันทึก…" : "บันทึก"}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    </FormDialog>
   );
 }
 

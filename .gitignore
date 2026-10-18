@@ -14,5 +14,9 @@ coverage/
 
 .vercel
 .env*
+!.env.example
+!.env.prod.example
+!.env.backup.example
 supabase/.temp
 .vscode/
+backups/

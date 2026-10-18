@@ -1,5 +1,7 @@
 import { DEFAULT_SITE_LOCATION, compareReportedWeather, type WeatherCondition, type WeatherHour, type WeatherVerdict } from "@sts/shared";
+import { getEnv } from "@/config/env.js";
 import { getDb } from "@/db/client.js";
+import { pingHeartbeat } from "@/observability/heartbeat.js";
 import { NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { getProjectLocation, getSyncState, latestHour, listActiveProjectIds, listHours, listReportedWeather, upsertHours, type WeatherRow } from "./weather.repository.js";
 
@@ -150,7 +152,10 @@ export async function weatherAtService(projectId: string, date: string, time: st
 export async function syncAllProjectsService() {
   const ids = await listActiveProjectIds(getDb());
   const results = await Promise.all(ids.map(async (id) => ({ id, ...(await ensureFresh(id, true)) })));
-  return { projects: ids.length, failed: results.filter((r) => r.stale).map((r) => r.id), at: new Date().toISOString() };
+  const failed = results.filter((r) => r.stale).map((r) => r.id);
+  // Dead-man's switch: a missing ping means the hourly job stopped; /fail means it ran but a project failed.
+  await pingHeartbeat(getEnv().WEATHER_HEARTBEAT_URL, failed.length === 0);
+  return { projects: ids.length, failed, at: new Date().toISOString() };
 }
 
 const bangkokDate = (d: Date) => new Date(d.getTime() + 7 * 3_600_000).toISOString().slice(0, 10);

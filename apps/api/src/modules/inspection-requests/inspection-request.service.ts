@@ -3,7 +3,6 @@ import { getDb } from "@/db/client.js";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import type { AuthContext } from "@/auth/auth.types.js";
 import { listBuildings } from "@/modules/buildings/building.repository.js";
-import { getReportByKey } from "@/modules/daily-reports/daily-report.repository.js";
 import { getProjectById } from "@/modules/projects/project.repository.js";
 import { isContractorInProject } from "@/modules/site-activities/site-activity.repository.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
@@ -11,6 +10,7 @@ import {
   deleteRequest,
   getRequest,
   insertRequest,
+  isEveningReportSent,
   listRequests,
   updateRequest,
 } from "./inspection-request.repository.js";
@@ -85,8 +85,7 @@ export async function createRequestService(auth: AuthContext, projectId: string,
   await validateFields(projectId, input.reportDate, input);
   // Requests are planned in the evening for the next day: draft until that evening
   // report is sent, then straight to QAQC.
-  const report = await getReportByKey(db, projectId, input.contractorId, input.reportDate);
-  const status: RequestStatus = report?.eveningStatus === "submitted" ? "requested" : "draft";
+  const status: RequestStatus = (await isEveningReportSent(db, projectId, input.contractorId, input.reportDate)) ? "requested" : "draft";
   const id = await insertRequest(db, {
     projectId,
     contractorId: input.contractorId,

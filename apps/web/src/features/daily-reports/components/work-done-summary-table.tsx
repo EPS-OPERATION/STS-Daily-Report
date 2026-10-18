@@ -19,10 +19,9 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import FileDownloadIcon from "@mui/icons-material/FileDownloadOutlined";
 import PrintIcon from "@mui/icons-material/PrintOutlined";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import WarningAmberIcon from "@mui/icons-material/WarningAmberOutlined";
-import { ContractorBadge } from "./contractor-badge.js";
+import { ContractorBadge } from "@/features/contractors/index.js";
 import { EmptyState } from "@/components/ui/empty-state.js";
+import { StatusChip } from "@/components/ui/status-chip.js";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 import { ALL_BUILDINGS, filterWorkDone } from "../utils/work-done.js";
 
@@ -331,20 +330,14 @@ export function WorkDoneSummaryTable({
                         {item.actualPercent === null ? (
                           <Chip size="small" label="Pending" sx={{ height: 22, fontSize: 13 }} />
                         ) : isBehind ? (
-                          <Chip
-                            size="small"
-                            color="warning"
-                            icon={<WarningAmberIcon fontSize="small" />}
+                          <StatusChip
+                            status="attention"
                             label={`ช้ากว่าแผน (${(item.actualPercent - (item.planPercent ?? 0)).toFixed(0)}%)`}
-                            sx={{ height: 22, fontSize: 13, fontWeight: 600 }}
                           />
                         ) : (
-                          <Chip
-                            size="small"
-                            color="success"
-                            icon={<CheckCircleOutlineIcon fontSize="small" />}
+                          <StatusChip
+                            status="approved"
                             label={isAhead ? `เกินแผน (+${(item.actualPercent - (item.planPercent ?? 0)).toFixed(0)}%)` : item.planPercent === null ? "บันทึกผลแล้ว" : "ตามแผน"}
-                            sx={{ height: 22, fontSize: 13, fontWeight: 600 }}
                           />
                         )}
                       </TableCell>

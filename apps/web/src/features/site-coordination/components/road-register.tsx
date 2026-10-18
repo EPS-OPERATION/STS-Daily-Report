@@ -7,10 +7,6 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
@@ -23,13 +19,15 @@ import { coordinationToday, routeGeometryError, type CoordinationPoint, type Roa
 import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header.js";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
+import { TOKENS } from "@/app/theme/tokens.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 import { useCoordination, useDeleteRoadSegment, useRoadSegments, useSaveRoadSegment } from "../hooks/use-coordination.js";
 import { RoadMapStage, type RoadLine } from "./road-map-stage.js";
 
-const OPEN = "#0B4D8B";
-const CLOSED = "#94A3B8";
+const OPEN = TOKENS.primary;
+const CLOSED = TOKENS.muted;
 type Form = { road: string; name: string; closed: boolean; points: CoordinationPoint[] };
 const fail = (e: unknown) => toast.error(e instanceof HttpError ? e.message : "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
 
@@ -161,16 +159,15 @@ export function RoadRegister() {
           </Box>
         </Stack>
       </Card>
-      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>ลบช่วงถนน?</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">{form?.name} จะหายจากทะเบียน คำขอใช้ถนนที่เลือกช่วงนี้ไว้แล้วยังเก็บเส้นทางที่วาดไว้</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button color="inherit" onClick={() => setConfirmDelete(false)}>ยกเลิก</Button>
-          <Button color="error" variant="contained" disableElevation onClick={() => void destroy()}>ลบ</Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmDelete}
+        title="ลบช่วงถนน?"
+        description={`${form?.name ?? ""} จะหายจากทะเบียน คำขอใช้ถนนที่เลือกช่วงนี้ไว้แล้วยังเก็บเส้นทางที่วาดไว้`}
+        confirmLabel="ลบ"
+        cancelLabel="ยกเลิก"
+        onConfirm={() => void destroy()}
+        onClose={() => setConfirmDelete(false)}
+      />
     </Box>
   );
 }

@@ -1,9 +1,9 @@
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import { alpha } from "@mui/material/styles";
 import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
-import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -11,7 +11,10 @@ import type { PermitType } from "@sts/shared";
 import dayjs from "dayjs";
 import { useMemo } from "react";
 import { EmptySection } from "@/components/ui/empty-state.js";
-import { ContractorBadge, PERMIT_ICONS, permitLabel, useDailyRequests } from "@/features/daily-reports/index.js";
+import { BlockSkeleton } from "@/components/ui/skeletons.js";
+import { ContractorBadge } from "@/features/contractors/index.js";
+import { PERMIT_ICONS, permitLabel } from "@/features/daily-requests/index.js";
+import { useDailyRequests } from "@/features/daily-requests/index.js";
 
 export interface HighRiskTask {
   key: string;
@@ -78,7 +81,7 @@ export function HighRiskTasks({
   const byDate = realTasksByDate;
 
   if (query.isError) return <Alert severity="error">โหลดงานความเสี่ยงสูงไม่สำเร็จ</Alert>;
-  if (!query.data) return <Skeleton variant="rounded" height={120} />;
+  if (!query.data) return <BlockSkeleton height={120} />;
   if (byDate.length === 0) {
     return <EmptySection dense icon={<WarningAmberRoundedIcon />} title="ไม่มีงานที่ผู้รับเหมาแจ้งว่าเป็นงานความเสี่ยงสูงในช่วงนี้" description="งานจะขึ้นที่นี่เมื่อผู้รับเหมาติ๊ก High-risk ในใบขออนุญาตของรายงานบ่าย" />;
   }
@@ -113,9 +116,9 @@ function TaskCard({ task }: { task: HighRiskTask }) {
         height: "100%",
         p: 1.25,
         borderRadius: 1.5,
-        bgcolor: "#FFF8EC",
+        bgcolor: (t) => alpha(t.palette.warning.light, 0.6),
         border: "1px solid",
-        borderColor: "#F2D4A6",
+        borderColor: (t) => alpha(t.palette.warning.main, 0.35),
         boxShadow: "0 1px 2px rgba(120, 72, 0, 0.08)",
         display: "flex",
         flexDirection: "column",
@@ -128,9 +131,9 @@ function TaskCard({ task }: { task: HighRiskTask }) {
           const Icon = PERMIT_ICONS[p];
           return (
             <Tooltip key={p} title={permitLabel(p)}>
-              <Box sx={{ position: "relative", display: "inline-flex", color: "#C2410C" }}>
+              <Box sx={{ position: "relative", display: "inline-flex", color: "warning.dark" }}>
                 <WarningAmberRoundedIcon sx={{ fontSize: 24 }} />
-                <Icon sx={{ position: "absolute", right: -5, bottom: -2, fontSize: 13, bgcolor: "#FFF8EC", borderRadius: "50%", color: "#7C2D12" }} />
+                <Icon sx={{ position: "absolute", right: -5, bottom: -2, fontSize: 13, bgcolor: "warning.light", borderRadius: "50%", color: "warning.dark" }} />
               </Box>
             </Tooltip>
           );
@@ -139,7 +142,7 @@ function TaskCard({ task }: { task: HighRiskTask }) {
       <Typography sx={{ fontWeight: 700, fontSize: "0.95rem", textAlign: "center", lineHeight: 1.25 }} noWrap title={task.taskName}>
         {task.taskName}
       </Typography>
-      <Box sx={{ alignSelf: "center", px: 1, py: 0.25, borderRadius: 1, bgcolor: "#F3E3C8", textAlign: "center" }}>
+      <Box sx={{ alignSelf: "center", px: 1, py: 0.25, borderRadius: 1, bgcolor: (t) => alpha(t.palette.warning.main, 0.18), textAlign: "center" }}>
         <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>
           ผู้ควบคุม (EPS) : {task.supervisors.join(", ") || "—"}
         </Typography>

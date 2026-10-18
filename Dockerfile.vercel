@@ -1,6 +1,5 @@
 # STS API image for Vercel (container service in vercel.json). Same as Dockerfile,
-# but production mode on port 80. Login is the demo email login, allowed only via
-# ALLOW_DEMO_LOGIN=true and only behind Vercel Deployment Protection.
+# but production mode on port 80 (Vercel's default container port). Password login only.
 FROM oven/bun:1.3 AS runtime
 WORKDIR /app
 

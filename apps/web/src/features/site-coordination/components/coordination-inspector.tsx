@@ -25,6 +25,7 @@ import type { ReactNode } from "react";
 import { areaLabel, ICON_LABELS } from "../types/icon-labels.js";
 import { MachineGlyph } from "./machine-icon.js";
 import { TypePicker } from "./type-picker.js";
+import { TOKENS } from "@/app/theme/tokens.js";
 
 interface Props {
   item: CoordinationItem;
@@ -84,7 +85,7 @@ export function CoordinationInspector({
 }: Props) {
   const v = draft ?? item;
   const company = contractors.find((c) => c.id === v.contractorId);
-  const color = company?.color ?? "#64748B";
+  const color = company?.color ?? TOKENS.neutral;
   const editable = Boolean(draft);
 
   return (

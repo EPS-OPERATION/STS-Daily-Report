@@ -1,7 +1,7 @@
 import type { CoordinationReport } from "@sts/shared";
 import { coordinationToday } from "@sts/shared";
 import { useMemo } from "react";
-import { formatThaiDate } from "@/features/daily-reports/index.js";
+import { formatThaiDate } from "@/lib/dates.js";
 import { ICON_LABELS } from "../types/icon-labels.js";
 import { CoordinationCanvas } from "./coordination-canvas.js";
 

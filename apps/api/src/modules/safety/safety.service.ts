@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { ACCIDENT_CATEGORY_CODES, INJURY_CATEGORIES, isEpsStaff, manHours, type AccidentCategory, type FindingType } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import type { AuthContext } from "@/auth/auth.types.js";
-import { listReportHoursInRange } from "@/modules/daily-reports/daily-report.repository.js";
+import { listReportHoursInRange } from "@/modules/report-summaries/index.js";
 import { getProjectById } from "@/modules/projects/project.repository.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { getStorage } from "@/shared/storage/index.js";

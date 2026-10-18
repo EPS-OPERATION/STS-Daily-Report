@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, "refactor/**"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sts
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sts"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      WEATHER_CRON: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.x
+      - run: bun install --frozen-lockfile
+      - run: bun typecheck
+      - run: bun test
+      - run: bun check:arch
+      - run: bun run build
+      - name: Migrate and seed an empty database
+        run: |
+          cp .env.example .env
+          bun db:migrate
+          SEED_DEMO=false bun db:seed
+      - name: API behaviour snapshot (golden file)
+        working-directory: apps/api
+        run: bun --env-file=../../.env scripts/snapshot-daily-reports.ts test/golden/daily-reports.snapshot.json --check

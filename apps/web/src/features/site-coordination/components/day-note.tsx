@@ -8,6 +8,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
+import { shortDate } from "@/lib/dates.js";
 
 // "หมายเหตุประจำวัน": one shared note for the whole map on this date, pinned at the bottom of the
 // list panel. Read view by default; EPS presses "เขียนหมายเหตุ / แก้ไข" to open the editor, then saves.
@@ -79,7 +80,7 @@ export function DayNote({
               if (e.key === "Escape") setEditing(false);
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) void save();
             }}
-            placeholder={`โน้ตสำหรับวันที่ ${dayjs(date).format("D MMM YYYY")} — เช่น ปิดถนน R2 ทั้งวัน, ยกเครนช่วงบ่าย 13:00–15:00`}
+            placeholder={`โน้ตสำหรับวันที่ ${shortDate(date)} — เช่น ปิดถนน R2 ทั้งวัน, ยกเครนช่วงบ่าย 13:00–15:00`}
             inputProps={{ "aria-label": "บันทึกประจำวัน" }}
             sx={{ px: 1.25, py: 1, fontSize: 14, lineHeight: 1.5, bgcolor: "background.paper", border: "1px solid", borderColor: "primary.main", borderRadius: 1.5, boxShadow: (t) => `0 0 0 3px ${t.palette.primary.main}22` }}
           />

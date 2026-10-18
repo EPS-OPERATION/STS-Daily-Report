@@ -1,4 +1,5 @@
 import type Elysia from "elysia";
+import { reportUnexpectedError } from "@/observability/report-error.js";
 import { AppError, toErrorBody } from "@/shared/errors/app-error.js";
 
 export function errorPlugin(app: Elysia<any, any, any, any, any, any>) {
@@ -25,10 +26,12 @@ export function errorPlugin(app: Elysia<any, any, any, any, any, any>) {
         };
       }
       if (sensitive) {
+        reportUnexpectedError(error, { method: request.method, path, sensitive: true });
         set.status = 500;
         return { error: { code: "INTERNAL_ERROR", message: "Internal server error" } };
       }
       const mapped = toErrorBody(error);
+      if (mapped.status >= 500) reportUnexpectedError(error, { method: request.method, path, sensitive: false });
       set.status = mapped.status;
       return mapped.body;
     })

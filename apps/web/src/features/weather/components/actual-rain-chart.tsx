@@ -1,6 +1,4 @@
-import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { BarPlot } from "@mui/x-charts/BarChart";
 import { ChartContainer } from "@mui/x-charts/ChartContainer";
@@ -11,6 +9,7 @@ import { ChartsXAxis } from "@mui/x-charts/ChartsXAxis";
 import { ChartsYAxis } from "@mui/x-charts/ChartsYAxis";
 import type { WeatherHour } from "@sts/shared";
 import { hourLabels, Legend } from "./hourly-weather-chart.js";
+import { EmptySection } from "@/components/ui/empty-state.js";
 
 /** One rain period EPS recorded on site (Rain & Delay Log). */
 export interface ActualRainPeriod { date: string; startTime: string; endTime: string; note?: string }
@@ -36,11 +35,7 @@ export function ActualRainChart({ hours, periods, height = 200 }: { hours: Weath
 
   if (!minutes.some((m) => m)) {
     return (
-      <Box sx={{ height: 96, display: "grid", placeItems: "center", border: 1, borderStyle: "dashed", borderColor: "divider", borderRadius: 1.5 }}>
-        <Typography variant="body2" color="text.secondary">
-          EPS ยังไม่ได้บันทึกฝนตกในช่วงนี้ — กด «Log actual rain time» ด้านล่างเมื่อฝนตกหน้างาน
-        </Typography>
-      </Box>
+      <EmptySection dense height={96} title="EPS ยังไม่ได้บันทึกฝนตกในช่วงนี้ — กด «Log actual rain time» ด้านล่างเมื่อฝนตกหน้างาน" />
     );
   }
 

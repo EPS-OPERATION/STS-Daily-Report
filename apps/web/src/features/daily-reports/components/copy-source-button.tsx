@@ -11,7 +11,7 @@ import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import { useState } from "react";
 import { useCurrentReport, useReviewQueue } from "../hooks/use-daily-report-queries.js";
-import { addDaysIso, formatThaiDate } from "../utils/dates.js";
+import { addDaysIso, formatThaiDate } from "@/lib/dates.js";
 
 // How far back a contractor can pick a morning report to start from (same span as History).
 export const COPY_LOOKBACK_DAYS = 14;

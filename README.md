@@ -26,8 +26,8 @@ No Base* classes, no DI framework, no codegen CRUD.
 ## 3. Repository structure
 
 ```text
-apps/web/src: app/{providers,router,layouts,theme} pages/ features/<domain>/{api,components,hooks,schemas,types}
-  components/{ui,site,field} mock/site-data.ts services/http/
+apps/web/src: app/{providers,router,layouts,theme} features/<domain>/{api,components,hooks,pages,schemas,types,utils}
+  components/{ui,field} lib/ services/http/
 apps/api/src: config/ db/{schema,migrations,seed} modules/contractors plugins/ shared/{errors,http,storage}
 packages/{shared,env,typescript-config}  docker-compose.yml  .env.example
 ```
@@ -260,6 +260,10 @@ The integration check uses isolated generated QA projects/companies/users and re
 IDs in `finally`. Browser/tool limitations and the manual walkthrough are recorded in
 [`docs/map-coordination-verification.md`](docs/map-coordination-verification.md).
 
+## Deployment
+
+Staging (Vercel + Supabase) and the VPS checklist: see `docs/deployment.md`.
+
 ## Hourly site weather
 
 The API stores site weather per hour in `weather_hourly` (Open-Meteo model data for the project's coordinates).
@@ -275,5 +279,7 @@ select cron.schedule('sts-weather-hourly', '5 * * * *', $$
   );
 $$);
 ```
+
+Set `WEATHER_HEARTBEAT_URL` (Healthchecks.io-style) to be alerted when the hourly job stops: it is pinged after every sync (`/fail` after a failed one).
 
 Reads also refresh data older than 30 minutes, so the chart never shows a gap even if a run is missed.

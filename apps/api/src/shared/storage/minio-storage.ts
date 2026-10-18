@@ -11,6 +11,18 @@ export function createMinioStorage(env: ApiEnv): StorageService {
     secretKey: env.MINIO_SECRET_KEY,
   });
   const bucket = env.MINIO_BUCKET;
+  // Signing is offline, so a second client bound to the public address produces URLs browsers can open.
+  // An explicit region skips the network lookup a client would otherwise make against that address.
+  const publicClient = env.MINIO_PUBLIC_ENDPOINT
+    ? new Client({
+        endPoint: env.MINIO_PUBLIC_ENDPOINT,
+        port: env.MINIO_PUBLIC_PORT ?? (env.MINIO_PUBLIC_USE_SSL ?? env.MINIO_USE_SSL ? 443 : 80),
+        useSSL: env.MINIO_PUBLIC_USE_SSL ?? env.MINIO_USE_SSL,
+        accessKey: env.MINIO_ACCESS_KEY,
+        secretKey: env.MINIO_SECRET_KEY,
+        region: "us-east-1",
+      })
+    : client;
 
   return {
     async upload(input: UploadInput) {
@@ -25,7 +37,7 @@ export function createMinioStorage(env: ApiEnv): StorageService {
       await client.removeObject(bucket, key);
     },
     async getPresignedUrl(key: string, expiresSeconds = 3600) {
-      return client.presignedGetObject(bucket, key, expiresSeconds);
+      return publicClient.presignedGetObject(bucket, key, expiresSeconds);
     },
   };
 }

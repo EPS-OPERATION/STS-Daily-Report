@@ -13,16 +13,20 @@ export function EmptySection({
   description,
   action,
   dense = false,
+  height,
 }: {
-  icon: ReactNode;
+  icon?: ReactNode;
   title: string;
   description?: string;
   action?: ReactNode;
   dense?: boolean;
+  /** Fixed height for chart/table placeholders, so the layout does not jump when data arrives. */
+  height?: number;
 }) {
   return (
     <Box
       sx={{
+        ...(height ? { height, display: "grid", placeItems: "center" } : {}),
         py: dense ? 2.5 : 4,
         px: 2,
         textAlign: "center",
@@ -33,7 +37,7 @@ export function EmptySection({
       }}
     >
       <Stack spacing={1} alignItems="center">
-        <Box sx={{ color: "text.disabled", display: "flex", "& .MuiSvgIcon-root": { fontSize: dense ? 26 : 30 } }}>{icon}</Box>
+        {icon ? <Box sx={{ color: "text.disabled", display: "flex", "& .MuiSvgIcon-root": { fontSize: dense ? 26 : 30 } }}>{icon}</Box> : null}
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {title}
         </Typography>

@@ -1,6 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "@/app/app.js";
+import { initErrorReporting } from "@/lib/error-reporting.js";
+
+initErrorReporting();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root not found");

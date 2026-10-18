@@ -1,7 +1,8 @@
 import { t } from "elysia";
 
-export const DATE_RE = "^\\d{4}-\\d{2}-\\d{2}$";
-export const TIME_RE = "^([01]\\d|2[0-3]):[0-5]\\d$";
+import { DATE_RE, TIME_RE } from "@/shared/http/params.js";
+
+export { DATE_RE, TIME_RE };
 
 const uuid = t.String({ format: "uuid" });
 const statusEnum = t.Union([

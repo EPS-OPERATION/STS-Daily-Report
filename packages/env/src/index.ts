@@ -5,16 +5,29 @@ const boolFromString = z
   .transform((v) => v === true || v === "true" || v === "1")
   .pipe(z.boolean());
 
+// A blank `NAME=` line counts as unset.
+const blankToUndefined = (v: unknown) => (typeof v === "string" && v.trim() === "" ? undefined : v);
+const optionalText = z.preprocess(blankToUndefined, z.string().trim().min(1).optional());
+const optionalUrl = z.preprocess(blankToUndefined, z.string().trim().url().optional());
+
 export const apiEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  // Migrations need a session-capable connection (Supabase: session pooler :5432 or direct), not the
+  // transaction pooler used by the running API. Unset = DATABASE_URL.
+  MIGRATE_DATABASE_URL: z.string().min(1).optional(),
   MINIO_ENDPOINT: z.string().default("localhost"),
   MINIO_PORT: z.coerce.number().int().positive().default(9000),
   MINIO_ACCESS_KEY: z.string().default("minioadmin"),
   MINIO_SECRET_KEY: z.string().default("minioadmin"),
   MINIO_BUCKET: z.string().default("sts"),
   MINIO_USE_SSL: boolFromString.default(false),
+  // Browser-facing MinIO address used to sign photo URLs (the internal MINIO_ENDPOINT is unreachable from browsers
+  // on a VPS). Unset = same as the internal one. Example: files.example.com / 443 / true.
+  MINIO_PUBLIC_ENDPOINT: z.string().optional(),
+  MINIO_PUBLIC_PORT: z.coerce.number().int().positive().optional(),
+  MINIO_PUBLIC_USE_SSL: boolFromString.optional(),
   // "minio" (local docker) or "supabase" (Supabase Storage REST, used on Vercel).
   STORAGE_PROVIDER: z.enum(["minio", "supabase"]).default("minio"),
   SUPABASE_URL: z.string().optional(),
@@ -28,6 +41,14 @@ export const apiEnvSchema = z.object({
   // Bearer secret for POST /api/v1/internal/weather/sync (external schedulers); unset = endpoint off.
   // A blank `CRON_SECRET=` line counts as unset.
   CRON_SECRET: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().trim().min(16).optional()),
+  // Optional error reporting to any Sentry-protocol server (Sentry, GlitchTip, Bugsink). Unset = off.
+  SENTRY_DSN: optionalUrl,
+  SENTRY_ENVIRONMENT: optionalText,
+  SENTRY_RELEASE: optionalText,
+  // Optional dead-man's-switch (Healthchecks.io style): pinged after each successful hourly weather sync, `<url>/fail` after a failed one.
+  WEATHER_HEARTBEAT_URL: optionalUrl,
+  // Behind a trusted reverse proxy / Vercel: take the client IP from X-Forwarded-For (rate limits). Off when the API is exposed directly.
+  TRUST_PROXY: boolFromString.default(false),
   // Canonical URL for links; WEB_ORIGIN may contain multiple CORS origins.
   WEB_URL: z.string().url().optional(),
   WEB_ORIGIN: z.string().default("http://localhost:5173"),
