@@ -1,4 +1,5 @@
 import { t } from "elysia";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/auth/password.js";
 export const userIdParams = t.Object({ id: t.String({ format: "uuid" }) });
 export const listUsersQuery = t.Object({
   status: t.Optional(t.Union([t.Literal("pending"), t.Literal("active"), t.Literal("rejected"), t.Literal("disabled")])),
@@ -16,3 +17,16 @@ export const changeStatusBody = t.Object(
   { additionalProperties: false },
 );
 export const linkUserBody = t.Object({ contractorId: t.String({ format: "uuid" }), projectId: t.Optional(t.String({ format: "uuid" })) }, { additionalProperties: false });
+// eps_admin creates an account directly: active at once, password set by the admin.
+export const createUserBody = t.Object(
+  {
+    email: t.String({ minLength: 3, maxLength: 320 }),
+    username: t.String({ minLength: 3, maxLength: 40 }),
+    displayName: t.Optional(t.String({ maxLength: 120 })),
+    password: t.String({ minLength: MIN_PASSWORD_LENGTH, maxLength: MAX_PASSWORD_LENGTH }),
+    role: t.Union([t.Literal("contractor"), t.Literal("eps_site"), t.Literal("eps_admin")]),
+    contractorId: t.Optional(t.String({ format: "uuid" })),
+    projectId: t.Optional(t.String({ format: "uuid" })),
+  },
+  { additionalProperties: false },
+);

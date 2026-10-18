@@ -61,3 +61,23 @@ export async function setUserStatus(db: QueryDb, id: string, status: "active" | 
       .where(and(eq(sessions.userId, id), sql`${sessions.revokedAt} IS NULL`));
   }
 }
+// New account created by an admin (already decided → active). Returns its id.
+export async function insertUser(
+  db: QueryDb,
+  input: { email: string; username: string; displayName: string; passwordHash: string; role: UserRole; createdBy: string },
+) {
+  const [row] = await db
+    .insert(users)
+    .values({
+      email: input.email,
+      username: input.username,
+      displayName: input.displayName,
+      passwordHash: input.passwordHash,
+      role: input.role,
+      status: "active",
+      decidedBy: input.createdBy,
+      decidedAt: new Date(),
+    })
+    .returning({ id: users.id });
+  return row!.id;
+}
