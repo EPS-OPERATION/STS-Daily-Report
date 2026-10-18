@@ -240,25 +240,27 @@ export function DailyReportsPage() {
                     </TableContainer>
                   )}
 
-                  {rows.length > 0 ? (
-                    <TablePagination
-                      component="div"
-                      count={rows.length}
-                      page={currentHistoryPage}
-                      onPageChange={(_, p) => setHistoryPage(p)}
-                      rowsPerPage={historyPerPage}
-                      onRowsPerPageChange={(e) => {
-                        setHistoryPerPage(Number(e.target.value));
-                        setHistoryPage(0);
-                      }}
-                      rowsPerPageOptions={[25, 50, 100]}
-                      labelRowsPerPage="แถวต่อหน้า"
-                    />
-                  ) : null}
-
-                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
-                    แสดง {rows.length} จาก {queue.length} รายการ · คลิกแถวที่ส่งแล้วเพื่อดูรายละเอียด
-                  </Typography>
+                  {/* Count + hint on the left, pagination on the right: one footer row (wraps on narrow screens). */}
+                  <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: 2, mt: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      แสดง {rows.length} จาก {queue.length} รายการ · คลิกแถวที่ส่งแล้วเพื่อดูรายละเอียด
+                    </Typography>
+                    {rows.length > 0 ? (
+                      <TablePagination
+                        component="div"
+                        count={rows.length}
+                        page={currentHistoryPage}
+                        onPageChange={(_, p) => setHistoryPage(p)}
+                        rowsPerPage={historyPerPage}
+                        onRowsPerPageChange={(e) => {
+                          setHistoryPerPage(Number(e.target.value));
+                          setHistoryPage(0);
+                        }}
+                        rowsPerPageOptions={[25, 50, 100]}
+                        labelRowsPerPage="แถวต่อหน้า"
+                      />
+                    ) : null}
+                  </Box>
                 </CardContent>
               </Card>
             </Box>
