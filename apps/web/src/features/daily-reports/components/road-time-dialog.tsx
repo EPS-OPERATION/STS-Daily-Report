@@ -4,18 +4,15 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { minutesToTime, roadClashPairs, timeToMinutes } from "@sts/shared";
+import { roadClashPairs, timeToMinutes } from "@sts/shared";
 import { useState } from "react";
 import type { ReportRoadUsage } from "../types/daily-report.types.js";
 import { durationText, TimelineRows, type TimelineRow } from "./road-timeline.js";
 import { formatThaiDate } from "../utils/dates.js";
+import { TimeSelect } from "@/components/ui/time-select.js";
 
-// Quarter-hour steps across the working day; a time outside the steps (typed earlier) is still offered.
-const STEPS = Array.from({ length: (20 * 60 - 5 * 60) / 15 + 1 }, (_, i) => minutesToTime(5 * 60 + i * 15));
 const CANDIDATE = "candidate";
 
 const stamp = (iso: string) =>
@@ -46,7 +43,6 @@ export function RoadTimeDialog({
 
   const valid = timeToMinutes(start) < timeToMinutes(end);
   const unchanged = start === road.startTime && end === road.endTime;
-  const options = [...new Set([...STEPS, start, end])].sort();
 
   const rows: TimelineRow[] = bookings.map((b) =>
     b.id === road.id
@@ -77,25 +73,8 @@ export function RoadTimeDialog({
           </Stack>
 
           <Stack direction="row" spacing={1.5}>
-            <TextField select size="small" label="Start" value={start} onChange={(e) => setStart(e.target.value)} fullWidth error={!valid}>
-              {options.map((t) => (
-                <MenuItem key={t} value={t} sx={{ fontVariantNumeric: "tabular-nums" }}>{t}</MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              size="small"
-              label="End"
-              value={end}
-              onChange={(e) => setEnd(e.target.value)}
-              fullWidth
-              error={!valid}
-              helperText={valid ? undefined : "เวลาสิ้นสุดต้องหลังเวลาเริ่ม"}
-            >
-              {options.map((t) => (
-                <MenuItem key={t} value={t} sx={{ fontVariantNumeric: "tabular-nums" }}>{t}</MenuItem>
-              ))}
-            </TextField>
+            <TimeSelect label="เวลาเริ่ม" value={start} onChange={setStart} error={!valid} />
+            <TimeSelect label="เวลาสิ้นสุด" value={end} onChange={setEnd} after={start} error={!valid} helperText={valid ? undefined : "เวลาสิ้นสุดต้องหลังเวลาเริ่ม"} />
           </Stack>
 
           <Stack spacing={1}>

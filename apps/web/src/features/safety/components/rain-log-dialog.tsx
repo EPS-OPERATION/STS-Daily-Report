@@ -1,198 +1,208 @@
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { addDaysIso, todayIso } from "@/features/daily-reports/index.js";
 import type { RainLogEntry, RainLogInput } from "../types/rain-log.types.js";
+import { TimeSelect } from "@/components/ui/time-select.js";
 
-function calcHours(start: string, end: string): number {
-  if (!start || !end) return 0;
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = end.split(":").map(Number);
-  if (Number.isNaN(sh) || Number.isNaN(sm) || Number.isNaN(eh) || Number.isNaN(em)) return 0;
-  const startMins = sh * 60 + sm;
-  const endMins = eh * 60 + em;
-  const diff = endMins - startMins;
-  return diff > 0 ? Number((diff / 60).toFixed(1)) : 0;
-}
+const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const fromMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const nowSlot = () => {
+  const m = dayjs().hour() * 60 + dayjs().minute();
+  return fromMin(Math.min(toMin("20:45"), Math.max(toMin("05:00"), Math.floor(m / 15) * 15)));
+};
+const REASONS = ["ฝนตกหนัก", "ฟ้าคะนอง / ฟ้าผ่า", "ลมแรง", "พื้นที่น้ำขัง / ลื่น"];
+const STOPPED = ["งานยกด้วยเครน", "งานที่สูง", "งานเทคอนกรีต", "งานเชื่อม / Hot work", "งานขุด / งานดิน"];
+
 
 interface RainLogDialogProps {
   open: boolean;
   entry: RainLogEntry | "new" | null;
   projectId: string;
   onClose: () => void;
-  onSave: (input: RainLogInput) => void;
+  /** Resolves when saved; a rejection keeps the dialog open with the message. */
+  onSave: (input: RainLogInput) => Promise<unknown>;
 }
 
-export function RainLogDialog({
-  open,
-  entry,
-  projectId,
-  onClose,
-  onSave,
-}: RainLogDialogProps) {
+// Log rain that stopped work: pick the day, the start and stop time, tap why and what stopped.
+// Stoppage hours = the period; the recorder is the signed-in user.
+export function RainLogDialog({ open, entry, projectId, onClose, onSave }: RainLogDialogProps) {
+  const theme = useTheme();
+  const phone = useMediaQuery(theme.breakpoints.down("sm"));
   const isNew = entry === "new";
+  const today = todayIso();
 
-  const [date, setDate] = useState(() => dayjs().format("YYYY-MM-DD"));
+  const [date, setDate] = useState(today);
   const [startTime, setStartTime] = useState("13:00");
-  const [endTime, setEndTime] = useState("15:30");
-  const [stoppageHours, setStoppageHours] = useState(2.5);
-  const [impactSummary, setImpactSummary] = useState("");
-  const [recordedBy, setRecordedBy] = useState("EPS QAQC / Safety Team");
+  const [endTime, setEndTime] = useState("14:00");
+  const [reasons, setReasons] = useState<string[]>([]);
+  const [stopped, setStopped] = useState<string[]>([]);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!open) return;
+    setError(null);
+    setSaving(false);
     if (entry && entry !== "new") {
       setDate(entry.date);
       setStartTime(entry.startTime);
       setEndTime(entry.endTime);
-      setStoppageHours(entry.stoppageHours);
-      setImpactSummary(entry.impactSummary);
-      setRecordedBy(entry.recordedBy);
-    } else if (entry === "new") {
-      const today = dayjs().format("YYYY-MM-DD");
+      setReasons([]);
+      setStopped([]);
+      setNote(entry.impactSummary);
+    } else {
+      const start = nowSlot();
       setDate(today);
-      setStartTime("13:00");
-      setEndTime("15:30");
-      setStoppageHours(2.5);
-      setImpactSummary("ฝนตกหนักลมแรง ปฏิบัติตามมาตรฐานความปลอดภัยสั่งหยุดงานยกและงานที่สูง");
-      setRecordedBy("EPS QAQC / Safety Team");
+      setStartTime(start);
+      setEndTime(fromMin(Math.min(toMin("21:00"), toMin(start) + 60)));
+      setReasons(["ฝนตกหนัก"]);
+      setStopped([]);
+      setNote("");
     }
-  }, [entry]);
+  }, [open, entry, today]);
 
-  // Recalculate hours when start/end change
-  const handleTimeChange = (newStart: string, newEnd: string) => {
-    setStartTime(newStart);
-    setEndTime(newEnd);
-    const hrs = calcHours(newStart, newEnd);
-    if (hrs > 0) setStoppageHours(hrs);
-  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave({
-      projectId,
-      date,
-      startTime,
-      endTime,
-      stoppageHours: Number(stoppageHours) || 0,
-      impactSummary: impactSummary.trim(),
-      recordedBy: recordedBy.trim() || "EPS QAQC / Safety Team",
-    });
-    onClose();
+  const windowMin = toMin(endTime) - toMin(startTime);
+  const valid = windowMin > 0;
+  // Stoppage = the rain period (no separate field to think about).
+  const hours = Math.round((windowMin / 60) * 10) / 10;
+  const composed = [reasons.join(", "), stopped.length ? `หยุด${stopped.join(", ")}` : "", note.trim()].filter(Boolean).join(" — ");
+  const canSave = valid && composed.length > 0 && !saving;
+
+  const toggle = (list: string[], set: (v: string[]) => void, v: string) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+
+  const submit = async () => {
+    if (!canSave) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ projectId, date, startTime, endTime, stoppageHours: hours, impactSummary: composed, recordedBy: "" });
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
+      setSaving(false);
+    }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <form onSubmit={handleSubmit}>
-        <DialogTitle sx={{ pb: 1 }}>
-          <Typography variant="h6" component="div">
-            {isNew ? "บันทึกเวลาฝนตกจริง & ชั่วโมงหยุดงาน" : "แก้ไขบันทึกเหตุการณ์ฝนตก"}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            ใช้เป็นหลักฐานและเอกสารประกอบการเจรจาขยายเวลา (Claim EOT) เมื่อเกิดความล่าช้าจากสภาพอากาศ
-          </Typography>
-        </DialogTitle>
+    <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="sm" fullScreen={phone}>
+      <DialogTitle sx={{ pb: 1 }}>
+        <Typography variant="h6" component="span" sx={{ display: "block", fontWeight: 700 }}>
+          {isNew ? "บันทึกฝนตกหน้างาน" : "แก้ไขบันทึกฝนตก"}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          ฝนตกจนต้องหยุดงานช่วงไหน — ใช้เป็นหลักฐานขยายเวลา (EOT)
+        </Typography>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2.5}>
+          <Step n={1} title="วันที่">
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+              {[
+                { label: "วันนี้", value: today },
+                { label: "เมื่อวาน", value: addDaysIso(today, -1) },
+              ].map((d) => (
+                <Chip key={d.value} label={d.label} color={date === d.value ? "primary" : "default"} variant={date === d.value ? "filled" : "outlined"} onClick={() => setDate(d.value)} />
+              ))}
+              <DatePicker
+                value={dayjs(date)}
+                maxDate={dayjs(today)}
+                onChange={(v) => v?.isValid() && setDate(v.format("YYYY-MM-DD"))}
+                format="D MMM YYYY"
+                slotProps={{ textField: { size: "small", sx: { width: 170 } } }}
+              />
+            </Stack>
+          </Step>
 
-        <DialogContent dividers sx={{ py: 2.5 }}>
-          <Stack spacing={2.5}>
+          <Step n={2} title="ฝนตก / หยุดงาน ช่วงเวลา">
+            <Stack direction="row" spacing={1.5} alignItems="flex-start">
+              <TimeSelect label="เวลาเริ่ม" fullWidth={false} sx={{ width: 150 }} value={startTime} onChange={(v) => {
+                const keep = Math.max(15, windowMin);
+                setStartTime(v);
+                setEndTime(fromMin(Math.min(toMin("21:00"), toMin(v) + keep)));
+              }} />
+              <TimeSelect label="เวลาสิ้นสุด" fullWidth={false} sx={{ width: 150 }} value={endTime} onChange={setEndTime} after={startTime} error={!valid} helperText={valid ? undefined : "ต้องหลังเวลาเริ่ม"} />
+            </Stack>
+          </Step>
+
+          <Step n={3} title="สาเหตุ และงานที่ต้องหยุด">
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+              {REASONS.map((r) => (
+                <Chip key={r} label={r} color={reasons.includes(r) ? "primary" : "default"} variant={reasons.includes(r) ? "filled" : "outlined"} onClick={() => toggle(reasons, setReasons, r)} />
+              ))}
+            </Stack>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.25, mb: 0.75 }}>
+              งานที่หยุด
+            </Typography>
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+              {STOPPED.map((w) => (
+                <Chip key={w} size="small" label={w} color={stopped.includes(w) ? "primary" : "default"} variant={stopped.includes(w) ? "filled" : "outlined"} onClick={() => toggle(stopped, setStopped, w)} />
+              ))}
+            </Stack>
             <TextField
-              label="Rain date"
-              type="date"
-              fullWidth
-              size="small"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
-              sx={{ maxWidth: { sm: 320 } }}
-              required
-            />
-
-            {/* Time range & duration */}
-            <Box sx={{ p: 2, bgcolor: "background.default", borderRadius: 2, border: 1, borderColor: "divider" }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-                ช่วงเวลาที่ฝนตกจนต้องหยุดงาน (Work Stoppage Period)
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 6, sm: 4 }}>
-                  <TextField
-                    label="Rain start"
-                    type="time"
-                    size="small"
-                    fullWidth
-                    value={startTime}
-                    onChange={(e) => handleTimeChange(e.target.value, endTime)}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    required
-                  />
-                </Grid>
-                <Grid size={{ xs: 6, sm: 4 }}>
-                  <TextField
-                    label="Rain stop / work resumed"
-                    type="time"
-                    size="small"
-                    fullWidth
-                    value={endTime}
-                    onChange={(e) => handleTimeChange(startTime, e.target.value)}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    required
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <TextField
-                    label="Total stoppage (hrs)"
-                    type="number"
-                    size="small"
-                    fullWidth
-                    value={stoppageHours}
-                    onChange={(e) => setStoppageHours(Number(e.target.value))}
-                    slotProps={{ htmlInput: { step: 0.5, min: 0, max: 24 } }}
-                    helperText="คำนวณอัตโนมัติ ปรับแก้ได้"
-                    required
-                  />
-                </Grid>
-              </Grid>
-            </Box>
-
-            {/* Impact summary */}
-            <TextField
-              label="Event and site condition notes"
+              label="รายละเอียดเพิ่มเติม (ถ้ามี)"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
               multiline
-              rows={2}
+              minRows={2}
               fullWidth
               size="small"
-              value={impactSummary}
-              onChange={(e) => setImpactSummary(e.target.value)}
-              placeholder="เช่น ฝนตกหนักลมแรงต่อเนื่อง พื้นดินเปียกชุ่ม รถเครนไม่สามารถตั้งขา Outrigger ได้อย่างปลอดภัย"
-              required
+              sx={{ mt: 1.5 }}
             />
+            {composed ? (
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+                จะบันทึกว่า: «{composed}»
+              </Typography>
+            ) : (
+              <Typography variant="caption" color="warning.dark" sx={{ display: "block", mt: 0.75 }}>
+                เลือกสาเหตุอย่างน้อย 1 อย่าง หรือพิมพ์รายละเอียด
+              </Typography>
+            )}
+          </Step>
 
-            <TextField
-              label="Recorded by (Inspector / Reporter)"
-              size="small"
-              fullWidth
-              value={recordedBy}
-              onChange={(e) => setRecordedBy(e.target.value)}
-              required
-            />
-          </Stack>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={onClose} color="inherit">
-            Cancel
-          </Button>
-          <Button type="submit" variant="contained" color="primary">
-            {isNew ? "บันทึกประวัติฝนตก" : "บันทึกการแก้ไข"}
-          </Button>
-        </DialogActions>
-      </form>
+          {error ? <Alert severity="error">{error}</Alert> : null}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 1.5 }}>
+        <Button color="inherit" onClick={onClose} disabled={saving}>
+          ยกเลิก
+        </Button>
+        <Button variant="contained" disableElevation onClick={() => void submit()} disabled={!canSave} sx={{ minWidth: 140 }}>
+          {saving ? "กำลังบันทึก…" : "บันทึก"}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
+
+function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+  return (
+    <Box>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+        <Box sx={{ width: 22, height: 22, borderRadius: "50%", bgcolor: "primary.main", color: "primary.contrastText", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700 }}>
+          {n}
+        </Box>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          {title}
+        </Typography>
+      </Stack>
+      {children}
+    </Box>
+  );
+}
+

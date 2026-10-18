@@ -8,7 +8,7 @@ import { useTheme } from "@mui/material/styles";
 import { COORDINATION_MAX, COORDINATION_MIN, type CoordinationData, type CoordinationPoint } from "@sts/shared";
 import type Konva from "konva";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Circle, Image as CanvasImage, Layer, Line, Stage } from "react-konva";
+import { Circle, Image as CanvasImage, Layer, Line, Stage, Text } from "react-konva";
 import { RouteMarks } from "./coordination-canvas.js";
 
 export interface RoadLine {
@@ -24,6 +24,17 @@ export interface RoadLine {
   /** Direction arrows (start dot, small arrows, arrowhead). */
   arrows?: boolean;
   dashed?: boolean;
+  /** Not tappable (e.g. a route drawn over the roads it uses, so the roads underneath stay tappable). */
+  passive?: boolean;
+}
+
+/** A tappable place on the map (e.g. where a road route can start or stop). */
+export interface MapDot {
+  id: string;
+  point: CoordinationPoint;
+  /** Chosen: solid with its label; otherwise a light ring to tap. */
+  active?: boolean;
+  label?: string;
 }
 
 const clamp = (n: number) => Math.max(COORDINATION_MIN, Math.min(COORDINATION_MAX, n));
@@ -35,6 +46,10 @@ export function RoadMapStage({
   lines,
   selectedId,
   draft,
+  draftLine = true,
+  controls = true,
+  dots,
+  onTapDot,
   editPoints,
   height = 520,
   onTapMap,
@@ -46,6 +61,12 @@ export function RoadMapStage({
   selectedId?: string | null;
   /** Line being drawn (open), shown with its points. */
   draft?: CoordinationPoint[] | null;
+  /** false: show the draft's points only (e.g. tapped stops), without the dashed line between them. */
+  draftLine?: boolean;
+  /** false: a still preview (no zoom buttons). */
+  controls?: boolean;
+  dots?: MapDot[];
+  onTapDot?: (id: string) => void;
   /** Points of the selected line that can be dragged. */
   editPoints?: CoordinationPoint[] | null;
   height?: number;
@@ -94,6 +115,7 @@ export function RoadMapStage({
   const handleTap = (e: Konva.KonvaEventObject<Event>) => {
     if (moved.current) return;
     const target = e.target;
+    if (onTapDot && target.name() === "map-dot") { onTapDot(target.id()); return; }
     if (onTapLine && target !== stage.current && target.name() === "road-line") { onTapLine(target.id()); return; }
     const p = pointer();
     if (p) onTapMap?.(p);
@@ -127,7 +149,7 @@ export function RoadMapStage({
               <Fragment key={line.id}>
                 <Line points={pts} stroke={line.alert ? theme.palette.error.main : paper} strokeWidth={((on ? 9 : 7) + (line.alert ? 8 : 4)) / scale} lineCap="round" lineJoin="round" opacity={line.muted ? 0.5 : 0.95} listening={false} />
                 <Line points={pts} stroke={line.color} strokeWidth={(on ? 9 : 7) / scale} lineCap="round" lineJoin="round" opacity={line.muted ? 0.45 : 1}
-                  dash={line.dashed ? [14 / scale, 10 / scale] : undefined} hitStrokeWidth={26 / scale} id={line.id} name="road-line" />
+                  dash={line.dashed ? [14 / scale, 10 / scale] : undefined} hitStrokeWidth={26 / scale} id={line.id} name="road-line" listening={!line.passive} />
                 {(line.arrows || line.label) && line.points.length >= 2 && (
                   <RouteMarks points={line.points.map((p) => ({ x: p.x * map.width, y: p.y * map.height }))} dx={0} dy={0} color={line.color} paper={paper} scale={scale}
                     title={line.label ?? ""} textColor={theme.palette.text.primary} arrowsHidden={!line.arrows} />
@@ -136,9 +158,20 @@ export function RoadMapStage({
             );
           })}
           {draft && draft.length > 0 && <>
-            <Line points={draft.flatMap(px)} stroke={theme.palette.primary.main} strokeWidth={7 / scale} lineCap="round" lineJoin="round" dash={[12 / scale, 8 / scale]} listening={false} />
+            {draftLine && <Line points={draft.flatMap(px)} stroke={theme.palette.primary.main} strokeWidth={7 / scale} lineCap="round" lineJoin="round" dash={[12 / scale, 8 / scale]} listening={false} />}
             {draft.map((p, i) => <Circle key={i} x={p.x * map.width} y={p.y * map.height} radius={6 / scale} fill={paper} stroke={theme.palette.primary.main} strokeWidth={2 / scale} listening={false} />)}
           </>}
+          {dots?.map((d) => (
+            <Fragment key={d.id}>
+              <Circle id={d.id} name="map-dot" x={d.point.x * map.width} y={d.point.y * map.height} radius={(d.active ? 9 : 8) / scale}
+                fill={d.active ? theme.palette.success.main : paper} stroke={d.active ? paper : theme.palette.success.main} strokeWidth={(d.active ? 3 : 2.5) / scale}
+                opacity={d.active ? 1 : 0.85} hitStrokeWidth={22 / scale} shadowColor="#000" shadowOpacity={d.active ? 0.25 : 0} shadowBlur={4 / scale} />
+              {d.active && d.label ? (
+                <Text x={d.point.x * map.width + 12 / scale} y={d.point.y * map.height - 22 / scale} text={d.label} fontSize={12 / scale} fontStyle="700"
+                  fontFamily="Inter, Sarabun, sans-serif" fill={theme.palette.success.dark} stroke={paper} strokeWidth={3 / scale} fillAfterStrokeEnabled listening={false} />
+              ) : null}
+            </Fragment>
+          ))}
           {editPoints && onMovePoint && editPoints.map((p, i) => (
             <Circle key={i} x={p.x * map.width} y={p.y * map.height} radius={8 / scale} fill={paper} stroke={theme.palette.primary.main} strokeWidth={2.5 / scale} draggable
               onDragMove={(e) => onMovePoint(i, { x: clamp(e.target.x() / map.width), y: clamp(e.target.y() / map.height) })}
@@ -146,11 +179,11 @@ export function RoadMapStage({
           ))}
         </Layer>
       </Stage>
-      <Stack sx={{ position: "absolute", right: 8, bottom: 8, bgcolor: "background.paper", border: 1, borderColor: "divider", borderRadius: 2 }}>
+      {controls && <Stack sx={{ position: "absolute", right: 8, bottom: 8, bgcolor: "background.paper", border: 1, borderColor: "divider", borderRadius: 2 }}>
         <IconButton size="small" aria-label="ซูมเข้า" onClick={() => zoomBy(1.3)}><AddOutlined fontSize="small" /></IconButton>
         <IconButton size="small" aria-label="ซูมออก" onClick={() => zoomBy(1 / 1.3)}><RemoveOutlined fontSize="small" /></IconButton>
         <IconButton size="small" aria-label="พอดีผัง" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}><RestartAltOutlined fontSize="small" /></IconButton>
-      </Stack>
+      </Stack>}
     </Box>
   );
 }

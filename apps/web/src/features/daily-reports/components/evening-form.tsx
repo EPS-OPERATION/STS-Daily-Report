@@ -31,6 +31,7 @@ import { draftKey, useFormDraft } from "../hooks/use-form-draft.js";
 import MenuItem from "@mui/material/MenuItem";
 import { useState, type FormEvent } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormReturn } from "react-hook-form";
+import { Link as RouterLink } from "react-router-dom";
 import { HttpError } from "@/services/http/client.js";
 import { useSubmitEvening } from "../hooks/use-daily-report-mutations.js";
 import { useInspectionRequests, useWeeklySummary } from "../hooks/use-daily-report-queries.js";
@@ -42,8 +43,9 @@ import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
 import { RequestSection } from "./request-section.js";
 import { SectionCard } from "./section-card.js";
+import { DisciplineChips } from "./discipline-picker.js";
 import { SignaturePad } from "./signature-pad.js";
-import { EquipmentRequests, ForecastActivities, MachineryRequests, RoadUsageRequests } from "./tomorrow-requests.js";
+import { ForecastActivities, RoadUsageRequests } from "./tomorrow-requests.js";
 
 const disciplineLabel = (d: Discipline) => DISCIPLINES.find((x) => x.code === d)?.label ?? d;
 
@@ -66,7 +68,7 @@ function crewDefaults(report: DailyReport | null, d: Discipline): EveningCrew {
   };
 }
 
-// Evening check-out. Independent of the morning shift: without a morning report there
+// Evening Daily Request (tomorrow's plan and requests). Independent of the morning shift: without a morning report there
 // is simply no plan to report actuals against. Also where tomorrow's requests are made.
 // Sections in screen order with the fields each one holds (first one with an error gets the scroll).
 const SECTIONS: SectionMap = [
@@ -171,12 +173,9 @@ export function EveningForm({
   const [qaqcAsked, setQaqcAsked] = useState(false);
   const qaqcOpen = qaqcAsked || inspectionRows.length > 0;
   const overtimeRows = useWatch({ control, name: "overtime" });
-  const machineryRows = useWatch({ control, name: "machinery" });
-  const equipmentRows = useWatch({ control, name: "equipmentRequests" });
   const roadRows = useWatch({ control, name: "roadUsage" });
-  const requestCount = machineryRows.length + equipmentRows.length + roadRows.length;
   const otOpen = otAsked || overtimeRows.length > 0;
-  const requestsOpen = requestsAsked || requestCount > 0;
+  const requestsOpen = requestsAsked || roadRows.length > 0;
   const progress = useFieldArray({ control, name: "progress" });
   const accident = useWatch({ control, name: "accidentOccurred" });
   const disciplineValues = useWatch({ control, name: "disciplines" });
@@ -412,27 +411,15 @@ export function EveningForm({
         }
       >
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>
-          ประเภทงานช่วงบ่าย — กดเลือกแล้วฟอร์มของประเภทนั้นจะขึ้นมา (รายงานจะรวมทุกประเภทให้เอง)
+          ประเภทงานช่วงบ่าย (เลือกได้หลายอย่าง)
         </Typography>
         <Controller
           name="disciplines"
           control={control}
           render={({ field }) => (
-            <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
-              {DISCIPLINES.map((d) => {
-                const on = field.value.includes(d.code);
-                return (
-                  <Chip
-                    key={d.code}
-                    label={d.label}
-                    color={on ? "primary" : "default"}
-                    variant={on ? "filled" : "outlined"}
-                    onClick={() => field.onChange(on ? field.value.filter((x) => x !== d.code) : [...field.value, d.code])}
-                    sx={{ minHeight: 36 }}
-                  />
-                );
-              })}
-            </Stack>
+            <Box sx={{ mb: 1.5 }}>
+              <DisciplineChips value={field.value} onChange={field.onChange} attention={picked.length === 0} />
+            </Box>
           )}
         />
         {formState.errors.disciplines?.message ? (
@@ -440,7 +427,6 @@ export function EveningForm({
             {formState.errors.disciplines.message}
           </Typography>
         ) : null}
-        {picked.length === 0 ? <Alert severity="info">เลือกประเภทงานก่อน แล้วฟอร์มกำลังคนจะขึ้นมา</Alert> : null}
         <Stack spacing={2.5}>
           {picked.map((d) => (
             <EveningCrewBlock key={d} discipline={d} form={form} showTitle={picked.length > 1} />
@@ -450,9 +436,20 @@ export function EveningForm({
 
       <SectionCard id="sec-progress" index={4} tone="navy" title="ผลงานจริงรายอาคาร (Status % vs Plan %)" subtitle="ดึงแผนจากรายงานเช้า">
         {allocations.length === 0 ? (
-          <Alert severity="info">
-            ไม่มีแผนจากรายงานเช้า — ส่งรายงานบ่ายได้ตามปกติ (ถ้าต้องการบันทึกผลงานรายอาคาร ให้กรอกรายงานเช้าก่อน)
-          </Alert>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "center" }} justifyContent="space-between"
+            sx={{ p: 1.5, border: 1, borderStyle: "dashed", borderColor: "divider", borderRadius: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                ไม่มีงานจากรายงานเช้า — ข้ามหัวข้อนี้ได้
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                ถ้าต้องการบันทึกผลงานรายอาคาร ให้ส่งรายงานเช้าของวันนี้ก่อน
+              </Typography>
+            </Box>
+            <Button component={RouterLink} to={`/field/report?date=${date}&contractor=${contractor.id}&shift=morning`} variant="outlined" size="small" sx={{ flexShrink: 0, minHeight: 40 }}>
+              ไปกรอกรายงานเช้า
+            </Button>
+          </Stack>
         ) : (
           <Stack spacing={1.5}>
             {progress.fields.map((row, i) => (
@@ -491,23 +488,18 @@ export function EveningForm({
           </Box>
         </YesNoGate>
         <Divider sx={{ my: 2.5 }} />
+        {/* Machine and equipment requests are no longer asked here (Oct 2026); requests saved earlier stay
+            in the form values and are sent back unchanged. Only road usage is requested. */}
         <YesNoGate
-          question="พรุ่งนี้ต้องจองเครื่องจักร / อุปกรณ์ หรือขอใช้ถนนหรือไม่"
+          question="พรุ่งนี้ต้องขอใช้ / ปิดถนนหรือไม่"
           open={requestsOpen}
-          filled={requestCount}
+          filled={roadRows.length}
           onYes={() => setRequestsAsked(true)}
           onNo={() => {
             setRequestsAsked(false);
-            for (const name of ["machinery", "equipmentRequests", "roadUsage"] as const) setValue(name, [], { shouldDirty: true });
+            setValue("roadUsage", [], { shouldDirty: true });
           }}
         >
-          <SubHeading>จองเครื่องจักร (Machine request)</SubHeading>
-          <MachineryRequests control={control} buildings={buildings} ctx={ctx} />
-          <Divider sx={{ my: 2.5 }} />
-          <SubHeading>เครื่องมือ / อุปกรณ์ (Equipment request)</SubHeading>
-          <EquipmentRequests control={control} buildings={buildings} />
-          <Divider sx={{ my: 2.5 }} />
-          <SubHeading>ขอใช้ / ปิดถนน (Road Usage)</SubHeading>
           {(report?.roadUsage ?? []).some((r) => r.adjusted) ? (
             <Alert severity="info" sx={{ mb: 1.5 }}>
               EPS ปรับเวลาถนนบางรายการแล้ว ฟอร์มนี้แสดงเวลาที่คุณขอไว้ เมื่อส่งซ้ำ ระบบจะคงเวลาที่ EPS ปรับไว้
@@ -569,7 +561,7 @@ export function EveningForm({
         }}
       >
         <Button type="submit" fullWidth disabled={submit.isPending} sx={{ bgcolor: "navy.main" }}>
-          {submit.isPending ? "กำลังส่ง…" : report?.eveningStatus === "submitted" ? "Save evening report changes" : "Submit evening report (Check-out)"}
+          {submit.isPending ? "กำลังส่ง…" : report?.eveningStatus === "submitted" ? "Save Daily Request changes" : "Submit Daily Request"}
         </Button>
         <DraftSavedNote savedAt={draft.savedAt} />
       </Box>

@@ -113,7 +113,7 @@ export function OvertimeRows({
         </Box>
       ) : null}
 
-      <Button variant="outlined" startIcon={<AddIcon />} onClick={() => add()} sx={{ minHeight: 44, alignSelf: "flex-start" }}>
+      <Button variant="outlined" startIcon={<AddIcon />} onClick={() => add()} sx={{ alignSelf: "flex-start" }}>
         เพิ่มรายการ OT
       </Button>
     </Stack>

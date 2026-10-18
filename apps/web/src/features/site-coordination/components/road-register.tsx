@@ -19,7 +19,7 @@ import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { coordinationToday, routeGeometryError, type CoordinationPoint, type RoadSegment } from "@sts/shared";
+import { coordinationToday, routeGeometryError, type CoordinationPoint, type RoadSegment, snapRoadPoint } from "@sts/shared";
 import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header.js";
@@ -48,6 +48,9 @@ export function RoadRegister() {
   const segments = roads.data?.data ?? [];
   const map = day.data?.data.map;
   const isNew = drawing || (form !== null && selectedId === null);
+  // Points land exactly on other roads' ends or lines when close, so junctions meet cleanly.
+  const magnet = (p: CoordinationPoint) =>
+    map ? snapRoadPoint(segments.map((r) => ({ id: r.id, name: r.name, points: r.points })), p, { width: map.width, height: map.height }, selectedId) : p;
 
   const pick = (s: RoadSegment) => {
     setDrawing(false); setSelectedId(s.id);
@@ -111,9 +114,9 @@ export function RoadRegister() {
               selectedId={selectedId}
               draft={drawing ? form?.points : null}
               editPoints={!drawing && selectedId && form ? form.points : null}
-              onTapMap={drawing ? (p) => setForm((f) => f && { ...f, points: [...f.points, p] }) : undefined}
+              onTapMap={drawing ? (p) => setForm((f) => f && { ...f, points: [...f.points, magnet(p)] }) : undefined}
               onTapLine={drawing ? undefined : (id) => { const s = segments.find((v) => v.id === id); if (s) pick(s); }}
-              onMovePoint={(i, p) => setForm((f) => f && { ...f, points: f.points.map((v, j) => (j === i ? p : v)) })}
+              onMovePoint={(i, p) => setForm((f) => f && { ...f, points: f.points.map((v, j) => (j === i ? magnet(p) : v)) })}
             />
           ) : (
             <Skeleton variant="rectangular" height={520} />

@@ -309,12 +309,13 @@ export interface RoadPlace {
 // Two drawn lines closer than this share of the drawing are on the same stretch of road.
 export const ROAD_ROUTE_NEAR = 0.006;
 
-// Same place on the road: shared register segment; else lines that cross or run together; else the
-// same road name (requests made before routes existed). Time and contractor are checked by the caller.
+// Same place on the road: the drawn routes cross or run together (a route is the exact stretch, cut from
+// whole register roads, so two requests on different ends of one road don't meet); else a shared register
+// road; else the same road name (requests made before routes existed). Time and contractor: the caller.
 export function roadPlacesMeet(a: RoadPlace, b: RoadPlace): boolean {
+  if (a.route && a.route.length >= 2 && b.route && b.route.length >= 2) return routeDistance(a.route, b.route, 1, 1) <= ROAD_ROUTE_NEAR;
   const sa = a.segmentIds ?? [], sb = b.segmentIds ?? [];
   if (sa.length && sb.length) return sa.some((id) => sb.includes(id));
-  if (a.route && a.route.length >= 2 && b.route && b.route.length >= 2) return routeDistance(a.route, b.route, 1, 1) <= ROAD_ROUTE_NEAR;
   const name = normalizeRoadName(a.roadLocation);
   return name !== "" && name === normalizeRoadName(b.roadLocation);
 }

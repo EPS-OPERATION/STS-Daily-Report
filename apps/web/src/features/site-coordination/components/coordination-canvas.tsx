@@ -40,7 +40,8 @@ interface Props {
   /** Road routes that cross or run along another contractor's route that day (id → other contractor ids). */
   clashes?: ReadonlyMap<string, string[]>;
   /** Road requests of the day (Daily Request): arrows under the jobs, red outline on a clash. */
-  roads?: { id: string; points: CoordinationPoint[]; color: string; label: string; alert: boolean }[];
+  /** `arrows`: false for a road picked from the register (no direction), true for a drawn route. */
+  roads?: { id: string; points: CoordinationPoint[]; color: string; label: string; alert: boolean; arrows?: boolean }[];
 }
 const NO_CLASHES: ReadonlyMap<string, string[]> = new Map();
 const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true };
@@ -454,7 +455,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
               <Line points={pts} stroke={road.alert ? theme.palette.error.main : theme.palette.background.paper} strokeWidth={(road.alert ? 15 : 11) / scale} lineCap="round" lineJoin="round" opacity={0.95} />
               <Line points={pts} stroke={road.color} strokeWidth={7 / scale} lineCap="round" lineJoin="round" />
               <RouteMarks points={road.points.map((p) => ({ x: p.x * map.width, y: p.y * map.height }))} dx={0} dy={0} color={road.color}
-                paper={theme.palette.background.paper} scale={scale} title={road.label} textColor={theme.palette.text.primary} labelDy={14 + below * 17} />
+                paper={theme.palette.background.paper} scale={scale} title={road.label} textColor={theme.palette.text.primary} labelDy={14 + below * 17} arrowsHidden={road.arrows === false} />
             </Group>;
           })}
         </Layer>

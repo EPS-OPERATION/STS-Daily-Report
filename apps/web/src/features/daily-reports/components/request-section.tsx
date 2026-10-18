@@ -32,6 +32,7 @@ import { requestSchema, type RequestFormValues } from "../schemas/daily-report.s
 import type { Building, InspectionRequest } from "../types/daily-report.types.js";
 import { BuildingSelect } from "./building-select.js";
 import { RequestStatusChip } from "./request-chips.js";
+import { TimeSelect } from "@/components/ui/time-select.js";
 
 export function inspectionTypeLabel(code: InspectionType) {
   return INSPECTION_TYPES.find((t) => t.code === code)?.label ?? code;
@@ -309,13 +310,11 @@ function RequestDialog({
                 name="inspectionTime"
                 control={control}
                 render={({ field, fieldState }) => (
-                  <TextField
-                    {...field}
-                    type="time"
-                    label="Inspection time"
-                    fullWidth
-                    size="small"
-                    slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 900 } }}
+                  <TimeSelect
+                    label="เวลาที่ขอตรวจ"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
                     error={Boolean(fieldState.error)}
                     helperText={fieldState.error?.message}
                   />

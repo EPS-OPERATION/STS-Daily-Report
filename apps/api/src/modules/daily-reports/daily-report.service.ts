@@ -245,7 +245,7 @@ export async function getCurrentReportService(
   return {
     contractor,
     report: report ? await reportDetail(report.id) : null,
-    // Requested yesterday evening for today — shown read-only on the morning check-in.
+    // Requested yesterday evening for today — shown read-only on the morning report.
     plannedToday: { ...planned, inspections: inspections.filter((r) => r.status !== "draft") },
   };
 }

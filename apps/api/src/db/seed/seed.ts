@@ -1,6 +1,6 @@
 import { eq, inArray, sql } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
-import { BUILDINGS, RETIRED_BUILDING_CODES, type BuildingCode } from "@sts/shared";
+import { BUILDINGS, RETIRED_BUILDING_CODES, type BuildingCode, DEFAULT_SITE_LOCATION } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { coordinationMaps } from "@/db/schema/coordination.schema.js";
 import {
@@ -55,10 +55,18 @@ await db
     name: "STS Biomass Power Plant",
     description: "Seed project for the site-plan vertical slice.",
     status: "active",
+    // Site location for recorded hourly weather (Thi Wang, Thung Song).
+    latitude: DEFAULT_SITE_LOCATION.latitude,
+    longitude: DEFAULT_SITE_LOCATION.longitude,
   })
   .onConflictDoUpdate({
     target: projects.id,
-    set: { name: "STS Biomass Power Plant", description: "Seed project for the site-plan vertical slice." },
+    set: {
+      name: "STS Biomass Power Plant",
+      description: "Seed project for the site-plan vertical slice.",
+      latitude: DEFAULT_SITE_LOCATION.latitude,
+      longitude: DEFAULT_SITE_LOCATION.longitude,
+    },
   });
 
 // No user accounts are seeded (dev or production). Create the first EPS

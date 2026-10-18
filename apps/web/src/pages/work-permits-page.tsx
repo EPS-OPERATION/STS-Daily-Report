@@ -282,12 +282,11 @@ export function WorkPermitsView({
 
             {isFiltered && (
               <Button
-                size="small"
                 variant="outlined"
                 color="inherit"
                 startIcon={<RestartAltOutlinedIcon fontSize="small" />}
                 onClick={clearAll}
-                sx={{ textTransform: "none", fontSize: "0.8rem", height: 36 }}
+                sx={{ textTransform: "none" }}
               >
                 ล้างตัวกรอง
               </Button>
@@ -509,7 +508,7 @@ export function WorkPermitsView({
                 title="ไม่พบใบอนุญาตทำงาน"
                 description="ไม่มีข้อมูลที่ตรงกับเงื่อนไขตัวกรองหรือช่วงวันที่เลือก"
                 action={
-                  <Button variant="outlined" size="small" onClick={clearAll}>
+                  <Button variant="outlined" onClick={clearAll}>
                     ล้างตัวกรอง
                   </Button>
                 }

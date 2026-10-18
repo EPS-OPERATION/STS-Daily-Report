@@ -137,7 +137,7 @@ export function SiteConditionsStrip() {
                   "&:hover": { color: "#FFFFFF" },
                 }}
               >
-                🌧️ บันทึกฝนตกจริง / ต่อรอง Delay →
+                🌧️ บันทึกฝนตกจริง  →
               </Link>
             </Box>
             <Stack direction="row" spacing={1} sx={{ ml: { md: "auto" } }}>

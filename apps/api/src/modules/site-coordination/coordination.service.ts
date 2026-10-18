@@ -185,10 +185,19 @@ export async function deleteRoadSegmentService(auth: AuthContext, projectId: str
 
 // Road requests of the day that have a route, each flagged when another contractor uses the same
 // place at an overlapping time (checked against every request that day, routes or not).
+// Road requests of the day as map lines. A request is the set of register roads it uses (one line per
+// road, ids "<request>:<road>"); requests drawn before that keep their single drawn line.
 async function mapRoads(projectId: string, date: string): Promise<CoordinationRoad[]> {
-  const rows = await listRoadRequests(getDb(), projectId, date);
-  return rows.flatMap((r) => r.route && r.route.length >= 2 ? [{
-    id: r.id, contractorId: r.contractorId, roadLocation: r.roadLocation, startTime: r.startTime, endTime: r.endTime, purpose: r.purpose, route: r.route,
-    clash: rows.some((o) => o.id !== r.id && o.contractorId !== r.contractorId && timeWindowsOverlap(r.startTime, r.endTime, o.startTime, o.endTime) && roadPlacesMeet(r, o)),
-  }] : []);
+  const db = getDb();
+  const [rows, register] = await Promise.all([listRoadRequests(db, projectId, date), listRoadSegments(db, projectId)]);
+  const roadById = new Map(register.map((s) => [s.id, s]));
+  return rows.flatMap((r) => {
+    const clash = rows.some((o) => o.id !== r.id && o.contractorId !== r.contractorId && timeWindowsOverlap(r.startTime, r.endTime, o.startTime, o.endTime) && roadPlacesMeet(r, o));
+    const base = { contractorId: r.contractorId, roadLocation: r.roadLocation, startTime: r.startTime, endTime: r.endTime, purpose: r.purpose, clash };
+    if (r.route && r.route.length >= 2) return [{ ...base, id: r.id, route: r.route }];
+    return (r.segmentIds ?? []).flatMap((id) => {
+      const road = roadById.get(id);
+      return road && road.points.length >= 2 ? [{ ...base, id: `${r.id}:${id}`, route: road.points }] : [];
+    });
+  });
 }

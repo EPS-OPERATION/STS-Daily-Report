@@ -6,7 +6,6 @@ export { useRainLogs } from "./hooks/use-rain-logs.js";
 export { FindingDialog } from "./components/finding-dialog.js";
 export { StatisticTable, periodLabel } from "./components/statistic-table.js";
 export { MonthlyTrendChart, FindingPie } from "./components/safety-charts.js";
-export { RainTrendChart } from "./components/rain-trend-chart.js";
 export { RainLogDialog } from "./components/rain-log-dialog.js";
 export { RainLogView } from "./components/rain-log-view.js";
 export { HighRiskTasks } from "./components/high-risk-tasks.js";

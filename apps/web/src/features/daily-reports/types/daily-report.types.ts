@@ -271,7 +271,7 @@ export interface DailyReport {
   equipmentRequests: ReportEquipmentRequest[];
   permits: ReportPermit[];
   roadUsage: ReportRoadUsage[];
-  /** Materials on site today (evening check-out). */
+  /** Materials on site today (evening Daily Request). */
   materials: ReportMaterial[];
   /** Tomorrow Forecast Activities raised in this report's afternoon (for requestsForDate). */
   forecasts: ReportForecast[];

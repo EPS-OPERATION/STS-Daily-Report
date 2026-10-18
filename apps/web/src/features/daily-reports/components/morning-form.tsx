@@ -1,6 +1,6 @@
+import ExpandMoreIcon from "@mui/icons-material/ExpandMoreOutlined";
 import AddIcon from "@mui/icons-material/AddOutlined";
 import AirOutlinedIcon from "@mui/icons-material/AirOutlined";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import FilterDramaOutlinedIcon from "@mui/icons-material/FilterDramaOutlined";
 import ThunderstormOutlinedIcon from "@mui/icons-material/ThunderstormOutlined";
 import UmbrellaOutlinedIcon from "@mui/icons-material/UmbrellaOutlined";
@@ -12,17 +12,16 @@ import PercentOutlinedIcon from "@mui/icons-material/PercentOutlined";
 import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Collapse from "@mui/material/Collapse";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
-import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -36,6 +35,8 @@ import {
   type PermitType,
   type PositionCode,
   type WeatherCondition,
+  weatherCodeLabel,
+  weatherConditionOf,
 } from "@sts/shared";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
 import { useEffect, useRef, useState, type ComponentType, type FormEvent } from "react";
@@ -52,6 +53,9 @@ import { CountList } from "./count-list.js";
 import { CrewManpower, crewTotals, emptyPositions } from "./crew-manpower.js";
 import { NumberStepper } from "./number-stepper.js";
 import { SectionCard } from "./section-card.js";
+import { DisciplineChips } from "./discipline-picker.js";
+import { TimeSelect } from "@/components/ui/time-select.js";
+import { useWeatherAt } from "@/features/weather/index.js";
 import { DraftBanner, DraftSavedNote, FormProgress, type ProgressItem } from "./form-aids.js";
 import { draftKey, useFormDraft } from "../hooks/use-form-draft.js";
 import { PermitRequests } from "./tomorrow-requests.js";
@@ -162,15 +166,6 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
   const { control, handleSubmit, formState, setValue, getValues, reset } = form;
   const draft = useFormDraft(form, draftKey("morning", projectId, contractor.id, date));
 
-  // Auto-fetch site weather for Thung Song (TMD / Open-Meteo station at site coordinates)
-  const [siteWeather, setSiteWeather] = useState<{
-    weather: WeatherCondition;
-    weatherLabel: string;
-    temperatureC: number;
-    humidityPct: number;
-    windSpeedKmh: number;
-  } | null>(null);
-  const [weatherAccepted, setWeatherAccepted] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   // Copy from the latest morning report: `copied` keeps the form as it was, for undo.
   const [copying, setCopying] = useState(false);
@@ -178,62 +173,6 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
   const [copied, setCopied] = useState<{ date: string; snapshot: MorningFormValues } | null>(null);
   const [confirmCopy, setConfirmCopy] = useState<DailyReport | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadWeather() {
-      try {
-        const res = await fetch(
-          "https://api.open-meteo.com/v1/forecast?latitude=8.0980&longitude=99.6680&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia%2FBangkok"
-        );
-        if (res.ok && !cancelled) {
-          const data = await res.json();
-          const cur = data.current || {};
-          const code = cur.weather_code ?? 1;
-          const temp = Math.round(cur.temperature_2m ?? 32);
-          const hum = Math.round(cur.relative_humidity_2m ?? 65);
-          const wind = Math.round((cur.wind_speed_10m ?? 7) * 10) / 10;
-
-          let mapped: WeatherCondition = "normal";
-          let label = "ปกติ / มีเมฆบางส่วน";
-          if (code >= 95) {
-            mapped = "thunderstorm";
-            label = "ฝนฟ้าคะนอง";
-          } else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
-            mapped = "rain";
-            label = "มีฝนตก";
-          } else if (wind >= 25) {
-            mapped = "windy";
-            label = "ลมแรง";
-          } else if (code === 0 || temp >= 34) {
-            mapped = "hot";
-            label = "แดดแรง / อากาศร้อนจัด";
-          }
-
-          setSiteWeather({
-            weather: mapped,
-            weatherLabel: label,
-            temperatureC: temp,
-            humidityPct: hum,
-            windSpeedKmh: wind,
-          });
-        }
-      } catch {
-        if (!cancelled) {
-          setSiteWeather({
-            weather: "hot",
-            weatherLabel: "แดดแรง / ท้องฟ้าโปร่ง",
-            temperatureC: 32,
-            humidityPct: 65,
-            windSpeedKmh: 6.5,
-          });
-        }
-      }
-    }
-    loadWeather();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // The sent morning report of the day the contractor picked (null if it is gone or not sent).
   const morningReportOf = (day: string) =>
@@ -305,12 +244,46 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Recorded site weather (API, hourly) at the report's start time — real data or nothing, never a guess.
+  const weatherStart = useWatch({ control, name: "startTime" }) || "08:00";
+  const weatherAt = useWeatherAt(projectId, date, weatherStart);
+  const recorded = weatherAt.data?.data.hour ?? null;
+  const siteWeather = recorded
+    ? {
+        weather: weatherConditionOf(recorded),
+        weatherLabel: weatherCodeLabel(recorded.weatherCode),
+        temperatureC: Math.round(recorded.temperatureC ?? 0),
+        humidityPct: recorded.humidityPct ?? 0,
+        windSpeedKmh: recorded.windKmh ?? 0,
+        at: new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(recorded.hour)),
+      }
+    : null;
+  // Auto-fill once, only into an empty weather section of a report not sent yet (never over the contractor's choice).
+  const weatherFilled = useRef(false);
+  useEffect(() => {
+    if (!siteWeather || weatherFilled.current || report?.morningStatus === "submitted") return;
+    weatherFilled.current = true;
+    if (getValues("weather") || getValues("temperatureC")) return;
+    setValue("weather", siteWeather.weather, { shouldValidate: true });
+    setValue("temperatureC", siteWeather.temperatureC, { shouldValidate: true });
+    setValue("humidityPct", siteWeather.humidityPct, { shouldValidate: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteWeather?.weather, siteWeather?.temperatureC]);
+
+  // Weather section shows a one-line snapshot; the controls open on "แก้ไข", with no value, or on an error.
+  const [weatherOpen, setWeatherOpen] = useState(false);
+  const [weatherValue, tempValue, humidityValue] = useWatch({ control, name: ["weather", "temperatureC", "humidityPct"] });
+  const weatherError = Boolean(formState.errors.weather || formState.errors.temperatureC || formState.errors.humidityPct);
+  const weatherShown = weatherOpen || !weatherValue || weatherError;
+  const matchesRecorded = Boolean(
+    siteWeather && weatherValue === siteWeather.weather && tempValue === siteWeather.temperatureC && humidityValue === siteWeather.humidityPct,
+  );
+
   const handleApplyWeather = () => {
     if (!siteWeather) return;
     setValue("weather", siteWeather.weather, { shouldValidate: true, shouldDirty: true });
     setValue("temperatureC", siteWeather.temperatureC, { shouldValidate: true, shouldDirty: true });
     setValue("humidityPct", siteWeather.humidityPct, { shouldValidate: true, shouldDirty: true });
-    setWeatherAccepted(true);
   };
 
   const disciplineValues = useWatch({ control, name: "disciplines" });
@@ -505,17 +478,15 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
                 name={k}
                 control={control}
                 render={({ field, fieldState }) => (
-                  <TextField
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
+                  <TimeSelect
+                    label={k === "startTime" ? "เวลาเริ่ม" : "เวลาสิ้นสุด"}
+                    value={field.value}
+                    onChange={(v) => {
+                      field.onChange(v);
                       syncHours();
                     }}
-                    type="time"
-                    label={k === "startTime" ? "Start time" : "End time"}
-                    size="small"
-                    fullWidth
-                    slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 900 } }}
+                    onBlur={field.onBlur}
+                    after={k === "endTime" ? dayStart : undefined}
                     error={Boolean(fieldState.error)}
                     helperText={fieldState.error?.message}
                   />
@@ -534,28 +505,12 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
           </Grid>
         </Grid>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5, mb: 0.75 }}>
-          ประเภทงานวันนี้ — กดเลือกแล้วฟอร์มกำลังคนของประเภทนั้นจะขึ้นมา (เลือกได้หลายประเภท รายงานจะรวมให้เอง)
+          ประเภทงานวันนี้ (เลือกได้หลายอย่าง)
         </Typography>
         <Controller
           name="disciplines"
           control={control}
-          render={({ field }) => (
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              {DISCIPLINES.map((d) => {
-                const on = field.value.includes(d.code);
-                return (
-                  <Chip
-                    key={d.code}
-                    label={d.label}
-                    color={on ? "primary" : "default"}
-                    variant={on ? "filled" : "outlined"}
-                    onClick={() => field.onChange(on ? field.value.filter((x) => x !== d.code) : [...field.value, d.code])}
-                    sx={{ minHeight: 36 }}
-                  />
-                );
-              })}
-            </Stack>
-          )}
+          render={({ field }) => <DisciplineChips value={field.value} onChange={field.onChange} attention={picked.length === 0} />}
         />
         {formState.errors.disciplines?.message ? (
           <Typography variant="caption" color="error">
@@ -565,57 +520,51 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
       </SectionCard>
 
       <SectionCard id="sec-weather" index={2} title="สภาพอากาศ" subtitle="ใช้เทียบกฎหยุดงาน (ฝน/ลมแรง) และอธิบายผลงานที่ต่ำกว่าแผน">
-        {/* Weather Auto-fetch Suggestion Banner */}
-        {siteWeather && (
-          <Box
-            sx={{
-              p: 2,
-              mb: 2,
-              borderRadius: 2,
-              bgcolor: weatherAccepted ? "success.50" : "action.hover",
-              border: "1px solid",
-              borderColor: weatherAccepted ? "success.light" : "divider",
-              transition: "all 0.2s ease-in-out",
-            }}
-          >
-            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1.5}>
-              <Stack spacing={0.5}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <WbSunnyOutlinedIcon color="primary" fontSize="small" />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    ข้อมูลสภาพอากาศหน้างานอัตโนมัติ (สถานีตรวจวัด ต.ที่วัง อ.ทุ่งสง)
-                  </Typography>
-                  <Chip
-                    size="small"
-                    label="กรมอุตุฯ / Live"
-                    color="info"
-                    variant="outlined"
-                    sx={{ height: 20, fontSize: "0.8rem", fontWeight: 700 }}
-                  />
-                </Stack>
-                <Typography variant="body2" sx={{ color: "text.primary" }}>
-                  ตรวจวัดได้: <strong>{siteWeather.weatherLabel}</strong> · อุณหภูมิ <strong>{siteWeather.temperatureC}°C</strong> · ความชื้น <strong>{siteWeather.humidityPct}%</strong> (ลม {siteWeather.windSpeedKmh} km/h)
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {weatherAccepted
-                    ? "✓ ยืนยันข้อมูลเรียบร้อยแล้ว — บันทึกลงในฟอร์มอัตโนมัติ (สามารถกดเปลี่ยนปุ่มด้านล่างได้หากสภาพอากาศจริงต่างออกไป)"
-                    : "สภาพอากาศหน้างานปัจจุบันตรงตามนี้หรือไม่? หากตรงตามนี้กดปุ่มเพื่อกรอกลงฟอร์มอัตโนมัติได้ทันที"}
-                </Typography>
-              </Stack>
-
-              <Button
-                variant={weatherAccepted ? "outlined" : "contained"}
-                color={weatherAccepted ? "success" : "primary"}
-                startIcon={<CheckCircleOutlineIcon />}
-                onClick={handleApplyWeather}
-                sx={{ textTransform: "none", fontWeight: 700, minWidth: 210, flexShrink: 0 }}
-              >
-                {weatherAccepted ? "✓ ข้อมูลตรงตามนี้ (บันทึกแล้ว)" : "ตรงตามนี้ (กรอกอัตโนมัติ)"}
-              </Button>
-            </Stack>
+        {/* Snapshot: one line with the day's weather; the controls slide down only to change it. */}
+        <Stack direction="row" alignItems="center" spacing={1.5} sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: "divider", bgcolor: "grey.50" }}>
+          {weatherValue ? (
+            (() => {
+              const Icon = WEATHER_ICONS[weatherValue];
+              return <Icon sx={{ fontSize: 32, color: "warning.dark" }} />;
+            })()
+          ) : (
+            <WbSunnyOutlinedIcon sx={{ fontSize: 32, color: "text.disabled" }} />
+          )}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
+              {weatherValue ? WEATHER_CONDITIONS.find((w) => w.code === weatherValue)?.label : "ยังไม่ได้เลือก"}
+              {tempValue !== null && tempValue !== undefined ? ` · ${tempValue}°C` : ""}
+              {humidityValue !== null && humidityValue !== undefined ? ` · ${humidityValue}%` : ""}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {matchesRecorded && siteWeather
+                ? `อัตโนมัติจากข้อมูลอากาศ ${siteWeather.at} น.`
+                : weatherValue
+                  ? "กรอกเองแล้ว"
+                  : siteWeather
+                    ? "เลือกสภาพอากาศด้านล่าง"
+                    : "ไม่มีข้อมูลอากาศที่บันทึก — เลือกเองด้านล่าง"}
+            </Typography>
           </Box>
-        )}
-
+          {weatherValue ? (
+            <Button
+              size="small"
+              variant="text"
+              endIcon={<ExpandMoreIcon sx={{ transform: weatherShown ? "rotate(180deg)" : "none", transition: "transform .2s" }} />}
+              onClick={() => setWeatherOpen((o) => !o)}
+              sx={{ flexShrink: 0, minHeight: 40 }}
+            >
+              {weatherShown ? "ซ่อน" : "แก้ไข"}
+            </Button>
+          ) : null}
+        </Stack>
+        <Collapse in={weatherShown} unmountOnExit={false}>
+          <Box sx={{ pt: 1.5 }}>
+          {siteWeather && !matchesRecorded ? (
+            <Button size="small" variant="text" onClick={handleApplyWeather} sx={{ mb: 1, textTransform: "none", px: 0.5 }}>
+              ใช้ค่าที่บันทึก ({siteWeather.weatherLabel} · {siteWeather.temperatureC}°C · {siteWeather.humidityPct}%)
+            </Button>
+          ) : null}
         <Controller
           name="weather"
           control={control}
@@ -689,13 +638,10 @@ export function MorningForm({ projectId, date, contractor, buildings, report, on
             </Grid>
           ))}
         </Grid>
+          </Box>
+        </Collapse>
       </SectionCard>
 
-      {picked.length === 0 ? (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          เลือกประเภทงาน (CE / ME / EE) ด้านบนก่อน — ฟอร์มกำลังคนและการจัดสรรอาคารของประเภทนั้นจะขึ้นมาให้กรอก
-        </Alert>
-      ) : null}
       {picked.map((d, i) => (
         <MorningCrewSection
           key={d}
@@ -931,11 +877,6 @@ function CustomEquipmentList({
   );
 }
 
-// Activity times are picked in 30-minute steps (05:00–22:00, covers early starts and OT).
-const HALF_HOURS = Array.from({ length: (22 - 5) * 2 + 1 }, (_, i) => {
-  const minutes = 5 * 60 + i * 30;
-  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${minutes % 60 === 0 ? "00" : "30"}`;
-});
 
 const newActivity = (headcount: number): ActivityValues => ({
   buildingId: "",
@@ -1093,7 +1034,7 @@ function ActivityRow({
 }) {
   const { control, setValue } = form;
   const path = `crews.${discipline}.allocations.${index}` as const;
-  const [timed, hasPlan] = useWatch({ control, name: [`${path}.timed`, `${path}.hasPlan`] });
+  const [timed, hasPlan, activityStart] = useWatch({ control, name: [`${path}.timed`, `${path}.hasPlan`, `${path}.startTime`] });
 
   return (
     <Card variant="outlined">
@@ -1142,22 +1083,18 @@ function ActivityRow({
                     name={`${path}.${k}`}
                     control={control}
                     render={({ field, fieldState }) => (
-                      <TextField
-                        {...field}
-                        select
-                        size="small"
-                        label={k === "startTime" ? "Start" : "To"}
-                        sx={{ width: 112 }}
+                      <TimeSelect
+                        label={k === "startTime" ? "เวลาเริ่ม" : "เวลาสิ้นสุด"}
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        step={30}
+                        after={k === "endTime" ? activityStart : undefined}
+                        fullWidth={false}
+                        sx={{ width: 132 }}
                         error={Boolean(fieldState.error)}
                         helperText={fieldState.error?.message}
-                      >
-                        {/* Half-hour steps only; keep an off-grid value from older data selectable. */}
-                        {(HALF_HOURS.includes(field.value) ? HALF_HOURS : [field.value, ...HALF_HOURS]).map((t) => (
-                          <MenuItem key={t} value={t}>
-                            {t}
-                          </MenuItem>
-                        ))}
-                      </TextField>
+                      />
                     )}
                   />
                 ))}
