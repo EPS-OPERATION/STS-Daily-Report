@@ -39,7 +39,12 @@ DATABASE_URL=… bun db:seed
 # 3. first administrator
 EPS_BOOTSTRAP_EMAIL=… EPS_BOOTSTRAP_PASSWORD=… DATABASE_URL=… bun apps/api/scripts/bootstrap-admin.ts
 ```
-`vercel --prod` (or push) builds both services. Check `GET /health` and log in.
+`vercel --prod` (or push) builds both services. Then run the smoke test (web shell, security headers, deep links, `/health`,
+auth is enforced, login + `Secure` cookie, cron route):
+```sh
+SMOKE_EMAIL=admin@company.com SMOKE_PASSWORD=... CRON_SECRET=... scripts/smoke.sh https://<your-domain>
+```
+Use the same command after a VPS deploy. A failing line names exactly what is wrong.
 
 ### Weather schedule
 `POST /api/v1/internal/weather/sync` with `Authorization: Bearer <CRON_SECRET>` hourly. Hobby crons are daily only, so
