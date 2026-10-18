@@ -28,7 +28,11 @@ export async function getCurrentReportService(
   contractorId?: string,
 ) {
   await assertProject(projectId);
-  const memberships = await listActiveContractorsForUser(getDb(), auth.user.id, projectId);
+  // EPS staff read any contractor of the project (the review dialog); contractors only their own companies.
+  const memberships =
+    isEpsStaff(auth.user.role) && contractorId
+      ? (await listProjectContractors(getDb(), projectId)).map((c) => ({ ...c, projectId }))
+      : await listActiveContractorsForUser(getDb(), auth.user.id, projectId);
   const contractor = contractorId ? memberships.find((c) => c.id === contractorId) : memberships[0];
   if (!contractor) {
     throw new ForbiddenError(

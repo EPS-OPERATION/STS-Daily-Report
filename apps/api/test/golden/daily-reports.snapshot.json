@@ -1021,6 +1021,289 @@
       }
     }
   },
+  "current-eps": {
+    "status": 200,
+    "body": {
+      "data": {
+        "contractor": {
+          "id": "u3",
+          "code": "<qa>",
+          "name": "Snapshot QA contractor <qa>",
+          "projectId": "u2"
+        },
+        "report": {
+          "id": "u1",
+          "projectId": "u2",
+          "contractorId": "u3",
+          "reportDate": "2026-03-10",
+          "startTime": "08:00",
+          "endTime": "17:00",
+          "workHours": 8,
+          "disciplines": [
+            "CE"
+          ],
+          "weather": "normal",
+          "temperatureC": 33,
+          "humidityPct": 60,
+          "thaiMale": 6,
+          "thaiFemale": 1,
+          "foreignMale": 1,
+          "foreignFemale": 0,
+          "morningStatus": "submitted",
+          "morningSubmittedAt": "<ts>",
+          "morningSubmittedBy": "u4",
+          "morningUpdatedAt": null,
+          "eveningThaiMale": 6,
+          "eveningThaiFemale": 1,
+          "eveningForeignMale": 1,
+          "eveningForeignFemale": 0,
+          "otHours": 2,
+          "otManHours": 6,
+          "accidentOccurred": false,
+          "accidentNote": null,
+          "accidentCategory": null,
+          "eveningStatus": "submitted",
+          "eveningSubmittedAt": "<ts>",
+          "eveningSubmittedBy": "u4",
+          "eveningUpdatedAt": null,
+          "signatureName": "QA Foreman",
+          "signedAt": "<ts>",
+          "reviewStatus": "pending",
+          "reviewNote": null,
+          "reviewedBy": null,
+          "reviewedAt": null,
+          "createdAt": "<ts>",
+          "updatedAt": "<ts>",
+          "totalHeadcount": 8,
+          "manDays": 8,
+          "manHours": 70,
+          "hasSignature": true,
+          "positions": [
+            {
+              "position": "foreman",
+              "headcount": 2
+            },
+            {
+              "position": "worker",
+              "headcount": 6
+            }
+          ],
+          "eveningPositions": [
+            {
+              "position": "foreman",
+              "headcount": 2
+            },
+            {
+              "position": "worker",
+              "headcount": 6
+            }
+          ],
+          "crews": [
+            {
+              "shift": "morning",
+              "discipline": "CE",
+              "positions": [
+                {
+                  "position": "foreman",
+                  "headcount": 2
+                },
+                {
+                  "position": "worker",
+                  "headcount": 6
+                }
+              ],
+              "thaiMale": 6,
+              "thaiFemale": 1,
+              "foreignMale": 1,
+              "foreignFemale": 0
+            },
+            {
+              "shift": "evening",
+              "discipline": "CE",
+              "positions": [
+                {
+                  "position": "foreman",
+                  "headcount": 2
+                },
+                {
+                  "position": "worker",
+                  "headcount": 6
+                }
+              ],
+              "thaiMale": 6,
+              "thaiFemale": 1,
+              "foreignMale": 1,
+              "foreignFemale": 0
+            }
+          ],
+          "eveningHeadcount": 8,
+          "equipment": [
+            {
+              "equipmentType": "Welding machine",
+              "qty": 2
+            }
+          ],
+          "allocations": [
+            {
+              "id": "u5",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "discipline": "CE",
+              "headcount": 5,
+              "workDescription": "Rebar tying",
+              "startTime": "08:00",
+              "endTime": "12:00",
+              "dayShare": 0.444,
+              "planPercent": 40,
+              "actualPercent": 20,
+              "countermeasure": "Add crew tomorrow"
+            },
+            {
+              "id": "u7",
+              "buildingId": "u8",
+              "buildingCode": "ZQ1",
+              "buildingName": "QA building 1",
+              "discipline": "CE",
+              "headcount": 3,
+              "workDescription": "Formwork",
+              "startTime": null,
+              "endTime": null,
+              "dayShare": 1,
+              "planPercent": 60,
+              "actualPercent": 70,
+              "countermeasure": null
+            }
+          ],
+          "machinery": [
+            {
+              "id": "u10",
+              "targetDate": "2026-03-11",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "machineType": "Mobile Crane 25T",
+              "unitTag": "C-1",
+              "startTime": "08:00",
+              "endTime": "12:00",
+              "purpose": "Lift rebar"
+            }
+          ],
+          "equipmentRequests": [
+            {
+              "id": "u11",
+              "targetDate": "2026-03-11",
+              "buildingId": "u8",
+              "buildingCode": "ZQ1",
+              "buildingName": "QA building 1",
+              "equipmentType": "Scaffold",
+              "qty": 10,
+              "purpose": "Access",
+              "contractorId": "u3",
+              "contractorCode": "<qa>",
+              "contractorName": "Snapshot QA contractor <qa>"
+            }
+          ],
+          "permits": [
+            {
+              "id": "u9",
+              "targetDate": "2026-03-10",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "permitType": "hot_work",
+              "otherLabel": null,
+              "workers": 4,
+              "highRisk": true,
+              "taskName": "Welding",
+              "supervisorName": "QA Sup"
+            }
+          ],
+          "roadUsage": [
+            {
+              "id": "u12",
+              "targetDate": "2026-03-11",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "roadLocation": "Main road A",
+              "startTime": "09:00",
+              "endTime": "11:00",
+              "requestedStartTime": "09:00",
+              "requestedEndTime": "11:00",
+              "adjusted": false,
+              "adjustedAt": null,
+              "adjustedByName": null,
+              "purpose": "Concrete delivery",
+              "segmentIds": [],
+              "route": null,
+              "contractorId": "u3",
+              "contractorCode": "<qa>",
+              "contractorName": "Snapshot QA contractor <qa>"
+            }
+          ],
+          "materials": [
+            {
+              "materialName": "Rebar 12mm",
+              "qty": 120,
+              "unit": "pcs"
+            }
+          ],
+          "forecasts": [
+            {
+              "id": "u13",
+              "targetDate": "2026-03-11",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "description": "Pour slab"
+            }
+          ],
+          "overtime": [
+            {
+              "id": "u14",
+              "buildingId": "u6",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "task": "Pour prep",
+              "workers": 3,
+              "hours": 2
+            }
+          ],
+          "requestsForDate": "2026-03-11",
+          "photos": [],
+          "roadConflicts": [],
+          "machineryConflicts": []
+        },
+        "plannedToday": {
+          "machinery": [],
+          "permits": [
+            {
+              "id": "u9",
+              "buildingCode": "ZQ0",
+              "buildingName": "QA building 0",
+              "permitType": "hot_work",
+              "otherLabel": null,
+              "workers": 4
+            }
+          ],
+          "roads": [],
+          "equipment": [],
+          "inspections": []
+        }
+      }
+    }
+  },
+  "current-eps-other-contractor": {
+    "status": 403,
+    "body": {
+      "error": {
+        "code": "FORBIDDEN",
+        "message": "You are not a member of this contractor",
+        "details": {
+          "contractorId": "u15"
+        }
+      }
+    }
+  },
   "review-queue": {
     "status": 200,
     "body": {
@@ -1697,7 +1980,7 @@
         "signedAt": "<ts>",
         "reviewStatus": "approved",
         "reviewNote": "ok",
-        "reviewedBy": "u15",
+        "reviewedBy": "u16",
         "reviewedAt": "<ts>",
         "createdAt": "<ts>",
         "updatedAt": "<ts>",
@@ -2257,7 +2540,7 @@
       "data": {
         "data": [
           {
-            "id": "u16",
+            "id": "u17",
             "reportDate": "2026-03-10",
             "contractorId": "u3",
             "contractorCode": "<qa>",

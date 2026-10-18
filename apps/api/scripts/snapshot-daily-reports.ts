@@ -115,6 +115,8 @@ try {
   const reportId: string | undefined = evened.data?.id ?? evened.data?.report?.id ?? current.data?.id ?? current.data?.report?.id;
   assert(reportId, "no report id found");
   const after = await call("current-after-evening", "GET", `${base}/daily-reports/current?date=${DATE}&contractorId=${contractorId}`, "contractor");
+  await call("current-eps", "GET", `${base}/daily-reports/current?date=${DATE}&contractorId=${contractorId}`, "eps");
+  await call("current-eps-other-contractor", "GET", `${base}/daily-reports/current?date=${DATE}&contractorId=${crypto.randomUUID()}`, "eps");
   const roadId: string | undefined = after.data?.roadUsage?.[0]?.id ?? after.data?.report?.roadUsage?.[0]?.id;
 
   await call("review-queue", "GET", `${base}/daily-reports/review-queue?date=${DATE}`, "eps");

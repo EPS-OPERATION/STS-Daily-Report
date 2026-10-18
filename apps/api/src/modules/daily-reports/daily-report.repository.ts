@@ -132,7 +132,8 @@ export async function listPositions(db: Db, reportId: string, shift: "morning" |
     })
     .from(dailyReportPositions)
     .where(and(eq(dailyReportPositions.reportId, reportId), eq(dailyReportPositions.shift, shift)))
-    .groupBy(dailyReportPositions.position);
+    .groupBy(dailyReportPositions.position)
+    .orderBy(asc(dailyReportPositions.position));
 }
 
 // Every discipline crew of the report (both shifts): positions + nationality/sex split.
@@ -166,7 +167,8 @@ export async function listEquipment(db: Db, reportId: string) {
   return db
     .select({ equipmentType: dailyReportEquipment.equipmentType, qty: dailyReportEquipment.qty })
     .from(dailyReportEquipment)
-    .where(eq(dailyReportEquipment.reportId, reportId));
+    .where(eq(dailyReportEquipment.reportId, reportId))
+    .orderBy(asc(dailyReportEquipment.equipmentType));
 }
 
 export async function listMaterials(db: Db, reportId: string) {
