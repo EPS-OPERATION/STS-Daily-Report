@@ -20,7 +20,10 @@ WORKDIR /app/apps/web
 RUN bun run build
 
 FROM nginx:1.27-alpine AS runtime
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY apps/web/security-headers.conf /etc/nginx/security-headers.conf
+# The official nginx image renders *.template files with the container environment at start-up.
+COPY apps/web/default.conf.template /etc/nginx/templates/default.conf.template
+COPY apps/web/security-headers.inc.template /etc/nginx/templates/security-headers.inc.template
+# Extra origins the browser may call (CSP connect-src). Empty = same origin only (production).
+ENV CSP_CONNECT_EXTRA=""
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 EXPOSE 80
