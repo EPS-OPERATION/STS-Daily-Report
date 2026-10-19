@@ -10,13 +10,14 @@ import { QueryError } from "@/components/ui/query-error.js";
 import { BlockSkeleton } from "@/components/ui/skeletons.js";
 import { shortDate } from "@/lib/dates.js";
 import { TypePicker } from "./type-picker.js";
+import { CompanyPickDialog } from "./company-pick-dialog.js";
 import { useCoordinationWorkspace } from "../hooks/use-coordination-workspace.js";
 import { WorkspaceMap } from "./workspace-map.js";
 import { ContractorColorDialog } from "./contractor-color-dialog.js";
 
 export function CoordinationWorkspace(props: Parameters<typeof useCoordinationWorkspace>[0]) {
   const ed = useCoordinationWorkspace(props);
-  const { projects, activeProject, date, setSelectedId, tool, addAnchor, setAddAnchor, deleteTarget, setDeleteTarget, query, remove, dayLock, lockConfirm, setLockConfirm, lockDay, data, selected, company, editableCompanies, wide, items, updateWorking, createItem, filterControls, inspector, readOnly, compact } = ed;
+  const { projects, activeProject, date, setSelectedId, tool, addAnchor, setAddAnchor, deleteTarget, setDeleteTarget, query, remove, dayLock, lockConfirm, setLockConfirm, lockDay, data, selected, company, editableCompanies, wide, items, updateWorking, createItem, startCreate, pendingIcon, setPendingIcon, filteredCompanyId, filterControls, inspector, readOnly, compact } = ed;
 
   return <Box>
     {compact && <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "center" }} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
@@ -37,9 +38,18 @@ export function CoordinationWorkspace(props: Parameters<typeof useCoordinationWo
     </>}
     <Popover open={Boolean(addAnchor)} anchorEl={addAnchor} onClose={() => setAddAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "left" }} transformOrigin={{ vertical: "top", horizontal: "left" }} slotProps={{ paper: { sx: { p: 1, mt: 0.5 } } }}>
       <Box sx={{ p: 1 }}>
-        <TypePicker onPick={(icon) => { setAddAnchor(null); void createItem(icon); }} />
+        <TypePicker onPick={(icon) => { setAddAnchor(null); startCreate(icon); }} />
       </Box>
     </Popover>
+    {pendingIcon && (
+      <CompanyPickDialog
+        companies={editableCompanies}
+        initialId={filteredCompanyId}
+        road={pendingIcon === "road"}
+        onClose={() => setPendingIcon(null)}
+        onPick={(id) => { const icon = pendingIcon; setPendingIcon(null); void createItem(icon, id); }}
+      />
+    )}
     <ConfirmDialog
       open={lockConfirm}
       title={`ล็อกแผนวันที่ ${shortDate(date)}?`}

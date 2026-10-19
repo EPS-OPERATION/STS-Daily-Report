@@ -195,9 +195,19 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     updateWorking(item && !readOnly && data?.editableContractorIds.includes(item.contractorId)
       ? { id: item.id, revision: item.revision, base: inputOf(item), input: inputOf(item) } : null);
   };
-  const createItem = async (icon: CoordinationInput["icon"]) => {
+  // The company filtered alone, if the user may edit it — the suggested choice for a new item.
+  const filteredCompanyId = (() => {
     const only = contractorIds && contractorIds.size === 1 ? [...contractorIds][0] : null;
-    const contractorId = only && editableCompanies.some((c) => c.id === only) ? only : editableCompanies[0]?.id;
+    return only && editableCompanies.some((c) => c.id === only) ? only : null;
+  })();
+  // EPS (several companies) is asked which contractor first; a contractor's own company is used directly.
+  const [pendingIcon, setPendingIcon] = useState<CoordinationInput["icon"] | null>(null);
+  const startCreate = (icon: CoordinationInput["icon"]) => {
+    if (editableCompanies.length > 1) setPendingIcon(icon);
+    else void createItem(icon);
+  };
+  const createItem = async (icon: CoordinationInput["icon"], pickedId?: string) => {
+    const contractorId = pickedId ?? filteredCompanyId ?? editableCompanies[0]?.id;
     if (!contractorId || creating || workingRef.current) return;
     setCreating(true);
     try {
@@ -384,6 +394,10 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     selected,
     company,
     editableCompanies,
+    filteredCompanyId,
+    pendingIcon,
+    setPendingIcon,
+    startCreate,
     geometryError,
     areaDirty,
     busy,
