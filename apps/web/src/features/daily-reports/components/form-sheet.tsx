@@ -1,15 +1,24 @@
 import Box from "@mui/material/Box";
-import { PERMIT_TYPES, POSITIONS, WEATHER_CONDITIONS, type PermitType } from "@sts/shared";
+import { PERMIT_TYPES, POSITIONS, SITE_EQUIPMENT_TYPES, WEATHER_CONDITIONS, type PermitType } from "@sts/shared";
 import { type PrintReport } from "../types/daily-report.types.js";
 import { overtimeSummary } from "../utils/overtime.js";
 import { sumOf, thaiShortDate } from "./print-shared.js";
 
-// R003 layout with only what was reported: tables keep their filled rows, parts with no data are left out.
+// R003 layout with only what was reported: tables keep their filled rows, parts with no data are left out
+// (except the machine list, which always prints like the paper form).
 export function FormSheet({ r }: { r: PrintReport }) {
   const w = r.weather;
   const eveningDone = r.eveningStatus === "submitted";
   const operatedDays = r.safetyRecord.daysSinceLastAccident;
   const permitsToday = r.permitsToday;
+  // Every standard type (qty 0 when not reported), then the contractor's own extra names.
+  const qtyOf = (type: string) => r.equipment.filter((e) => e.equipmentType === type).reduce((s, e) => s + e.qty, 0);
+  const machineRows = [
+    ...SITE_EQUIPMENT_TYPES.map((type) => ({ type, qty: qtyOf(type) })),
+    ...r.equipment
+      .filter((e) => !(SITE_EQUIPMENT_TYPES as readonly string[]).includes(e.equipmentType))
+      .map((e) => ({ type: e.equipmentType, qty: e.qty })),
+  ];
   const permitWorkers = (type: PermitType) => permitsToday.filter((p) => p.permitType === type).reduce((s, p) => s + p.workers, 0);
   const otherPermits = permitsToday.filter((p) => p.permitType === "other");
   const permitLines = PERMIT_TYPES.filter((p) => p.code !== "other" && permitWorkers(p.code) > 0);
@@ -237,26 +246,29 @@ export function FormSheet({ r }: { r: PrintReport }) {
         </table>
       ) : null}
 
-      {r.equipment.length > 0 ? (
-        <table className="f" style={{ marginTop: 4 }}>
-          <thead>
-            <tr>
-              <th>เครื่องมือ และเครื่องจักร (Machine type)</th>
-              <th style={{ width: 56 }}>Qty</th>
+      {/* Like the paper R003: the machine list always prints, a type with no units has a blank Qty. */}
+      <table className="f" style={{ marginTop: 4 }}>
+        <thead>
+          <tr>
+            <th>เครื่องมือ และเครื่องจักร (Machine type)</th>
+            <th style={{ width: 56 }}>Qty</th>
+            <th>เครื่องมือ และเครื่องจักร (Machine type)</th>
+            <th style={{ width: 56 }}>Qty</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pairs(machineRows).map(([a, b], i) => (
+            <tr key={i}>
+              <td>
+                {2 * i + 1}. {a.type}
+              </td>
+              <td className="c">{a.qty || ""}</td>
+              <td>{b ? `${2 * i + 2}. ${b.type}` : ""}</td>
+              <td className="c">{b?.qty || ""}</td>
             </tr>
-          </thead>
-          <tbody>
-            {r.equipment.map((e, i) => (
-              <tr key={i}>
-                <td>
-                  {i + 1}. {e.equipmentType}
-                </td>
-                <td className="c">{e.qty}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
+          ))}
+        </tbody>
+      </table>
     </Box>
   );
 }
@@ -289,4 +301,11 @@ export function SignatureBlock({ r }: { r: PrintReport }) {
       </div>
     </>
   );
+}
+
+// [a, b], [c, d], … — two machine columns side by side keep the list short on the page.
+function pairs<T>(rows: T[]): [T, T | undefined][] {
+  const out: [T, T | undefined][] = [];
+  for (let i = 0; i < rows.length; i += 2) out.push([rows[i] as T, rows[i + 1]]);
+  return out;
 }
