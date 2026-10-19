@@ -7,11 +7,13 @@ import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
+import Slider from "@mui/material/Slider";
 import Switch from "@mui/material/Switch";
 import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
 import { FilterButton, MultiSelectFilter, type FilterOption } from "@/components/ui/filter-popover.js";
 import { ICON_LABELS } from "../types/icon-labels.js";
+import { MARK_SCALE, MARK_SCALE_MAX, MARK_SCALE_MIN } from "../utils/canvas-text.js";
 import { MachineGlyph } from "./machine-icon.js";
 
 // What the map draws (per browser): the job icon is always shown, everything else can be switched off.
@@ -27,16 +29,23 @@ export interface MapDisplay {
   chips: boolean;
   detailCard: boolean;
   jobList: boolean;
+  /** Size of icons, company tags and labels (1 = full size). */
+  markSize: number;
 }
 
-export const DEFAULT_MAP_DISPLAY: MapDisplay = { roads: true, roadNames: true, areas: true, labels: true, notes: true, links: true, chips: true, detailCard: true, jobList: true };
+type DisplaySwitch = Exclude<keyof MapDisplay, "markSize">;
+
+export const DEFAULT_MAP_DISPLAY: MapDisplay = { roads: true, roadNames: true, areas: true, labels: true, notes: true, links: true, chips: true, detailCard: true, jobList: true, markSize: MARK_SCALE };
 
 const DISPLAY_KEY = "sts_map_display_v1";
 
 export function loadMapDisplay(): MapDisplay {
   try {
     const raw = localStorage.getItem(DISPLAY_KEY);
-    return raw ? { ...DEFAULT_MAP_DISPLAY, ...(JSON.parse(raw) as Partial<MapDisplay>) } : DEFAULT_MAP_DISPLAY;
+    if (!raw) return DEFAULT_MAP_DISPLAY;
+    const saved = { ...DEFAULT_MAP_DISPLAY, ...(JSON.parse(raw) as Partial<MapDisplay>) };
+    const size = Number(saved.markSize);
+    return { ...saved, markSize: Number.isFinite(size) ? Math.min(MARK_SCALE_MAX, Math.max(MARK_SCALE_MIN, size)) : MARK_SCALE };
   } catch {
     return DEFAULT_MAP_DISPLAY;
   }
@@ -50,7 +59,7 @@ export function saveMapDisplay(display: MapDisplay) {
   }
 }
 
-const DISPLAY_OPTIONS: { key: keyof MapDisplay; label: string; hint: string; group: "map" | "detail" }[] = [
+const DISPLAY_OPTIONS: { key: DisplaySwitch; label: string; hint: string; group: "map" | "detail" }[] = [
   { key: "roadNames", label: "Road names", hint: "ชื่อถนนจากทะเบียนถนน (ไม่มีเส้น)", group: "map" },
   { key: "roads", label: "Road routes", hint: "เส้นและลูกศรทิศทางที่ผู้รับเหมาใช้ถนน", group: "map" },
   { key: "areas", label: "Work areas", hint: "กรอบสีขอบเขตที่ใช้", group: "map" },
@@ -106,10 +115,10 @@ export function TypeFilter({
 }
 
 // Display switches (what is drawn on the map / which detail panels show).
-export function DisplayOptions({ value, onChange, exclude = [] }: { value: MapDisplay; onChange: (next: MapDisplay) => void; exclude?: (keyof MapDisplay)[] }) {
+export function DisplayOptions({ value, onChange, exclude = [] }: { value: MapDisplay; onChange: (next: MapDisplay) => void; exclude?: DisplaySwitch[] }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const options = DISPLAY_OPTIONS.filter((o) => !exclude.includes(o.key));
-  const hidden = options.filter((o) => !value[o.key]).length;
+  const hidden = options.filter((o) => !value[o.key]).length + (value.markSize !== MARK_SCALE ? 1 : 0);
   const section = (group: "map" | "detail", title: string) => (
     <Box sx={{ py: 0.5 }}>
       <Typography variant="overline" color="text.secondary" sx={{ px: 1.75, lineHeight: 2 }}>
@@ -147,6 +156,32 @@ export function DisplayOptions({ value, onChange, exclude = [] }: { value: MapDi
         transformOrigin={{ vertical: "top", horizontal: "right" }}
         slotProps={{ paper: { sx: { mt: 0.75, width: 300, borderRadius: 2 } } }}
       >
+        <Box sx={{ px: 1.75, pt: 1.25 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Icon &amp; label size
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {Math.round(value.markSize * 100)}%
+            </Typography>
+          </Stack>
+          <Typography variant="caption" color="text.secondary">
+            ขนาดไอคอน ป้ายรหัส และชื่อบนผัง — เล็กลงเมื่องานซ้อนกัน
+          </Typography>
+          <Slider
+            size="small"
+            aria-label="Icon and label size"
+            min={MARK_SCALE_MIN}
+            max={MARK_SCALE_MAX}
+            step={0.05}
+            marks={[{ value: MARK_SCALE }]}
+            value={value.markSize}
+            valueLabelDisplay="auto"
+            valueLabelFormat={(v) => `${Math.round(v * 100)}%`}
+            onChange={(_, v) => onChange({ ...value, markSize: v as number })}
+          />
+        </Box>
+        <Divider />
         {section("map", "บนผัง")}
         <Divider />
         {section("detail", "รายละเอียด")}

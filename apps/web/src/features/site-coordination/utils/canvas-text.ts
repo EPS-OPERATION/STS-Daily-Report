@@ -71,3 +71,8 @@ export function layoutTextTitle(title: string, options: { font?: string; maxWidt
   const height = lines.length * lineHeight + 14;
   return { lines, width, height, lineHeight };
 }
+
+// Default size of icons, company tags and labels on the map (each browser can change it under Display).
+export const MARK_SCALE = 0.6;
+export const MARK_SCALE_MIN = 0.3;
+export const MARK_SCALE_MAX = 1;
