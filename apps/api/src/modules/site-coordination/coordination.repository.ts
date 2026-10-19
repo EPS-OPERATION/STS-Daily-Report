@@ -9,14 +9,15 @@ export async function getMap(db: QueryDb, projectId: string, lock = false) {
   return rows[0] ?? null;
 }
 export async function listCoordinationContractors(db: QueryDb, projectId: string) {
-  return db.select({ id: contractors.id, code: contractors.code, name: contractors.name, isContractor: contractors.isContractor, color: coordinationColors.color, revision: coordinationColors.revision })
+  return db.select({ id: contractors.id, code: contractors.code, name: contractors.name, // A deactivated company counts as "not a contractor" here: its old items keep their colour, but it leaves the filter and pick lists.
+    isContractor: sql<boolean>`${contractors.isContractor} AND ${contractors.active}`, color: coordinationColors.color, revision: coordinationColors.revision })
     .from(projectContractors).innerJoin(contractors, eq(projectContractors.contractorId, contractors.id))
     .leftJoin(coordinationColors, and(eq(coordinationColors.projectId, projectId), eq(coordinationColors.contractorId, contractors.id)))
     .where(eq(projectContractors.projectId, projectId)).orderBy(asc(contractors.code));
 }
 export async function listCoordinationContractorsByIds(db: QueryDb, projectId: string, ids: string[]) {
   if (ids.length === 0) return [];
-  return db.select({ id: contractors.id, code: contractors.code, name: contractors.name, isContractor: contractors.isContractor, color: coordinationColors.color, revision: coordinationColors.revision })
+  return db.select({ id: contractors.id, code: contractors.code, name: contractors.name, isContractor: sql<boolean>`${contractors.isContractor} AND ${contractors.active}`, color: coordinationColors.color, revision: coordinationColors.revision })
     .from(contractors)
     .leftJoin(coordinationColors, and(eq(coordinationColors.projectId, projectId), eq(coordinationColors.contractorId, contractors.id)))
     .where(inArray(contractors.id, ids)).orderBy(asc(contractors.code));

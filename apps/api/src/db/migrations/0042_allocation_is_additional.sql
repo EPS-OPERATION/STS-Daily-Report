@@ -1,0 +1,2 @@
+-- IF NOT EXISTS: local DBs may already have this column from its earlier number (0039/0041) on a parallel branch.
+ALTER TABLE "daily_report_allocations" ADD COLUMN IF NOT EXISTS "is_additional" boolean DEFAULT false NOT NULL;

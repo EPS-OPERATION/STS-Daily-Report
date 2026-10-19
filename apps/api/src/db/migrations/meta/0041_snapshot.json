@@ -1,5 +1,5 @@
 {
-  "id": "8276f60d-3026-4e32-88eb-04411c81e547",
+  "id": "48af4de6-d2f0-4673-8785-d3f7d178ab32",
   "prevId": "1a512028-0d64-4d05-9549-9c3ab0f9289e",
   "version": "7",
   "dialect": "postgresql",
@@ -170,6 +170,25 @@
         },
         "is_contractor": {
           "name": "is_contractor",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "contact_name": {
+          "name": "contact_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_phone": {
+          "name": "contact_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -1753,13 +1772,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "is_additional": {
-          "name": "is_additional",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "sort_order": {
           "name": "sort_order",
