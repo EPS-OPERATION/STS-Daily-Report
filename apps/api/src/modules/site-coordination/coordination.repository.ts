@@ -9,7 +9,7 @@ export async function getMap(db: QueryDb, projectId: string, lock = false) {
   return rows[0] ?? null;
 }
 export async function listCoordinationContractors(db: QueryDb, projectId: string) {
-  return db.select({ id: contractors.id, code: contractors.code, name: contractors.name, color: coordinationColors.color, revision: coordinationColors.revision })
+  return db.select({ id: contractors.id, code: contractors.code, name: contractors.name, isContractor: contractors.isContractor, color: coordinationColors.color, revision: coordinationColors.revision })
     .from(projectContractors).innerJoin(contractors, eq(projectContractors.contractorId, contractors.id))
     .leftJoin(coordinationColors, and(eq(coordinationColors.projectId, projectId), eq(coordinationColors.contractorId, contractors.id)))
     .where(eq(projectContractors.projectId, projectId)).orderBy(asc(contractors.code));

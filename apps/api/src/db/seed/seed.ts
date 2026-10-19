@@ -6,6 +6,7 @@ import { coordinationMaps } from "@/db/schema/coordination.schema.js";
 import {
   buildingMarkers,
   buildings,
+  contractorAliases,
   contractors,
   droneLogs,
   permitTypes,
@@ -205,42 +206,38 @@ await db
   )
   .onConflictDoNothing();
 
-// --- All 23 contractors for STS project (per official Discipline list) ---
+// --- Companies on the STS project: one contractor per company (the discipline is picked in the report form).
+// Ids are the ones the per-discipline codes had before the merge (migration 0040), so links keep working;
+// `aliases` are those old codes. EPS is the owner company: kept, but not listed as a contractor.
 const SITE_CONTRACTORS = [
-  { id: "c0010000-0000-4000-8000-000000000001", code: "BEE", name: "Blue White - Electrical" },
-  { id: "c0010000-0000-4000-8000-000000000002", code: "EPS", name: "Eco Plant Services" },
-  { id: "c0010000-0000-4000-8000-000000000003", code: "FCE", name: "Fast steel - Civil" },
-  { id: "c0010000-0000-4000-8000-000000000004", code: "FEE", name: "Fast steel - Electrical" },
-  { id: "c0010000-0000-4000-8000-000000000005", code: "KME", name: "Khwan Rungrueang - Mechanical" },
-  { id: "77777777-7777-4777-8777-777777777777", code: "LCE", name: "L-tab - Civil" },
-  { id: "c0010000-0000-4000-8000-000000000007", code: "PEE", name: "Pattara - Electrical" },
-  { id: "c0010000-0000-4000-8000-000000000008", code: "QCI", name: "Unique Conveyor - Control&Instrument" },
-  { id: "c0010000-0000-4000-8000-000000000009", code: "QEE", name: "Unique Conveyor - Electrical" },
-  { id: "c0010000-0000-4000-8000-000000000010", code: "QME", name: "Unique Conveyor - Mechanical" },
-  { id: "c0010000-0000-4000-8000-000000000011", code: "RME", name: "Ruangsan Engineer - Mechanical" },
-  { id: "c0010000-0000-4000-8000-000000000012", code: "SCE", name: "Szone - Civil" },
-  { id: "c0010000-0000-4000-8000-000000000013", code: "SCI", name: "Sinoma - Control&Instrument" },
-  { id: "c0010000-0000-4000-8000-000000000014", code: "SCM", name: "Sinoma - Commissioning" },
-  { id: "c0010000-0000-4000-8000-000000000015", code: "SEE", name: "Sinoma - Electrical" },
-  { id: "c0010000-0000-4000-8000-000000000016", code: "SFP", name: "Sinoma - Fire Fighting & Protection" },
-  { id: "c0010000-0000-4000-8000-000000000017", code: "SGE", name: "Sinoma - General" },
-  { id: "c0010000-0000-4000-8000-000000000018", code: "SIN", name: "Sinoma - Thermal Insulation" },
-  { id: "c0010000-0000-4000-8000-000000000019", code: "SME", name: "Sinoma - Mechanical" },
-  { id: "c0010000-0000-4000-8000-000000000020", code: "SPI", name: "Sinoma - Piping" },
-  { id: "88888888-8888-4888-8888-888888888888", code: "UME", name: "Utai Seya - Mechanical" },
-  { id: "c0010000-0000-4000-8000-000000000022", code: "UPP", name: "Utai Seya - Piping" },
-  { id: "66666666-6666-4666-8666-666666666666", code: "ZCE", name: "Zhongtian - Civil" },
+  { id: "c0010000-0000-4000-8000-000000000001", code: "BW", name: "Blue White", aliases: ["BEE"] },
+  { id: "c0010000-0000-4000-8000-000000000002", code: "EPS", name: "Eco Plant Services", aliases: [], isContractor: false },
+  { id: "c0010000-0000-4000-8000-000000000003", code: "FS", name: "Fast steel", aliases: ["FCE", "FEE"] },
+  { id: "c0010000-0000-4000-8000-000000000005", code: "KR", name: "Khwan Rungrueang", aliases: ["KME"] },
+  { id: "77777777-7777-4777-8777-777777777777", code: "LT", name: "L-tab", aliases: ["LCE"] },
+  { id: "c0010000-0000-4000-8000-000000000007", code: "PT", name: "Pattara", aliases: ["PEE"] },
+  { id: "c0010000-0000-4000-8000-000000000010", code: "UC", name: "Unique Conveyor", aliases: ["QCI", "QEE", "QME"] },
+  { id: "c0010000-0000-4000-8000-000000000011", code: "RS", name: "Ruangsan Engineer", aliases: ["RME"] },
+  { id: "c0010000-0000-4000-8000-000000000012", code: "SZ", name: "Szone", aliases: ["SCE"] },
+  { id: "c0010000-0000-4000-8000-000000000019", code: "SN", name: "Sinoma", aliases: ["SCI", "SCM", "SEE", "SFP", "SGE", "SIN", "SME", "SPI"] },
+  { id: "88888888-8888-4888-8888-888888888888", code: "US", name: "Utai Seya", aliases: ["UME", "UPP"] },
+  { id: "66666666-6666-4666-8666-666666666666", code: "ZT", name: "Zhongtian", aliases: ["ZCE"] },
 ];
 
 for (const c of SITE_CONTRACTORS) {
+  const row = { id: c.id, code: c.code, name: c.name, isContractor: c.isContractor ?? true };
   await db
     .insert(contractors)
-    .values(c)
+    .values(row)
     .onConflictDoUpdate({
       target: contractors.id,
-      set: { code: c.code, name: c.name },
+      set: { code: row.code, name: row.name, isContractor: row.isContractor },
     });
 }
+await db
+  .insert(contractorAliases)
+  .values(SITE_CONTRACTORS.flatMap((c) => c.aliases.map((code) => ({ code, contractorId: c.id }))))
+  .onConflictDoNothing();
 await db
   .insert(projectContractors)
   .values(SITE_CONTRACTORS.map((c) => ({ projectId: PROJECT_ID, contractorId: c.id })))
@@ -331,6 +328,6 @@ try {
 }
 
 console.log(
-  `seed ok: 1 project, ${SITE_CONTRACTORS.length} site contractors, 21 zones, 1 site plan, 16 areas, ${BUILDINGS.length} buildings + markers, ${demoDrone} demo drone logs — no users (bootstrap the first admin with scripts/bootstrap-admin.ts), no sample reports`,
+  `seed ok: 1 project, ${SITE_CONTRACTORS.filter((c) => c.isContractor !== false).length} contractor companies + EPS, 21 zones, 1 site plan, 16 areas, ${BUILDINGS.length} buildings + markers, ${demoDrone} demo drone logs — no users (bootstrap the first admin with scripts/bootstrap-admin.ts), no sample reports`,
 );
 process.exit(0);
