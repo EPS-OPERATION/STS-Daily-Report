@@ -7,8 +7,10 @@ import { useEffect, useState } from "react";
 import { authApi } from "../api/auth.api.js";
 import { authKeys } from "../api/auth.keys.js";
 
-export function ContractorPicker({ value, onChange, allowOther = true, selectedName, error, disabled, projectId }: {
+export function ContractorPicker({ value, onChange, allowOther = true, selectedName, error, disabled, projectId, label = "Contractor" }: {
   value: string; onChange: (id: string) => void; allowOther?: boolean; selectedName?: string; error?: string; disabled?: boolean; projectId?: string;
+  /** Field label; the sign-up form says "Company". */
+  label?: string;
 }) {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -25,7 +27,7 @@ export function ContractorPicker({ value, onChange, allowOther = true, selectedN
         getOptionLabel={(o) => o.code ? `${o.code} · ${o.name}` : o.name}
         onInputChange={(_, input, reason) => { if (reason === "input" || reason === "clear") setSearch(input); }}
         onChange={(_, option) => onChange(option?.id ?? "")}
-        renderInput={(params) => <TextField {...params} label="Contractor" error={Boolean(error)} helperText={error ?? (query.data && query.data.meta.total > 100 ? "Search to find your contractor" : undefined)} />} />
+        renderInput={(params) => <TextField {...params} label={label} error={Boolean(error)} helperText={error ?? (query.data && query.data.meta.total > 100 ? `Search to find your ${label.toLowerCase()}` : undefined)} />} />
     </Stack>
   );
 }

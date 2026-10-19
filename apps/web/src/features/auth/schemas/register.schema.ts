@@ -9,7 +9,7 @@ export const registerFormSchema = z.object({
   username: z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,20}$/, "Use 3–20 characters: a–z, 0–9, dot, underscore or hyphen"),
   password: z.string().min(8, "Use at least 8 characters").max(128, "Use at most 128 characters"),
   confirmPassword: z.string().min(1, "Confirm your password"),
-  contractorChoice: z.string().min(1, "Choose your contractor"),
+  contractorChoice: z.string().min(1, "Choose your company"),
   companyName: z.string().trim().max(200),
 }).superRefine((v, ctx) => {
   if (v.password !== v.confirmPassword) ctx.addIssue({ code: "custom", path: ["confirmPassword"], message: "Passwords do not match" });

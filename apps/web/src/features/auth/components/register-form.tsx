@@ -27,7 +27,7 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
   const projects = publicProjects.data?.data ?? current.projects;
   const [pickedProject, setPickedProject] = useState<string | null>(null);
   const projectId = pickedProject ?? (projects.some((p) => p.id === current.projectId) ? current.projectId : projects[0]?.id ?? null);
-  // Step 1: user details. Step 2: project & contractor. Each step is short enough
+  // Step 1: user details. Step 2: project & company. Each step is short enough
   // to fit a laptop viewport without scrolling.
   const [step, setStep] = useState(0);
   const { register, handleSubmit, control, watch, trigger, formState: { errors } } = useForm<RegisterFormValues>({
@@ -44,7 +44,7 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
     }))}>
       <Stepper activeStep={step} sx={{ mb: 0.5 }}>
         <Step><StepLabel>User details</StepLabel></Step>
-        <Step><StepLabel>Project &amp; contractor</StepLabel></Step>
+        <Step><StepLabel>Project &amp; company</StepLabel></Step>
       </Stepper>
       {mutation.isError && <Alert severity="error">{mutation.error.message}</Alert>}
       {step === 0 ? (
@@ -58,7 +58,7 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
       ) : (
         <Stack spacing={2}>
           <Typography variant="body2" color="text.secondary">
-            Select your contractor for this project — or choose "Other" if your company is not listed yet.
+            Select your company for this project — or choose "Other" if it is not listed yet.
           </Typography>
           {projects.length > 1 ? (
             <TextField select label="Project" value={projectId ?? ""} onChange={(e) => setPickedProject(e.target.value)}>
@@ -71,7 +71,7 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
           ) : (
             <TextField label="Project" value={projects[0]?.name ?? (publicProjects.isLoading ? "กำลังโหลด…" : "—")} disabled />
           )}
-          <Controller control={control} name="contractorChoice" render={({ field }) => <ContractorPicker value={field.value} onChange={field.onChange} projectId={projectId ?? undefined} error={errors.contractorChoice?.message} disabled={mutation.isPending} />} />
+          <Controller control={control} name="contractorChoice" render={({ field }) => <ContractorPicker value={field.value} onChange={field.onChange} projectId={projectId ?? undefined} label="Company" error={errors.contractorChoice?.message} disabled={mutation.isPending} />} />
           {watch("contractorChoice") === "other" && <TextField label="Company name" autoComplete="organization" {...register("companyName")} error={Boolean(errors.companyName)} helperText={errors.companyName?.message} />}
           <Stack direction="row" spacing={1.5}>
             <Button type="button" color="inherit" disabled={mutation.isPending} onClick={() => setStep(0)}>Back</Button>
