@@ -2,6 +2,7 @@ import { toUserRole } from "@sts/shared";
 import { ConflictError, ForbiddenError, InvalidLoginError, RateLimitedError, ValidationError } from "@/shared/errors/app-error.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { listContractorsService } from "@/modules/contractors/contractor.service.js";
+import { listProjects } from "@/modules/projects/project.repository.js";
 import { getDb } from "@/db/client.js";
 import { countAuthAttempt, findUserById, findUserByIdentifier, insertRegisteredUser, listActiveContractorsForUser, normalizeEmail } from "./auth.repository.js";
 import { hashPassword, verifyPassword } from "./password.js";
@@ -93,4 +94,9 @@ export async function loadMe(identity: AuthIdentity): Promise<MeResponse> {
   const context = await loadAuthContext(identity);
   const contractors = await listActiveContractorsForUser(getDb(), identity.userId);
   return { data: { user: context.user, contractors } };
+}
+
+// Sign-up runs before login, so it cannot read /projects: active projects with id, code and name only.
+export async function registrationProjects() {
+  return (await listProjects(getDb())).map(({ id, code, name }) => ({ id, code, name }));
 }

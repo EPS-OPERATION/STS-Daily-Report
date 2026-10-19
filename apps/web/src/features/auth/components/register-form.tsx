@@ -5,9 +5,13 @@ import Stack from "@mui/material/Stack";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
 import Stepper from "@mui/material/Stepper";
+import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { authApi } from "../api/auth.api.js";
+import { authKeys } from "../api/auth.keys.js";
 import { Controller, useForm } from "react-hook-form";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { useRegister } from "../hooks/use-register.js";
@@ -17,14 +21,18 @@ import { PasswordField } from "./password-field.js";
 
 export function RegisterForm({ onBack }: { onBack: () => void }) {
   const mutation = useRegister();
-  const { projectId, projects } = useCurrentProject();
+  const current = useCurrentProject();
+  // Logged-out visitors cannot read /projects, so the form asks the public sign-up list.
+  const publicProjects = useQuery({ queryKey: authKeys.projects(), queryFn: () => authApi.projects(), staleTime: 300_000 });
+  const projects = publicProjects.data?.data ?? current.projects;
+  const [pickedProject, setPickedProject] = useState<string | null>(null);
+  const projectId = pickedProject ?? (projects.some((p) => p.id === current.projectId) ? current.projectId : projects[0]?.id ?? null);
   // Step 1: user details. Step 2: project & contractor. Each step is short enough
   // to fit a laptop viewport without scrolling.
   const [step, setStep] = useState(0);
   const { register, handleSubmit, control, watch, trigger, formState: { errors } } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerFormSchema), defaultValues: { email: "", username: "", password: "", confirmPassword: "", contractorChoice: "", companyName: "" },
   });
-  const projectName = projects.find((p) => p.id === projectId)?.name ?? "";
   if (mutation.isSuccess) return <Stack spacing={2}><Alert severity="success">ส่งคำขอสมัครแล้ว รอผู้ดูแลระบบอนุมัติ</Alert><Typography color="text.secondary">Your account will be available after EPS reviews your request.</Typography><Button onClick={onBack}>Back to sign in</Button></Stack>;
   const next = async () => {
     if (await trigger(["email", "username", "password", "confirmPassword"])) setStep(1);
@@ -52,7 +60,17 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
           <Typography variant="body2" color="text.secondary">
             Select your contractor for this project — or choose "Other" if your company is not listed yet.
           </Typography>
-          <TextField label="Project" value={projectName || "—"} disabled />
+          {projects.length > 1 ? (
+            <TextField select label="Project" value={projectId ?? ""} onChange={(e) => setPickedProject(e.target.value)}>
+              {projects.map((p) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : (
+            <TextField label="Project" value={projects[0]?.name ?? (publicProjects.isLoading ? "กำลังโหลด…" : "—")} disabled />
+          )}
           <Controller control={control} name="contractorChoice" render={({ field }) => <ContractorPicker value={field.value} onChange={field.onChange} projectId={projectId ?? undefined} error={errors.contractorChoice?.message} disabled={mutation.isPending} />} />
           {watch("contractorChoice") === "other" && <TextField label="Company name" autoComplete="organization" {...register("companyName")} error={Boolean(errors.companyName)} helperText={errors.companyName?.message} />}
           <Stack direction="row" spacing={1.5}>
