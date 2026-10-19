@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
-import { contractors, projectContractors } from "@/db/schema/index.js";
+import { contractorAliases, contractors, projectContractors } from "@/db/schema/index.js";
 import type { QueryDb as Db } from "@/db/client.js";
 import type { CreateContractorInput, ListContractorsQuery, UpdateContractorInput } from "./contractor.type.js";
 
@@ -17,6 +17,7 @@ export async function listContractors(db: Db, q: ListContractorsQuery) {
     const pattern = `%${q.search}%`;
     conditions.push(or(ilike(contractors.code, pattern), ilike(contractors.name, pattern)));
   }
+  if (q.contractorsOnly) conditions.push(eq(contractors.isContractor, true));
   if (q.projectId) {
     conditions.push(sql`${contractors.id} IN (SELECT ${projectContractors.contractorId} FROM ${projectContractors} WHERE ${projectContractors.projectId} = ${q.projectId})`);
   }
@@ -38,9 +39,12 @@ export async function getContractorById(db: Db, id: string) {
   return rows[0] ?? null;
 }
 
+// A company by its code or by an old code it is still known by (LCE → L-tab).
 export async function getContractorByCode(db: Db, code: string) {
   const rows = await db.select().from(contractors).where(eq(contractors.code, code)).limit(1);
-  return rows[0] ?? null;
+  if (rows[0]) return rows[0];
+  const alias = await db.select({ id: contractorAliases.contractorId }).from(contractorAliases).where(eq(contractorAliases.code, code)).limit(1);
+  return alias[0] ? getContractorById(db, alias[0].id) : null;
 }
 
 export async function createContractor(db: Db, input: CreateContractorInput) {

@@ -35,8 +35,9 @@ export async function decideUserService(auth: AuthContext, id: string, decision:
   return getDb().transaction(async (tx) => {
     const user = await findUserById(tx, id, true);
     if (!user) throw new NotFoundError("User not found");
-    if (user.status !== "pending" || user.role !== "contractor") throw new ConflictError("Only pending contractor registrations can be decided.");
-    const contractorId = input.contractorId ?? user.requestedContractorId;
+    if (user.status !== "pending" || (user.role !== "contractor" && user.role !== "eps_site")) throw new ConflictError("Only pending registrations can be decided.");
+    // An EPS request is approved as EPS หน้างาน with no company link.
+    const contractorId = user.role === "contractor" ? input.contractorId ?? user.requestedContractorId : null;
     if (decision === "active" && contractorId) {
       // A referenced contractor must exist and belong to the chosen project before approval.
       const contractor = await getContractorById(tx, contractorId);

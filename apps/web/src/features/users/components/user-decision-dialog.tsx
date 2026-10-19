@@ -13,10 +13,11 @@ import { FormDialog } from "@/components/ui/form-dialog.js";
 
 export function UserDecisionDialog({ user, action, onClose, projectId }: { user: ManagedUser; action: "approve" | "reject"; onClose: () => void; projectId?: string }) {
   const mutation = useDecideUser();
-  const approval = useForm<{ contractorChoice: string }>({ resolver: zodResolver(approveUserSchema), defaultValues: { contractorChoice: user.requestedContractorId ?? "other" } });
+  const epsRequest = user.role !== "contractor";
+  const approval = useForm<{ contractorChoice: string }>({ resolver: zodResolver(approveUserSchema), defaultValues: { contractorChoice: epsRequest ? "eps" : user.requestedContractorId ?? "other" } });
   const rejection = useForm<{ reason: string }>({ resolver: zodResolver(rejectUserSchema), defaultValues: { reason: "" } });
   const submit = action === "approve" ? approval.handleSubmit(async (v) => {
-    try { await mutation.mutateAsync({ id: user.id, action, contractorId: v.contractorChoice === "other" ? undefined : v.contractorChoice, projectId }); onClose(); } catch { /* Displayed in the dialog. */ }
+    try { await mutation.mutateAsync({ id: user.id, action, contractorId: epsRequest || v.contractorChoice === "other" ? undefined : v.contractorChoice, projectId }); onClose(); } catch { /* Displayed in the dialog. */ }
   }) : rejection.handleSubmit(async (v) => {
     try { await mutation.mutateAsync({ id: user.id, action, reason: v.reason }); onClose(); } catch { /* Displayed in the dialog. */ }
   });
@@ -36,7 +37,7 @@ export function UserDecisionDialog({ user, action, onClose, projectId }: { user:
       <Stack spacing={2} sx={{ pt: 1 }}>
         <Typography>{user.email} · {user.username}</Typography>
         {mutation.isError && <Alert severity="error">{mutation.error.message}</Alert>}
-        {action === "approve" ? <>
+        {action === "approve" && epsRequest ? <Alert severity="info">คำขอบัญชี EPS — อนุมัติเป็น EPS หน้างาน (เปลี่ยนเป็นผู้ดูแลระบบได้ภายหลังที่ Active users)</Alert> : action === "approve" ? <>
           <Controller name="contractorChoice" control={approval.control} render={({ field }) => <ContractorPicker value={field.value} onChange={field.onChange} selectedName={user.requestedContractorName ?? undefined} allowOther={!user.requestedContractorId} projectId={projectId} error={approval.formState.errors.contractorChoice?.message} disabled={mutation.isPending} />} />
           {approval.watch("contractorChoice") === "other" && <Alert severity="info">{user.requestedCompanyName} — approve the account without a contractor membership. Reporting stays unavailable until it is linked to a contractor.</Alert>}
         </> : <TextField label="Rejection reason" multiline minRows={3} {...rejection.register("reason")} error={Boolean(rejection.formState.errors.reason)} helperText={rejection.formState.errors.reason?.message} />}
