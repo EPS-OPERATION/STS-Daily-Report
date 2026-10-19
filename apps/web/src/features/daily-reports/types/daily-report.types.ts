@@ -62,6 +62,7 @@ export interface ReportAllocation {
   planPercent: number | null;
   actualPercent: number | null;
   countermeasure: string | null;
+  isAdditional?: boolean;
 }
 
 // One discipline's crew for one shift: people by position + nationality/sex split.
@@ -239,6 +240,15 @@ export interface EveningPayload {
   accidentCategory?: AccidentCategory;
   crews: CrewPayload[];
   progress: { allocationId: string; actualPercent: number; countermeasure?: string }[];
+  additionalAllocations?: {
+    buildingId: string;
+    discipline: Discipline;
+    headcount: number;
+    workDescription: string;
+    actualPercent: number;
+    startTime?: string;
+    endTime?: string;
+  }[];
   signatureName: string;
   signatureData?: string;
   machinery: { buildingId: string; machineType: MachineType; unitTag?: string; startTime?: string; endTime?: string; purpose?: string }[];

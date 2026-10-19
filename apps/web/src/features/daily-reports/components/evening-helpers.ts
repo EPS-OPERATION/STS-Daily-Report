@@ -32,7 +32,7 @@ export const SECTIONS: SectionMap = [
   ["sec-safety", ["accidentOccurred", "accidentNote", "accidentCategory"]],
   ["sec-ot", ["overtime"]],
   ["sec-crew", ["disciplines", "crews"]],
-  ["sec-progress", ["progress"]],
+  ["sec-progress", ["progress", "additionalAllocations"]],
   ["sec-tomorrow", ["forecasts", "machinery", "equipmentRequests", "permits", "roadUsage", "materials"]],
   ["sec-sign", ["signatureName", "signatureData"]],
 ];

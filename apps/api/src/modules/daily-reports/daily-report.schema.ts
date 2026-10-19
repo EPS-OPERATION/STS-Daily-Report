@@ -129,6 +129,20 @@ export const eveningBody = t.Object({
     }),
     { maxItems: 16 },
   ),
+  additionalAllocations: t.Optional(
+    t.Array(
+      t.Object({
+        buildingId: t.String({ format: "uuid" }),
+        discipline: t.Union(DISCIPLINE_CODES.map((d) => t.Literal(d))),
+        headcount: t.Integer({ minimum: 1, maximum: 5000 }),
+        workDescription: t.String({ minLength: 1, maxLength: 500 }),
+        actualPercent: percent,
+        startTime: t.Optional(hhmm),
+        endTime: t.Optional(hhmm),
+      }),
+      { maxItems: 30 },
+    ),
+  ),
   signatureName: t.String({ minLength: 1, maxLength: 120 }),
   // PNG data URL from the signature pad; ~200 KB ceiling. Optional when re-saving an already-signed report.
   signatureData: t.Optional(t.String({ pattern: "^data:image/png;base64,", maxLength: 200_000 })),

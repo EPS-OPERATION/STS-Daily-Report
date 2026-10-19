@@ -9,7 +9,7 @@
   (`sts-*`, `impeccable`, `web-design-guidelines`, `vercel-react-best-practices`) — product truth อยู่ที่ `PRODUCT.md`, design system อยู่ที่ `DESIGN.md` และ `.impeccable/`
 - Bun monorepo (workspaces `apps/*`, `packages/*`): `apps/web` React19+Vite6+MUI7/MUI-X8+Query5+RHF+Zod,
   `apps/api` Elysia+Drizzle+PG, `packages/{shared,env,typescript-config}`
-- Schema (migrations `0000`–`0038`): projects, contractors, project_contractors, users(username/password_hash/requested_company/decision)/memberships/sessions/password_reset_tokens/auth_rate_limits, zones,
+- Schema (migrations `0000`–`0039`): projects, contractors, project_contractors, users(username/password_hash/requested_company/decision)/memberships/sessions/password_reset_tokens/auth_rate_limits, zones,
   site_plans/zone_map_areas, site_activities, buildings, daily_reports(+_positions/_equipment/_allocations/_machinery/
   _permits/_road_usage/_photos/_materials/_overtime), inspection_requests, daily_report_standard_items, coordination_maps/colors/items/day_notes/day_locks/road_segments, drone_logs, weather_hourly (+projects.latitude/longitude), rain_logs, permit_types
 - Reference: `features/contractors` (web) และ `modules/contractors` (api) — ของใหม่ copy pattern นี้
@@ -50,17 +50,8 @@
 
 ## Pitfalls (เจอจริง)
 
-- `minio/minio:latest` โดนถอดจาก Docker Hub → pin `RELEASE.2025-04-22T22-12-26Z` ใน compose
-- `bun --filter` จาก root; API dev/migrate/seed โหลด root `.env` ผ่าน `--env-file=../../.env` (env จริง override ไฟล์)
-- compose merge `ports` แบบ additive — ไฟล์ override นอก repo ต้องใช้ `ports: !override`
-- localhost ชนโปรเจกต์อื่นได้ (เคยเจอ 3000/5432/9000 ถูกใช้) — verify ด้วย project/ports สำรองนอก repo
-- `errorPlugin` ต้องเช็ค `instanceof AppError` ก่อน Elysia validation branch (ไม่งั้น 409 กลายเป็น 400)
-- MUI v7: type ชื่อ `TypographyVariantsOptions` (ไม่มี `TypographyOptions`); web ห้าม project-reference ไป api
-- DataGrid theme override ต้อง `import type {} from "@mui/x-data-grid/themeAugmentation"` ไม่งั้น key `MuiDataGrid` ไม่รู้จัก
-- MUI v7 Grid ใช้ prop `size={{ xs: 12, md: 6 }}` (ไม่ใช่ `item xs={}`); custom variant `metric` อยู่ใน `theme/augmentation.ts`
-- Site plan ใช้ schematic SVG (ไม่มี satellite asset); zone 1 อันมีได้หลาย contractor — สีสื่อ state ของ zone เท่านั้น
-- DataGrid ล็อก layout ผ่าน theme default (`disableColumnMenu/Resize`); reorder ถูกล็อกในตัว DataGrid อยู่แล้ว
-  ตั้งผ่าน props/theme ไม่ได้ (forced prop) — sorting ด้วย click header ยังใช้ได้
+- `minio/minio:latest` โดนถอดจาก Docker Hub → pin `RELEASE.2025-04-22T22-12-26Z` �  ห้ามลงงานพร้อมกันเกินจำนวนคนที่มา (`allocationPeak` @sts/shared, zod+service; ลงไม่ครบได้), อาคารซ้ำได้ถ้าเวลาไม่ทับ, `day_share` = สัดส่วนเวลา (man-day อาคาร = คน × day_share); เย็น upsert แถวเอง (ไม่ต้องมีเช้า) = คนช่วงบ่ายตามตำแหน่ง (`daily_report_positions.shift`=evening + `evening_thai/foreign_male/female` รวม=total, บังคับ ≥1, เช้า≠บ่ายได้; man-day = (คนเช้า+คนบ่าย)/2 หรือครึ่งที่ส่ง, NMH = man-day × ชม. + OT คน-ชม.: บ่ายกรอก OT แยกรายการ อาคาร+งาน+คน+ชม. (`daily_report_overtime`, `daily_reports.ot_man_hours`=Σ คน×ชม., migration `0033`; รายงานเก่าไม่มีรายการ = คนบ่าย × OT) ผ่าน `dayManpower`), อุบัติเหตุ, OT, actual% (ต่ำกว่า plan ที่ระบุไว้ ต้องมี countermeasure; ไม่มี plan = actual% อย่างเดียว; บ่ายเพิ่มงานนอกแผน/งานเพิ่มเติมได้ `daily_report_allocations.is_additional`, migration `0039`), (ฟอร์มไม่มีอัปโหลดรูปแล้ว — ลด storage; API รูป + การแสดงรูปเก่ายังอยู่), ลายเซ็น PNG, วัสดุหน้างาน (ซ่อนชั่วคราว future feature — schema/API/material-inputs อยู่ครบ), คำขอพรุ่งนี้ (equipment ขอชื่ออิสระได้); vocab ที่ `@sts/shared`
+- Charts (MUI x-charts, สีตาม contractor code จาก `app/theme/chart-palette.ts`): `/manpower` (จอ lg+ = กราฟ 4 อัน 2x2 พอดี 1 หน้าจอ ไม่ต้องเลื่อน; สัปดาห์/เดือน; `/manpower-summary`, `/position-mix`), weekly page กราฟเดียว; `weekly-summary`: machinery/permits/roads ตาม target_date (machinery ปิด rule จองชน; ถนนเปิด: ถนนเดียวกัน วันเดียวกัน เวลาทับ ต่างผู้รับเหมา = แจ้งเตือนสีแดง ไม่ block); ไม่มี sample data ใน seed แล้ว ยกเว้น demo drone 2 รอบ (`public/drone` → object storage, `/progress` ไม่ว่างทันทีหลัง seed) (2026-10-11, deploy-ready — ต้องการเดโมให้กู้จาก git history)ed prop) — sorting ด้วย click header ยังใช้ได้
 - Icons: Outlined ทั้งระบบ (ArrowBack/Forward/MoreVert/Horiz เท่านั้นที่คง filled), registry ที่
   `app/icons/navigation-icons.ts` (sidebar ใช้ key แทน import ตรง), status icons รวมที่ StatusChip
   (Submitted=SendOutlined, Pending=ScheduleOutlined, Rejected=CancelOutlined), QAQC ทุกที่=FactCheckOutlined

@@ -38,6 +38,7 @@ export async function listAllocations(db: Db, reportId: string) {
       planPercent: dailyReportAllocations.planPercent,
       actualPercent: dailyReportAllocations.actualPercent,
       countermeasure: dailyReportAllocations.countermeasure,
+      isAdditional: dailyReportAllocations.isAdditional,
     })
     .from(dailyReportAllocations)
     .innerJoin(buildings, eq(dailyReportAllocations.buildingId, buildings.id))

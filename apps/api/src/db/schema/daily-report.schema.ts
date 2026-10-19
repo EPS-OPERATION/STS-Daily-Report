@@ -205,6 +205,7 @@ export const dailyReportAllocations = pgTable(
     planPercent: integer("plan_percent"),
     actualPercent: integer("actual_percent"),
     countermeasure: text("countermeasure"),
+    isAdditional: boolean("is_additional").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

@@ -85,7 +85,9 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
           .where(eq(dailyReportAllocations.reportId, reportId))
       ).map((a) => [`${a.discipline}|${a.buildingId}|${a.startTime ?? ""}|${a.endTime ?? ""}`, a]),
     );
-    await tx.delete(dailyReportAllocations).where(eq(dailyReportAllocations.reportId, reportId));
+    await tx
+      .delete(dailyReportAllocations)
+      .where(and(eq(dailyReportAllocations.reportId, reportId), eq(dailyReportAllocations.isAdditional, false)));
     await tx
       .delete(dailyReportPositions)
       .where(and(eq(dailyReportPositions.reportId, reportId), eq(dailyReportPositions.shift, "morning")));
@@ -220,6 +222,30 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
           updatedAt: now,
         })
         .where(and(eq(dailyReportAllocations.id, p.allocationId), eq(dailyReportAllocations.reportId, reportId)));
+    }
+
+    await tx
+      .delete(dailyReportAllocations)
+      .where(and(eq(dailyReportAllocations.reportId, reportId), eq(dailyReportAllocations.isAdditional, true)));
+
+    if (input.additionalAllocations?.length) {
+      await tx.insert(dailyReportAllocations).values(
+        input.additionalAllocations.map((a, i) => ({
+          reportId,
+          buildingId: a.buildingId,
+          discipline: a.discipline,
+          headcount: a.headcount,
+          workDescription: a.workDescription.trim(),
+          startTime: a.startTime ?? null,
+          endTime: a.endTime ?? null,
+          dayShare: 1,
+          planPercent: null,
+          actualPercent: a.actualPercent,
+          countermeasure: null,
+          isAdditional: true,
+          sortOrder: 100 + i,
+        })),
+      );
     }
 
     await tx

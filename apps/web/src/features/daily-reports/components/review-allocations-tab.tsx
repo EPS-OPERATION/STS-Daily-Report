@@ -35,11 +35,15 @@ export function ReviewAllocationsTab({ ed }: { ed: UseReviewDialogState }) {
                       จำนวนคนเข้าทำงาน: {a.headcount} คน
                     </Typography>
                   </Box>
-                  <Chip
-                    size="small"
-                    color={isBehind ? "warning" : "success"}
-                    label={isBehind ? "Behind plan" : "On plan"}
-                  />
+                  {a.isAdditional ? (
+                    <Chip size="small" color="info" label="งานเพิ่มเติม" sx={{ fontWeight: 600 }} />
+                  ) : (
+                    <Chip
+                      size="small"
+                      color={isBehind ? "warning" : "success"}
+                      label={isBehind ? "Behind plan" : "On plan"}
+                    />
+                  )}
                 </Stack>
 
                 <Typography variant="body2" sx={{ mb: 1.5, color: "text.primary" }}>

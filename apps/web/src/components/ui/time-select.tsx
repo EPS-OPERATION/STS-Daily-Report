@@ -101,7 +101,15 @@ export function TimeSelect({
       size="small"
       fullWidth={fullWidth}
       disabled={disabled}
-      sx={sx}
+      sx={[
+        {
+          minWidth: 155,
+          "& .MuiInputBase-input": {
+            fontVariantNumeric: "tabular-nums",
+          },
+        },
+        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+      ]}
       options={options}
       value={shown}
       inputValue={text}

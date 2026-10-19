@@ -1,4 +1,4 @@
-import { and, asc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { CoordinationInput, CoordinationPoint } from "@sts/shared";
 import type { QueryDb } from "@/db/client.js";
 import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItems, coordinationMaps, coordinationRoadSegments, dailyReportRoadUsage, dailyReports, projectContractors, users } from "@/db/schema/index.js";
@@ -13,6 +13,13 @@ export async function listCoordinationContractors(db: QueryDb, projectId: string
     .from(projectContractors).innerJoin(contractors, eq(projectContractors.contractorId, contractors.id))
     .leftJoin(coordinationColors, and(eq(coordinationColors.projectId, projectId), eq(coordinationColors.contractorId, contractors.id)))
     .where(eq(projectContractors.projectId, projectId)).orderBy(asc(contractors.code));
+}
+export async function listCoordinationContractorsByIds(db: QueryDb, projectId: string, ids: string[]) {
+  if (ids.length === 0) return [];
+  return db.select({ id: contractors.id, code: contractors.code, name: contractors.name, color: coordinationColors.color, revision: coordinationColors.revision })
+    .from(contractors)
+    .leftJoin(coordinationColors, and(eq(coordinationColors.projectId, projectId), eq(coordinationColors.contractorId, contractors.id)))
+    .where(inArray(contractors.id, ids)).orderBy(asc(contractors.code));
 }
 export async function insertColor(db: QueryDb, projectId: string, contractorId: string, color: string) {
   await db.insert(coordinationColors).values({ projectId, contractorId, color }).onConflictDoNothing();

@@ -37,6 +37,8 @@ interface Props {
   areaDirty: boolean;
   geometryError: string | null;
   saving: boolean;
+  isLocked?: boolean;
+  isEps?: boolean;
   onPatch: (patch: Partial<CoordinationInput>) => void;
   onDrawFree: () => void;
   /** Road route: draw or extend the line on the map. */
@@ -73,6 +75,8 @@ export function CoordinationInspector({
   areaDirty,
   geometryError,
   saving,
+  isLocked = false,
+  isEps = false,
   onPatch,
   onDrawFree,
   onDrawRoute,
@@ -137,7 +141,10 @@ export function CoordinationInspector({
             </Field>
             <Field label="Contractor">
               <TextField select size="small" fullWidth value={draft.contractorId} onChange={(e) => onPatch({ contractorId: e.target.value })}>
-                {editableContractors.map((c) => (
+                {(editableContractors.some((c) => c.id === draft.contractorId) || !company
+                  ? editableContractors
+                  : [company, ...editableContractors]
+                ).map((c) => (
                   <MenuItem key={c.id} value={c.id}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Box component="span" sx={{ width: 10, height: 10, borderRadius: "3px", bgcolor: c.color }} />
@@ -266,7 +273,11 @@ export function CoordinationInspector({
               <Typography variant="body2">{areaLabel(item, true)}</Typography>
             </Field>
             <Typography variant="caption" color="text.secondary">
-              ดูได้อย่างเดียว — แก้ไขได้เฉพาะงานของบริษัทที่บัญชีนี้ผูกไว้
+              {isLocked
+                ? "ดูได้อย่างเดียว — ผังวันนี้ถูกล็อกไว้"
+                : isEps
+                  ? "ดูได้อย่างเดียว"
+                  : "ดูได้อย่างเดียว — แก้ไขได้เฉพาะงานของบริษัทที่บัญชีนี้ผูกไว้"}
             </Typography>
           </>
         )}

@@ -140,13 +140,26 @@ export function RainLogDialog({ open, entry, projectId, onClose, onSave }: RainL
           </Step>
 
           <Step n={2} title="ฝนตก / หยุดงาน ช่วงเวลา">
-            <Stack direction="row" spacing={1.5} alignItems="flex-start">
-              <TimeSelect label="เวลาเริ่ม" fullWidth={false} sx={{ width: 150 }} value={startTime} onChange={(v) => {
-                const keep = Math.max(15, windowMin);
-                setStartTime(v);
-                setEndTime(fromMin(Math.min(toMin("21:00"), toMin(v) + keep)));
-              }} />
-              <TimeSelect label="เวลาสิ้นสุด" fullWidth={false} sx={{ width: 150 }} value={endTime} onChange={setEndTime} after={startTime} error={!valid} helperText={valid ? undefined : "ต้องหลังเวลาเริ่ม"} />
+            <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ maxWidth: 360 }}>
+              <TimeSelect
+                label="เวลาเริ่ม"
+                sx={{ flex: 1, minWidth: 155 }}
+                value={startTime}
+                onChange={(v) => {
+                  const keep = Math.max(15, windowMin);
+                  setStartTime(v);
+                  setEndTime(fromMin(Math.min(toMin("21:00"), toMin(v) + keep)));
+                }}
+              />
+              <TimeSelect
+                label="เวลาสิ้นสุด"
+                sx={{ flex: 1, minWidth: 155 }}
+                value={endTime}
+                onChange={setEndTime}
+                after={startTime}
+                error={!valid}
+                helperText={valid ? undefined : "ต้องหลังเวลาเริ่ม"}
+              />
             </Stack>
           </Step>
 

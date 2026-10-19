@@ -6,7 +6,8 @@ import { getProjectById } from "@/modules/projects/project.repository.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { listRoadRequests } from "./coordination.repository.js";
 import { deleteRoadSegment, findRoadSegmentByName, getRoadSegment, insertRoadSegment, listRoadSegments, updateRoadSegment, type RoadSegmentInput } from "./coordination.repository.js";
-import { deleteDayLock, deleteDayNote, deleteItem, getDayLock, getDayNote, getItem, getMap, insertDayLock, insertColor, insertItem, listCoordinationContractors, listItems, updateColor, updateItem, upsertDayNote } from "./coordination.repository.js";
+import { deleteDayLock, deleteDayNote, deleteItem, getDayLock, getDayNote, getItem, getMap, insertDayLock, insertColor, insertItem, listCoordinationContractors, listCoordinationContractorsByIds, listItems, updateColor, updateItem, upsertDayNote } from "./coordination.repository.js";
+import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 
 async function access(auth: AuthContext, projectId: string, contractorId?: string) {
   if (!await getProjectById(getDb(), projectId)) throw new NotFoundError("Project not found");
@@ -47,12 +48,17 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
   const db = getDb();
   const map = await getMap(db, projectId);
   if (!map) throw new NotFoundError("This project has no coordination drawing configured");
-  const [initialCompanies, items, dayNote, lock, roads] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), getDayNote(db, projectId, date), getDayLock(db, projectId, date), mapRoads(projectId, date)]);
+  const [initialProjectCompanies, items, dayNote, lock, roads] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), getDayNote(db, projectId, date), getDayLock(db, projectId, date), mapRoads(projectId, date)]);
+  const missingContractorIds = [...new Set(items.map((i) => i.contractorId))].filter((id) => !initialProjectCompanies.some((c) => c.id === id));
+  const extraCompanies = missingContractorIds.length > 0 ? await listCoordinationContractorsByIds(db, projectId, missingContractorIds) : [];
+  const initialCompanies = [...initialProjectCompanies, ...extraCompanies];
   const missingColors = initialCompanies.some((company) => !company.color);
   // Assign missing project colours once under the map lock. Normal polling is read-only.
   if (missingColors) await db.transaction(async (tx) => {
     await getMap(tx, projectId, true);
-    const companies = await listCoordinationContractors(tx, projectId);
+    const projCompanies = await listCoordinationContractors(tx, projectId);
+    const extras = missingContractorIds.length > 0 ? await listCoordinationContractorsByIds(tx, projectId, missingContractorIds) : [];
+    const companies = [...projCompanies, ...extras];
     const used = new Set(companies.flatMap((c) => c.color ? [c.color] : []));
     for (const c of companies) {
       if (c.color) continue;
@@ -61,7 +67,9 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
       used.add(color);
     }
   });
-  const companies = missingColors ? await listCoordinationContractors(db, projectId) : initialCompanies;
+  const companies = missingColors
+    ? [...(await listCoordinationContractors(db, projectId)), ...(missingContractorIds.length > 0 ? await listCoordinationContractorsByIds(db, projectId, missingContractorIds) : [])]
+    : initialCompanies;
   return {
     map: { id: map.id, projectId, imagePath: map.imagePath, width: map.width, height: map.height },
     contractors: companies.map((c) => ({ ...c, color: c.color!, revision: c.revision! })),
@@ -94,7 +102,8 @@ export async function saveCoordinationService(auth: AuthContext, projectId: stri
   if (!map) throw new NotFoundError("Coordination drawing not configured");
   if (input.areaKind === "rectangle" && !coordinationRectangleValid(input.geometry.points, map.width, map.height)) throw new ValidationError("Rectangle corners must form a rectangle");
   const companies = await listCoordinationContractors(db, projectId);
-  if (!companies.some((c) => c.id === input.contractorId)) throw new ValidationError("Contractor is not assigned to this project");
+  const isValidContractor = companies.some((c) => c.id === input.contractorId) || (isEpsStaff(auth.user.role) && Boolean(await getContractorById(db, input.contractorId)));
+  if (!isValidContractor) throw new ValidationError("Contractor is not assigned to this project");
   if (!id) { await assertUnlocked(projectId, input.workDate); return dto(await insertItem(db, projectId, map.id, input, auth.user.id)); }
   const current = await getItem(db, projectId, id);
   if (!current) throw new NotFoundError("Work item not found");

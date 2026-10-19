@@ -210,6 +210,25 @@ export const materialSchema = z.object({
   unit: z.string().trim().min(1, "เลือกหน่วย").max(20),
 });
 
+export const additionalAllocationSchema = z
+  .object({
+    id: z.string().optional(),
+    buildingId: z.string().min(1, "เลือกอาคาร"),
+    discipline: z.enum(asTuple(DISCIPLINE_CODES)),
+    workDescription: z.string().trim().min(1, "ระบุรายละเอียดงานที่ทำเพิ่ม").max(500),
+    headcount: z.number().int().min(1, "อย่างน้อย 1 คน").max(5000),
+    actualPercent: z.number().int().min(0).max(100),
+    timed: z.boolean().default(false),
+    startTime: hhmm.optional().or(z.literal("")),
+    endTime: hhmm.optional().or(z.literal("")),
+  })
+  .refine((a) => !a.timed || (!a.startTime && !a.endTime) || (Boolean(a.startTime) && Boolean(a.endTime) && (a.startTime ?? "") < (a.endTime ?? "")), {
+    message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม",
+    path: ["endTime"],
+  });
+
+export type AdditionalAllocationValues = z.infer<typeof additionalAllocationSchema>;
+
 export const eveningSchema = z
   .object({
     // Itemised OT: one row per building/task; NMH counts only these people.
@@ -235,6 +254,7 @@ export const eveningSchema = z
         countermeasure: z.string().trim().max(1000).optional(),
       }),
     ),
+    additionalAllocations: z.array(additionalAllocationSchema).default([]),
     signatureName: z.string().trim().min(1, "ระบุชื่อผู้รายงาน").max(120),
     signatureData: z.string().min(1, "แตะเพื่อเซ็นชื่อก่อนส่ง"),
     // Requests for tomorrow.

@@ -40,6 +40,8 @@ export function useEveningForm({
   const tomorrowWeek = useWeeklySummary(projectId, mondayOf(tomorrow));
   const ctx = { projectId, targetDate: tomorrow, contractorId: contractor.id, others: tomorrowWeek.data?.data ?? null };
   const allocations = report?.allocations ?? [];
+  const morningAllocations = allocations.filter((a) => !a.isAdditional);
+  const existingAdditional = allocations.filter((a) => a.isAdditional);
   const form = useForm<EveningFormValues>({
     resolver: zodResolver(eveningSchema),
     defaultValues: {
@@ -89,11 +91,22 @@ export function useEveningForm({
         ),
       ),
       crews: { CE: crewDefaults(report, "CE"), ME: crewDefaults(report, "ME"), EE: crewDefaults(report, "EE") },
-      progress: allocations.map((a) => ({
+      progress: morningAllocations.map((a) => ({
         allocationId: a.id,
         planPercent: a.planPercent,
         actualPercent: a.actualPercent ?? a.planPercent ?? 0,
         countermeasure: a.countermeasure ?? "",
+      })),
+      additionalAllocations: existingAdditional.map((a) => ({
+        id: a.id,
+        buildingId: a.buildingId,
+        discipline: a.discipline,
+        workDescription: a.workDescription,
+        headcount: a.headcount,
+        actualPercent: a.actualPercent ?? 100,
+        timed: Boolean(a.startTime && a.endTime),
+        startTime: a.startTime ?? "",
+        endTime: a.endTime ?? "",
       })),
       signatureName: report?.signatureName ?? "",
       signatureData: report?.hasSignature ? "existing" : "",
@@ -116,11 +129,25 @@ export function useEveningForm({
   const otOpen = otAsked || overtimeRows.length > 0;
   const requestsOpen = requestsAsked || roadRows.length > 0;
   const progress = useFieldArray({ control, name: "progress" });
+  const additional = useFieldArray({ control, name: "additionalAllocations" });
   const accident = useWatch({ control, name: "accidentOccurred" });
   const disciplineValues = useWatch({ control, name: "disciplines" });
   const crewValues = useWatch({ control, name: "crews" });
   const picked = DISCIPLINE_CODES.filter((d) => disciplineValues.includes(d));
   const crewsOk = picked.length > 0 && picked.every((d) => crewTotals(crewValues[d]).ok);
+
+  const onAddAdditional = () => {
+    additional.append({
+      buildingId: buildings[0]?.id ?? "",
+      discipline: picked[0] ?? "CE",
+      workDescription: "",
+      headcount: 1,
+      actualPercent: 100,
+      timed: false,
+      startTime: "",
+      endTime: "",
+    });
+  };
 
   const onSubmit = handleSubmit(
     (v) => {
@@ -152,6 +179,15 @@ export function useEveningForm({
             allocationId: p.allocationId,
             actualPercent: p.actualPercent,
             countermeasure: p.countermeasure?.trim() || undefined,
+          })),
+          additionalAllocations: v.additionalAllocations.map((a) => ({
+            buildingId: a.buildingId,
+            discipline: a.discipline,
+            workDescription: a.workDescription.trim(),
+            headcount: a.headcount,
+            actualPercent: a.actualPercent,
+            startTime: a.timed && a.startTime ? a.startTime : undefined,
+            endTime: a.timed && a.endTime ? a.endTime : undefined,
           })),
           signatureName: v.signatureName.trim(),
           signatureData: v.signatureData === "existing" ? undefined : v.signatureData,
@@ -218,6 +254,7 @@ export function useEveningForm({
   const accidentNote = useWatch({ control, name: "accidentNote" });
   const accidentCategory = useWatch({ control, name: "accidentCategory" });
   const progressRows = useWatch({ control, name: "progress" });
+  const additionalRows = useWatch({ control, name: "additionalAllocations" }) ?? [];
   const signatureName = useWatch({ control, name: "signatureName" });
   const signatureData = useWatch({ control, name: "signatureData" });
   const forecastRows = useWatch({ control, name: "forecasts" }) ?? [];
@@ -230,7 +267,21 @@ export function useEveningForm({
     { id: "sec-safety", label: "ความปลอดภัย", state: state("sec-safety", accident === false || (accident === true && Boolean(accidentNote?.trim()) && Boolean(accidentCategory))) },
     { id: "sec-ot", label: "ล่วงเวลา (OT)", state: state("sec-ot", true, true) },
     { id: "sec-crew", label: "ผู้ปฏิบัติงานช่วงบ่าย", state: crewsOk ? state("sec-crew", true) : hasError("sec-crew") ? "error" : "todo" },
-    { id: "sec-progress", label: "ผลงานจริง", state: state("sec-progress", progressRows.every((p) => typeof p.actualPercent === "number"), progressRows.length === 0) },
+    {
+      id: "sec-progress",
+      label: "ผลงานจริง",
+      state: state(
+        "sec-progress",
+        progressRows.every((p) => typeof p.actualPercent === "number") &&
+          additionalRows.every(
+            (a) =>
+              Boolean(a?.buildingId) &&
+              Boolean(a?.workDescription?.trim()) &&
+              typeof a?.actualPercent === "number",
+          ),
+        progressRows.length === 0 && additionalRows.length === 0,
+      ),
+    },
     { id: "sec-tomorrow", label: "คำขอวันพรุ่งนี้", state: state("sec-tomorrow", forecastsOk, false) },
     { id: "sec-sign", label: "ลงนามยืนยัน", state: state("sec-sign", Boolean(signatureName.trim()) && Boolean(signatureData)) },
   ];
@@ -240,6 +291,10 @@ export function useEveningForm({
     tomorrowWeek,
     ctx,
     allocations,
+    morningAllocations,
+    additional,
+    additionalRows,
+    onAddAdditional,
     form,
     validationError,
     setValidationError,

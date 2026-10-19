@@ -100,6 +100,16 @@ export interface OvertimeInput {
   hours: number;
 }
 
+export interface AdditionalAllocationInput {
+  buildingId: string;
+  discipline: Discipline;
+  headcount: number;
+  workDescription: string;
+  actualPercent: number;
+  startTime?: string;
+  endTime?: string;
+}
+
 // Evening Daily Request for `date`; machinery / permits / roadUsage are requests for date + 1.
 export interface EveningInput {
   date: string;
@@ -113,6 +123,8 @@ export interface EveningInput {
   // Afternoon crews per discipline (differ from the morning crews).
   crews: CrewInput[];
   progress: EveningProgressInput[];
+  /** Additional / unplanned work done beyond the morning plan */
+  additionalAllocations?: AdditionalAllocationInput[];
   signatureName: string;
   signatureData?: string;
   machinery: MachineryInput[];

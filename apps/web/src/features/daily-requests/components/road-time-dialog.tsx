@@ -85,8 +85,8 @@ export function RoadTimeDialog({
           </Stack>
 
           <Stack direction="row" spacing={1.5}>
-            <TimeSelect label="เวลาเริ่ม" value={start} onChange={setStart} error={!valid} />
-            <TimeSelect label="เวลาสิ้นสุด" value={end} onChange={setEnd} after={start} error={!valid} helperText={valid ? undefined : "เวลาสิ้นสุดต้องหลังเวลาเริ่ม"} />
+            <TimeSelect label="เวลาเริ่ม" sx={{ flex: 1, minWidth: 155 }} value={start} onChange={setStart} error={!valid} />
+            <TimeSelect label="เวลาสิ้นสุด" sx={{ flex: 1, minWidth: 155 }} value={end} onChange={setEnd} after={start} error={!valid} helperText={valid ? undefined : "เวลาสิ้นสุดต้องหลังเวลาเริ่ม"} />
           </Stack>
 
           <Stack spacing={1}>

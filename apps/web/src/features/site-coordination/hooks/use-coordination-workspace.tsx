@@ -83,10 +83,13 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   const unlockDay = async () => {
     try { await dayLock.mutateAsync(false); toast.success("ปลดล็อกแล้ว — แก้ไขได้"); } catch { toast.error("ปลดล็อกไม่สำเร็จ"); }
   };
+  const isEps = isEpsStaff(me.data?.data.user.role);
   const data = query.data?.data;
   const selected = data?.items.find((v) => v.id === selectedId) ?? null;
   const company = data?.contractors.find((c) => c.id === (draft?.contractorId ?? selected?.contractorId));
-  const editableCompanies = data?.contractors.filter((c) => data.editableContractorIds.includes(c.id)) ?? [];
+  const editableCompanies = isEps
+    ? (data?.contractors ?? [])
+    : (data?.contractors.filter((c) => data.editableContractorIds.includes(c.id)) ?? []);
   const geometryError = draft ? coordinationGeometryError(draft.geometry) : null;
   const areaDirty = Boolean(working && (working.input.areaKind !== working.base.areaKind || JSON.stringify(working.input.geometry.points) !== JSON.stringify(working.base.geometry.points)));
   const busy = remove.isPending;
@@ -192,7 +195,10 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     setSelectedId(id);
     setTextEditId(null);
     const item = id ? data?.items.find((v) => v.id === id) : null;
-    updateWorking(item && !readOnly && data?.editableContractorIds.includes(item.contractorId)
+    const canEdit = Boolean(
+      item && !readOnly && !data?.lock && (isEps || data?.editableContractorIds.includes(item.contractorId))
+    );
+    updateWorking(canEdit && item
       ? { id: item.id, revision: item.revision, base: inputOf(item), input: inputOf(item) } : null);
   };
   // The company filtered alone, if the user may edit it — the suggested choice for a new item.
@@ -324,6 +330,8 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     areaDirty={areaDirty}
     geometryError={geometryError}
     saving={pending || save.isPending}
+    isLocked={Boolean(data?.lock)}
+    isEps={isEps}
     onPatch={patchItem}
     onDrawFree={drawPolygon}
     onMakeRectangle={makeRectangle}
