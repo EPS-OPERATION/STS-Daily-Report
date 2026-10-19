@@ -25,6 +25,7 @@ import MoreHoriz from "@mui/icons-material/MoreHoriz";
 import ChevronLeftOutlined from "@mui/icons-material/ChevronLeftOutlined";
 import ChevronRightOutlined from "@mui/icons-material/ChevronRightOutlined";
 import TuneOutlined from "@mui/icons-material/TuneOutlined";
+import FormatListBulletedOutlined from "@mui/icons-material/FormatListBulletedOutlined";
 import { Link as RouterLink } from "react-router-dom";
 import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
 import RouteOutlined from "@mui/icons-material/RouteOutlined";
@@ -42,6 +43,7 @@ const CoordinationCanvas = lazy(() => import("./coordination-canvas.js").then((m
 export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
   const { date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadLines, roadNameGroups, roadNames, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, startCreate, counter, goToDate, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact, phone, fill, placing, setPlacing, placeItem } = ed;
   const [panelOpen, setPanelOpen] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
   if (!data) return null;
   const canLock = !readOnly && data.canLock && !data.lock;
@@ -139,6 +141,11 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
             </Typography>
           </Stack>
         )}
+        {/* Phone: the job list lives behind this button (a dot = there is a day note to read). */}
+        {phone && !placing && <Badge color="warning" variant="dot" invisible={!data.dayNote?.note} sx={{ position: "absolute", top: 12, right: 12, zIndex: 30 }}>
+          <Button variant="outlined" startIcon={<FormatListBulletedOutlined />} onClick={() => setListOpen(true)}
+            sx={{ whiteSpace: "nowrap", bgcolor: "background.paper", boxShadow: 3, "&:hover": { bgcolor: "background.paper" } }}>Jobs · {items.length}</Button>
+        </Badge>}
         {/* Phone: big thumb-reach buttons on the map (zoom controls sit bottom-right). */}
         {phone && !readOnly && !draft && !selected && !placing && <Stack direction="row" spacing={1} sx={{ position: "absolute", left: 12, bottom: 14, zIndex: 30 }}>
           <Button variant="contained" size="large" startIcon={<AddOutlined />} onClick={(e) => setAddAnchor(e.currentTarget)} disabled={addDisabled} sx={{ whiteSpace: "nowrap", boxShadow: 3 }}>Add item</Button>
@@ -149,7 +156,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
         : !compact && !phone && display.jobList && <CoordinationJobList embedded items={items} contractors={data.contractors} clashCodes={clashCodes} selectedId={selectedId} onSelect={selectItem} onCollapse={() => setDisplay({ ...display, jobList: false })}
           footer={<DayNote date={date} dayNote={data.dayNote} canEdit={!readOnly && data.canEditDayNote} onSave={(note) => saveDayNote.mutateAsync(note)} />} />}
       </Box>
-      {/* Phone drawer: quick days, filters, display, EPS actions, then the job list + day note. */}
+      {/* Phone drawer: quick days, filters, display, EPS actions. */}
       {phone && <Drawer anchor="bottom" open={panelOpen} onClose={() => setPanelOpen(false)}
         slotProps={{ paper: { sx: { maxHeight: "85dvh", borderTopLeftRadius: 16, borderTopRightRadius: 16 } } }}>
         <Stack spacing={1.25} sx={{ p: 1.5 }}>
@@ -169,7 +176,12 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
           </Stack>
           {epsActions}
         </Stack>
-        <CoordinationJobList embedded items={items} contractors={data.contractors} clashCodes={clashCodes} selectedId={selectedId} onSelect={(id) => { setPanelOpen(false); selectItem(id); }}
+      </Drawer>}
+      {/* Phone: the job list + day note get their own drawer (opened from the Jobs button on the map). */}
+      {phone && <Drawer anchor="bottom" open={listOpen} onClose={() => setListOpen(false)}
+        slotProps={{ paper: { sx: { maxHeight: "75dvh", borderTopLeftRadius: 16, borderTopRightRadius: 16, display: "flex", flexDirection: "column" } } }}>
+        <CoordinationJobList embedded items={items} contractors={data.contractors} clashCodes={clashCodes} selectedId={selectedId}
+          onSelect={(id) => { setListOpen(false); selectItem(id); }} onCollapse={() => setListOpen(false)}
           footer={<DayNote date={date} dayNote={data.dayNote} canEdit={!readOnly && data.canEditDayNote} onSave={(note) => saveDayNote.mutateAsync(note)} />} />
       </Drawer>}
     </Box>

@@ -563,7 +563,8 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
         </Stack>
       </Popper>;
     })()}
-      {!readOnly && <Stack direction="column" spacing={0.5} sx={{ position: "absolute", bottom: 14, right: 14, zIndex: 30, bgcolor: "rgba(255,255,255,0.92)", backdropFilter: "blur(6px)", p: 0.5, borderRadius: 2, border: "1px solid rgba(0,0,0,0.12)", boxShadow: 2 }}>
+      {/* Phones: zoom sits above the floating Add item / Draw road buttons (they share the bottom edge). */}
+      {!readOnly && <Stack direction="column" spacing={0.5} sx={{ position: "absolute", bottom: fill && coarse ? 72 : 14, right: 14, zIndex: 30, bgcolor: "rgba(255,255,255,0.92)", backdropFilter: "blur(6px)", p: 0.5, borderRadius: 2, border: "1px solid rgba(0,0,0,0.12)", boxShadow: 2 }}>
         <IconButton size="small" aria-label="Zoom in" disabled={zoom >= 6} onClick={() => changeZoom(1.25)}><AddOutlined fontSize="small" /></IconButton>
         <Typography variant="caption" sx={{ textAlign: "center", fontSize: 10, fontWeight: 700 }}>{Math.round(zoom * 100)}%</Typography>
         <IconButton size="small" aria-label="Zoom out" disabled={zoom <= 1} onClick={() => changeZoom(1 / 1.25)}><RemoveOutlined fontSize="small" /></IconButton>
