@@ -7,6 +7,11 @@ export const contractors = pgTable("contractors", {
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   isContractor: boolean("is_contractor").notNull().default(true),
+  // Site contact for the company (EPS admin keeps it on /contractors).
+  contactName: text("contact_name"),
+  contactPhone: text("contact_phone"),
+  // false = deactivated by EPS: left out of sign-up, filters, map pickers and new reports; its data stays.
+  active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

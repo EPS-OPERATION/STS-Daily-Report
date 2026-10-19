@@ -288,6 +288,13 @@
       "when": 1792387698889,
       "tag": "0040_merge_companies",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792415629858,
+      "tag": "0041_contractor_contact_active",
+      "breakpoints": true
     }
   ]
 }

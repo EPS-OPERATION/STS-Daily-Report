@@ -43,14 +43,17 @@ export async function getActivityById(db: Db, id: string) {
   return rows[0] ?? null;
 }
 
+// A deactivated company no longer takes new reports or requests.
 export async function isContractorInProject(db: Db, projectId: string, contractorId: string) {
   const rows = await db
     .select({ contractorId: projectContractors.contractorId })
     .from(projectContractors)
+    .innerJoin(contractors, eq(contractors.id, projectContractors.contractorId))
     .where(
       and(
         eq(projectContractors.projectId, projectId),
         eq(projectContractors.contractorId, contractorId),
+        eq(contractors.active, true),
       ),
     )
     .limit(1);

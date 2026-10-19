@@ -15,7 +15,7 @@ export async function listProjectContractors(db: Db, projectId: string) {
     .select({ id: contractors.id, code: contractors.code, name: contractors.name })
     .from(projectContractors)
     .innerJoin(contractors, eq(projectContractors.contractorId, contractors.id))
-    .where(and(eq(projectContractors.projectId, projectId), eq(contractors.isContractor, true)))
+    .where(and(eq(projectContractors.projectId, projectId), eq(contractors.isContractor, true), eq(contractors.active, true)))
     .orderBy(asc(contractors.code));
 }
 
