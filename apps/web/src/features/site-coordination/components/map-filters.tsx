@@ -18,6 +18,8 @@ import { MachineGlyph } from "./machine-icon.js";
 export interface MapDisplay {
   /** Road routes (arrows) drawn by contractors. */
   roads: boolean;
+  /** Names of the register roads (Map page only). */
+  roadNames: boolean;
   areas: boolean;
   labels: boolean;
   notes: boolean;
@@ -27,7 +29,7 @@ export interface MapDisplay {
   jobList: boolean;
 }
 
-export const DEFAULT_MAP_DISPLAY: MapDisplay = { roads: true, areas: true, labels: true, notes: true, links: true, chips: true, detailCard: true, jobList: true };
+export const DEFAULT_MAP_DISPLAY: MapDisplay = { roads: true, roadNames: true, areas: true, labels: true, notes: true, links: true, chips: true, detailCard: true, jobList: true };
 
 const DISPLAY_KEY = "sts_map_display_v1";
 
@@ -49,6 +51,7 @@ export function saveMapDisplay(display: MapDisplay) {
 }
 
 const DISPLAY_OPTIONS: { key: keyof MapDisplay; label: string; hint: string; group: "map" | "detail" }[] = [
+  { key: "roadNames", label: "Road names", hint: "ชื่อถนนจากทะเบียนถนน (ไม่มีเส้น)", group: "map" },
   { key: "roads", label: "Road routes", hint: "เส้นและลูกศรทิศทางที่ผู้รับเหมาใช้ถนน", group: "map" },
   { key: "areas", label: "Work areas", hint: "กรอบสีขอบเขตที่ใช้", group: "map" },
   { key: "labels", label: "Item labels", hint: "ข้อความสั้นบนผัง", group: "map" },
@@ -103,15 +106,16 @@ export function TypeFilter({
 }
 
 // Display switches (what is drawn on the map / which detail panels show).
-export function DisplayOptions({ value, onChange }: { value: MapDisplay; onChange: (next: MapDisplay) => void }) {
+export function DisplayOptions({ value, onChange, exclude = [] }: { value: MapDisplay; onChange: (next: MapDisplay) => void; exclude?: (keyof MapDisplay)[] }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const hidden = DISPLAY_OPTIONS.filter((o) => !value[o.key]).length;
+  const options = DISPLAY_OPTIONS.filter((o) => !exclude.includes(o.key));
+  const hidden = options.filter((o) => !value[o.key]).length;
   const section = (group: "map" | "detail", title: string) => (
     <Box sx={{ py: 0.5 }}>
       <Typography variant="overline" color="text.secondary" sx={{ px: 1.75, lineHeight: 2 }}>
         {title}
       </Typography>
-      {DISPLAY_OPTIONS.filter((o) => o.group === group).map((o) => (
+      {options.filter((o) => o.group === group).map((o) => (
         <Stack
           key={o.key}
           direction="row"

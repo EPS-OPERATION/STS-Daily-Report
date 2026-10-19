@@ -28,7 +28,7 @@ import type { UseCoordinationWorkspaceState } from "../hooks/use-coordination-wo
 const CoordinationCanvas = lazy(() => import("./coordination-canvas.js").then((module) => ({ default: module.CoordinationCanvas })));
 
 export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
-  const { date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadLines, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, createItem, counter, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact } = ed;
+  const { date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadLines, roadNameGroups, roadNames, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, createItem, counter, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact } = ed;
   if (!data) return null;
   return (
     <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, overflow: "hidden", bgcolor: "background.paper", mb: compact ? 0 : 2 }}>
@@ -57,7 +57,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
           {searchControl}
           <Box sx={{ flex: 1, display: { xs: "none", sm: "block" } }} />
           {counter}
-          <DisplayOptions value={display} onChange={setDisplay} />
+          <DisplayOptions value={display} onChange={setDisplay} exclude={roadNames ? [] : ["roadNames"]} />
         </Stack>
       </Stack>}
       {data.lock && <DayLockBanner lock={data.lock} canUnlock={!readOnly && data.canLock} busy={dayLock.isPending} onUnlock={() => void unlockDay()} />}
@@ -76,7 +76,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
           onSelect={selectItem} onChange={patchItem} onFinish={finish}
           onDeselect={() => selectItem(null)}
           textEditing={textEditId !== null && textEditId === working?.id} onEditText={() => { if (workingRef.current) setTextEditId(workingRef.current.id); }}
-          display={display} clashes={clashes} roads={roadLines} /></Suspense>
+          display={display} clashes={clashes} roads={roadLines} roadNames={roadNameGroups} /></Suspense>
         {/* Detail card for the clicked job (contractor · title · type · area · full note); on every map. */}
         {(compact || display.detailCard) && selected && !textEditId && tool === "move" && (
           <Box sx={{ position: "absolute", left: 12, top: 44, width: "min(340px, calc(100% - 24px))", px: 1.75, py: 1.5, bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 2, boxShadow: "0 6px 20px rgba(15, 23, 42, 0.12)", zIndex: 2 }}>
