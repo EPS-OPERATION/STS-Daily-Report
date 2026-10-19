@@ -1,4 +1,4 @@
-import { coordinationGeometryError, coordinationRouteClashes, coordinationToday, COORDINATION_ICONS, isEpsStaff, type CoordinationIcon, type CoordinationInput, type CoordinationItem } from "@sts/shared";
+import { coordinationGeometryError, coordinationRouteClashes, coordinationToday, COORDINATION_ICONS, isEpsStaff, type CoordinationIcon, type CoordinationInput, type CoordinationItem, type CoordinationPoint } from "@sts/shared";
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import Button from "@mui/material/Button";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -18,7 +18,7 @@ import { useMe } from "@/features/auth/index.js";
 import { ContractorFilterPopover } from "@/features/contractors/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
-import { useCoordination, useCoordinationColor, useDayLock, useDeleteCoordination, useSaveCoordination, useSaveDayNote } from "./use-coordination.js";
+import { useCoordination, useCoordinationColor, useDayLock, useDeleteCoordination, useRoadSegments, useSaveCoordination, useSaveDayNote } from "./use-coordination.js";
 import { coordinationFormSchema } from "../schemas/coordination.schema.js";
 import type { MapTool } from "../components/coordination-canvas.js";
 import { CoordinationInspector } from "../components/coordination-inspector.js";
@@ -34,7 +34,7 @@ export const inputOf = (item: CoordinationItem): CoordinationInput => ({
 // `base` keeps the last persisted state so an invalid in-progress drawing can be reverted.
 export interface Working { id: string; revision: number; base: CoordinationInput; input: CoordinationInput }
 
-export function useCoordinationWorkspace({ readOnly = false, compact = false }: { readOnly?: boolean; compact?: boolean }) {
+export function useCoordinationWorkspace({ readOnly = false, compact = false, roadNames = false }: { readOnly?: boolean; compact?: boolean; roadNames?: boolean }) {
   const { projectId, projects } = useCurrentProject();
   const me = useMe();
   const [activeProject, setActiveProject] = useState(projectId);
@@ -67,6 +67,8 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false }: 
   const timerRef = useRef<number | null>(null);
   const draft = working?.input ?? null;
   const query = useCoordination(activeProject, date);
+  // Register road names under everything (Map page only): one label per name, pieces of a cut road share it.
+  const register = useRoadSegments(roadNames ? activeProject : null);
   const save = useSaveCoordination(activeProject);
   const remove = useDeleteCoordination(activeProject);
   const changeColor = useCoordinationColor(activeProject);
@@ -106,6 +108,14 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false }: 
     ? coordinationRouteClashes(data.items.map((i) => (working && i.id === working.id ? { ...i, ...working.input } : i)), data.map.width, data.map.height)
     : new Map<string, string[]>();
   const clashCodes = (id: string) => (clashes.get(id) ?? []).map(codeOf).filter(Boolean);
+  const roadNameGroups = roadNames && display.roadNames
+    ? [...(register.data?.data ?? []).reduce((m, s) => {
+        const key = s.name.trim().toLowerCase();
+        const g = m.get(key) ?? { name: s.name, pieces: [] as CoordinationPoint[][] };
+        g.pieces.push(s.points);
+        return m.set(key, g);
+      }, new Map<string, { name: string; pieces: CoordinationPoint[][] }>()).values()]
+    : [];
   // Road requests for this day with the company and time (same filters as jobs).
   const roadLines = display.roads ? (data?.roads ?? [])
     .filter((r) => !contractorIds || contractorIds.has(r.contractorId))
@@ -384,6 +394,8 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false }: 
     clashes,
     clashCodes,
     roadLines,
+    roadNameGroups,
+    roadNames,
     q,
     items,
     typeFiltered,

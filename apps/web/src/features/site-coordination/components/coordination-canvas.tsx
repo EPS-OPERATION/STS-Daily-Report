@@ -62,13 +62,15 @@ interface Props {
   /** Road requests of the day (Daily Request): arrows under the jobs, red outline on a clash. */
   /** `arrows`: false for a road picked from the register (no direction), true for a drawn route. */
   roads?: { id: string; points: CoordinationPoint[]; color: string; label: string; alert: boolean; arrows?: boolean }[];
+  /** Register road names (no lines): one label per road, on its longest piece. */
+  roadNames?: { name: string; pieces: CoordinationPoint[][] }[];
 }
 
 const NO_CLASHES: ReadonlyMap<string, string[]> = new Map();
 
 const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true };
 
-export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, onReady, clashes = NO_CLASHES, roads = [] }: Props) {
+export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, onReady, clashes = NO_CLASHES, roads = [], roadNames = [] }: Props) {
   const theme = useTheme();
   // Point-by-point drawing: a free-shape area (closed) or a road route (open line).
   const drawingTool = tool === "polygon" || tool === "route";
@@ -254,6 +256,21 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
               <Rect x={minX} y={minY} width={maxX - minX} height={maxY - minY} stroke={theme.palette.grey[400]} strokeWidth={1.5 / scale} dash={[8 / scale, 6 / scale]} />
             </>;
           })()}
+        </Layer>}
+        {roadNames.length > 0 && <Layer listening={false}>
+          {roadNames.map((road) => {
+            const pieceLength = (pts: CoordinationPoint[]) =>
+              pts.slice(1).reduce((sum, p, i) => sum + Math.hypot((p.x - pts[i]!.x) * map.width, (p.y - pts[i]!.y) * map.height), 0);
+            const longest = road.pieces.reduce((a, b) => (pieceLength(b) > pieceLength(a) ? b : a), road.pieces[0] ?? []);
+            if (longest.length < 2) return null;
+            const mid = routeMidpoint(longest, map.width, map.height);
+            return (
+              <Group key={road.name} x={mid.x} y={mid.y} scaleX={1 / scale} scaleY={1 / scale}>
+                <Text text={road.name} width={180} offsetX={90} offsetY={7} align="center" fontSize={12} fontStyle="bold"
+                  fill={theme.palette.text.secondary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled />
+              </Group>
+            );
+          })}
         </Layer>}
         <Layer listening={false}>
           {roads.map((road, index) => {
