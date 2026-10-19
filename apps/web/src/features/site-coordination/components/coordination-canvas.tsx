@@ -17,6 +17,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
 import InputBase from "@mui/material/InputBase";
 import Popper from "@mui/material/Popper";
 import Stack from "@mui/material/Stack";
@@ -24,7 +25,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Konva from "konva";
 import { clamp } from "../utils/canvas-geometry.js";
-import { scanContent } from "../utils/canvas-geometry.js";
+import { previewImagePath, scanContent } from "../utils/canvas-geometry.js";
 import { routeMidpoint } from "../utils/canvas-geometry.js";
 import { RouteMarks } from "./route-marks.js";
 import { REPORT_ROOM } from "../utils/canvas-report.js";
@@ -98,9 +99,6 @@ const MAX_PIXEL_RATIO = 2;
 /** After the wheel/pinch stops, the zoom is handed back to React (labels and line widths re-fit). */
 const GESTURE_SETTLE_MS = 140;
 
-// A lighter copy of the background drawing (`<name>.preview.webp`, ~3200px) is used for the live map;
-// the full-size file only loads when zoomed in far enough on a desktop, and always for the print report.
-export const previewImagePath = (path: string) => path.replace(/\.(png|jpe?g)$/i, ".preview.webp");
 const isCoarsePointer = () => typeof window !== "undefined" && Boolean(window.matchMedia?.("(pointer: coarse)").matches);
 
 const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true, markSize: MARK_SCALE };
@@ -410,19 +408,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
       <AddOutlined fontSize="small" color="primary" />
       <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}>แตะบนผังตรงจุดที่ทำงาน</Typography>
       <Button size="small" color="inherit" onClick={onCancelPlace} sx={{ whiteSpace: "nowrap" }}>Cancel</Button>
-    </Stack> : !readOnly && (drawingTool && draft ? (() => {
-      const n = draft.geometry.points.length;
-      const step = tool === "route"
-        ? n === 0 ? "แตะจุดเริ่มต้นบนถนน — ลูกศรจะชี้ตามลำดับที่แตะ" : n < 2 ? "แตะจุดถัดไปตามถนน" : `วางแล้ว ${n} จุด — แตะต่อตามถนน หรือกด Done / Enter`
-        : n === 0 ? "คลิกบนผังเพื่อวางจุดมุมแรกของพื้นที่" : n < 3 ? `วางจุดมุมแล้ว ${n} จุด — วางต่ออีกอย่างน้อย ${3 - n} จุด` : `วางแล้ว ${n} จุด — คลิกจุดแรก (วงใหญ่) หรือกด Enter เพื่อปิดรูป`;
-      return <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: alpha(theme.palette.primary.main, 0.06) }}>
-        {tool === "route" ? <AddRoadOutlined fontSize="small" color="primary" /> : <PentagonOutlined fontSize="small" color="primary" />}
-        <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0, flex: { xs: "1 1 calc(100% - 32px)", sm: "1 1 0" }, overflowWrap: "anywhere" }}>{step}</Typography>
-        <Button size="small" startIcon={<UndoOutlined fontSize="small" />} disabled={!n} onClick={() => onChange({ geometry: { type: drawType, points: draft.geometry.points.slice(0, -1) } })} sx={{ whiteSpace: "nowrap" }}>Undo point</Button>
-        <Button size="small" color="inherit" disabled={!n} onClick={() => onChange({ geometry: { type: drawType, points: [] } })} sx={{ whiteSpace: "nowrap", display: { xs: "none", sm: "inline-flex" } }}>Redraw</Button>
-        <Button size="small" variant="contained" disableElevation startIcon={<CheckOutlined fontSize="small" />} disabled={n < minPoints || Boolean(coordinationGeometryError(draft.geometry))} onClick={onFinish} sx={{ whiteSpace: "nowrap" }}>Done</Button>
-      </Stack>;
-    })() : (!fill || (draft && !coarse)) && <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider" }}>
+    </Stack> : !readOnly && (drawingTool && draft ? null : (!fill || (draft && !coarse)) && <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider" }}>
       {draft ? "ลากไอคอนไปจุดทำงาน · ลากพื้นที่เพื่อย้าย · มุมสี่เหลี่ยมปรับขนาด/หมุน · ดับเบิลคลิกเพื่อแก้ชื่อ · ตั้งค่าอื่นที่แผงด้านข้าง" : "คลิกงานเพื่อดูและแก้ไข · ลากผังว่างเพื่อเลื่อน · ล้อเมาส์เพื่อซูม"}
     </Typography>)}
     {imageError ? <Alert severity="error" sx={{ m: 1.5 }}>โหลดภาพผังไม่สำเร็จ กรุณาตรวจภาพพื้นหลังแล้วลองใหม่</Alert> : <Box ref={stageBox} role="img" aria-label="Daily plan. Select an item from the side list to see details." sx={{ position: "relative", bgcolor: "background.paper", touchAction: "none", cursor: drawingTool || placing ? "crosshair" : undefined, ...(fill && { flex: 1, minHeight: 0, overflow: "hidden" }) }}>
@@ -504,6 +490,34 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
           {ripple && <TapRipple key={ripple.key} x={ripple.x} y={ripple.y} scale={scale} color={theme.palette.primary.main} onDone={() => setRipple(null)} />}
         </>}</JobsLayer>
       </Stage>
+      {/* Drawing a road / free area (live, in the meeting): the instruction is a small pill at the top
+          (never blocks taps) and the controls float at the bottom within thumb reach — Done is the one
+          primary action, Undo is labelled (used often), Start over is icon-only (rare). */}
+      {!readOnly && drawingTool && draft && (() => {
+        const n = draft.geometry.points.length;
+        const step = tool === "route"
+          ? n === 0 ? "แตะจุดเริ่มต้นบนถนน" : n < 2 ? "แตะจุดถัดไปตามถนน" : "แตะต่อตามถนน หรือกด Done"
+          : n === 0 ? "แตะมุมแรกของพื้นที่" : n < 3 ? `วางต่ออีก ${3 - n} มุม` : "แตะจุดแรกเพื่อปิดรูป หรือกด Done";
+        const ready = n >= minPoints && !coordinationGeometryError(draft.geometry);
+        const h = coarse ? 44 : 38;
+        return <>
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 30, maxWidth: "calc(100% - 24px)",
+            px: 1.5, py: 0.75, bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 999, pointerEvents: "none" }}>
+            {tool === "route" ? <AddRoadOutlined fontSize="small" color="primary" /> : <PentagonOutlined fontSize="small" color="primary" />}
+            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>{step}</Typography>
+          </Stack>
+          <Paper elevation={6} sx={{ position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)", zIndex: 31, p: 0.75, borderRadius: 999, display: "flex", gap: 0.75, alignItems: "center", maxWidth: "calc(100% - 24px)" }}>
+            <Button variant="outlined" color="inherit" startIcon={<UndoOutlined />} disabled={!n} sx={{ height: h, borderRadius: 999, borderColor: "divider", whiteSpace: "nowrap" }}
+              onClick={() => onChange({ geometry: { type: drawType, points: draft.geometry.points.slice(0, -1) } })}>Undo</Button>
+            <Tooltip title="Start over"><span>
+              <IconButton aria-label="Start over" disabled={!n} sx={{ width: h, height: h }} onClick={() => onChange({ geometry: { type: drawType, points: [] } })}><RestartAltOutlined /></IconButton>
+            </span></Tooltip>
+            <Button variant="contained" disableElevation startIcon={<CheckOutlined />} disabled={!ready} onClick={onFinish} sx={{ height: h, borderRadius: 999, px: 2.25, whiteSpace: "nowrap" }}>
+              Done{n ? ` · ${n} จุด` : ""}
+            </Button>
+          </Paper>
+        </>;
+      })()}
       {drawingTool && draft && hover && draft.geometry.points.length > 0 && (() => {
         const pts = draft.geometry.points;
         const last = pts[pts.length - 1]!, first = pts[0]!;

@@ -90,3 +90,7 @@ export function routeMidpoint(points: CoordinationPoint[], width: number, height
   }
   return px[0] ?? { x: 0, y: 0 };
 }
+
+// A lighter copy of the background drawing (`<name>.preview.webp`, ~3200px) for the live maps;
+// the full-size file is only for zooming in close on desktop and for the print report.
+export const previewImagePath = (path: string) => path.replace(/\.(png|jpe?g)$/i, ".preview.webp");

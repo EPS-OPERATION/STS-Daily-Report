@@ -22,7 +22,7 @@ import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import type { UserRole } from "@sts/shared";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { CommandPalette } from "@/app/command-palette/command-palette.js";
 import { PaletteShortcutHint, useCommandPaletteShortcut } from "@/app/command-palette/shortcut-hint.js";
 import { UserMenu } from "@/features/auth/components/user-menu.js";
@@ -247,7 +247,25 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
   );
 }
 
+// Same product name as the login screen and the reset email.
+const APP_TITLE = "STS Platform";
+// Pages without a sidebar entry of their own.
+const EXTRA_TITLES: NavItem[] = [{ to: "/site-coordination/roads", label: "Road register", icon: "sitePlan" }];
+
+/** Browser tab title = the page's sidebar name, so several open tabs can be told apart. */
+function useTabTitle() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const items = [...GROUPS.flatMap((g) => g.items), ...EXTRA_TITLES];
+    const page = items
+      .filter((i) => (i.to === "/" ? pathname === "/" : pathname === i.to || pathname.startsWith(`${i.to}/`)))
+      .sort((a, b) => b.to.length - a.to.length)[0];
+    document.title = page ? `${page.label} · ${APP_TITLE}` : APP_TITLE;
+  }, [pathname]);
+}
+
 export function AppLayout() {
+  useTabTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const { projectId, setProjectId, projects, loading: projectsLoading } = useCurrentProject();

@@ -264,7 +264,7 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     finally { setCreating(false); }
   };
   const reload = () => { updateWorking(null); setSelectedId(null); save.reset(); void query.refetch(); };
-  // Auto-save failures surface as a bottom-right toast with a recovery action
+  // Auto-save failures surface as a top-right toast with a recovery action
   // (same id, so repeated failures replace instead of stacking).
   useEffect(() => {
     if (!save.isError || !save.error) return;

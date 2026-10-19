@@ -142,7 +142,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
           </Stack>
         )}
         {/* Phone: the job list lives behind this button (a dot = there is a day note to read). */}
-        {phone && !placing && <Badge color="warning" variant="dot" invisible={!data.dayNote?.note} sx={{ position: "absolute", top: 12, right: 12, zIndex: 30 }}>
+        {phone && !placing && tool === "move" && <Badge color="warning" variant="dot" invisible={!data.dayNote?.note} sx={{ position: "absolute", top: 12, right: 12, zIndex: 30 }}>
           <Button variant="outlined" startIcon={<FormatListBulletedOutlined />} onClick={() => setListOpen(true)}
             sx={{ whiteSpace: "nowrap", bgcolor: "background.paper", boxShadow: 3, "&:hover": { bgcolor: "background.paper" } }}>Jobs · {items.length}</Button>
         </Badge>}
