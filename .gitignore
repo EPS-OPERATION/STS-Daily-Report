@@ -20,3 +20,4 @@ coverage/
 supabase/.temp
 .vscode/
 backups/
+.claude-tmp/

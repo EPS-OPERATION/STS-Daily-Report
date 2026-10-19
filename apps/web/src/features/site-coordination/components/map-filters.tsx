@@ -13,7 +13,7 @@ import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
 import { FilterButton, MultiSelectFilter, type FilterOption } from "@/components/ui/filter-popover.js";
 import { ICON_LABELS } from "../types/icon-labels.js";
-import { MARK_SCALE, MARK_SCALE_MAX, MARK_SCALE_MIN } from "../utils/canvas-text.js";
+import { MARK_SCALE, MARK_SCALE_MAX, MARK_SCALE_MIN, OLD_MARK_SCALES } from "../utils/canvas-text.js";
 import { MachineGlyph } from "./machine-icon.js";
 
 // What the map draws (per browser): the job icon is always shown, everything else can be switched off.
@@ -44,7 +44,7 @@ export function loadMapDisplay(): MapDisplay {
     const raw = localStorage.getItem(DISPLAY_KEY);
     if (!raw) return DEFAULT_MAP_DISPLAY;
     const saved = { ...DEFAULT_MAP_DISPLAY, ...(JSON.parse(raw) as Partial<MapDisplay>) };
-    const size = Number(saved.markSize);
+    const size = OLD_MARK_SCALES.includes(Number(saved.markSize)) ? MARK_SCALE : Number(saved.markSize);
     return { ...saved, markSize: Number.isFinite(size) ? Math.min(MARK_SCALE_MAX, Math.max(MARK_SCALE_MIN, size)) : MARK_SCALE };
   } catch {
     return DEFAULT_MAP_DISPLAY;

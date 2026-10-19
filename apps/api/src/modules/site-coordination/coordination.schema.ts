@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { COORDINATION_MAX, COORDINATION_MIN } from "@sts/shared";
+import { COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN, COORDINATION_MAX, COORDINATION_MIN } from "@sts/shared";
 const uuid = t.String({ format: "uuid" });
 export const projectParams = t.Object({ projectId: uuid });
 export const itemParams = t.Object({ projectId: uuid, id: uuid });
@@ -16,6 +16,7 @@ const fields = {
   geometry: t.Object({ type: t.Union([t.Literal("polygon"), t.Literal("polyline")]), points: t.Array(point, { minItems: 2, maxItems: 500 }) }),
   linkArea: t.Optional(t.Boolean()),
   twoWay: t.Optional(t.Boolean()),
+  iconScale: t.Optional(t.Number({ minimum: COORDINATION_ICON_SCALE_MIN, maximum: COORDINATION_ICON_SCALE_MAX })),
   note: t.Optional(t.Union([t.String({ maxLength: 1000 }), t.Null()])),
 };
 export const createBody = t.Object(fields, { additionalProperties: false });

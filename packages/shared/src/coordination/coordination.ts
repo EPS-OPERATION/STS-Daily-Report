@@ -11,6 +11,8 @@ export interface CoordinationInput {
   linkArea?: boolean;
   /** Road routes only: traffic both ways (arrows at both ends). */
   twoWay?: boolean;
+  /** Size of this job's icon marker relative to the default (1); COORDINATION_ICON_SCALE_MIN..MAX. */
+  iconScale?: number;
   /** Optional detail behind the short title (hidden on the map until the job is clicked). */
   note?: string | null;
 }
@@ -66,6 +68,9 @@ export const COORDINATION_COLORS = [
 export const COORDINATION_MARGIN = 0.15;
 export const COORDINATION_MIN = -COORDINATION_MARGIN;
 export const COORDINATION_MAX = 1 + COORDINATION_MARGIN;
+/** Per-job icon size range (1 = default marker size). */
+export const COORDINATION_ICON_SCALE_MIN = 0.5;
+export const COORDINATION_ICON_SCALE_MAX = 2.5;
 
 const cross = (a: CoordinationPoint, b: CoordinationPoint, c: CoordinationPoint) =>
   (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);

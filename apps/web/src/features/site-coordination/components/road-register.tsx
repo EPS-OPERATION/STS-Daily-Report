@@ -5,6 +5,8 @@ import UndoOutlined from "@mui/icons-material/UndoOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
+import { Link as RouterLink } from "react-router-dom";
 import Card from "@mui/material/Card";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -87,7 +89,8 @@ export function RoadRegister() {
 
   return (
     <Box>
-      <PageHeader title="ทะเบียนถนน" subtitle="วาดถนนในไซต์ครั้งเดียว แบ่งเป็นช่วงตามทางแยก — ผู้รับเหมาเลือกช่วงถนนตอนขอใช้ถนน" />
+      <PageHeader title="ทะเบียนถนน" subtitle="วาดถนนในไซต์ครั้งเดียว แบ่งเป็นช่วงตามทางแยก — ผู้รับเหมาเลือกช่วงถนนตอนขอใช้ถนน"
+        actions={<Button component={RouterLink} to="/site-coordination" variant="text" startIcon={<ArrowBackOutlined />}>Back to Map</Button>} />
       {roads.isError || day.isError ? <Alert severity="error" sx={{ mb: 2 }}>โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชหน้า</Alert> : null}
       <Card sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 340px" }, overflow: "hidden" }}>
         <Box sx={{ minWidth: 0, borderRight: { md: 1 }, borderColor: "divider" }}>

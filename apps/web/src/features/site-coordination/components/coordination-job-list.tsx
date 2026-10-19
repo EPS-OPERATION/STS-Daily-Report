@@ -10,7 +10,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
-import { areaLabel, ICON_LABELS } from "../types/icon-labels.js";
+import { ICON_LABELS } from "../types/icon-labels.js";
 import { EmptySection } from "@/components/ui/empty-state.js";
 import { TOKENS } from "@/app/theme/tokens.js";
 import { MachineGlyph } from "./machine-icon.js";
@@ -43,7 +43,7 @@ export function CoordinationJobList({
   const byId = new Map(contractors.map((c) => [c.id, c]));
   const rows = [...items].sort((a, b) => (byId.get(a.contractorId)?.code ?? "").localeCompare(byId.get(b.contractorId)?.code ?? ""));
   const frame = embedded
-    ? { borderTop: { xs: "1px solid", lg: "none" }, borderLeft: { lg: "1px solid" }, borderColor: "divider", height: { lg: 652 }, display: "flex", flexDirection: "column" as const, minHeight: 0 }
+    ? { borderTop: { xs: "1px solid", lg: "none" }, borderLeft: { lg: "1px solid" }, borderColor: "divider", height: { lg: "100%" }, display: "flex", flexDirection: "column" as const, minHeight: 0 }
     : { border: "1px solid", borderColor: "divider", borderRadius: 1 };
   return (
     <Box sx={{ bgcolor: "background.paper", ...frame }}>
@@ -100,7 +100,7 @@ export function CoordinationJobList({
                   {c?.code ?? "—"}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" noWrap>
-                  {c?.name} · {ICON_LABELS[item.icon]} · {areaLabel(item)}
+                  {c?.name} · {ICON_LABELS[item.icon]}
                 </Typography>
                 {clashCodes?.(item.id).length ? (
                   <Chip size="small" color="error" label={`ทับเส้นทาง ${clashCodes(item.id).join(", ")}`} sx={{ height: 20, flexShrink: 0 }} />

@@ -1,3 +1,5 @@
+import Slider from "@mui/material/Slider";
+import { COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN } from "@sts/shared";
 import type { CoordinationContractor, CoordinationInput, CoordinationItem } from "@sts/shared";
 import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
 import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
@@ -139,7 +141,16 @@ export function CoordinationInspector({
               <TextField size="small" fullWidth multiline minRows={3} maxRows={8} value={draft.note ?? ""} onChange={(e) => onPatch({ note: e.target.value.slice(0, 1000) })}
                 placeholder="เช่น ยก A Frame 09:00–12:00 · ปิดถนน R2 ชั่วคราว" />
             </Field>
+            {draft.icon !== "text" && draft.areaKind !== "route" ? (
+              <Field label={`Icon size · ${Math.round((draft.iconScale ?? 1) * 100)}%`}>
+                {/* Same value as the round handle on the icon's ring on the map. */}
+                <Slider size="small" min={COORDINATION_ICON_SCALE_MIN} max={COORDINATION_ICON_SCALE_MAX} step={0.05} value={draft.iconScale ?? 1}
+                  marks={[{ value: 1 }]} onChange={(_, v) => onPatch({ iconScale: v as number })} aria-label="Icon size" sx={{ mx: 1, width: "auto" }} />
+              </Field>
+            ) : null}
             <Field label="Contractor">
+              {/* The colour control sits beside the company it recolours (EPS only), not as a separate action. */}
+              <Stack direction="row" spacing={1} alignItems="center">
               <TextField select size="small" fullWidth value={draft.contractorId} onChange={(e) => onPatch({ contractorId: e.target.value })}>
                 {(editableContractors.some((c) => c.id === draft.contractorId) || !company
                   ? editableContractors
@@ -156,10 +167,15 @@ export function CoordinationInspector({
                 ))}
               </TextField>
               {onEditColor && company ? (
-                <Button startIcon={<PaletteOutlined fontSize="small" />} onClick={() => onEditColor(company)} sx={{ alignSelf: "flex-start", textTransform: "none" }}>
-                  เปลี่ยนสี {company.code}
-                </Button>
+                <Tooltip title={`เปลี่ยนสี ${company.code}`}>
+                  <Button variant="outlined" color="inherit" aria-label={`Change colour of ${company.code}`} onClick={() => onEditColor(company)}
+                    sx={{ minWidth: 0, px: 1, flexShrink: 0, borderColor: "divider", gap: 0.75 }}>
+                    <Box component="span" sx={{ width: 14, height: 14, borderRadius: "4px", bgcolor: company.color }} />
+                    <PaletteOutlined fontSize="small" />
+                  </Button>
+                </Tooltip>
               ) : null}
+              </Stack>
             </Field>
             {clashWith.length ? (
               <Alert severity="error" sx={{ py: 0.25 }}>

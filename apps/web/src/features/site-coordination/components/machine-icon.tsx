@@ -34,6 +34,8 @@ function loadSource(icon: MachineIconName) {
 }
 
 const tints = new Map<string, HTMLCanvasElement>();
+/** Pixel size of a tinted icon (covers a 38px marker on a 3x screen and the print snapshot). */
+const TINT_SIZE = 160;
 const tintUrls = new Map<string, string>();
 
 function parseColor(color: string): [number, number, number] {
@@ -61,12 +63,15 @@ function tintIcon(icon: MachineIconName, color: string, source: HTMLImageElement
   const key = `${icon}|${color}`;
   const cached = tints.get(key);
   if (cached) return cached;
-  // Tint at the artwork's native resolution: the canvas then goes through a single
-  // smooth downscale when Konva draws it, which keeps thin details crisp.
+  // Tint at a small working size, not the 1254px artwork: markers are drawn at ~23-38 CSS px
+  // (x2-3 on phones), and Konva redraws every icon on each pan/zoom frame, so a full-size canvas per
+  // icon/colour cost ~100x the pixels for no visible gain. One smooth downscale here keeps details crisp.
+  const side = Math.min(TINT_SIZE, source.naturalWidth || TINT_SIZE);
   const canvas = document.createElement("canvas");
-  canvas.width = source.naturalWidth; canvas.height = source.naturalHeight;
+  canvas.width = side; canvas.height = side;
   const context = canvas.getContext("2d")!;
-  context.drawImage(source, 0, 0);
+  context.imageSmoothingQuality = "high";
+  context.drawImage(source, 0, 0, side, side);
   const frame = context.getImageData(0, 0, canvas.width, canvas.height);
   const data = frame.data;
   const [r, g, b] = parseColor(color);

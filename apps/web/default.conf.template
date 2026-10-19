@@ -15,9 +15,16 @@ server {
     try_files $uri /index.html;
   }
 
-  location ~* \.(js|css|png|jpg|jpeg|svg|ico|woff2?)$ {
+  # Vite output: content-hashed names, safe to cache for good.
+  location ^~ /assets/ {
     include /etc/nginx/conf.d/security-headers.inc;
     expires 30d;
     add_header Cache-Control "public, immutable";
+  }
+
+  # public/ files (site-plan drawings, previews) keep their names when replaced: 1 day, then revalidate.
+  location ~* \.(js|css|png|jpg|jpeg|webp|svg|ico|woff2?)$ {
+    include /etc/nginx/conf.d/security-headers.inc;
+    expires 1d;
   }
 }
