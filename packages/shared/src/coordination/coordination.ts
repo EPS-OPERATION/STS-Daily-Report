@@ -19,6 +19,8 @@ export interface CoordinationItem extends CoordinationInput {
 }
 export interface CoordinationContractor {
   id: string; code: string; name: string; color: string; revision: number;
+  /** false for the owner company (EPS): its old items still show, but it cannot be picked. */
+  isContractor: boolean;
 }
 /** One shared note for the whole map on a work date (EPS writes, everyone reads). */
 export interface CoordinationDayNote {

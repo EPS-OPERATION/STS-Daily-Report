@@ -7,6 +7,8 @@ import StepLabel from "@mui/material/StepLabel";
 import Stepper from "@mui/material/Stepper";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -31,7 +33,7 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
   // to fit a laptop viewport without scrolling.
   const [step, setStep] = useState(0);
   const { register, handleSubmit, control, watch, trigger, formState: { errors } } = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerFormSchema), defaultValues: { email: "", username: "", password: "", confirmPassword: "", contractorChoice: "", companyName: "" },
+    resolver: zodResolver(registerFormSchema), defaultValues: { email: "", username: "", password: "", confirmPassword: "", accountType: "contractor", contractorChoice: "", companyName: "" },
   });
   if (mutation.isSuccess) return <Stack spacing={2}><Alert severity="success">ส่งคำขอสมัครแล้ว รอผู้ดูแลระบบอนุมัติ</Alert><Typography color="text.secondary">Your account will be available after EPS reviews your request.</Typography><Button onClick={onBack}>Back to sign in</Button></Stack>;
   const next = async () => {
@@ -39,8 +41,8 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
   };
   return (
     <Stack spacing={2} component="form" noValidate onSubmit={handleSubmit((v) => mutation.mutate({
-      email: v.email, username: v.username, password: v.password,
-      ...(v.contractorChoice === "other" ? { companyName: v.companyName } : { contractorId: v.contractorChoice }),
+      email: v.email, username: v.username, password: v.password, accountType: v.accountType,
+      ...(v.accountType === "eps" ? {} : v.contractorChoice === "other" ? { companyName: v.companyName } : { contractorId: v.contractorChoice }),
     }))}>
       <Stepper activeStep={step} sx={{ mb: 0.5 }}>
         <Step><StepLabel>User details</StepLabel></Step>
@@ -57,8 +59,17 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
         </Stack>
       ) : (
         <Stack spacing={2}>
+          {/* EPS staff are not a contractor company: their request goes to the admin as an EPS account. */}
+          <Controller control={control} name="accountType" render={({ field }) => (
+            <ToggleButtonGroup exclusive fullWidth color="primary" value={field.value} onChange={(_, v) => v && field.onChange(v)} disabled={mutation.isPending} aria-label="Account type">
+              <ToggleButton value="contractor" sx={{ fontWeight: 700 }}>ผู้รับเหมา (Contractor)</ToggleButton>
+              <ToggleButton value="eps" sx={{ fontWeight: 700 }}>EPS</ToggleButton>
+            </ToggleButtonGroup>
+          )} />
           <Typography variant="body2" color="text.secondary">
-            Select your company for this project — or choose "Other" if it is not listed yet.
+            {watch("accountType") === "eps"
+              ? "สำหรับทีม EPS — ผู้ดูแลระบบจะอนุมัติและกำหนดสิทธิ์ให้"
+              : "Select your company for this project — or choose \"Other\" if it is not listed yet."}
           </Typography>
           {projects.length > 1 ? (
             <TextField select label="Project" value={projectId ?? ""} onChange={(e) => setPickedProject(e.target.value)}>
@@ -71,8 +82,8 @@ export function RegisterForm({ onBack }: { onBack: () => void }) {
           ) : (
             <TextField label="Project" value={projects[0]?.name ?? (publicProjects.isLoading ? "กำลังโหลด…" : "—")} disabled />
           )}
-          <Controller control={control} name="contractorChoice" render={({ field }) => <ContractorPicker value={field.value} onChange={field.onChange} projectId={projectId ?? undefined} label="Company" error={errors.contractorChoice?.message} disabled={mutation.isPending} />} />
-          {watch("contractorChoice") === "other" && <TextField label="Company name" autoComplete="organization" {...register("companyName")} error={Boolean(errors.companyName)} helperText={errors.companyName?.message} />}
+          {watch("accountType") === "contractor" && <Controller control={control} name="contractorChoice" render={({ field }) => <ContractorPicker value={field.value} onChange={field.onChange} projectId={projectId ?? undefined} label="Company" error={errors.contractorChoice?.message} disabled={mutation.isPending} />} />}
+          {watch("accountType") === "contractor" && watch("contractorChoice") === "other" && <TextField label="Company name" autoComplete="organization" {...register("companyName")} error={Boolean(errors.companyName)} helperText={errors.companyName?.message} />}
           <Stack direction="row" spacing={1.5}>
             <Button type="button" color="inherit" disabled={mutation.isPending} onClick={() => setStep(0)}>Back</Button>
             <Button type="submit" variant="contained" fullWidth disabled={mutation.isPending}>{mutation.isPending ? "Submitting…" : "Request account"}</Button>

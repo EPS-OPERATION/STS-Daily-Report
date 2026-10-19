@@ -23,4 +23,6 @@ export interface ListContractorsQuery {
   order?: "asc" | "desc";
   search?: string;
   projectId?: string;
+  /** Leave out the owner company (EPS) — sign-up and pickers. */
+  contractorsOnly?: boolean;
 }

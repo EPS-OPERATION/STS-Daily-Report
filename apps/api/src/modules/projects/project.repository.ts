@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { contractors, projectContractors, projects } from "@/db/schema/index.js";
 import type { Db } from "@/db/client.js";
 
@@ -15,7 +15,7 @@ export async function listProjectContractors(db: Db, projectId: string) {
     .select({ id: contractors.id, code: contractors.code, name: contractors.name })
     .from(projectContractors)
     .innerJoin(contractors, eq(projectContractors.contractorId, contractors.id))
-    .where(eq(projectContractors.projectId, projectId))
+    .where(and(eq(projectContractors.projectId, projectId), eq(contractors.isContractor, true)))
     .orderBy(asc(contractors.code));
 }
 

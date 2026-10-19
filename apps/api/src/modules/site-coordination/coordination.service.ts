@@ -73,7 +73,7 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
   return {
     map: { id: map.id, projectId, imagePath: map.imagePath, width: map.width, height: map.height },
     contractors: companies.map((c) => ({ ...c, color: c.color!, revision: c.revision! })),
-    items: items.map(dto), roads, editableContractorIds: lock ? [] : isEpsStaff(auth.user.role) ? companies.map((c) => c.id) : memberships.map((m) => m.id),
+    items: items.map(dto), roads, editableContractorIds: lock ? [] : isEpsStaff(auth.user.role) ? companies.filter((c) => c.isContractor).map((c) => c.id) : memberships.map((m) => m.id),
     canManageColors: isEpsStaff(auth.user.role),
     dayNote: dayNote ? { note: dayNote.note, updatedAt: dayNote.updatedAt.toISOString(), updatedByName: dayNote.updatedByName ?? dayNote.updatedByEmail ?? null } : null,
     canEditDayNote: !lock && isEpsStaff(auth.user.role),

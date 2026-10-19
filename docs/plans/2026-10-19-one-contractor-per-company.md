@@ -1,6 +1,6 @@
 # Plan — one contractor per company
 
-Status: **approved scope, ready to build** (nothing built yet). Date: 2026-10-19.
+Status: **built** (PR from branch dev-moji-company). Date: 2026-10-19.
 
 ## Goal
 
@@ -36,7 +36,7 @@ Decisions:
 | ZT | Zhongtian | ZCE |
 | EPS | Eco Plant Services | EPS — owner company, hidden from every contractor list (section 3) |
 
-The company keeps the id of its first old code (e.g. L-tab keeps LCE's id), so links and bookmarks that
+The company keeps the id of one of its old codes (e.g. L-tab keeps LCE's id, Sinoma keeps SME's), so links and bookmarks that
 point at that id keep working. Reports keep the discipline the contractor picked in the form.
 
 ## 2. Database change (one migration, runs by itself in the pipeline)

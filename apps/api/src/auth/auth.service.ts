@@ -53,7 +53,7 @@ export async function loginWithPassword(identifier: string, password: string) {
     return { context, ...session };
   });
 }
-export interface RegisterInput { email: string; username: string; password: string; contractorId?: string; companyName?: string }
+export interface RegisterInput { email: string; username: string; password: string; accountType?: "contractor" | "eps"; contractorId?: string; companyName?: string }
 export async function registerUser(input: RegisterInput) {
   const db = getDb();
   const email = normalizeEmail(input.email);
@@ -61,12 +61,18 @@ export async function registerUser(input: RegisterInput) {
   const username = input.username.trim().toLowerCase();
   const companyName = input.companyName?.trim();
   if (!/^[a-z0-9._-]{3,20}$/.test(username)) throw new ValidationError("Username must be 3–20 characters: a–z, 0–9, dot, underscore or hyphen.");
-  if (Boolean(input.contractorId) === Boolean(companyName)) throw new ValidationError("Choose exactly one contractor or enter a company name.");
-  if (input.contractorId && !(await getContractorById(db, input.contractorId))) throw new ValidationError("Unknown contractor");
+  const eps = input.accountType === "eps";
+  if (eps && (input.contractorId || companyName)) throw new ValidationError("An EPS account request has no contractor company.");
+  if (!eps && Boolean(input.contractorId) === Boolean(companyName)) throw new ValidationError("Choose exactly one contractor or enter a company name.");
+  if (input.contractorId) {
+    const company = await getContractorById(db, input.contractorId);
+    if (!company || !company.isContractor) throw new ValidationError("Unknown contractor");
+  }
   const passwordHash = await hashPassword(input.password);
   try {
     await insertRegisteredUser(db, {
-      email, username, passwordHash, displayName: username, role: "contractor", status: "pending",
+      // EPS requests wait for an admin like contractors do; approval keeps them EPS หน้างาน (eps_site).
+      email, username, passwordHash, displayName: username, role: eps ? "eps_site" : "contractor", status: "pending",
       requestedContractorId: input.contractorId ?? null, requestedCompanyName: companyName ?? null,
     });
   } catch (error) {
@@ -78,7 +84,7 @@ export async function registerUser(input: RegisterInput) {
   return { status: "pending" as const };
 }
 export async function registrationOptions(query: { page: number; pageSize: number; search?: string; projectId?: string }) {
-  const result = await listContractorsService({ ...query, sort: "name", order: "asc" });
+  const result = await listContractorsService({ ...query, sort: "name", order: "asc", contractorsOnly: true });
   return { rows: result.rows.map(({ id, code, name }) => ({ id, code, name })), total: result.total };
 }
 

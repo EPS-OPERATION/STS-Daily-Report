@@ -1,0 +1,2 @@
+-- IF NOT EXISTS: a local DB may already have this column from the pre-merge 0039 of a parallel session.
+ALTER TABLE "daily_report_allocations" ADD COLUMN IF NOT EXISTS "is_additional" boolean DEFAULT false NOT NULL;
