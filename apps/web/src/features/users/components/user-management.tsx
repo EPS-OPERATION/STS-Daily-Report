@@ -21,6 +21,7 @@ import { useCurrentProject } from "@/features/projects/index.js";
 import { useChangeUserRole, useChangeUserStatus, useIssueResetLink, useLinkUser, useUsers } from "../hooks/use-users.js";
 import type { ManagedUser, UserStatus } from "../types/user.types.js";
 import { ROLE_LABEL } from "../utils/role-label.js";
+import { resetMessage } from "../utils/reset-message.js";
 import { CreateUserDialog } from "./create-user-dialog.js";
 import { UserDecisionDialog } from "./user-decision-dialog.js";
 
@@ -113,12 +114,24 @@ export function UserManagement() {
     <FormDialog open={Boolean(resetUser)} title="Reset password" onClose={() => { setResetUser(null); reset.reset(); }} busy={reset.isPending} actions={<><Button color="inherit" disabled={reset.isPending} onClick={() => { setResetUser(null); reset.reset(); }}>Close</Button>{!reset.data && <Button disabled={reset.isPending || !resetUser} onClick={() => resetUser && reset.mutate(resetUser.id)}>{reset.isPending ? "Generating…" : "Generate link"}</Button>}</>}><Stack spacing={2} sx={{ pt: 1 }}>
         <Typography>{resetUser?.email}</Typography>
         {reset.isError && <Alert severity="error">{reset.error.message}</Alert>}
-        {reset.data ? <>
-          <TextField label="One-time reset link" value={reset.data.data.url} slotProps={{ input: { readOnly: true } }} multiline />
-          <Typography color="text.secondary">Expires {new Date(reset.data.data.expiresAt).toLocaleString()}. Send this link privately to the user via LINE. Generating another link invalidates the previous one.</Typography>
-          {copyError && <Alert severity="warning">Clipboard unavailable. Select and copy the link above.</Alert>}
-          <Button onClick={async () => { try { await navigator.clipboard.writeText(reset.data!.data.url); setCopied(true); } catch { setCopyError(true); } }}>{copied ? "Copied" : "Copy link"}</Button>
-        </> : <Typography color="text.secondary">Generate a link valid for 60 minutes. The user chooses their password; existing sessions are revoked when the password is changed.</Typography>}
+        {reset.data && resetUser ? (() => {
+          // Formal Thai + English message: copy it, or open the email app with everything filled in.
+          const msg = resetMessage(resetUser, reset.data.data);
+          const copy = async (text: string) => { try { await navigator.clipboard.writeText(text); setCopied(true); setCopyError(false); } catch { setCopyError(true); } };
+          return <>
+            <TextField label="One-time reset link" value={reset.data.data.url} slotProps={{ input: { readOnly: true } }} multiline />
+            <Typography color="text.secondary">Expires {new Date(reset.data.data.expiresAt).toLocaleString()}. Generating another link invalidates the previous one.</Typography>
+            <TextField label={`Message — ${msg.subject}`} value={msg.body} slotProps={{ input: { readOnly: true } }} multiline minRows={6} maxRows={12} />
+            {copyError && <Alert severity="warning">Clipboard unavailable. Select and copy the message above.</Alert>}
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <Button variant="contained" component="a" href={msg.mailto}>Open in email</Button>
+              <Button variant="outlined" onClick={() => void copy(`${msg.subject}
+
+${msg.body}`)}>{copied ? "Copied" : "Copy message"}</Button>
+              <Button onClick={() => void copy(reset.data!.data.url)}>Copy link only</Button>
+            </Stack>
+          </>;
+        })() : <Typography color="text.secondary">Generate a link valid for 60 minutes. The user chooses their password; existing sessions are revoked when the password is changed.</Typography>}
       </Stack></FormDialog>
   </Box>;
 }
