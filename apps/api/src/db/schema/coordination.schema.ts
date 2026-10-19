@@ -34,6 +34,8 @@ export const coordinationItems = pgTable("coordination_items", {
   linkArea: boolean("link_area").notNull().default(true),
   // Road routes only: used in both directions.
   twoWay: boolean("two_way").notNull().default(false),
+  // Icon marker size relative to the default (1 = default); set per job by dragging the ring handle.
+  iconScale: numeric("icon_scale", { precision: 4, scale: 2, mode: "number" }).notNull().default(1),
   // Longer detail behind the short title (shown when the job is clicked / in the list under the map).
   note: text("note"),
   revision: integer("revision").notNull().default(1),

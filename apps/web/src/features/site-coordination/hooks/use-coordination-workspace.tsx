@@ -1,8 +1,9 @@
-import { coordinationGeometryError, coordinationRouteClashes, coordinationToday, COORDINATION_ICONS, isEpsStaff, type CoordinationIcon, type CoordinationInput, type CoordinationItem, type CoordinationPoint } from "@sts/shared";
+import { coordinationGeometryError, coordinationRouteClashes, coordinationToday, COORDINATION_ICONS, COORDINATION_MAX, COORDINATION_MIN, isEpsStaff, type CoordinationIcon, type CoordinationInput, type CoordinationItem, type CoordinationPoint } from "@sts/shared";
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import Button from "@mui/material/Button";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import InputAdornment from "@mui/material/InputAdornment";
-import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -10,7 +11,7 @@ import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { TOKENS } from "@/app/theme/tokens.js";
@@ -28,7 +29,7 @@ import { TypeFilter, loadMapDisplay, saveMapDisplay, type MapDisplay } from "../
 export const inputOf = (item: CoordinationItem): CoordinationInput => ({
   contractorId: item.contractorId, workDate: item.workDate, title: item.title, icon: item.icon,
   x: item.x, y: item.y, rotation: item.rotation, areaKind: item.areaKind, geometry: structuredClone(item.geometry),
-  linkArea: item.linkArea, twoWay: item.twoWay, note: item.note ?? null,
+  linkArea: item.linkArea, twoWay: item.twoWay, iconScale: item.iconScale ?? 1, note: item.note ?? null,
 });
 // Auto-save editing: `working` is the item currently on the map (selected + editable).
 // `base` keeps the last persisted state so an invalid in-progress drawing can be reverted.
@@ -95,6 +96,10 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   const busy = remove.isPending;
   const theme = useTheme();
   const wide = useMediaQuery(theme.breakpoints.up("lg"));
+  // Phones/small tablets (full page only): the map fills the screen under one slim bar; filters live in a drawer.
+  const phone = useMediaQuery(theme.breakpoints.down("md")) && !compact;
+  // The map takes the rest of the window (phones and lg+); md–lg tablets keep the fixed height + list below.
+  const fill = phone || (wide && !compact);
   // Back to a rectangle: the bounding box of the current corners.
   const makeRectangle = () => {
     const w = workingRef.current;
@@ -107,35 +112,42 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   };
   const codeOf = (id: string) => data?.contractors.find((c) => c.id === id)?.code ?? "";
   // Road routes that cross or run along another contractor's route today (live while drawing).
-  const clashes = data
-    ? coordinationRouteClashes(data.items.map((i) => (working && i.id === working.id ? { ...i, ...working.input } : i)), data.map.width, data.map.height)
-    : new Map<string, string[]>();
+  // Memoised: the pairwise route check is O(routes²) and used to rerun on every drag frame of any job.
+  // Only road routes take part, so moving an icon or an area keeps the previous result.
+  const workingRoute = working && (working.input.areaKind === "route" || working.base.areaKind === "route") ? working : null;
+  const clashes = useMemo(() => data
+    ? coordinationRouteClashes(data.items.map((i) => (workingRoute && i.id === workingRoute.id ? { ...i, ...workingRoute.input } : i)), data.map.width, data.map.height)
+    : new Map<string, string[]>(),
+  [data, workingRoute?.id, workingRoute?.input.areaKind, workingRoute?.input.geometry, workingRoute?.input.contractorId]);
   const clashCodes = (id: string) => (clashes.get(id) ?? []).map(codeOf).filter(Boolean);
-  const roadNameGroups = roadNames && display.roadNames
-    ? [...(register.data?.data ?? []).reduce((m, s) => {
+  // Stable arrays (memoised) so the canvas can skip redrawing layers whose data did not change.
+  const registerSegments = register.data?.data;
+  const roadNameGroups = useMemo(() => roadNames && display.roadNames
+    ? [...(registerSegments ?? []).reduce((m, s) => {
         const key = s.name.trim().toLowerCase();
         const g = m.get(key) ?? { name: s.name, pieces: [] as CoordinationPoint[][] };
         g.pieces.push(s.points);
         return m.set(key, g);
       }, new Map<string, { name: string; pieces: CoordinationPoint[][] }>()).values()]
-    : [];
+    : [], [roadNames, display.roadNames, registerSegments]);
   // Road requests for this day with the company and time (same filters as jobs).
-  const roadLines = display.roads ? (data?.roads ?? [])
+  const roadLines = useMemo(() => display.roads ? (data?.roads ?? [])
     .filter((r) => !contractorIds || contractorIds.has(r.contractorId))
     .map((r) => ({
       id: r.id, points: r.route, alert: r.clash,
       // "<request>:<road>" = a register road picked for the request (no direction); else a drawn route.
       arrows: !r.id.includes(":"),
       color: data?.contractors.find((c) => c.id === r.contractorId)?.color ?? TOKENS.primary,
-      label: `${codeOf(r.contractorId)} ${r.startTime}–${r.endTime}${r.clash ? " · ชนกัน" : ""}`,
-    })) : [];
+      label: `${data?.contractors.find((c) => c.id === r.contractorId)?.code ?? ""} ${r.startTime}–${r.endTime}${r.clash ? " · ชนกัน" : ""}`,
+    })) : [], [display.roads, data, contractorIds]);
   const q = search.trim().toLowerCase();
-  const items = data?.items.filter((item) =>
+  const items = useMemo(() => data?.items.filter((item) =>
     (!contractorIds || contractorIds.has(item.contractorId))
     && types.has(item.icon)
     // Roads layer off: routes leave the map and the list (the selected one stays while it is open).
     && (display.roads || item.areaKind !== "route" || item.id === selectedId)
-    && (!q || `${item.title} ${item.note ?? ""} ${codeOf(item.contractorId)}`.toLowerCase().includes(q))) ?? [];
+    && (!q || `${item.title} ${item.note ?? ""} ${data.contractors.find((c) => c.id === item.contractorId)?.code ?? ""}`.toLowerCase().includes(q))) ?? [],
+  [data, contractorIds, types, display.roads, selectedId, q]);
   const typeFiltered = types.size < COORDINATION_ICONS.length;
   const isFiltered = Boolean(contractorIds) || typeFiltered || Boolean(q);
   const clearFilters = () => { selectItem(null); setContractorIds(null); setTypes(new Set(COORDINATION_ICONS)); setSearch(""); };
@@ -212,20 +224,38 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     if (editableCompanies.length > 1) setPendingIcon(icon);
     else void createItem(icon);
   };
+  // Placing a new icon/text job: the next tap on the map creates it there (placeItem).
+  const [placing, setPlacing] = useState<{ icon: CoordinationInput["icon"]; contractorId: string } | null>(null);
   const createItem = async (icon: CoordinationInput["icon"], pickedId?: string) => {
     const contractorId = pickedId ?? filteredCompanyId ?? editableCompanies[0]?.id;
     if (!contractorId || creating || workingRef.current) return;
+    // A road goes straight to tapping its route; other jobs wait for a tap on the spot where the work is.
+    if (icon !== "road") { setPlacing({ icon, contractorId }); return; }
+    await saveNew(icon, contractorId);
+  };
+  const placeItem = (at: CoordinationPoint) => {
+    const p = placing;
+    if (!p) return;
+    setPlacing(null);
+    void saveNew(p.icon, p.contractorId, at);
+  };
+  const saveNew = async (icon: CoordinationInput["icon"], contractorId: string, at: CoordinationPoint = { x: 0.5, y: 0.5 }) => {
+    if (creating || workingRef.current) return;
     setCreating(true);
+    // Default work area: a rectangle centred on the tapped spot (kept inside the map's margin).
+    const lim = (v: number) => Math.min(COORDINATION_MAX, Math.max(COORDINATION_MIN, v));
+    const [x0, x1, y0, y1] = [lim(at.x - 0.07), lim(at.x + 0.07), lim(at.y - 0.05), lim(at.y + 0.05)];
     try {
       // Canva-style: the item is persisted immediately with a sensible default area,
-      // ready to drag/resize — no placement step and no save button.
+      // ready to drag/resize — no save button.
       const road = icon === "road";
       const result = await save.mutateAsync({ input: road
         // A road route starts as a short line, then the user taps the real route along the road.
         ? { contractorId, workDate: date, title: "ใช้ถนน", icon, x: 0.5, y: 0.44, rotation: 0, areaKind: "route", linkArea: true,
             geometry: { type: "polyline", points: [{ x: 0.44, y: 0.5 }, { x: 0.56, y: 0.5 }] } }
-        : { contractorId, workDate: date, title: icon === "text" ? "ข้อความใหม่" : "งานใหม่", icon, x: 0.5, y: 0.5, rotation: 0, areaKind: "rectangle", linkArea: true,
-            geometry: { type: "polygon", points: [{ x: 0.43, y: 0.45 }, { x: 0.57, y: 0.45 }, { x: 0.57, y: 0.55 }, { x: 0.43, y: 0.55 }] } } });
+        // The icon sits just above its area (joined by the link line) so it never hides the company tag.
+        : { contractorId, workDate: date, title: icon === "text" ? "ข้อความใหม่" : "งานใหม่", icon, x: at.x, y: icon === "text" ? at.y : lim(y0 - 0.05), rotation: 0, areaKind: "rectangle", linkArea: true,
+            geometry: { type: "polygon", points: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }] } } });
       const fresh = inputOf(result.data);
       updateWorking({ id: result.data.id, revision: result.data.revision, base: fresh, input: road ? { ...fresh, geometry: { type: "polyline", points: [] } } : fresh });
       setSelectedId(result.data.id); setTool(road ? "route" : "move");
@@ -234,7 +264,7 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     finally { setCreating(false); }
   };
   const reload = () => { updateWorking(null); setSelectedId(null); save.reset(); void query.refetch(); };
-  // Auto-save failures surface as a bottom-right toast with a recovery action
+  // Auto-save failures surface as a top-right toast with a recovery action
   // (same id, so repeated failures replace instead of stacking).
   useEffect(() => {
     if (!save.isError || !save.error) return;
@@ -261,7 +291,7 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   // Filters sit on the toolbar row (full page) or on a slim row (compact dashboard).
   const counter = <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>{pending ? "กำลังบันทึก… · " : ""}{projects.find((p) => p.id === activeProject)?.code} · {items.length} รายการ</Typography>;
   const goToDate = (next: string) => {
-    void flush(); updateWorking(null); setSelectedId(null); const p = new URLSearchParams(params); p.set("mapDate", next); setParams(p);
+    void flush(); updateWorking(null); setSelectedId(null); setPlacing(null); const p = new URLSearchParams(params); p.set("mapDate", next); setParams(p);
   };
   const today = coordinationToday();
   const quickDays = [
@@ -275,19 +305,13 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
       onChange={(value) => { if (value && value.isValid()) goToDate(value.format("YYYY-MM-DD")); }}
       format="D MMM YYYY"
       disabled={busy}
-      slotProps={{ textField: { size: "small", sx: { width: 165 } } }}
+      slotProps={{ textField: { size: "small", sx: { width: { xs: "100%", md: 165 } } } }}
     />;
-  // Same outlined-button style as the other pages' quick ranges, at the toolbar height (40px).
-  const quickDayControl = <Stack direction="row" spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }}>
-    {quickDays.map((d) => {
-      const selected = d.key === date;
-      return <Button key={d.key} size="medium" variant={selected ? "contained" : "outlined"} disableElevation
-        onClick={() => { if (!selected) goToDate(d.key); }}
-        sx={{ flex: { xs: 1, sm: "none" } }}>
-        {d.label}
-      </Button>;
-    })}
-  </Stack>;
+  // One segmented control (reads as a single choice of day), at the toolbar height (40px from the theme).
+  const quickDayControl = <ToggleButtonGroup exclusive color="primary" value={quickDays.some((d) => d.key === date) ? date : null}
+      onChange={(_, next: string | null) => { if (next) goToDate(next); }} aria-label="Quick day" sx={{ width: { xs: "100%", sm: "auto" } }}>
+    {quickDays.map((d) => <ToggleButton key={d.key} value={d.key} sx={{ flex: { xs: 1, sm: "none" }, px: 1.75, textTransform: "none" }}>{d.label}</ToggleButton>)}
+  </ToggleButtonGroup>;
   const dateControl = datePicker;
   // Same multi-select popover as Manpower / Daily Request (colour, search, select all, job count).
   const filterCompanies = data?.contractors.filter((c) => c.isContractor) ?? [];
@@ -407,11 +431,16 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     pendingIcon,
     setPendingIcon,
     startCreate,
+    placing,
+    setPlacing,
+    placeItem,
     geometryError,
     areaDirty,
     busy,
     theme,
     wide,
+    phone,
+    fill,
     makeRectangle,
     codeOf,
     clashes,

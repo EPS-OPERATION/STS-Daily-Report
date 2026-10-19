@@ -302,6 +302,13 @@
       "when": 1792417646885,
       "tag": "0042_allocation_is_additional",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792424001067,
+      "tag": "0043_coordination_icon_scale",
+      "breakpoints": true
     }
   ]
 }

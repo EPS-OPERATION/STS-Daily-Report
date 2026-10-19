@@ -1,9 +1,9 @@
 import { alpha, useTheme } from "@mui/material/styles";
-import { useEffect, useRef, useState } from "react";
-import { Circle, Group, Image as CanvasImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Group, Image as CanvasImage, Layer, Line, Rect, Stage, Text } from "react-konva";
 import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationPoint } from "@sts/shared";
 import { COORDINATION_MAX, COORDINATION_MIN, coordinationGeometryError } from "@sts/shared";
-import { MachineIcon } from "./machine-icon.js";
+import { CanvasItem, REDUCED_MOTION, TapRipple, type AreaDrag, type CanvasItemActions, type IconDrag } from "./canvas-item.js";
 import type { MapDisplay } from "./map-filters.js";
 import AddOutlined from "@mui/icons-material/AddOutlined";
 import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
@@ -17,6 +17,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
 import InputBase from "@mui/material/InputBase";
 import Popper from "@mui/material/Popper";
 import Stack from "@mui/material/Stack";
@@ -24,11 +25,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Konva from "konva";
 import { clamp } from "../utils/canvas-geometry.js";
-import { nearestBoundaryPoint } from "../utils/canvas-geometry.js";
-import { areaDelta } from "../utils/canvas-geometry.js";
-import { shiftPoints } from "../utils/canvas-geometry.js";
-import { scanContent } from "../utils/canvas-geometry.js";
-import { areaCentroid } from "../utils/canvas-geometry.js";
+import { previewImagePath, scanContent } from "../utils/canvas-geometry.js";
 import { routeMidpoint } from "../utils/canvas-geometry.js";
 import { RouteMarks } from "./route-marks.js";
 import { REPORT_ROOM } from "../utils/canvas-report.js";
@@ -39,8 +36,6 @@ import { CAPTION_MAX_WIDTH } from "../utils/canvas-text.js";
 import { CAPTION_LINE_HEIGHT } from "../utils/canvas-text.js";
 import { MARK_SCALE } from "../utils/canvas-text.js";
 import { CAPTION_MAX_LINES } from "../utils/canvas-text.js";
-import { NOTE_FONT } from "../utils/canvas-text.js";
-import { NOTE_LINE_HEIGHT } from "../utils/canvas-text.js";
 import { layoutTextTitle } from "../utils/canvas-text.js";
 
 export type MapTool = "move" | "polygon" | "route";
@@ -56,6 +51,12 @@ interface Props {
   readOnly?: boolean;
   /** Stage height in px (the report sheet); default follows compact/width. */
   fixedHeight?: number;
+  /** Phones: the stage takes the height of its (flex) parent instead of a fixed px height. */
+  fill?: boolean;
+  /** Add item: the next tap on the map is where the new job goes (`onPlace`); `onCancelPlace` backs out. */
+  placing?: boolean;
+  onPlace?: (at: CoordinationPoint) => void;
+  onCancelPlace?: () => void;
   /** Called once the artwork is drawn with the framed stage (null when the image failed). Read-only only. */
   onReady?: (stage: Konva.Stage | null) => void;
   /** Road routes that cross or run along another contractor's route that day (id → other contractor ids). */
@@ -69,9 +70,40 @@ interface Props {
 
 const NO_CLASHES: ReadonlyMap<string, string[]> = new Map();
 
+type DragApi = { area: (drag: AreaDrag | null) => void; icon: (drag: IconDrag | null) => void };
+/** Owns the live drag offsets, so a drag frame re-renders only the jobs layer — not the Stage (whose
+ *  context bridge re-wraps every app context on each render) nor the road layers. Moves are applied at
+ *  most once per animation frame; a drop (null) applies at once and drops any pending move. */
+function JobsLayer({ api, listening, children }: { api: RefObject<DragApi>; listening: boolean; children: (area: AreaDrag | null, icon: IconDrag | null) => ReactNode }) {
+  const [area, setArea] = useState<AreaDrag | null>(null);
+  const [icon, setIcon] = useState<IconDrag | null>(null);
+  const pending = useRef<{ raf: number; area?: AreaDrag; icon?: IconDrag }>({ raf: 0 });
+  useEffect(() => () => cancelAnimationFrame(pending.current.raf), []);
+  const flush = () => {
+    const p = pending.current; p.raf = 0;
+    if (p.area) setArea(p.area);
+    if (p.icon) setIcon(p.icon);
+    p.area = undefined; p.icon = undefined;
+  };
+  api.current = {
+    area: (drag) => { const p = pending.current; if (!drag) { p.area = undefined; setArea(null); return; } p.area = drag; if (!p.raf) p.raf = requestAnimationFrame(flush); },
+    icon: (drag) => { const p = pending.current; if (!drag) { p.icon = undefined; setIcon(null); return; } p.icon = drag; if (!p.raf) p.raf = requestAnimationFrame(flush); },
+  };
+  return <Layer listening={listening}>{children(area, icon)}</Layer>;
+}
+
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 6;
+/** Phones report 2-3x screens; drawing the map at 3x costs 2.25x the pixels of 2x for little visible gain. */
+const MAX_PIXEL_RATIO = 2;
+/** After the wheel/pinch stops, the zoom is handed back to React (labels and line widths re-fit). */
+const GESTURE_SETTLE_MS = 140;
+
+const isCoarsePointer = () => typeof window !== "undefined" && Boolean(window.matchMedia?.("(pointer: coarse)").matches);
+
 const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true, markSize: MARK_SCALE };
 
-export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, onReady, clashes = NO_CLASHES, roads = [], roadNames = [] }: Props) {
+export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roads = [], roadNames = [] }: Props) {
   const theme = useTheme();
   // Point-by-point drawing: a free-shape area (closed) or a road route (open line).
   const drawingTool = tool === "polygon" || tool === "route";
@@ -86,15 +118,20 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
-  const [areaDrag, setAreaDrag] = useState<{ id: string; x: number; y: number; source: "line" | "chip" } | null>(null);
+  // Live drag offsets live in JobsLayer (below the Stage); jobs reach them through this ref.
+  const dragApi = useRef<DragApi>({ area: () => {}, icon: () => {} });
+  const [ripple, setRipple] = useState<{ x: number; y: number; key: number } | null>(null);
   const pointerMoved = useRef(false);
   const areaDragStart = useRef<CoordinationPoint[] | null>(null);
   const areaDragNodeStart = useRef<{ x: number; y: number } | null>(null);
   const textDrag = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
+  const coarse = useMemo(isCoarsePointer, []);
+  const companyById = useMemo(() => new Map(contractors.map((c) => [c.id, c])), [contractors]);
   const [hover, setHover] = useState<CoordinationPoint | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [imageError, setImageError] = useState(false);
-  const height = fixedHeight ?? (compact ? 390 : width < 600 ? 430 : 620);
+  const [boxHeight, setBoxHeight] = useState(0);
+  const height = fixedHeight ?? (fill ? boxHeight : compact ? 390 : width < 600 ? 430 : 620);
   const fit = Math.min(width / map.width, height / map.height);
   const scale = fit * zoom;
   const offset = { x: (width - map.width * fit) / 2 + pan.x, y: (height - map.height * fit) / 2 + pan.y };
@@ -103,7 +140,8 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
   // artwork with its empty margins. Also used by the "พอดีผัง" reset button.
   const frameContent = () => {
     const w = container.current?.clientWidth ?? width;
-    const h = fixedHeight ?? (compact ? 390 : w < 600 ? 430 : 620);
+    const h = fixedHeight ?? (fill ? stageBox.current?.clientHeight ?? 0 : compact ? 390 : w < 600 ? 430 : 620);
+    if (!h) return; // fill mode before the box is measured; framed once it is (below)
     const fitNow = Math.min(w / map.width, h / map.height);
     const bounds = readOnly ? reportBounds(contentBounds.current, items, map) : contentBounds.current;
     if (!bounds) { setZoom(1); setPan({ x: 0, y: 0 }); return; }
@@ -129,19 +167,50 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
     setWidth(el.clientWidth); observer.observe(el); return () => observer.disconnect();
   }, []);
   useEffect(() => {
+    const el = stageBox.current;
+    if (!fill || !el) return;
+    const observer = new ResizeObserver(() => setBoxHeight(el.clientHeight));
+    setBoxHeight(el.clientHeight); observer.observe(el); return () => observer.disconnect();
+  }, [fill, imageError]);
+  // Fill mode: the artwork can load before the box has a height; frame it once the height is known.
+  const measured = boxHeight > 0;
+  useEffect(() => { if (fill && measured && image) frameContent(); }, [measured]);
+  const fullImageRequested = useRef(false);
+  useEffect(() => {
     let cancelled = false;
     setImage(null); setImageError(false); setPan({ x: 0, y: 0 }); setZoom(1);
-    const source = new window.Image();
-    source.onload = () => {
-      if (cancelled) return;
-      contentBounds.current = scanContent(source);
-      setImage(source);
-      frameContent();
+    fullImageRequested.current = false;
+    const load = (src: string, onFail: () => void) => {
+      const source = new window.Image();
+      source.decoding = "async";
+      source.onload = () => {
+        if (cancelled) return;
+        // The scan runs in the file's own pixels; geometry lives in the full drawing's pixels.
+        const found = scanContent(source);
+        const sx = map.width / (source.naturalWidth || map.width), sy = map.height / (source.naturalHeight || map.height);
+        contentBounds.current = found ? { x: found.x * sx, y: found.y * sy, w: found.w * sx, h: found.h * sy } : null;
+        setImage(source);
+        frameContent();
+      };
+      source.onerror = () => { if (!cancelled) onFail(); };
+      source.src = src;
     };
-    source.onerror = () => { if (!cancelled) setImageError(true); };
-    source.src = map.imagePath;
+    const loadFull = () => { fullImageRequested.current = true; load(map.imagePath, () => setImageError(true)); };
+    // Live map: the light preview first (falls back to the original if no preview exists). Report: full size.
+    if (readOnly) loadFull(); else load(previewImagePath(map.imagePath), loadFull);
     return () => { cancelled = true; };
   }, [map.imagePath]);
+  // Desktop only: once zoomed in past what the preview can show sharply, swap in the full drawing.
+  // Phones stay on the preview (the full PNG decodes to ~130 MB, too much for mid-range devices).
+  useEffect(() => {
+    if (readOnly || coarse || !image || fullImageRequested.current || image.naturalWidth >= map.width) return;
+    if (map.width * scale * (window.devicePixelRatio || 1) < image.naturalWidth * 1.25) return;
+    fullImageRequested.current = true;
+    const full = new window.Image();
+    full.decoding = "async";
+    full.onload = () => setImage((current) => (current === image ? full : current));
+    full.src = map.imagePath;
+  }, [image, scale, readOnly, coarse, map.width, map.imagePath]);
   // Report: hand the framed stage over once the artwork is drawn (the page snapshots it for printing).
   const reported = useRef(false);
   useEffect(() => {
@@ -166,6 +235,12 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
     return () => window.removeEventListener("keydown", onKey);
   }, [tool, draft, onChange, onFinish]);
   useEffect(() => { if (!drawingTool) setHover(null); }, [drawingTool]);
+  useEffect(() => {
+    if (!placing) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancelPlace?.(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [placing, onCancelPlace]);
   const point = (allowClamp = false) => {
     const node = stage.current, pointer = node?.getPointerPosition();
     if (!node || !pointer) return null;
@@ -175,6 +250,12 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
   };
   const click = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (pointerMoved.current) return;
+    // Placing a new job: anywhere inside the map counts, even on top of another job.
+    if (placing) {
+      const p = point();
+      if (p) { setRipple({ x: p.x * map.width, y: p.y * map.height, key: Date.now() }); onPlace?.(p); }
+      return;
+    }
     // While drawing, a tap on top of another job (e.g. a route already on that road) still places a
     // point; only the draft's own vertices stop the tap (they cancel bubbling).
     if (!drawingTool && e.target !== stage.current) return;
@@ -198,12 +279,120 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
     node.scale({ x: 1, y: 1 });
     onChange({ geometry: { type: "polygon", points } });
   };
-  const changeZoom = (factor: number, pivot = { x: width / 2, y: height / 2 }) => {
-    const next = Math.max(1, Math.min(6, zoom * factor));
-    const ratio = next / zoom;
-    setPan({ x: pivot.x - (pivot.x - offset.x) * ratio - (width - map.width * fit) / 2, y: pivot.y - (pivot.y - offset.y) * ratio - (height - map.height * fit) / 2 });
-    setZoom(next);
+  // Zoom and pinch move the Konva stage directly (no React render per wheel tick / touch move); when the
+  // gesture settles the view is committed to state once, which re-fits line widths and label sizes.
+  const view = useRef({ fit, width, height, mapWidth: map.width, mapHeight: map.height });
+  view.current = { fit, width, height, mapWidth: map.width, mapHeight: map.height };
+  // Pan limits: the drawing plus its margin (where jobs may sit) can never leave the screen. When it is
+  // bigger than the screen its edges stop at the screen edges; when smaller it slides only inside.
+  const bound = (pos: { x: number; y: number }, s: number) => {
+    const v = view.current;
+    const lim = (p: number, size: number, box: number) => {
+      const a = box - COORDINATION_MAX * size, b = -COORDINATION_MIN * size;
+      return Math.min(Math.max(p, Math.min(a, b)), Math.max(a, b));
+    };
+    return { x: lim(pos.x, v.mapWidth * s, v.width), y: lim(pos.y, v.mapHeight * s, v.height) };
   };
+  const settleTimer = useRef<number | null>(null);
+  const gestures = useMemo(() => {
+    const commit = () => {
+      settleTimer.current = null;
+      const node = stage.current; if (!node) return;
+      const v = view.current;
+      setZoom(node.scaleX() / v.fit);
+      setPan({ x: node.x() - (v.width - v.mapWidth * v.fit) / 2, y: node.y() - (v.height - v.mapHeight * v.fit) / 2 });
+    };
+    const zoomBy = (factor: number, pivot: { x: number; y: number }) => {
+      const node = stage.current; if (!node) return;
+      const { fit: f } = view.current;
+      const old = node.scaleX();
+      const next = Math.max(f * MIN_ZOOM, Math.min(f * MAX_ZOOM, old * factor));
+      const ratio = next / old;
+      node.scale({ x: next, y: next });
+      node.position(bound({ x: pivot.x - (pivot.x - node.x()) * ratio, y: pivot.y - (pivot.y - node.y()) * ratio }, next));
+      node.batchDraw();
+      if (settleTimer.current !== null) window.clearTimeout(settleTimer.current);
+      settleTimer.current = window.setTimeout(commit, GESTURE_SETTLE_MS);
+    };
+    return { zoomBy, commit };
+  }, []);
+  useEffect(() => () => { if (settleTimer.current !== null) window.clearTimeout(settleTimer.current); }, []);
+  const changeZoom = (factor: number, pivot = { x: width / 2, y: height / 2 }) => gestures.zoomBy(factor, pivot);
+  // Selecting a job whose area or icon (with its caption) is not fully on screen glides the view to it,
+  // zooming out only when it cannot fit. A job already in view never moves the map.
+  useEffect(() => {
+    const node = stage.current;
+    const item = draft && draftId === selectedId ? draft : items.find((i) => i.id === selectedId);
+    if (readOnly || !node || !selectedId || !item) return;
+    const t = node.getAbsoluteTransform();
+    const pts = item.geometry.points.map((p) => t.point({ x: p.x * map.width, y: p.y * map.height }));
+    if (item.areaKind !== "route") {
+      const c = t.point({ x: item.x * map.width, y: item.y * map.height });
+      const r = 24 * display.markSize * (item.iconScale ?? 1) + 6;
+      pts.push({ x: c.x - r, y: c.y - r }, { x: c.x + r, y: c.y + r + 30 }); // + caption under the ring
+    }
+    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const pad = 24, bottom = coarse ? 120 : pad; // phones: clear the bottom sheet strip
+    if (minX >= pad && minY >= pad && maxX <= width - pad && maxY <= height - bottom) return;
+    const availW = width - pad * 2, availH = height - pad - bottom;
+    const s0 = node.scaleX();
+    const s = Math.max(fit * MIN_ZOOM, Math.min(s0, s0 * Math.min(availW / (maxX - minX || 1), availH / (maxY - minY || 1))));
+    const k = s / s0, cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const to = bound({ x: pad + availW / 2 - (cx - node.x()) * k, y: pad + availH / 2 - (cy - node.y()) * k }, s);
+    if (REDUCED_MOTION) { node.setAttrs({ ...to, scaleX: s, scaleY: s }); gestures.commit(); return; }
+    node.to({ ...to, scaleX: s, scaleY: s, duration: 0.35, easing: Konva.Easings.StrongEaseOut, onFinish: gestures.commit });
+  }, [selectedId]);
+  // Two-finger pinch on phones/tablets: zoom around the fingers and pan with them.
+  useEffect(() => {
+    const el = stageBox.current;
+    if (!el || readOnly) return;
+    let last: { dist: number; cx: number; cy: number } | null = null;
+    const read = (touches: TouchList) => {
+      const rect = el.getBoundingClientRect(), a = touches[0]!, b = touches[1]!;
+      return { dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), cx: (a.clientX + b.clientX) / 2 - rect.left, cy: (a.clientY + b.clientY) / 2 - rect.top };
+    };
+    const move = (e: TouchEvent) => {
+      if (e.touches.length !== 2) { last = null; return; }
+      e.preventDefault();
+      const node = stage.current; if (!node) return;
+      if (node.isDragging()) node.stopDrag();
+      const now = read(e.touches);
+      if (last && last.dist > 0) {
+        node.position({ x: node.x() + now.cx - last.cx, y: node.y() + now.cy - last.cy });
+        gestures.zoomBy(now.dist / last.dist, { x: now.cx, y: now.cy });
+      }
+      last = now;
+    };
+    const end = (e: TouchEvent) => { if (e.touches.length < 2) last = null; };
+    el.addEventListener("touchmove", move, { passive: false });
+    el.addEventListener("touchend", end);
+    el.addEventListener("touchcancel", end);
+    return () => { el.removeEventListener("touchmove", move); el.removeEventListener("touchend", end); el.removeEventListener("touchcancel", end); };
+  }, [readOnly, imageError, gestures]);
+  // Cap the canvas resolution on 3x phones (each layer is a full-size canvas redrawn on every pan frame).
+  useEffect(() => {
+    const node = stage.current;
+    if (!node || readOnly) return;
+    const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+    for (const layer of node.getLayers()) {
+      const canvas = layer.getCanvas();
+      if (canvas.getPixelRatio() !== ratio) { canvas.setPixelRatio(ratio); layer.batchDraw(); }
+    }
+  });
+  // Stable callbacks for the (memoised) jobs; they always call the latest props.
+  const latest = useRef({ onSelect, onEditText, onChange, onFinish, rectangleChange });
+  latest.current = { onSelect, onEditText, onChange, onFinish, rectangleChange };
+  const actions = useMemo<CanvasItemActions>(() => ({
+    select: (id) => latest.current.onSelect(id),
+    editText: (id) => { latest.current.onSelect(id); latest.current.onEditText(); },
+    change: (patch) => latest.current.onChange(patch),
+    finish: () => latest.current.onFinish(),
+    rectangleChange: () => latest.current.rectangleChange(),
+    setAreaDrag: (drag) => dragApi.current.area(drag),
+    setIconDrag: (drag) => dragApi.current.icon(drag),
+    areaDragStart, areaDragNodeStart,
+  }), []);
   const displayed = items.filter((item) => item.id !== draftId).map((item) => ({ item, id: item.id, editing: false }));
   if (draft) displayed.push({ item: { ...draft, id: draftId ?? "draft", mapId: map.id, projectId: map.projectId, revision: 0, createdAt: "", updatedAt: "" }, id: draftId ?? "draft", editing: true });
   displayed.sort((a, b) => Number(a.id === selectedId || a.editing) - Number(b.id === selectedId || b.editing));
@@ -214,24 +403,17 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
     const color = contractors.find((c) => c.id === draft.contractorId)?.color ?? theme.palette.primary.main;
     return { left, top, color, text: layoutTextTitle(draft.title), caption: layoutTextTitle(draft.title, { font: CAPTION_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: CAPTION_LINE_HEIGHT, maxLines: CAPTION_MAX_LINES, minWidth: 64 }) };
   })() : null;
-  return <Box ref={container} sx={{ width: "100%", minWidth: 0 }}>
-    {!readOnly && (drawingTool && draft ? (() => {
-      const n = draft.geometry.points.length;
-      const step = tool === "route"
-        ? n === 0 ? "แตะจุดเริ่มต้นบนถนน — ลูกศรจะชี้ตามลำดับที่แตะ" : n < 2 ? "แตะจุดถัดไปตามถนน" : `วางแล้ว ${n} จุด — แตะต่อตามถนน หรือกด Done / Enter`
-        : n === 0 ? "คลิกบนผังเพื่อวางจุดมุมแรกของพื้นที่" : n < 3 ? `วางจุดมุมแล้ว ${n} จุด — วางต่ออีกอย่างน้อย ${3 - n} จุด` : `วางแล้ว ${n} จุด — คลิกจุดแรก (วงใหญ่) หรือกด Enter เพื่อปิดรูป`;
-      return <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: alpha(theme.palette.primary.main, 0.06) }}>
-        {tool === "route" ? <AddRoadOutlined fontSize="small" color="primary" /> : <PentagonOutlined fontSize="small" color="primary" />}
-        <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0, flex: { xs: "1 1 calc(100% - 32px)", sm: "1 1 0" }, overflowWrap: "anywhere" }}>{step}</Typography>
-        <Button size="small" startIcon={<UndoOutlined fontSize="small" />} disabled={!n} onClick={() => onChange({ geometry: { type: drawType, points: draft.geometry.points.slice(0, -1) } })} sx={{ whiteSpace: "nowrap" }}>Undo point</Button>
-        <Button size="small" color="inherit" disabled={!n} onClick={() => onChange({ geometry: { type: drawType, points: [] } })} sx={{ whiteSpace: "nowrap", display: { xs: "none", sm: "inline-flex" } }}>Redraw</Button>
-        <Button size="small" variant="contained" disableElevation startIcon={<CheckOutlined fontSize="small" />} disabled={n < minPoints || Boolean(coordinationGeometryError(draft.geometry))} onClick={onFinish} sx={{ whiteSpace: "nowrap" }}>Done</Button>
-      </Stack>;
-    })() : <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider" }}>
+  return <Box ref={container} sx={{ width: "100%", minWidth: 0, ...(fill && { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }) }}>
+    {!readOnly && placing ? <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: alpha(theme.palette.primary.main, 0.06) }}>
+      <AddOutlined fontSize="small" color="primary" />
+      <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}>แตะบนผังตรงจุดที่ทำงาน</Typography>
+      <Button size="small" color="inherit" onClick={onCancelPlace} sx={{ whiteSpace: "nowrap" }}>Cancel</Button>
+    </Stack> : !readOnly && (drawingTool && draft ? null : (!fill || (draft && !coarse)) && <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider" }}>
       {draft ? "ลากไอคอนไปจุดทำงาน · ลากพื้นที่เพื่อย้าย · มุมสี่เหลี่ยมปรับขนาด/หมุน · ดับเบิลคลิกเพื่อแก้ชื่อ · ตั้งค่าอื่นที่แผงด้านข้าง" : "คลิกงานเพื่อดูและแก้ไข · ลากผังว่างเพื่อเลื่อน · ล้อเมาส์เพื่อซูม"}
     </Typography>)}
-    {imageError ? <Alert severity="error" sx={{ m: 1.5 }}>โหลดภาพผังไม่สำเร็จ กรุณาตรวจภาพพื้นหลังแล้วลองใหม่</Alert> : <Box ref={stageBox} role="img" aria-label="Daily plan. Select an item from the side list to see details." sx={{ position: "relative", bgcolor: "background.paper", touchAction: "none", cursor: drawingTool ? "crosshair" : undefined }}>
+    {imageError ? <Alert severity="error" sx={{ m: 1.5 }}>โหลดภาพผังไม่สำเร็จ กรุณาตรวจภาพพื้นหลังแล้วลองใหม่</Alert> : <Box ref={stageBox} role="img" aria-label="Daily plan. Select an item from the side list to see details." sx={{ position: "relative", bgcolor: "background.paper", touchAction: "none", cursor: drawingTool || placing ? "crosshair" : undefined, ...(fill && { flex: 1, minHeight: 0, overflow: "hidden" }) }}>
       <Stage ref={stage} width={width} height={height} scaleX={scale} scaleY={scale} x={offset.x} y={offset.y}         draggable={tool === "move" && !readOnly}
+        dragBoundFunc={(pos) => bound(pos, stage.current?.scaleX() ?? scale)}
         onDragStart={() => setDragging(true)}
         onDragEnd={(e) => {
           setDragging(false);
@@ -240,7 +422,12 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
           if (e.target === stage.current) setPan({ x: e.target.x() - (width - map.width * fit) / 2, y: e.target.y() - (height - map.height * fit) / 2 });
         }}
         onMouseMove={() => { if (drawingTool) setHover(point()); }} onMouseLeave={() => setHover(null)}
-        onClick={click} onTap={click} onWheel={readOnly ? undefined : (e) => { e.evt.preventDefault(); changeZoom(e.evt.deltaY < 0 ? 1.15 : 1 / 1.15, stage.current?.getPointerPosition() ?? undefined); }}>
+        onClick={click} onTap={click} onWheel={readOnly ? undefined : (e) => {
+          e.evt.preventDefault();
+          // Proportional to the wheel distance: a mouse notch is ~15%, a trackpad pinch stays smooth.
+          const delta = Math.max(-100, Math.min(100, e.evt.deltaY));
+          changeZoom(Math.exp(-delta * 0.0015), stage.current?.getPointerPosition() ?? undefined);
+        }}>
         <Layer listening={false}>{image && <CanvasImage image={image} width={map.width} height={map.height} />}</Layer>
         {!readOnly && <Layer listening={false}>
           {/* Grey zones beyond the draggable margin: items cannot be moved or drawn there. */}
@@ -290,123 +477,47 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
             </Group>;
           })}
         </Layer>
-        <Layer>
+        {/* While placing, jobs ignore taps so a tap on top of one still places the new job. */}
+        <JobsLayer api={dragApi} listening={!placing}>{(areaDrag, iconDrag) => <>
           {displayed.map(({ item, id, editing }) => {
-            const company = contractors.find((c) => c.id === item.contractorId);
-            const color = company?.color ?? theme.palette.primary.main;
-            const selected = id === selectedId || editing;
-            const editable = editing && tool === "move";
-            const select = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => { if (!draft || (tool === "move" && !editing)) { e.cancelBubble = true; onSelect(id); } };
-            const area = item.geometry.points;
-            const isRectangle = editing && item.areaKind === "rectangle" && area.length === 4 && tool === "move";
-            const textLayout = item.icon === "text" ? layoutTextTitle(item.title) : null;
-            // Live drag offset, scoped to the item actually being dragged. When the
-            // chip is dragged the area itself also follows (Konva only moves the
-            // dragged node, so the shape is shifted through its points).
-            const dragOffset = areaDrag?.id === id ? areaDrag : null;
-            const drawnArea = dragOffset?.source === "chip" ? shiftPoints(area, dragOffset.x / map.width, dragOffset.y / map.height) : area;
-            const points = drawnArea.flatMap((p) => [p.x * map.width, p.y * map.height]);
-            // Machinery label: the item title is always shown under the icon as halo
-            // text (no box) so it stays readable over the drawing without cluttering.
-            const captionLayout = item.icon !== "text" && item.title.trim()
-              ? layoutTextTitle(item.title, { font: CAPTION_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: CAPTION_LINE_HEIGHT, maxLines: CAPTION_MAX_LINES, minWidth: 64 }) : null;
-            const noteText = item.note?.replace(/\s+/g, " ").trim();
-            const noteLayout = noteText && (display.notes || selected) && !(textEditing && editing)
-              ? layoutTextTitle(noteText, { font: NOTE_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: NOTE_LINE_HEIGHT, maxLines: 2, minWidth: 64 }) : null;
-            const captionShown = Boolean(captionLayout && (display.labels || selected) && !(textEditing && editing));
-            // Icon markers: under the caption (or straight under the icon); text markers: under the pill.
-            const noteY = item.icon === "text"
-              ? (textLayout?.height ?? 0) / 2 + 4
-              : 28 + (captionShown && captionLayout ? captionLayout.lines.length * CAPTION_LINE_HEIGHT + 2 : 0);
-            const route = item.areaKind === "route";
-            const clash = route ? clashes.get(id) : undefined;
-            const center = route ? routeMidpoint(area, map.width, map.height) : areaCentroid(area, map.width, map.height);
-            const a = drawnArea[0], b = drawnArea[1], d = drawnArea[3];
-            return <Group key={id}
-              onDblClick={(e) => { if (tool !== "move") return; e.cancelBubble = true; onSelect(id); onEditText(); }}
-              onDblTap={(e) => { if (tool !== "move") return; e.cancelBubble = true; onSelect(id); onEditText(); }}>
-              {!route && area[0] && item.linkArea !== false && (display.links || selected) && (display.areas || selected) && (() => {
-                const dragArea = dragOffset ? shiftPoints(area, dragOffset.x / map.width, dragOffset.y / map.height) : area;
-                const anchor = nearestBoundaryPoint(dragArea, item.x * map.width, item.y * map.height, map.width, map.height, !route);
-                return <Line points={[item.x * map.width, item.y * map.height, anchor.x, anchor.y]} stroke={color} strokeWidth={1.5 / scale} dash={[5 / scale, 4 / scale]} opacity={selected ? 1 : 0.55} listening={false} />;
-              })()}
-              {isRectangle && a && b && d ? <Rect ref={rectangle} x={a.x * map.width} y={a.y * map.height}
-                width={Math.hypot((b.x - a.x) * map.width, (b.y - a.y) * map.height)} height={Math.hypot((d.x - a.x) * map.width, (d.y - a.y) * map.height)}
-                rotation={Math.atan2((b.y - a.y) * map.height, (b.x - a.x) * map.width) * 180 / Math.PI} scaleX={1} scaleY={1}
-                fill={`${color}26`} stroke={color} strokeWidth={3 / scale} draggable onDragMove={rectangleChange} onDragEnd={rectangleChange} onTransformEnd={rectangleChange} />
-                : (display.areas || selected) && <>
-                  {/* A road route: thick open line on a light casing; the casing turns red on a clash. */}
-                  {route && area.length >= 2 && <Line points={points} x={dragOffset?.source === "line" ? dragOffset.x : 0} y={dragOffset?.source === "line" ? dragOffset.y : 0}
-                    stroke={clash ? theme.palette.error.main : theme.palette.background.paper} strokeWidth={((selected ? 8 : 6) + (clash ? 8 : 4)) / scale}
-                    lineCap="round" lineJoin="round" opacity={selectedId || draft ? selected ? 1 : 0.6 : 0.95} listening={false} />}
-                  <Line points={points} closed={!route} fill={route ? undefined : `${color}${selected ? "3D" : "26"}`} fillEnabled={!route && area.length >= 3} opacity={selectedId || draft ? selected ? 1 : 0.45 : 1}
-                  stroke={color} strokeWidth={(route ? (selected ? 8 : 6) : (selected ? 3 : 2)) / scale} lineCap="round" lineJoin="round" hitStrokeWidth={route ? 24 / scale : undefined} onClick={select} onTap={select}
-                  draggable={editable}
-                  onDragStart={(e) => { areaDragStart.current = area; areaDragNodeStart.current = { x: e.target.x(), y: e.target.y() }; }}
-                  onDragMove={(e) => { const s = areaDragNodeStart.current; if (s) setAreaDrag({ id, x: e.target.x() - s.x, y: e.target.y() - s.y, source: "line" }); }}
-                  onDragEnd={(e) => {
-                    const base = areaDragStart.current ?? area, s = areaDragNodeStart.current;
-                    areaDragStart.current = null; areaDragNodeStart.current = null; setAreaDrag(null);
-                    if (!s) return;
-                    const { dx, dy } = areaDelta(e, s, base, map.width, map.height);
-                    e.target.position({ x: 0, y: 0 });
-                    onChange({ geometry: { type: item.geometry.type, points: shiftPoints(base, dx, dy) } });
-                  }} /></>}
-              {route && area.length >= 2 && (display.areas || selected) && <RouteMarks
-                points={drawnArea.map((p) => ({ x: p.x * map.width, y: p.y * map.height }))}
-                dx={dragOffset?.source === "line" ? dragOffset.x : 0} dy={dragOffset?.source === "line" ? dragOffset.y : 0}
-                color={color} paper={theme.palette.background.paper} scale={scale}
-                title={(display.labels || selected) && !(textEditing && editing) ? item.title : ""} textColor={theme.palette.text.primary} twoWay={item.twoWay === true} markScale={display.markSize} />}
-              {isRectangle && <Transformer ref={transformer} flipEnabled={false} borderStroke={color} anchorStroke={color} anchorFill={theme.palette.background.paper} anchorSize={10} rotateEnabled />}
-              {editing && (item.areaKind === "polygon" || route || drawingTool) && area.map((p, index) => <Circle key={index} x={p.x * map.width + (dragOffset?.x ?? 0)} y={p.y * map.height + (dragOffset?.y ?? 0)} radius={(index === 0 && tool === "polygon" && area.length >= 3 ? 11 : 6) / scale} fill={index === 0 && tool === "polygon" && area.length >= 3 ? color : theme.palette.background.paper} stroke={color} strokeWidth={2 / scale}
-                draggable onDragMove={(e) => onChange({ geometry: { type: item.geometry.type, points: area.map((v, i) => i === index ? { x: clamp(e.target.x() / map.width), y: clamp(e.target.y() / map.height) } : v) } })}
-                onClick={(e) => { e.cancelBubble = true; if (index === 0 && area.length >= 3 && tool === "polygon") onFinish(); }}
-                onTap={(e) => { e.cancelBubble = true; if (index === 0 && area.length >= 3 && tool === "polygon") onFinish(); }} />)}
-              {(display.chips || selected) && <Group x={center.x + (dragOffset?.x ?? 0)} y={center.y + (dragOffset?.y ?? 0)} scaleX={display.markSize / scale} scaleY={display.markSize / scale} draggable={editable}
-                onClick={select} onTap={select}
-                onDragStart={(e) => { areaDragStart.current = area; areaDragNodeStart.current = { x: e.target.x(), y: e.target.y() }; }}
-                onDragMove={(e) => {
-                  const base = areaDragStart.current, s = areaDragNodeStart.current;
-                  if (!base || !s) return;
-                  const { dx, dy } = areaDelta(e, s, base, map.width, map.height);
-                  e.target.position({ x: s.x + dx * map.width, y: s.y + dy * map.height });
-                  setAreaDrag({ id, x: dx * map.width, y: dy * map.height, source: "chip" });
-                }}
-                onDragEnd={(e) => {
-                  const base = areaDragStart.current ?? area, s = areaDragNodeStart.current;
-                  areaDragStart.current = null; areaDragNodeStart.current = null; setAreaDrag(null);
-                  if (!s) return;
-                  const { dx, dy } = areaDelta(e, s, base, map.width, map.height);
-                  onChange({ geometry: { type: item.geometry.type, points: shiftPoints(base, dx, dy) } });
-                }}>
-                <Rect x={-34} y={-11} width={68} height={22} fill={clash ? theme.palette.error.main : theme.palette.background.paper} opacity={0.94} stroke={clash ? theme.palette.error.main : color} strokeWidth={1.5} cornerRadius={4} />
-                <Text x={-34} y={-7} width={68} text={company?.code ?? "—"} fontFamily="Inter" fontSize={12} fontStyle="bold" align="center" fill={clash ? theme.palette.error.contrastText : theme.palette.text.primary} listening={false} />
-              </Group>}
-              {!route && <Group x={item.x * map.width} y={item.y * map.height} scaleX={display.markSize / scale} scaleY={display.markSize / scale} draggable={editable}
-                onClick={select} onTap={select}
-                onDragMove={(e) => {
-                  const x = clamp(e.target.x() / map.width), y = clamp(e.target.y() / map.height);
-                  e.target.position({ x: x * map.width, y: y * map.height });
-                  onChange({ x, y });
-                }}
-                onDragEnd={(e) => onChange({ x: clamp(e.target.x() / map.width), y: clamp(e.target.y() / map.height) })}>
-                {item.icon === "text" ? (textEditing && editing && !dragging ? null : <>
-                  {/* Plain-text marker: the work title auto-sizes the pill and wraps
-                      (max 3 lines + ellipsis). Double-click enters text editing, which
-                      swaps this spot for an HTML textarea typed directly on the map. */}
-                  <Rect x={-textLayout!.width / 2} y={-textLayout!.height / 2} width={textLayout!.width} height={textLayout!.height} fill={theme.palette.background.paper} opacity={0.94} stroke={color} strokeWidth={selected ? 3 : 1.5} cornerRadius={Math.min(16, textLayout!.height / 2)} />
-                  <Text x={-textLayout!.width / 2 + 12} y={-textLayout!.height / 2 + 7} width={textLayout!.width - 24} text={textLayout!.lines.join("\n")} fontFamily="Inter" fontSize={13} fontStyle="bold" lineHeight={TEXT_LINE_HEIGHT / 13} align="center" fill={theme.palette.text.primary} listening={false} />
-                </>) : <>
-                  <Circle radius={24} fill={theme.palette.background.paper} opacity={0.94} stroke={color} strokeWidth={selected ? 3 : 1.5} />
-                  <MachineIcon icon={item.icon} color={color} rotation={item.rotation} />
-                  {captionShown && captionLayout && <Text x={-captionLayout.width / 2} y={28} width={captionLayout.width} text={captionLayout.lines.join("\n")} fontFamily="Inter" fontSize={12} fontStyle="600" lineHeight={CAPTION_LINE_HEIGHT / 12} align="center" fill={theme.palette.text.primary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled listening={false} />}
-                </>}
-                {noteLayout && <Text x={-noteLayout.width / 2} y={noteY} width={noteLayout.width} text={noteLayout.lines.join("\n")} fontFamily="Inter" fontSize={11} lineHeight={NOTE_LINE_HEIGHT / 11} align="center" fill={theme.palette.text.secondary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled listening={false} />}
-              </Group>}
-            </Group>;
+            const company = companyById.get(item.contractorId);
+            return <CanvasItem key={id} item={item} id={id} editing={editing} selected={id === selectedId || editing} hasDraft={Boolean(draft)} focus={Boolean(selectedId || draft)}
+              color={company?.color ?? theme.palette.primary.main} code={company?.code} clash={item.areaKind === "route" && Boolean(clashes.get(id))}
+              scale={scale} tool={tool} drawingTool={drawingTool} textEditing={textEditing} dragging={editing && dragging} display={display}
+              dragOffset={areaDrag?.id === id ? areaDrag : null} iconDrag={iconDrag?.id === id ? iconDrag : null} mapWidth={map.width} mapHeight={map.height} coarse={coarse}
+              actions={actions} rectangleRef={rectangle} transformerRef={transformer} />;
           })}
-        </Layer>
+          {ripple && <TapRipple key={ripple.key} x={ripple.x} y={ripple.y} scale={scale} color={theme.palette.primary.main} onDone={() => setRipple(null)} />}
+        </>}</JobsLayer>
       </Stage>
+      {/* Drawing a road / free area (live, in the meeting): the instruction is a small pill at the top
+          (never blocks taps) and the controls float at the bottom within thumb reach — Done is the one
+          primary action, Undo is labelled (used often), Start over is icon-only (rare). */}
+      {!readOnly && drawingTool && draft && (() => {
+        const n = draft.geometry.points.length;
+        const step = tool === "route"
+          ? n === 0 ? "แตะจุดเริ่มต้นบนถนน" : n < 2 ? "แตะจุดถัดไปตามถนน" : "แตะต่อตามถนน หรือกด Done"
+          : n === 0 ? "แตะมุมแรกของพื้นที่" : n < 3 ? `วางต่ออีก ${3 - n} มุม` : "แตะจุดแรกเพื่อปิดรูป หรือกด Done";
+        const ready = n >= minPoints && !coordinationGeometryError(draft.geometry);
+        const h = coarse ? 44 : 38;
+        return <>
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 30, maxWidth: "calc(100% - 24px)",
+            px: 1.5, py: 0.75, bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 999, pointerEvents: "none" }}>
+            {tool === "route" ? <AddRoadOutlined fontSize="small" color="primary" /> : <PentagonOutlined fontSize="small" color="primary" />}
+            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>{step}</Typography>
+          </Stack>
+          <Paper elevation={6} sx={{ position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)", zIndex: 31, p: 0.75, borderRadius: 999, display: "flex", gap: 0.75, alignItems: "center", maxWidth: "calc(100% - 24px)" }}>
+            <Button variant="outlined" color="inherit" startIcon={<UndoOutlined />} disabled={!n} sx={{ height: h, borderRadius: 999, borderColor: "divider", whiteSpace: "nowrap" }}
+              onClick={() => onChange({ geometry: { type: drawType, points: draft.geometry.points.slice(0, -1) } })}>Undo</Button>
+            <Tooltip title="Start over"><span>
+              <IconButton aria-label="Start over" disabled={!n} sx={{ width: h, height: h }} onClick={() => onChange({ geometry: { type: drawType, points: [] } })}><RestartAltOutlined /></IconButton>
+            </span></Tooltip>
+            <Button variant="contained" disableElevation startIcon={<CheckOutlined />} disabled={!ready} onClick={onFinish} sx={{ height: h, borderRadius: 999, px: 2.25, whiteSpace: "nowrap" }}>
+              Done{n ? ` · ${n} จุด` : ""}
+            </Button>
+          </Paper>
+        </>;
+      })()}
       {drawingTool && draft && hover && draft.geometry.points.length > 0 && (() => {
         const pts = draft.geometry.points;
         const last = pts[pts.length - 1]!, first = pts[0]!;
@@ -466,7 +577,8 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
         </Stack>
       </Popper>;
     })()}
-      {!readOnly && <Stack direction="column" spacing={0.5} sx={{ position: "absolute", bottom: 14, right: 14, zIndex: 30, bgcolor: "rgba(255,255,255,0.92)", backdropFilter: "blur(6px)", p: 0.5, borderRadius: 2, border: "1px solid rgba(0,0,0,0.12)", boxShadow: 2 }}>
+      {/* Phones: zoom sits above the floating Add item / Draw road buttons (they share the bottom edge). */}
+      {!readOnly && <Stack direction="column" spacing={0.5} sx={{ position: "absolute", bottom: fill && coarse ? 72 : 14, right: 14, zIndex: 30, bgcolor: "rgba(255,255,255,0.92)", backdropFilter: "blur(6px)", p: 0.5, borderRadius: 2, border: "1px solid rgba(0,0,0,0.12)", boxShadow: 2 }}>
         <IconButton size="small" aria-label="Zoom in" disabled={zoom >= 6} onClick={() => changeZoom(1.25)}><AddOutlined fontSize="small" /></IconButton>
         <Typography variant="caption" sx={{ textAlign: "center", fontSize: 10, fontWeight: 700 }}>{Math.round(zoom * 100)}%</Typography>
         <IconButton size="small" aria-label="Zoom out" disabled={zoom <= 1} onClick={() => changeZoom(1 / 1.25)}><RemoveOutlined fontSize="small" /></IconButton>

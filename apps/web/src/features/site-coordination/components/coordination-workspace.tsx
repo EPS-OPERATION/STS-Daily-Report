@@ -4,6 +4,10 @@ import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
+import ButtonBase from "@mui/material/ButtonBase";
+import ExpandLessOutlined from "@mui/icons-material/ExpandLessOutlined";
+import ExpandMoreOutlined from "@mui/icons-material/ExpandMoreOutlined";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
 import { QueryError } from "@/components/ui/query-error.js";
@@ -17,21 +21,31 @@ import { ContractorColorDialog } from "./contractor-color-dialog.js";
 
 export function CoordinationWorkspace(props: Parameters<typeof useCoordinationWorkspace>[0]) {
   const ed = useCoordinationWorkspace(props);
-  const { projects, activeProject, date, setSelectedId, tool, addAnchor, setAddAnchor, deleteTarget, setDeleteTarget, query, remove, dayLock, lockConfirm, setLockConfirm, lockDay, data, selected, company, editableCompanies, wide, items, updateWorking, createItem, startCreate, pendingIcon, setPendingIcon, filteredCompanyId, filterControls, inspector, readOnly, compact } = ed;
+  const { projects, activeProject, date, setSelectedId, tool, addAnchor, setAddAnchor, deleteTarget, setDeleteTarget, query, remove, dayLock, lockConfirm, setLockConfirm, lockDay, data, selected, company, editableCompanies, wide, items, updateWorking, createItem, startCreate, pendingIcon, setPendingIcon, filteredCompanyId, filterControls, inspector, readOnly, compact, phone, fill } = ed;
+  // Below lg the inspector is a bottom sheet. It opens as a slim strip (handle + job name) so the job stays
+  // visible and draggable on the map; tapping the handle expands it for editing.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => setSheetOpen(false), [selected?.id]);
 
-  return <Box>
+  // Fill: exactly one window tall, so the page does not scroll and the map stays put. Phone: 100dvh − 65px
+  // topbar (incl. border) − main's 16px top / 80px bottom padding (clears the field bottom nav).
+  // lg+: − 65px topbar − main's 24px + 24px padding (a floor keeps short windows usable; they scroll).
+  return <Box sx={fill ? { height: phone ? "calc(100dvh - 161px)" : "calc(100dvh - 113px)", minHeight: phone ? undefined : 560, display: "flex", flexDirection: "column" } : undefined}>
     {compact && <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "center" }} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
       {filterControls}
       <Typography variant="caption" color="text.secondary" sx={{ ml: { sm: "auto" } }}>{projects.find((p) => p.id === activeProject)?.code} · {items.length} รายการ</Typography>
     </Stack>}
     {query.isError && <QueryError error={query.error} onRetry={() => void query.refetch()} />}
-    {!data && !query.isError && <BlockSkeleton height={480} />}
+    {!data && !query.isError && <BlockSkeleton height={phone ? 300 : 480} />}
     {data && <>
       {!readOnly && !data.lock && !editableCompanies.length && <Alert severity="info" sx={{ mb: 2 }}>บัญชีนี้ยังไม่ได้ผูกกับผู้รับเหมาในโครงการ จึงเพิ่มหรือแก้รายการงานไม่ได้</Alert>}
       <WorkspaceMap ed={ed} />
       {/* Phone: the sheet steps aside while drawing so the whole map is free to tap (the hint bar has เสร็จ). */}
-      {!compact && selected && !wide && tool === "move" && <Paper elevation={8} sx={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 1200, maxHeight: "48vh", display: "flex", flexDirection: "column", borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: "hidden" }}>
-        <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: "divider", mx: "auto", mt: 1 }} />
+      {!compact && selected && !wide && tool === "move" && <Paper elevation={8} sx={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 1200, maxHeight: sheetOpen ? "60dvh" : 104, display: "flex", flexDirection: "column", borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: "hidden" }}>
+        <ButtonBase onClick={() => setSheetOpen((v) => !v)} aria-expanded={sheetOpen} aria-label={sheetOpen ? "Collapse details" : "Expand details"}
+          sx={{ flexShrink: 0, height: 22, width: "100%", color: "text.secondary" }}>
+          {sheetOpen ? <ExpandMoreOutlined fontSize="small" /> : <ExpandLessOutlined fontSize="small" />}
+        </ButtonBase>
         {inspector}
       </Paper>}
       {compact && selected && <Typography variant="body2" sx={{ mt: 1 }}>{company?.code} · {selected.title}{selected.note ? ` — ${selected.note}` : ""}</Typography>}

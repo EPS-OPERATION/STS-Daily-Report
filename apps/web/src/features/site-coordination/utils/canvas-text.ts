@@ -35,7 +35,25 @@ export function measureText(text: string, font: string) {
   return measureContext.measureText(text).width;
 }
 
-export function layoutTextTitle(title: string, options: { font?: string; maxWidth?: number; lineHeight?: number; maxLines?: number; minWidth?: number } = {}): TextLayout {
+type LayoutOptions = { font?: string; maxWidth?: number; lineHeight?: number; maxLines?: number; minWidth?: number };
+
+// Layouts are pure (same title + options -> same lines), and measuring Thai text is done character by
+// character, so results are cached: the map re-renders on every drag/zoom and would otherwise re-measure
+// every label each time. Bounded so a long editing session cannot grow it forever.
+const layoutCache = new Map<string, TextLayout>();
+const LAYOUT_CACHE_MAX = 600;
+
+export function layoutTextTitle(title: string, options: LayoutOptions = {}): TextLayout {
+  const key = `${options.font ?? ""}|${options.maxWidth ?? ""}|${options.lineHeight ?? ""}|${options.maxLines ?? ""}|${options.minWidth ?? ""}|${title}`;
+  const cached = layoutCache.get(key);
+  if (cached) return cached;
+  const layout = computeTextLayout(title, options);
+  if (layoutCache.size >= LAYOUT_CACHE_MAX) layoutCache.delete(layoutCache.keys().next().value!);
+  layoutCache.set(key, layout);
+  return layout;
+}
+
+function computeTextLayout(title: string, options: LayoutOptions): TextLayout {
   const font = options.font ?? TEXT_FONT;
   const maxWidth = options.maxWidth ?? TEXT_MAX_WIDTH;
   const lineHeight = options.lineHeight ?? TEXT_LINE_HEIGHT;
@@ -73,6 +91,9 @@ export function layoutTextTitle(title: string, options: { font?: string; maxWidt
 }
 
 // Default size of icons, company tags and labels on the map (each browser can change it under Display).
-export const MARK_SCALE = 0.6;
+// 0.85: icons ~41px (a finger target on phones) and 12px captions stay readable (~10px); 0.6 drew them at ~7px.
+export const MARK_SCALE = 0.85;
+/** Earlier defaults; a browser that saved one of these (by toggling any switch) gets the current default. */
+export const OLD_MARK_SCALES = [0.6, 0.7];
 export const MARK_SCALE_MIN = 0.3;
 export const MARK_SCALE_MAX = 1;
