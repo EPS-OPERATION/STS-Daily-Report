@@ -39,7 +39,8 @@ export function useReviewDialog({
   }, [report?.id]);
 
 
-  const weatherLabel = WEATHER_CONDITIONS.find((w) => w.code === data?.weather)?.label ?? data?.weather ?? "ปกติ";
+  // No weather yet (morning not sent) is "—", never a default "ปกติ".
+  const weatherLabel = data?.weather ? WEATHER_CONDITIONS.find((w) => w.code === data.weather)?.label ?? data.weather : "—";
   const positionLabel = (code: string) => POSITIONS.find((p) => p.code === code)?.labelTh ?? POSITIONS.find((p) => p.code === code)?.label ?? code;
   return {
     contextProjectId,
