@@ -29,6 +29,9 @@ export const weatherApi = {
   hourly(projectId: string, from: string, to: string): Promise<{ data: HourlyWeather }> {
     return http.get(`/projects/${projectId}/weather/hourly?from=${from}&to=${to}`);
   },
+  now(projectId: string): Promise<{ data: { stale: boolean; hour: WeatherHour | null } }> {
+    return http.get(`/projects/${projectId}/weather/now`);
+  },
   at(projectId: string, date: string, time: string): Promise<{ data: { stale: boolean; hour: WeatherHour | null } }> {
     return http.get(`/projects/${projectId}/weather/at?date=${date}&time=${time}`);
   },

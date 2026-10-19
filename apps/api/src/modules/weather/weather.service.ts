@@ -148,6 +148,62 @@ export async function weatherAtService(projectId: string, date: string, time: st
   return { stale, hour: sameDay ? toDto(row) : null };
 }
 
+// ---- weather now (morning form of today's report) ----
+// Open-Meteo "current" conditions (model data, refreshed every 15 minutes) for the project's coordinates.
+// Not stored: cached a few minutes per project. If the provider is unreachable, the latest stored hour is
+// returned with stale = true, so the form still gets real (slightly older) numbers.
+const NOW_TTL_MS = 5 * 60_000;
+const nowCache = new Map<string, { at: number; hour: WeatherHour }>();
+
+interface OpenMeteoCurrent {
+  time: string;
+  temperature_2m: number | null;
+  relative_humidity_2m: number | null;
+  precipitation: number | null;
+  wind_speed_10m: number | null;
+  wind_gusts_10m: number | null;
+  weather_code: number | null;
+}
+
+async function fetchOpenMeteoCurrent(lat: number, lon: number): Promise<OpenMeteoCurrent> {
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    "&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_gusts_10m,weather_code&timezone=Asia%2FBangkok";
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+  if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
+  const body = (await res.json()) as { current?: OpenMeteoCurrent };
+  if (!body.current?.time) throw new Error("Open-Meteo: no current data");
+  return body.current;
+}
+
+export async function weatherNowService(projectId: string): Promise<{ stale: boolean; hour: WeatherHour | null }> {
+  const cached = nowCache.get(projectId);
+  if (cached && Date.now() - cached.at < NOW_TTL_MS) return { stale: false, hour: cached.hour };
+  const db = getDb();
+  const project = await getProjectLocation(db, projectId);
+  if (!project) throw new NotFoundError("Project not found", { projectId });
+  try {
+    const c = await fetchOpenMeteoCurrent(project.latitude ?? DEFAULT_SITE_LOCATION.latitude, project.longitude ?? DEFAULT_SITE_LOCATION.longitude);
+    const hour: WeatherHour = {
+      hour: new Date(`${c.time}:00${OFFSET}`).toISOString(),
+      temperatureC: round1(c.temperature_2m),
+      humidityPct: c.relative_humidity_2m === null || c.relative_humidity_2m === undefined ? null : Math.round(c.relative_humidity_2m),
+      precipitationMm: round1(c.precipitation),
+      windKmh: round1(c.wind_speed_10m),
+      gustKmh: round1(c.wind_gusts_10m),
+      weatherCode: c.weather_code ?? null,
+      source: "open-meteo-current",
+    };
+    nowCache.set(projectId, { at: Date.now(), hour });
+    return { stale: false, hour };
+  } catch (err) {
+    console.warn("[weather] current failed", projectId, err instanceof Error ? err.message : err);
+    await ensureFresh(projectId);
+    const row = await latestHour(db, projectId, new Date(Date.now() + 1));
+    return { stale: true, hour: row ? toDto(row) : null };
+  }
+}
+
 // Hourly job: pull every active project now (ignores freshness). Returns which projects failed.
 export async function syncAllProjectsService() {
   const ids = await listActiveProjectIds(getDb());

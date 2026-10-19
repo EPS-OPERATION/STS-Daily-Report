@@ -9,7 +9,9 @@ import { morningSchema, placementStatus, type MorningFormValues } from "../schem
 import type { Building } from "@/features/buildings/index.js";
 import type { DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { crewTotals } from "../components/crew-manpower.js";
-import { useWeatherAt } from "@/features/weather/index.js";
+import { useWeatherAt, useWeatherNow } from "@/features/weather/index.js";
+import { todayIso } from "@/lib/dates.js";
+import type { WeatherHour } from "@sts/shared";
 import { type ProgressItem } from "../components/form-aids.js";
 import { draftKey, useFormDraft } from "./use-form-draft.js";
 import { formatThaiDate } from "@/lib/dates.js";
@@ -119,31 +121,43 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Recorded site weather (API, hourly) at the report's start time — real data or nothing, never a guess.
+  // Site weather from the API — real data or nothing, never a guess. Today's report uses the weather *now*
+  // (Open-Meteo current, 15-min, refreshed while the form is open and again on Send); a report for an earlier day
+  // uses the recorded hour at its start time.
+  const isToday = date === todayIso();
   const weatherStart = useWatch({ control, name: "startTime" }) || "08:00";
   const weatherAt = useWeatherAt(projectId, date, weatherStart);
-  const recorded = weatherAt.data?.data.hour ?? null;
+  const weatherNow = useWeatherNow(projectId, isToday);
+  const recorded = (isToday ? weatherNow.data?.data.hour : null) ?? weatherAt.data?.data.hour ?? null;
   const siteWeather = recorded
     ? {
-        weather: weatherConditionOf(recorded),
+        ...formWeather(recorded),
         weatherLabel: weatherCodeLabel(recorded.weatherCode),
-        temperatureC: Math.round(recorded.temperatureC ?? 0),
-        humidityPct: recorded.humidityPct ?? 0,
         windSpeedKmh: recorded.windKmh ?? 0,
+        isNow: isToday && recorded.source === "open-meteo-current",
         at: new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(recorded.hour)),
       }
     : null;
-  // Auto-fill once, only into an empty weather section of a report not sent yet (never over the contractor's choice).
-  const weatherFilled = useRef(false);
+  // Keep following the API while the section is untouched (empty, or still the last value it filled in);
+  // once the contractor changes it by hand, their values win. Never touches a report already sent.
+  const lastAuto = useRef<ReturnType<typeof formWeather> | null>(null);
+  const weatherUntouched = () => {
+    const cur = { weather: getValues("weather"), temperatureC: getValues("temperatureC"), humidityPct: getValues("humidityPct") };
+    if (!cur.weather && !cur.temperatureC) return true;
+    const a = lastAuto.current;
+    return Boolean(a && cur.weather === a.weather && cur.temperatureC === a.temperatureC && cur.humidityPct === a.humidityPct);
+  };
+  const fillWeather = (w: ReturnType<typeof formWeather>, dirty = false) => {
+    setValue("weather", w.weather, { shouldValidate: true, shouldDirty: dirty });
+    setValue("temperatureC", w.temperatureC, { shouldValidate: true, shouldDirty: dirty });
+    setValue("humidityPct", w.humidityPct, { shouldValidate: true, shouldDirty: dirty });
+    lastAuto.current = w;
+  };
   useEffect(() => {
-    if (!siteWeather || weatherFilled.current || report?.morningStatus === "submitted") return;
-    weatherFilled.current = true;
-    if (getValues("weather") || getValues("temperatureC")) return;
-    setValue("weather", siteWeather.weather, { shouldValidate: true });
-    setValue("temperatureC", siteWeather.temperatureC, { shouldValidate: true });
-    setValue("humidityPct", siteWeather.humidityPct, { shouldValidate: true });
+    if (!siteWeather || report?.morningStatus === "submitted" || !weatherUntouched()) return;
+    fillWeather({ weather: siteWeather.weather, temperatureC: siteWeather.temperatureC, humidityPct: siteWeather.humidityPct });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteWeather?.weather, siteWeather?.temperatureC]);
+  }, [siteWeather?.weather, siteWeather?.temperatureC, siteWeather?.humidityPct]);
 
   // Weather section shows a one-line snapshot; the controls open on "แก้ไข", with no value, or on an error.
   const [weatherOpen, setWeatherOpen] = useState(false);
@@ -156,9 +170,7 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
 
   const handleApplyWeather = () => {
     if (!siteWeather) return;
-    setValue("weather", siteWeather.weather, { shouldValidate: true, shouldDirty: true });
-    setValue("temperatureC", siteWeather.temperatureC, { shouldValidate: true, shouldDirty: true });
-    setValue("humidityPct", siteWeather.humidityPct, { shouldValidate: true, shouldDirty: true });
+    fillWeather({ weather: siteWeather.weather, temperatureC: siteWeather.temperatureC, humidityPct: siteWeather.humidityPct }, true);
   };
 
   const disciplineValues = useWatch({ control, name: "disciplines" });
@@ -174,8 +186,17 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
   const crewReady = (d: Discipline) => crewTotals(crewValues[d]).ok && placementProblem(d) === null;
 
   const onSubmit = handleSubmit(
-    (v) => {
+    async (v) => {
       setValidationError(null);
+      // Today's report saves the weather at the moment it is sent, unless the contractor set it by hand.
+      if (isToday && weatherUntouched()) {
+        const fresh = (await weatherNow.refetch()).data?.data.hour;
+        if (fresh) {
+          const w = formWeather(fresh);
+          fillWeather(w);
+          v = { ...v, ...w };
+        }
+      }
       submit.mutate(
         {
           date,
@@ -322,7 +343,6 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
     weatherAt,
     recorded,
     siteWeather,
-    weatherFilled,
     weatherOpen,
     setWeatherOpen,
     weatherValue,
@@ -365,3 +385,8 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
 }
 
 export type UseMorningFormState = ReturnType<typeof useMorningForm>;
+
+// API weather → the three values the morning form stores.
+function formWeather(h: WeatherHour) {
+  return { weather: weatherConditionOf(h), temperatureC: Math.round(h.temperatureC ?? 0), humidityPct: h.humidityPct ?? 0 };
+}

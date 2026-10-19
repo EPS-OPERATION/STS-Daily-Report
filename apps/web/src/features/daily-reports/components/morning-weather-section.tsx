@@ -35,7 +35,7 @@ export function MorningWeatherSection({ ed }: { ed: UseMorningFormState }) {
           </Typography>
           <Typography variant="caption" color="text.secondary">
             {matchesRecorded && siteWeather
-              ? `อัตโนมัติจากข้อมูลอากาศ ${siteWeather.at} น.`
+              ? siteWeather.isNow ? `อากาศตอนนี้ ${siteWeather.at} น. · อัปเดตอัตโนมัติจนกดส่ง` : `อัตโนมัติจากข้อมูลอากาศ ${siteWeather.at} น.`
               : weatherValue
                 ? "กรอกเองแล้ว"
                 : siteWeather
