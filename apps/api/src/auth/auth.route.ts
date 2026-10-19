@@ -4,7 +4,7 @@ import { getEnv } from "@/config/env.js";
 import { clientIp } from "./client-ip.js";
 import { requireAuth } from "@/middleware/require-auth.js";
 import { ok, paginated } from "@/shared/http/response.js";
-import { limitAuthAttempts, loadMe, loginWithPassword, logoutSession, registerUser, registrationOptions } from "./auth.service.js";
+import { limitAuthAttempts, loadMe, loginWithPassword, logoutSession, registerUser, registrationOptions, registrationProjects } from "./auth.service.js";
 import { loginBody, registerBody, resetPasswordBody } from "./auth.schema.js";
 import { resetPassword } from "./password-reset.service.js";
 import { listContractorsQuery } from "@/modules/contractors/contractor.schema.js";
@@ -30,6 +30,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
     const { rows, total } = await registrationOptions({ ...p, projectId: query.projectId });
     return paginated(rows, p.page, p.pageSize, total);
   }, { query: listContractorsQuery })
+  .get("/registration-projects", async () => ok(await registrationProjects()))
   .post("/register", async ({ body, set, server, request }) => {
     await limitAuthAttempts("register", clientIp(request.headers, server?.requestIP(request)?.address, getEnv().TRUST_PROXY), 100);
     const result = await registerUser(body);

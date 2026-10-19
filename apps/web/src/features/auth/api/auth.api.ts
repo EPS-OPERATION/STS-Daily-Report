@@ -21,6 +21,9 @@ export const authApi = {
   resetPassword(token: string, password: string): Promise<{ data: { ok: boolean } }> {
     return http.post("/auth/reset-password", { token, password });
   },
+  projects(): Promise<{ data: { id: string; code: string; name: string }[] }> {
+    return http.get("/auth/registration-projects");
+  },
   contractors(search: string, projectId?: string): Promise<PaginatedResponse<ContractorOption>> {
     const params = new URLSearchParams({ page: "1", pageSize: "100", search });
     if (projectId) params.set("projectId", projectId);
