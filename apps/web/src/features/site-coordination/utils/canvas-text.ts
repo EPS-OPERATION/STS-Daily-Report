@@ -72,5 +72,7 @@ export function layoutTextTitle(title: string, options: { font?: string; maxWidt
   return { lines, width, height, lineHeight };
 }
 
-// Icons, company tags and labels on the map are drawn at 70 % so neighbouring works don't overlap.
-export const MARK_SCALE = 0.7;
+// Default size of icons, company tags and labels on the map (each browser can change it under Display).
+export const MARK_SCALE = 0.6;
+export const MARK_SCALE_MIN = 0.3;
+export const MARK_SCALE_MAX = 1;

@@ -11,7 +11,7 @@ import { layoutTextTitle } from "../utils/canvas-text.js";
 // ~90 screen px and an arrowhead at the end, so the way the contractor drives reads at a glance.
 // Two-way roads get an arrowhead at both ends and no in-between marks (those would point one way).
 // The title sits under the midpoint chip. Never listens: the route line itself takes the clicks.
-export function RouteMarks({ points, dx, dy, color, paper, scale, title, textColor, arrowsHidden = false, twoWay = false, labelDy = 14 }: {
+export function RouteMarks({ points, dx, dy, color, paper, scale, title, textColor, arrowsHidden = false, twoWay = false, labelDy = 14, markScale = MARK_SCALE }: {
   points: { x: number; y: number }[]; dx: number; dy: number; color: string; paper: string; scale: number; title: string; textColor: string;
   /** Label only (e.g. a register road with no direction). */
   arrowsHidden?: boolean;
@@ -19,6 +19,8 @@ export function RouteMarks({ points, dx, dy, color, paper, scale, title, textCol
   twoWay?: boolean;
   /** Screen px from the midpoint down to the label (stacked when labels would overlap). */
   labelDy?: number;
+  /** Size of the route label (map Display setting). */
+  markScale?: number;
 }) {
   const step = 90 / scale;
   const marks: { x: number; y: number; rotation: number }[] = [];
@@ -45,7 +47,7 @@ export function RouteMarks({ points, dx, dy, color, paper, scale, title, textCol
     {!arrowsHidden && !twoWay && <Circle x={points[0]!.x} y={points[0]!.y} radius={7 / scale} fill={paper} stroke={color} strokeWidth={3 / scale} />}
     {!arrowsHidden && <Arrow points={[before.x, before.y, end.x, end.y]} pointerLength={22 / scale} pointerWidth={22 / scale} fill={color} stroke={color} strokeWidth={6 / scale} lineCap="round" />}
     {!arrowsHidden && twoWay && <Arrow points={[after.x, after.y, start.x, start.y]} pointerLength={22 / scale} pointerWidth={22 / scale} fill={color} stroke={color} strokeWidth={6 / scale} lineCap="round" />}
-    {label && <Group x={mid.x} y={mid.y} scaleX={MARK_SCALE / scale} scaleY={MARK_SCALE / scale}>
+    {label && <Group x={mid.x} y={mid.y} scaleX={markScale / scale} scaleY={markScale / scale}>
       <Text x={-label.width / 2} y={labelDy} width={label.width} text={label.lines.join("\n")} fontFamily="Inter" fontSize={12} fontStyle="600" lineHeight={CAPTION_LINE_HEIGHT / 12} align="center" fill={textColor} stroke={paper} strokeWidth={3} fillAfterStrokeEnabled />
     </Group>}
   </Group>;

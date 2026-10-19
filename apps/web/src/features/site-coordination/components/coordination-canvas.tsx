@@ -51,7 +51,7 @@ interface Props {
   onSelect: (id: string) => void; onChange: (patch: Partial<CoordinationInput>) => void; onFinish: () => void;
   onDeselect: () => void; textEditing: boolean; onEditText: () => void;
   /** Layers the viewer switched off; the selected/edited job always shows everything. */
-  display?: Pick<MapDisplay, "areas" | "labels" | "notes" | "links" | "chips">;
+  display?: Pick<MapDisplay, "areas" | "labels" | "notes" | "links" | "chips" | "markSize">;
   /** Printed report: no grey margin, hints, zoom buttons or dragging; the view frames every job. */
   readOnly?: boolean;
   /** Stage height in px (the report sheet); default follows compact/width. */
@@ -69,7 +69,7 @@ interface Props {
 
 const NO_CLASHES: ReadonlyMap<string, string[]> = new Map();
 
-const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true };
+const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true, markSize: MARK_SCALE };
 
 export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, onReady, clashes = NO_CLASHES, roads = [], roadNames = [] }: Props) {
   const theme = useTheme();
@@ -266,7 +266,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
             if (longest.length < 2) return null;
             const mid = routeMidpoint(longest, map.width, map.height);
             return (
-              <Group key={road.name} x={mid.x} y={mid.y} scaleX={MARK_SCALE / scale} scaleY={MARK_SCALE / scale}>
+              <Group key={road.name} x={mid.x} y={mid.y} scaleX={display.markSize / scale} scaleY={display.markSize / scale}>
                 <Text text={road.name} width={180} offsetX={90} offsetY={7} align="center" fontSize={12} fontStyle="bold"
                   fill={theme.palette.text.secondary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled />
               </Group>
@@ -286,7 +286,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
               <Line points={pts} stroke={road.alert ? theme.palette.error.main : theme.palette.background.paper} strokeWidth={(road.alert ? 15 : 11) / scale} lineCap="round" lineJoin="round" opacity={0.95} />
               <Line points={pts} stroke={road.color} strokeWidth={7 / scale} lineCap="round" lineJoin="round" />
               <RouteMarks points={road.points.map((p) => ({ x: p.x * map.width, y: p.y * map.height }))} dx={0} dy={0} color={road.color}
-                paper={theme.palette.background.paper} scale={scale} title={road.label} textColor={theme.palette.text.primary} labelDy={14 + below * 17} arrowsHidden={road.arrows === false} />
+                paper={theme.palette.background.paper} scale={scale} title={road.label} textColor={theme.palette.text.primary} labelDy={14 + below * 17} arrowsHidden={road.arrows === false} markScale={display.markSize} />
             </Group>;
           })}
         </Layer>
@@ -356,13 +356,13 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
                 points={drawnArea.map((p) => ({ x: p.x * map.width, y: p.y * map.height }))}
                 dx={dragOffset?.source === "line" ? dragOffset.x : 0} dy={dragOffset?.source === "line" ? dragOffset.y : 0}
                 color={color} paper={theme.palette.background.paper} scale={scale}
-                title={(display.labels || selected) && !(textEditing && editing) ? item.title : ""} textColor={theme.palette.text.primary} twoWay={item.twoWay === true} />}
+                title={(display.labels || selected) && !(textEditing && editing) ? item.title : ""} textColor={theme.palette.text.primary} twoWay={item.twoWay === true} markScale={display.markSize} />}
               {isRectangle && <Transformer ref={transformer} flipEnabled={false} borderStroke={color} anchorStroke={color} anchorFill={theme.palette.background.paper} anchorSize={10} rotateEnabled />}
               {editing && (item.areaKind === "polygon" || route || drawingTool) && area.map((p, index) => <Circle key={index} x={p.x * map.width + (dragOffset?.x ?? 0)} y={p.y * map.height + (dragOffset?.y ?? 0)} radius={(index === 0 && tool === "polygon" && area.length >= 3 ? 11 : 6) / scale} fill={index === 0 && tool === "polygon" && area.length >= 3 ? color : theme.palette.background.paper} stroke={color} strokeWidth={2 / scale}
                 draggable onDragMove={(e) => onChange({ geometry: { type: item.geometry.type, points: area.map((v, i) => i === index ? { x: clamp(e.target.x() / map.width), y: clamp(e.target.y() / map.height) } : v) } })}
                 onClick={(e) => { e.cancelBubble = true; if (index === 0 && area.length >= 3 && tool === "polygon") onFinish(); }}
                 onTap={(e) => { e.cancelBubble = true; if (index === 0 && area.length >= 3 && tool === "polygon") onFinish(); }} />)}
-              {(display.chips || selected) && <Group x={center.x + (dragOffset?.x ?? 0)} y={center.y + (dragOffset?.y ?? 0)} scaleX={MARK_SCALE / scale} scaleY={MARK_SCALE / scale} draggable={editable}
+              {(display.chips || selected) && <Group x={center.x + (dragOffset?.x ?? 0)} y={center.y + (dragOffset?.y ?? 0)} scaleX={display.markSize / scale} scaleY={display.markSize / scale} draggable={editable}
                 onClick={select} onTap={select}
                 onDragStart={(e) => { areaDragStart.current = area; areaDragNodeStart.current = { x: e.target.x(), y: e.target.y() }; }}
                 onDragMove={(e) => {
@@ -382,7 +382,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
                 <Rect x={-34} y={-11} width={68} height={22} fill={clash ? theme.palette.error.main : theme.palette.background.paper} opacity={0.94} stroke={clash ? theme.palette.error.main : color} strokeWidth={1.5} cornerRadius={4} />
                 <Text x={-34} y={-7} width={68} text={company?.code ?? "—"} fontFamily="Inter" fontSize={12} fontStyle="bold" align="center" fill={clash ? theme.palette.error.contrastText : theme.palette.text.primary} listening={false} />
               </Group>}
-              {!route && <Group x={item.x * map.width} y={item.y * map.height} scaleX={MARK_SCALE / scale} scaleY={MARK_SCALE / scale} draggable={editable}
+              {!route && <Group x={item.x * map.width} y={item.y * map.height} scaleX={display.markSize / scale} scaleY={display.markSize / scale} draggable={editable}
                 onClick={select} onTap={select}
                 onDragMove={(e) => {
                   const x = clamp(e.target.x() / map.width), y = clamp(e.target.y() / map.height);
@@ -427,7 +427,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
       ) : (
         // Icon caption editor: typed in place of the halo caption under the marker.
         <InputBase autoFocus multiline rows={overlay.caption.lines.length} value={draft.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="ชื่อเครื่องจักร…" inputProps={{ "aria-label": "ชื่อเครื่องจักรบนผัง" }}
-          sx={{ position: "absolute", left: overlay.left, top: overlay.top + 28 * MARK_SCALE, transform: "translateX(-50%)", width: Math.max(168, overlay.caption.width), px: 1, py: "4px", borderRadius: 1, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 12, fontWeight: 600, lineHeight: `${CAPTION_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
+          sx={{ position: "absolute", left: overlay.left, top: overlay.top + 28 * display.markSize, transform: "translateX(-50%)", width: Math.max(168, overlay.caption.width), px: 1, py: "4px", borderRadius: 1, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 12, fontWeight: 600, lineHeight: `${CAPTION_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
       ))}
     {overlay && draft && draft.icon === "text" && textEditing && (() => {
       // While a text marker is being typed the HTML editor covers it, so this grip moves it.
