@@ -1,15 +1,24 @@
 import Box from "@mui/material/Box";
-import { PERMIT_TYPES, POSITIONS, WEATHER_CONDITIONS, type PermitType } from "@sts/shared";
+import { PERMIT_TYPES, POSITIONS, SITE_EQUIPMENT_TYPES, WEATHER_CONDITIONS, type PermitType } from "@sts/shared";
 import { type PrintReport } from "../types/daily-report.types.js";
 import { overtimeSummary } from "../utils/overtime.js";
 import { sumOf, thaiShortDate } from "./print-shared.js";
 
-// R003 layout with only what was reported: tables keep their filled rows, parts with no data are left out.
+// R003 layout with only what was reported: tables keep their filled rows, parts with no data are left out
+// (except manpower and the machine list, which always print like the paper form).
 export function FormSheet({ r }: { r: PrintReport }) {
   const w = r.weather;
   const eveningDone = r.eveningStatus === "submitted";
   const operatedDays = r.safetyRecord.daysSinceLastAccident;
   const permitsToday = r.permitsToday;
+  // Every standard type (qty 0 when not reported), then the contractor's own extra names.
+  const qtyOf = (type: string) => r.equipment.filter((e) => e.equipmentType === type).reduce((s, e) => s + e.qty, 0);
+  const machineRows = [
+    ...SITE_EQUIPMENT_TYPES.map((type) => ({ type, qty: qtyOf(type) })),
+    ...r.equipment
+      .filter((e) => !(SITE_EQUIPMENT_TYPES as readonly string[]).includes(e.equipmentType))
+      .map((e) => ({ type: e.equipmentType, qty: e.qty })),
+  ];
   const permitWorkers = (type: PermitType) => permitsToday.filter((p) => p.permitType === type).reduce((s, p) => s + p.workers, 0);
   const otherPermits = permitsToday.filter((p) => p.permitType === "other");
   const permitLines = PERMIT_TYPES.filter((p) => p.code !== "other" && permitWorkers(p.code) > 0);
@@ -25,6 +34,16 @@ export function FormSheet({ r }: { r: PrintReport }) {
   const hasTime = Boolean(r.startTime || r.endTime || r.workHours);
   const otLabel = r.overtime?.length ? overtimeSummary(r).replace(/^OT /, "") : r.otHours ? `${r.otHours} hr.` : null;
   const weatherLabel = WEATHER_CONDITIONS.find((c) => c.code === w)?.label;
+  const showMorning = morningTotal > 0 || !hasManpower;
+  const showEvening = eveningTotal > 0;
+  const shiftCols = 1 + (showMorning ? 1 : 0) + (showEvening ? 1 : 0);
+  // Nationality/sex rows under the positions: the left half then holds the whole manpower picture.
+  const natRows: { label: string; m: number | null; e: number | null }[] = [
+    { label: "ไทย ชาย", m: r.thaiMale, e: r.eveningThaiMale },
+    { label: "ไทย หญิง", m: r.thaiFemale, e: r.eveningThaiFemale },
+    { label: "ต่างชาติ ชาย", m: r.foreignMale, e: r.eveningForeignMale },
+    { label: "ต่างชาติ หญิง", m: r.foreignFemale, e: r.eveningForeignFemale },
+  ];
 
   return (
     <Box>
@@ -102,64 +121,104 @@ export function FormSheet({ r }: { r: PrintReport }) {
           </tr>
         </tbody>
       </table>
-      {hasManpower || hasPermits ? (
-        // Alone, the manpower or permit box keeps its half width (a full-width table spreads the numbers apart).
-        <table className="f" style={{ width: hasManpower && hasPermits ? "100%" : "50%" }}>
-          <tbody>
-              <tr>
-                {hasManpower ? <td className="c b blue">ประเภท/จำนวนผู้ปฏิบัติงาน (Manpower)</td> : null}
-                {hasPermits ? <td className="c b blue">Today Work Permit</td> : null}
-              </tr>
-              <tr>
-                {hasManpower ? (
-                  <td style={{ verticalAlign: "top", padding: 0 }}>
-                    <table className="f" style={{ border: 0 }}>
-                      <thead>
-                        <tr>
-                          <th>ตำแหน่ง</th>
-                          {morningTotal > 0 ? <th style={{ width: 56 }}>เช้า</th> : null}
-                          {eveningTotal > 0 ? <th style={{ width: 56 }}>บ่าย</th> : null}
+      {/* Two halves like the paper form: manpower on the left, today's permits + machine list on the right. */}
+      <table className="f">
+        <colgroup>
+          <col style={{ width: "50%" }} />
+          <col style={{ width: "50%" }} />
+        </colgroup>
+        <tbody>
+          <tr>
+            <td style={{ verticalAlign: "top", padding: 0 }}>
+              <table className="f" style={{ border: 0 }}>
+                <thead>
+                  <tr>
+                    <td colSpan={shiftCols} className="c b blue">ประเภท/จำนวนผู้ปฏิบัติงาน (Manpower)</td>
+                  </tr>
+                  <tr>
+                    <th>ตำแหน่ง</th>
+                    {showMorning ? <th style={{ width: 56 }}>เช้า</th> : null}
+                    {showEvening ? <th style={{ width: 56 }}>บ่าย</th> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {POSITIONS.filter(
+                    (p) =>
+                      (morningTotal > 0 && r.positions.some((x) => x.position === p.code)) ||
+                      (eveningTotal > 0 && r.eveningPositions.some((x) => x.position === p.code)),
+                  ).map((p) => (
+                    <tr key={p.code}>
+                      <td>{p.labelTh}</td>
+                      {morningTotal > 0 ? <td className="c">{r.positions.find((x) => x.position === p.code)?.headcount ?? "-"}</td> : null}
+                      {eveningTotal > 0 ? <td className="c">{r.eveningPositions.find((x) => x.position === p.code)?.headcount ?? "-"}</td> : null}
+                    </tr>
+                  ))}
+                  <tr className="b blue">
+                    <td>Today manpower</td>
+                    {showMorning ? <td className="c">{morningTotal || "-"}</td> : null}
+                    {showEvening ? <td className="c">{eveningTotal}</td> : null}
+                  </tr>
+                  {hasManpower
+                    ? natRows.map((n) => (
+                        <tr key={n.label}>
+                          <td>{n.label}</td>
+                          {showMorning ? <td className="c">{morningTotal > 0 ? n.m : "-"}</td> : null}
+                          {showEvening ? <td className="c">{n.e ?? "-"}</td> : null}
                         </tr>
-                      </thead>
-                      <tbody>
-                        {POSITIONS.filter(
-                          (p) =>
-                            (morningTotal > 0 && r.positions.some((x) => x.position === p.code)) ||
-                            (eveningTotal > 0 && r.eveningPositions.some((x) => x.position === p.code)),
-                        ).map((p) => (
-                          <tr key={p.code}>
-                            <td>{p.labelTh}</td>
-                            {morningTotal > 0 ? <td className="c">{r.positions.find((x) => x.position === p.code)?.headcount ?? "-"}</td> : null}
-                            {eveningTotal > 0 ? <td className="c">{r.eveningPositions.find((x) => x.position === p.code)?.headcount ?? "-"}</td> : null}
-                          </tr>
-                        ))}
-                        <tr className="b blue">
-                          <td>Today manpower</td>
-                          {morningTotal > 0 ? <td className="c">{morningTotal}</td> : null}
-                          {eveningTotal > 0 ? <td className="c">{eveningTotal}</td> : null}
+                      ))
+                    : null}
+                  {hasManpower ? (
+                    <tr className="b">
+                      <td>{r.workHours ? `NMH (${r.workHours} ชม./คน${otLabel ? " + OT" : ""})` : "NMH"}</td>
+                      <td colSpan={shiftCols - 1} className="c">
+                        {r.manHours.toLocaleString()} ชม.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </td>
+            <td style={{ verticalAlign: "top", padding: 0 }}>
+              <table className="f" style={{ border: 0 }}>
+                <tbody>
+                  {hasPermits ? (
+                    <>
+                      <tr>
+                        <td colSpan={2} className="c b blue">Today Work Permit</td>
+                      </tr>
+                      {permitLines.map((p) => (
+                        <tr key={p.code}>
+                          <td>☑ {p.label}</td>
+                          <td className="c" style={{ width: 56 }}>{permitWorkers(p.code)} คน</td>
                         </tr>
-                      </tbody>
-                    </table>
-                  </td>
-                ) : null}
-                {hasPermits ? (
-                  <td style={{ verticalAlign: "top" }}>
-                    {permitLines.map((p) => (
-                      <div key={p.code}>
-                        ☑ {p.label} — {permitWorkers(p.code)} คน
-                      </div>
-                    ))}
-                    {otherPermits.map((p) => (
-                      <div key={p.id}>
-                        ☑ {p.otherLabel ?? "Other"} — {p.workers} คน
-                      </div>
-                    ))}
-                  </td>
-                ) : null}
-              </tr>
-          </tbody>
-        </table>
-      ) : null}
+                      ))}
+                      {otherPermits.map((p) => (
+                        <tr key={p.id}>
+                          <td>☑ {p.otherLabel ?? "Other"}</td>
+                          <td className="c" style={{ width: 56 }}>{p.workers} คน</td>
+                        </tr>
+                      ))}
+                    </>
+                  ) : null}
+                  <tr>
+                    <td className="c b blue">เครื่องมือ และเครื่องจักร (Machine type)</td>
+                    <td className="c b blue" style={{ width: 56 }}>Qty</td>
+                  </tr>
+                  {/* Like the paper R003: every type prints, a type with no units has a blank Qty. */}
+                  {machineRows.map((m, i) => (
+                    <tr key={m.type}>
+                      <td>
+                        {i + 1}. {m.type}
+                      </td>
+                      <td className="c">{m.qty || ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+        </tbody>
+      </table>
       {hasPermits || hasWeather ? (
         <div style={{ fontSize: 10, padding: "1px 0" }}>
           * หากความเร็วลม ≥ 14 mph: หยุดงานที่สูง, งานยก และหากมีฝน 90% / Wet Surfaces หยุดงานที่สูง ยก เชื่อมไฟฟ้า
@@ -237,26 +296,6 @@ export function FormSheet({ r }: { r: PrintReport }) {
         </table>
       ) : null}
 
-      {r.equipment.length > 0 ? (
-        <table className="f" style={{ marginTop: 4 }}>
-          <thead>
-            <tr>
-              <th>เครื่องมือ และเครื่องจักร (Machine type)</th>
-              <th style={{ width: 56 }}>Qty</th>
-            </tr>
-          </thead>
-          <tbody>
-            {r.equipment.map((e, i) => (
-              <tr key={i}>
-                <td>
-                  {i + 1}. {e.equipmentType}
-                </td>
-                <td className="c">{e.qty}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
     </Box>
   );
 }
@@ -290,3 +329,4 @@ export function SignatureBlock({ r }: { r: PrintReport }) {
     </>
   );
 }
+

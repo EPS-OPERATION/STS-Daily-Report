@@ -7,19 +7,19 @@ import { overtimeLines, overtimeSummary } from "../utils/overtime.js";
 import { FormSheet, SignatureBlock } from "./form-sheet.js";
 import { Heading, sumOf, thaiShortDate } from "./print-shared.js";
 
-// Under the form: what the paper form has no room for (nationality/sex, NMH, tomorrow's requests, photos).
+// Under the form: what the paper form has no room for (crews per discipline, OT detail, tomorrow's requests, photos).
+// Nationality/sex and NMH sit in the form's manpower half.
 // Only parts with data are printed; the activity table above already holds plan vs actual.
 export function SummarySheet({ r }: { r: PrintReport }) {
-  const hrs = r.workHours ?? 0;
-  const nat = (a: number | null, b: number | null, c: number | null, d: number | null) =>
-    a === null ? "-" : `ไทย ช ${a} / ญ ${b} · ต่างชาติ ช ${c} / ญ ${d}`;
   const extraPhotos = r.photos;
   const inspections = r.inspections;
   // The evening form asks only for roads now (plus QAQC and permits): machine/equipment requests are not printed.
   const tomorrowCount = r.roadUsage.length + r.permits.length;
   const morningTotal = sumOf(r.positions);
   const eveningTotal = r.eveningStatus === "submitted" ? r.eveningHeadcount : 0;
-  const hasManpower = morningTotal > 0 || eveningTotal > 0;
+  const multiCrew = new Set(r.crews.map((c) => c.discipline)).size > 1;
+  const shiftGap = eveningTotal > 0 && morningTotal > 0 && eveningTotal !== morningTotal;
+  const hasManpower = multiCrew || Boolean(r.overtime?.length) || shiftGap;
   const hasRequests = tomorrowCount + inspections.length > 0;
   let n = 0;
 
@@ -27,33 +27,8 @@ export function SummarySheet({ r }: { r: PrintReport }) {
     <Box>
       {hasManpower ? (
         <>
-          <Heading>{++n}. กำลังคน เช้า / บ่าย และ NMH</Heading>
-          <table className="f">
-            <thead>
-              <tr>
-                <th style={{ width: "16%" }} />
-                <th style={{ width: 70 }}>รวม (คน)</th>
-                <th>สัญชาติ / เพศ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {morningTotal > 0 ? (
-                <tr>
-                  <td className="b">เช้า</td>
-                  <td className="c">{morningTotal}</td>
-                  <td>{nat(r.thaiMale, r.thaiFemale, r.foreignMale, r.foreignFemale)}</td>
-                </tr>
-              ) : null}
-              {eveningTotal > 0 ? (
-                <tr>
-                  <td className="b">บ่าย</td>
-                  <td className="c">{eveningTotal}</td>
-                  <td>{nat(r.eveningThaiMale, r.eveningThaiFemale, r.eveningForeignMale, r.eveningForeignFemale)}</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-          {new Set(r.crews.map((c) => c.discipline)).size > 1 ? (
+          <Heading>{++n}. กำลังคนแยกประเภทงาน และ OT</Heading>
+          {multiCrew ? (
             <table className="f" style={{ marginTop: 4 }}>
               <thead>
                 <tr>
@@ -80,12 +55,12 @@ export function SummarySheet({ r }: { r: PrintReport }) {
             </table>
           ) : null}
           <div style={{ marginTop: 3 }}>
-            {hrs ? `ชม.ทำงาน ${hrs} ชม./คน · ` : ""}
-            {r.overtime?.length || r.otHours ? `${overtimeSummary(r)} · ` : ""}
-            <b>NMH {r.manHours.toLocaleString()} ชม.</b>
-            {eveningTotal > 0 && morningTotal > 0 && eveningTotal !== morningTotal
-              ? ` · กำลังคนเช้าและบ่ายต่างกัน ${Math.abs(eveningTotal - morningTotal)} คน`
-              : ""}
+            {[
+              r.overtime?.length || r.otHours ? overtimeSummary(r) : "",
+              shiftGap ? `กำลังคนเช้าและบ่ายต่างกัน ${Math.abs(eveningTotal - morningTotal)} คน` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
             {r.overtime?.length ? <div>OT: {overtimeLines(r.overtime).join(" · ")}</div> : null}
           </div>
         </>
