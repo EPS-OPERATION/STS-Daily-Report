@@ -14,6 +14,18 @@ export function useHourlyWeather(projectId: string | null, from: string, to: str
   });
 }
 
+/** Weather right now (15-min model data) for today's morning form; refreshed every 10 minutes while open. */
+export function useWeatherNow(projectId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: weatherKeys.now(projectId ?? ""),
+    queryFn: () => weatherApi.now(projectId!),
+    enabled: Boolean(projectId) && enabled,
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
+    retry: 1,
+  });
+}
+
 /** The recorded hour at (or just before) date + time, for filling a report. */
 export function useWeatherAt(projectId: string | null, date: string, time: string) {
   return useQuery({

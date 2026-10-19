@@ -4,7 +4,7 @@ import { requireAuth } from "@/middleware/require-auth.js";
 import { AuthRequiredError, NotFoundError } from "@/shared/errors/app-error.js";
 import { ok } from "@/shared/http/response.js";
 import { atQuery, compareQuery, hourlyQuery, projectParams } from "./weather.schema.js";
-import { compareWeatherService, hourlyWeatherService, syncAllProjectsService, weatherAtService } from "./weather.service.js";
+import { compareWeatherService, hourlyWeatherService, syncAllProjectsService, weatherAtService, weatherNowService } from "./weather.service.js";
 
 // External hourly scheduler (e.g. Supabase pg_cron): Bearer CRON_SECRET. Off when CRON_SECRET is unset.
 export const weatherCronRoutes = new Elysia().post("/internal/weather/sync", async ({ headers }) => {
@@ -28,6 +28,8 @@ export const weatherRoutes = new Elysia()
       ok(await compareWeatherService(params.projectId, query.from, query.to, query.contractors ? query.contractors.split(",").filter(Boolean) : undefined)),
     { params: projectParams, query: compareQuery },
   )
+  // Weather right now at the site (model "current", 15-min) — the morning form of today's report.
+  .get("/projects/:projectId/weather/now", async ({ params }) => ok(await weatherNowService(params.projectId)), { params: projectParams })
   .get("/projects/:projectId/weather/at", async ({ params, query }) => ok(await weatherAtService(params.projectId, query.date, query.time)), {
     params: projectParams,
     query: atQuery,
