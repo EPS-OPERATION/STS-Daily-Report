@@ -6,7 +6,13 @@ import type { ListUsersQuery, UserStatus } from "./user.type.js";
 
 export async function listUsers(db: QueryDb, q: ListUsersQuery) {
   const statusWhere = q.status ? eq(users.status, q.status) : undefined;
-  const where = and(statusWhere, q.search ? or(
+  const companyWhere = q.contractorId
+    ? or(
+        eq(users.requestedContractorId, q.contractorId),
+        sql`EXISTS (SELECT 1 FROM ${contractorMemberships} m WHERE m.user_id = ${users.id} AND m.status = 'active' AND m.contractor_id = ${q.contractorId}${q.projectId ? sql` AND m.project_id = ${q.projectId}` : sql``})`,
+      )
+    : undefined;
+  const where = and(statusWhere, companyWhere, q.search ? or(
     ilike(users.email, `%${q.search}%`), ilike(users.username, `%${q.search}%`), ilike(users.requestedCompanyName, `%${q.search}%`),
   ) : undefined);
   // Link state is project-scoped: an account may be linked in another project but not this one.

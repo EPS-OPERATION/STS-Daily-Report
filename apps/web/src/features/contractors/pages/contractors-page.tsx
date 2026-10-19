@@ -5,6 +5,7 @@ import type { GridPaginationModel } from "@mui/x-data-grid";
 import { useState } from "react";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { useCurrentProject } from "@/features/projects/index.js";
+import { CompanyDetailDialog } from "@/features/contractors/components/company-detail-dialog.js";
 import { ContractorDialog } from "@/features/contractors/components/contractor-form.js";
 import { ContractorTable } from "@/features/contractors/components/contractor-table.js";
 import { useContractors } from "@/features/contractors/hooks/use-contractors.js";
@@ -16,13 +17,14 @@ export function ContractorsPage() {
   const query = useContractors({ page: pagination.page + 1, pageSize: pagination.pageSize, projectId: projectId ?? undefined });
   // undefined = closed, null = adding, a row = editing
   const [editing, setEditing] = useState<Contractor | null | undefined>(undefined);
+  const [viewing, setViewing] = useState<Contractor | null>(null);
   const usedColors = (query.data?.data ?? []).flatMap((c) => (c.color ? [c.color] : []));
 
   return (
     <Stack spacing={2.5}>
       <PageHeader
         title="Contractors"
-        subtitle="บริษัทในโครงการ — เพิ่ม แก้ไขข้อมูลติดต่อ สีบนผัง หรือปิดการใช้งาน"
+        subtitle="บริษัทในโครงการ — คลิกแถวเพื่อดูรายละเอียดและผู้ใช้ของบริษัท"
         actions={
           <Button startIcon={<AddOutlined />} onClick={() => setEditing(null)} disabled={!projectId}>
             Add company
@@ -36,7 +38,19 @@ export function ContractorsPage() {
         pagination={pagination}
         onPaginationChange={setPagination}
         onEdit={setEditing}
+        onOpen={setViewing}
       />
+      {viewing && (
+        <CompanyDetailDialog
+          company={query.data?.data.find((c) => c.id === viewing.id) ?? viewing}
+          projectId={projectId ?? undefined}
+          onClose={() => setViewing(null)}
+          onEdit={() => {
+            setEditing(query.data?.data.find((c) => c.id === viewing.id) ?? viewing);
+            setViewing(null);
+          }}
+        />
+      )}
       <ContractorDialog open={editing !== undefined} contractor={editing} usedColors={usedColors} onClose={() => setEditing(undefined)} />
     </Stack>
   );

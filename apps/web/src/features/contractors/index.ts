@@ -4,6 +4,7 @@ export { contractorApi } from "./api/contractor.api.js";
 export { useContractors } from "./hooks/use-contractors.js";
 export { useContractor } from "./hooks/use-contractor.js";
 export { useCreateContractor, useUpdateContractor } from "./hooks/use-create-contractor.js";
+export { useCompanyUsers } from "./hooks/use-company-users.js";
 export { ContractorTable } from "./components/contractor-table.js";
 export { ContractorDialog } from "./components/contractor-form.js";
 export { ContractorDetail } from "./components/contractor-detail.js";

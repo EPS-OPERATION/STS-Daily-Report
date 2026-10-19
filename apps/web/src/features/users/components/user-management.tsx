@@ -16,13 +16,13 @@ import { PageHeader } from "@/components/ui/page-header.js";
 import { QueryError } from "@/components/ui/query-error.js";
 import { FormDialog } from "@/components/ui/form-dialog.js";
 import { useMe } from "@/features/auth/index.js";
-import { ContractorPicker } from "@/features/auth/components/contractor-picker.js";
 import { useCurrentProject } from "@/features/projects/index.js";
-import { useChangeUserRole, useChangeUserStatus, useIssueResetLink, useLinkUser, useUsers } from "../hooks/use-users.js";
+import { useChangeUserRole, useChangeUserStatus, useIssueResetLink, useUsers } from "../hooks/use-users.js";
 import type { ManagedUser, UserStatus } from "../types/user.types.js";
 import { ROLE_LABEL } from "../utils/role-label.js";
 import { resetMessage } from "../utils/reset-message.js";
 import { CreateUserDialog } from "./create-user-dialog.js";
+import { LinkContractorDialog } from "./link-contractor-dialog.js";
 import { UserDecisionDialog } from "./user-decision-dialog.js";
 
 export function UserManagement() {
@@ -37,21 +37,19 @@ export function UserManagement() {
   const [decision, setDecision] = useState<{ user: ManagedUser; action: "approve" | "reject" } | null>(null);
   const [resetUser, setResetUser] = useState<ManagedUser | null>(null);
   const [linkTarget, setLinkTarget] = useState<ManagedUser | null>(null);
-  const [linkContractorId, setLinkContractorId] = useState("");
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const reset = useIssueResetLink();
-  const link = useLinkUser();
   const changeRole = useChangeUserRole();
   const changeStatus = useChangeUserStatus();
-  const mutating = changeRole.isPending || changeStatus.isPending || link.isPending;
+  const mutating = changeRole.isPending || changeStatus.isPending;
   useEffect(() => { const timer = window.setTimeout(() => { setDebounced(search); setPagination((p) => ({ ...p, page: 0 })); }, 250); return () => window.clearTimeout(timer); }, [search]);
   // eps_site only ever sees the pending approval queue; admin tabs stay hidden.
   useEffect(() => { if (me.isSuccess && !isAdmin && status !== "pending") setStatus("pending"); }, [isAdmin, me.isSuccess, status]);
   const users = useUsers({ status, ...pagination, page: pagination.page + 1, search: debounced, projectId: projectId ?? undefined });
   const actionsWidth = status === "pending" ? 180 : status === "active" && isAdmin ? 560 : 170;
-  const openLink = (row: ManagedUser) => { link.reset(); setLinkContractorId(""); setLinkTarget(row); };
+  const openLink = (row: ManagedUser) => setLinkTarget(row);
   const columns: GridColDef<ManagedUser>[] = [
     { field: "email", headerName: "Email", flex: 1, minWidth: 210 },
     { field: "username", headerName: "Username", width: 150 },
@@ -102,15 +100,7 @@ export function UserManagement() {
     </Stack>
     {creating && <CreateUserDialog projectId={projectId ?? undefined} onClose={() => setCreating(false)} />}
     {decision && <UserDecisionDialog key={`${decision.user.id}-${decision.action}`} {...decision} projectId={projectId ?? undefined} onClose={() => setDecision(null)} />}
-    <FormDialog open={Boolean(linkTarget)} title="Link contractor" onClose={() => { setLinkTarget(null); link.reset(); }} busy={link.isPending} actions={<>
-        <Button color="inherit" disabled={link.isPending} onClick={() => { setLinkTarget(null); link.reset(); }}>Cancel</Button>
-        <Button variant="contained" disabled={!linkContractorId || link.isPending} onClick={() => linkTarget && link.mutate({ id: linkTarget.id, contractorId: linkContractorId, projectId: projectId ?? undefined }, { onSuccess: () => setLinkTarget(null) })}>{link.isPending ? "Linking…" : "Link contractor"}</Button>
-      </>}><Stack spacing={2} sx={{ pt: 1 }}>
-        <Typography>{linkTarget?.email} · {linkTarget?.username}</Typography>
-        {link.isError && <Alert severity="error">{link.error.message}</Alert>}
-        <ContractorPicker value={linkContractorId} onChange={setLinkContractorId} allowOther={false} projectId={projectId ?? undefined} disabled={link.isPending} />
-        <Typography color="text.secondary">Links this account to the selected contractor in the current project. The user can then submit daily reports.</Typography>
-      </Stack></FormDialog>
+    {linkTarget && <LinkContractorDialog key={linkTarget.id} user={linkTarget} projectId={projectId ?? undefined} onClose={() => setLinkTarget(null)} />}
     <FormDialog open={Boolean(resetUser)} title="Reset password" onClose={() => { setResetUser(null); reset.reset(); }} busy={reset.isPending} actions={<><Button color="inherit" disabled={reset.isPending} onClick={() => { setResetUser(null); reset.reset(); }}>Close</Button>{!reset.data && <Button disabled={reset.isPending || !resetUser} onClick={() => resetUser && reset.mutate(resetUser.id)}>{reset.isPending ? "Generating…" : "Generate link"}</Button>}</>}><Stack spacing={2} sx={{ pt: 1 }}>
         <Typography>{resetUser?.email}</Typography>
         {reset.isError && <Alert severity="error">{reset.error.message}</Alert>}

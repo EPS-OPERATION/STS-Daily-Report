@@ -8,7 +8,7 @@ import { useMemo } from "react";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import type { Contractor, ContractorListResponse } from "../types/contractor.types.js";
 
-// Company list for EPS admins: click a row (or Edit) to change it.
+// Company list for EPS admins: click a row for its details and users, Edit to change it.
 export function ContractorTable({
   data,
   loading,
@@ -16,6 +16,7 @@ export function ContractorTable({
   pagination,
   onPaginationChange,
   onEdit,
+  onOpen,
 }: {
   data?: ContractorListResponse;
   loading: boolean;
@@ -23,6 +24,7 @@ export function ContractorTable({
   pagination: GridPaginationModel;
   onPaginationChange: (model: GridPaginationModel) => void;
   onEdit: (contractor: Contractor) => void;
+  onOpen: (contractor: Contractor) => void;
 }) {
   const columns = useMemo<GridColDef<Contractor>[]>(
     () => [
@@ -91,7 +93,7 @@ export function ContractorTable({
         onPaginationModelChange={onPaginationChange}
         pageSizeOptions={[10, 20, 50]}
         disableRowSelectionOnClick
-        onRowClick={({ row }) => onEdit(row)}
+        onRowClick={({ row }) => onOpen(row)}
         sx={{ "& .MuiDataGrid-row": { cursor: "pointer" } }}
       />
     </Box>

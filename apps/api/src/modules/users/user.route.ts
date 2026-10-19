@@ -9,7 +9,7 @@ export const userRoutes = new Elysia({ prefix: "/users" }).use(requireAuth)
   .onAfterHandle(({ set }) => { set.headers["cache-control"] = "no-store"; })
   .get("/", async ({ auth, query }) => {
     const p = normalizePagination(query);
-    const { rows, total } = await listUsersService(auth, { ...p, status: query.status, projectId: query.projectId });
+    const { rows, total } = await listUsersService(auth, { ...p, status: query.status, projectId: query.projectId, contractorId: query.contractorId });
     return paginated(rows, p.page, p.pageSize, total);
   }, { query: listUsersQuery })
   .post("/", async ({ auth, body, set }) => {
