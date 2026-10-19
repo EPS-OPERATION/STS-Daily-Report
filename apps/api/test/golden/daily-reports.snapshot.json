@@ -190,7 +190,8 @@
             "dayShare": 0.444,
             "planPercent": 40,
             "actualPercent": null,
-            "countermeasure": null
+            "countermeasure": null,
+            "isAdditional": false
           },
           {
             "id": "u7",
@@ -205,7 +206,8 @@
             "dayShare": 1,
             "planPercent": 60,
             "actualPercent": null,
-            "countermeasure": null
+            "countermeasure": null,
+            "isAdditional": false
           }
         ],
         "machinery": [],
@@ -344,7 +346,8 @@
               "dayShare": 0.444,
               "planPercent": 40,
               "actualPercent": null,
-              "countermeasure": null
+              "countermeasure": null,
+              "isAdditional": false
             },
             {
               "id": "u7",
@@ -359,7 +362,8 @@
               "dayShare": 1,
               "planPercent": 60,
               "actualPercent": null,
-              "countermeasure": null
+              "countermeasure": null,
+              "isAdditional": false
             }
           ],
           "machinery": [],
@@ -632,7 +636,8 @@
             "dayShare": 0.444,
             "planPercent": 40,
             "actualPercent": 20,
-            "countermeasure": "Add crew tomorrow"
+            "countermeasure": "Add crew tomorrow",
+            "isAdditional": false
           },
           {
             "id": "u7",
@@ -647,7 +652,8 @@
             "dayShare": 1,
             "planPercent": 60,
             "actualPercent": 70,
-            "countermeasure": null
+            "countermeasure": null,
+            "isAdditional": false
           }
         ],
         "machinery": [
@@ -886,7 +892,8 @@
               "dayShare": 0.444,
               "planPercent": 40,
               "actualPercent": 20,
-              "countermeasure": "Add crew tomorrow"
+              "countermeasure": "Add crew tomorrow",
+              "isAdditional": false
             },
             {
               "id": "u7",
@@ -901,7 +908,8 @@
               "dayShare": 1,
               "planPercent": 60,
               "actualPercent": 70,
-              "countermeasure": null
+              "countermeasure": null,
+              "isAdditional": false
             }
           ],
           "machinery": [
@@ -1157,7 +1165,8 @@
               "dayShare": 0.444,
               "planPercent": 40,
               "actualPercent": 20,
-              "countermeasure": "Add crew tomorrow"
+              "countermeasure": "Add crew tomorrow",
+              "isAdditional": false
             },
             {
               "id": "u7",
@@ -1172,7 +1181,8 @@
               "dayShare": 1,
               "planPercent": 60,
               "actualPercent": 70,
-              "countermeasure": null
+              "countermeasure": null,
+              "isAdditional": false
             }
           ],
           "machinery": [
@@ -1489,7 +1499,8 @@
             "dayShare": 0.444,
             "planPercent": 40,
             "actualPercent": 20,
-            "countermeasure": "Add crew tomorrow"
+            "countermeasure": "Add crew tomorrow",
+            "isAdditional": false
           },
           {
             "id": "u7",
@@ -1504,7 +1515,8 @@
             "dayShare": 1,
             "planPercent": 60,
             "actualPercent": 70,
-            "countermeasure": null
+            "countermeasure": null,
+            "isAdditional": false
           }
         ],
         "machinery": [
@@ -1756,7 +1768,8 @@
             "dayShare": 0.444,
             "planPercent": 40,
             "actualPercent": 20,
-            "countermeasure": "Add crew tomorrow"
+            "countermeasure": "Add crew tomorrow",
+            "isAdditional": false
           },
           {
             "id": "u7",
@@ -1771,7 +1784,8 @@
             "dayShare": 1,
             "planPercent": 60,
             "actualPercent": 70,
-            "countermeasure": null
+            "countermeasure": null,
+            "isAdditional": false
           }
         ],
         "machinery": [
@@ -2067,7 +2081,8 @@
             "dayShare": 0.444,
             "planPercent": 40,
             "actualPercent": 20,
-            "countermeasure": "Add crew tomorrow"
+            "countermeasure": "Add crew tomorrow",
+            "isAdditional": false
           },
           {
             "id": "u7",
@@ -2082,7 +2097,8 @@
             "dayShare": 1,
             "planPercent": 60,
             "actualPercent": 70,
-            "countermeasure": null
+            "countermeasure": null,
+            "isAdditional": false
           }
         ],
         "machinery": [
