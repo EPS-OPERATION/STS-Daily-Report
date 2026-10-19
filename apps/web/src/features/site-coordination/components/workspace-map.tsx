@@ -28,7 +28,7 @@ import type { UseCoordinationWorkspaceState } from "../hooks/use-coordination-wo
 const CoordinationCanvas = lazy(() => import("./coordination-canvas.js").then((module) => ({ default: module.CoordinationCanvas })));
 
 export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
-  const { date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadLines, roadNameGroups, roadNames, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, createItem, counter, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact } = ed;
+  const { date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadLines, roadNameGroups, roadNames, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, startCreate, counter, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact } = ed;
   if (!data) return null;
   return (
     <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, overflow: "hidden", bgcolor: "background.paper", mb: compact ? 0 : 2 }}>
@@ -40,7 +40,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
           {!readOnly && <Button variant="contained" disableElevation startIcon={<AddOutlined />} onClick={(e) => setAddAnchor(e.currentTarget)} disabled={!editableCompanies.length || creating || Boolean(draft)}
             sx={{ whiteSpace: "nowrap", width: { xs: "100%", sm: "auto" } }}>Add item</Button>}
           {/* Draw the road this contractor will use today: tap points along it, arrows show the way. */}
-          {!readOnly && <Button variant="outlined" startIcon={<RouteOutlined />} onClick={() => void createItem("road")} disabled={!editableCompanies.length || creating || Boolean(draft)}
+          {!readOnly && <Button variant="outlined" startIcon={<RouteOutlined />} onClick={() => startCreate("road")} disabled={!editableCompanies.length || creating || Boolean(draft)}
             sx={{ whiteSpace: "nowrap", width: { xs: "100%", sm: "auto" } }}>Draw road</Button>}
           {!readOnly && data.canLock && !data.lock && <Button variant="outlined" startIcon={<LockOutlined />} onClick={() => setLockConfirm(true)}
             sx={{ whiteSpace: "nowrap", width: { xs: "100%", sm: "auto" } }}>Lock plan</Button>}
