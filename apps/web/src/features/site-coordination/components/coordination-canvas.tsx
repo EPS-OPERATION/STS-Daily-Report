@@ -37,6 +37,7 @@ import { TEXT_LINE_HEIGHT } from "../utils/canvas-text.js";
 import { CAPTION_FONT } from "../utils/canvas-text.js";
 import { CAPTION_MAX_WIDTH } from "../utils/canvas-text.js";
 import { CAPTION_LINE_HEIGHT } from "../utils/canvas-text.js";
+import { MARK_SCALE } from "../utils/canvas-text.js";
 import { CAPTION_MAX_LINES } from "../utils/canvas-text.js";
 import { NOTE_FONT } from "../utils/canvas-text.js";
 import { NOTE_LINE_HEIGHT } from "../utils/canvas-text.js";
@@ -265,7 +266,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
             if (longest.length < 2) return null;
             const mid = routeMidpoint(longest, map.width, map.height);
             return (
-              <Group key={road.name} x={mid.x} y={mid.y} scaleX={1 / scale} scaleY={1 / scale}>
+              <Group key={road.name} x={mid.x} y={mid.y} scaleX={MARK_SCALE / scale} scaleY={MARK_SCALE / scale}>
                 <Text text={road.name} width={180} offsetX={90} offsetY={7} align="center" fontSize={12} fontStyle="bold"
                   fill={theme.palette.text.secondary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled />
               </Group>
@@ -361,7 +362,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
                 draggable onDragMove={(e) => onChange({ geometry: { type: item.geometry.type, points: area.map((v, i) => i === index ? { x: clamp(e.target.x() / map.width), y: clamp(e.target.y() / map.height) } : v) } })}
                 onClick={(e) => { e.cancelBubble = true; if (index === 0 && area.length >= 3 && tool === "polygon") onFinish(); }}
                 onTap={(e) => { e.cancelBubble = true; if (index === 0 && area.length >= 3 && tool === "polygon") onFinish(); }} />)}
-              {(display.chips || selected) && <Group x={center.x + (dragOffset?.x ?? 0)} y={center.y + (dragOffset?.y ?? 0)} scaleX={1 / scale} scaleY={1 / scale} draggable={editable}
+              {(display.chips || selected) && <Group x={center.x + (dragOffset?.x ?? 0)} y={center.y + (dragOffset?.y ?? 0)} scaleX={MARK_SCALE / scale} scaleY={MARK_SCALE / scale} draggable={editable}
                 onClick={select} onTap={select}
                 onDragStart={(e) => { areaDragStart.current = area; areaDragNodeStart.current = { x: e.target.x(), y: e.target.y() }; }}
                 onDragMove={(e) => {
@@ -381,7 +382,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
                 <Rect x={-34} y={-11} width={68} height={22} fill={clash ? theme.palette.error.main : theme.palette.background.paper} opacity={0.94} stroke={clash ? theme.palette.error.main : color} strokeWidth={1.5} cornerRadius={4} />
                 <Text x={-34} y={-7} width={68} text={company?.code ?? "—"} fontFamily="Inter" fontSize={12} fontStyle="bold" align="center" fill={clash ? theme.palette.error.contrastText : theme.palette.text.primary} listening={false} />
               </Group>}
-              {!route && <Group x={item.x * map.width} y={item.y * map.height} scaleX={1 / scale} scaleY={1 / scale} draggable={editable}
+              {!route && <Group x={item.x * map.width} y={item.y * map.height} scaleX={MARK_SCALE / scale} scaleY={MARK_SCALE / scale} draggable={editable}
                 onClick={select} onTap={select}
                 onDragMove={(e) => {
                   const x = clamp(e.target.x() / map.width), y = clamp(e.target.y() / map.height);
@@ -426,7 +427,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
       ) : (
         // Icon caption editor: typed in place of the halo caption under the marker.
         <InputBase autoFocus multiline rows={overlay.caption.lines.length} value={draft.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="ชื่อเครื่องจักร…" inputProps={{ "aria-label": "ชื่อเครื่องจักรบนผัง" }}
-          sx={{ position: "absolute", left: overlay.left, top: overlay.top + 28, transform: "translateX(-50%)", width: Math.max(168, overlay.caption.width), px: 1, py: "4px", borderRadius: 1, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 12, fontWeight: 600, lineHeight: `${CAPTION_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
+          sx={{ position: "absolute", left: overlay.left, top: overlay.top + 28 * MARK_SCALE, transform: "translateX(-50%)", width: Math.max(168, overlay.caption.width), px: 1, py: "4px", borderRadius: 1, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 12, fontWeight: 600, lineHeight: `${CAPTION_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
       ))}
     {overlay && draft && draft.icon === "text" && textEditing && (() => {
       // While a text marker is being typed the HTML editor covers it, so this grip moves it.

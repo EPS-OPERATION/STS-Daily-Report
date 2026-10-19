@@ -3,6 +3,7 @@ import { routeMidpoint } from "../utils/canvas-geometry.js";
 import { CAPTION_FONT } from "../utils/canvas-text.js";
 import { CAPTION_MAX_WIDTH } from "../utils/canvas-text.js";
 import { CAPTION_LINE_HEIGHT } from "../utils/canvas-text.js";
+import { MARK_SCALE } from "../utils/canvas-text.js";
 import { CAPTION_MAX_LINES } from "../utils/canvas-text.js";
 import { layoutTextTitle } from "../utils/canvas-text.js";
 
@@ -44,7 +45,7 @@ export function RouteMarks({ points, dx, dy, color, paper, scale, title, textCol
     {!arrowsHidden && !twoWay && <Circle x={points[0]!.x} y={points[0]!.y} radius={7 / scale} fill={paper} stroke={color} strokeWidth={3 / scale} />}
     {!arrowsHidden && <Arrow points={[before.x, before.y, end.x, end.y]} pointerLength={22 / scale} pointerWidth={22 / scale} fill={color} stroke={color} strokeWidth={6 / scale} lineCap="round" />}
     {!arrowsHidden && twoWay && <Arrow points={[after.x, after.y, start.x, start.y]} pointerLength={22 / scale} pointerWidth={22 / scale} fill={color} stroke={color} strokeWidth={6 / scale} lineCap="round" />}
-    {label && <Group x={mid.x} y={mid.y} scaleX={1 / scale} scaleY={1 / scale}>
+    {label && <Group x={mid.x} y={mid.y} scaleX={MARK_SCALE / scale} scaleY={MARK_SCALE / scale}>
       <Text x={-label.width / 2} y={labelDy} width={label.width} text={label.lines.join("\n")} fontFamily="Inter" fontSize={12} fontStyle="600" lineHeight={CAPTION_LINE_HEIGHT / 12} align="center" fill={textColor} stroke={paper} strokeWidth={3} fillAfterStrokeEnabled />
     </Group>}
   </Group>;

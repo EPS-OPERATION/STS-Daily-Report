@@ -71,3 +71,6 @@ export function layoutTextTitle(title: string, options: { font?: string; maxWidt
   const height = lines.length * lineHeight + 14;
   return { lines, width, height, lineHeight };
 }
+
+// Icons, company tags and labels on the map are drawn at 70 % so neighbouring works don't overlap.
+export const MARK_SCALE = 0.7;
