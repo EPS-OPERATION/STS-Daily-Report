@@ -35,11 +35,14 @@ type DisplaySwitch = Exclude<keyof MapDisplay, "markSize">;
 
 export const DEFAULT_MAP_DISPLAY: MapDisplay = { roads: true, roadNames: true, areas: true, labels: true, notes: true, links: true, chips: true, detailCard: true, jobList: true, markSize: MARK_SCALE };
 
+// Per signed-in user (a shared meeting-room PC keeps each person's own view). Before that it was one key per
+// browser: a user without their own settings yet starts from it.
 const DISPLAY_KEY = "sts_map_display_v1";
+const displayKey = (userId: string | undefined) => (userId ? `${DISPLAY_KEY}:${userId}` : DISPLAY_KEY);
 
-export function loadMapDisplay(): MapDisplay {
+export function loadMapDisplay(userId?: string): MapDisplay {
   try {
-    const raw = localStorage.getItem(DISPLAY_KEY);
+    const raw = localStorage.getItem(displayKey(userId)) ?? localStorage.getItem(DISPLAY_KEY);
     if (!raw) return DEFAULT_MAP_DISPLAY;
     const saved = { ...DEFAULT_MAP_DISPLAY, ...(JSON.parse(raw) as Partial<MapDisplay>) };
     const size = OLD_MARK_SCALES.includes(Number(saved.markSize)) ? MARK_SCALE : Number(saved.markSize);
@@ -49,9 +52,9 @@ export function loadMapDisplay(): MapDisplay {
   }
 }
 
-export function saveMapDisplay(display: MapDisplay) {
+export function saveMapDisplay(display: MapDisplay, userId?: string) {
   try {
-    localStorage.setItem(DISPLAY_KEY, JSON.stringify(display));
+    localStorage.setItem(displayKey(userId), JSON.stringify(display));
   } catch {
     // storage blocked — the choice just isn't remembered
   }

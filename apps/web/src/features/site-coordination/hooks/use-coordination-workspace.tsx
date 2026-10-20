@@ -49,8 +49,11 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   const [types, setTypes] = useState<Set<string>>(() => new Set());
   const knownTypeCodes = useRef<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [display, setDisplayState] = useState<MapDisplay>(loadMapDisplay);
-  const setDisplay = (next: MapDisplay) => { setDisplayState(next); saveMapDisplay(next); };
+  const userId = me.data?.data.user.id;
+  const [display, setDisplayState] = useState<MapDisplay>(() => loadMapDisplay(userId));
+  // Display choices are per user: reload them when the signed-in user is known or changes.
+  useEffect(() => { setDisplayState(loadMapDisplay(userId)); }, [userId]);
+  const setDisplay = (next: MapDisplay) => { setDisplayState(next); saveMapDisplay(next, userId); };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [working, setWorking] = useState<Working | null>(null);
   const [tool, setTool] = useState<MapTool>("move");
