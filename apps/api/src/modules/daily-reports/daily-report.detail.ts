@@ -57,6 +57,7 @@ export async function reportDetail(reportId: string) {
     photos.map(async (p) => ({
       id: p.id,
       category: p.category,
+      permitKey: p.permitKey,
       fileName: p.fileName,
       contentType: p.contentType,
       sizeBytes: p.sizeBytes,

@@ -1,7 +1,7 @@
 import { DISCIPLINE_CODES, addDays, allocationDayShares, overtimeTotals } from "@sts/shared";
-import { and, eq, isNotNull, or, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, notInArray, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
-import { dailyReportAllocations, dailyReportCrews, dailyReportEquipment, dailyReportEquipmentRequests, dailyReportForecasts, dailyReportMachinery, dailyReportMaterials, dailyReportOvertime, dailyReportPermits, dailyReportPositions, dailyReportRoadUsage, dailyReports, inspectionRequests } from "@/db/schema/index.js";
+import { dailyReportAllocations, dailyReportCrews, dailyReportEquipment, dailyReportEquipmentRequests, dailyReportForecasts, dailyReportMachinery, dailyReportMaterials, dailyReportOvertime, dailyReportPermits, dailyReportPhotos, dailyReportPositions, dailyReportRoadUsage, dailyReports, inspectionRequests } from "@/db/schema/index.js";
 import { listAdjustedRoads } from "@/modules/daily-requests/daily-request.repository.js";
 import { carryRoadAdjustments } from "@/modules/daily-requests/daily-request.road.js";
 import { getReportByKey } from "./daily-report.repository.js";
@@ -139,9 +139,17 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
           highRisk: Boolean(p.highRisk),
           taskName: p.highRisk ? p.taskName?.trim() || null : null,
           supervisorName: p.highRisk ? p.supervisorName?.trim() || null : null,
+          photoKey: p.photoKey ?? null,
         })),
       );
     }
+    // Site photos of permit cards the contractor removed go too (rows only; the stored bytes are harmless).
+    const photoKeys = (input.permits ?? []).flatMap((p) => (p.photoKey ? [p.photoKey] : []));
+    await tx.delete(dailyReportPhotos).where(and(
+      eq(dailyReportPhotos.reportId, reportId),
+      eq(dailyReportPhotos.category, "permit"),
+      photoKeys.length ? or(isNull(dailyReportPhotos.permitKey), notInArray(dailyReportPhotos.permitKey, photoKeys)) : sql`true`,
+    ));
     // Allocations of all crews, in crew order; sort_order keeps one running sequence.
     const allocationRows = input.crews.flatMap((c) => {
       const shares = allocationDayShares(c.allocations, input.startTime, input.endTime);

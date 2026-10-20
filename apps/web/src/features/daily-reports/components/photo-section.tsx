@@ -17,6 +17,7 @@ import { compressImage } from "../utils/image-compression.js";
 const CATEGORIES: { key: PhotoCategory; label: string; hint: string }[] = [
   { key: "progress", label: "ความคืบหน้างาน (Progress)", hint: "ภาพผลงานที่ทำได้วันนี้" },
   { key: "safety", label: "ความปลอดภัย (Safety)", hint: "จุดเสี่ยง / การป้องกัน / สภาพหน้างาน" },
+  { key: "permit", label: "รูปหน้างาน (งานเสี่ยง)", hint: "แนบไว้ที่การ์ดใบอนุญาตงานเสี่ยงในรายงานเช้า" },
 ];
 
 // Photos upload immediately (the report already exists after the morning shift),
@@ -69,6 +70,8 @@ export function PhotoSection({
     <Stack spacing={2}>
       {CATEGORIES.map((c) => {
         const list = photos.filter((p) => p.category === c.key);
+        // Read-only: a category nobody photographed is left out instead of an empty heading.
+        if (locked && list.length === 0) return null;
         return (
           <Box key={c.key}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -115,7 +118,7 @@ export function PhotoSection({
                   component="label"
                   variant="outlined"
                   disabled={isUploading}
-                  sx={{ aspectRatio: "1", borderStyle: "dashed", flexDirection: "column", gap: 0.5, minWidth: 0 }}
+                  sx={{ aspectRatio: "1", width: "100%", height: "auto", borderStyle: "dashed", flexDirection: "column", gap: 0.5, minWidth: 0, px: 0.5, textAlign: "center" }}
                 >
                   {isUploading ? <CircularProgress size={20} /> : <AddAPhotoOutlinedIcon />}
                   <Typography variant="caption">{isUploading ? (uploadStatus ?? "ส่งรูป...") : "Add photo"}</Typography>

@@ -168,7 +168,8 @@ export const REQUEST_TRANSITIONS: Record<RequestStatus, RequestStatus[]> = {
 export const INSPECTION_RESULTS = ["pass", "fail"] as const;
 export type InspectionResult = (typeof INSPECTION_RESULTS)[number];
 
-export const PHOTO_CATEGORIES = ["progress", "safety"] as const;
+// "permit": optional photo of the signed work permit, attached in the morning report.
+export const PHOTO_CATEGORIES = ["progress", "safety", "permit"] as const;
 export type PhotoCategory = (typeof PHOTO_CATEGORIES)[number];
 
 export type ShiftStatus = "draft" | "submitted";

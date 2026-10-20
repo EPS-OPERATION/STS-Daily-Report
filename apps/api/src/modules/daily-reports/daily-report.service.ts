@@ -204,7 +204,8 @@ export type ReviewQueueRow = ReturnType<typeof toReviewRow>;
 
 export async function uploadPhotoService(auth: AuthContext, reportId: string, input: PhotoUploadInput) {
   const report = await loadOwnedReport(auth, reportId);
-  if (report.eveningStatus === "submitted") assertEditable(report.reportDate, "Photos", report.id);
+  // Permit photos belong to the morning report, the others to the evening one: each follows its own shift's lock.
+  if ((input.category === "permit" ? report.morningStatus : report.eveningStatus) === "submitted") assertEditable(report.reportDate, "Photos", report.id);
   if ((await countPhotos(getDb(), reportId)) >= MAX_PHOTOS) {
     throw new ValidationError(`A report can hold at most ${MAX_PHOTOS} photos`);
   }
@@ -223,15 +224,16 @@ export async function uploadPhotoService(auth: AuthContext, reportId: string, in
     contentType: input.file.type,
     sizeBytes: input.file.size,
     uploadedBy: auth.user.id,
+    permitKey: input.category === "permit" ? input.permitKey ?? null : null,
   });
   return { id: row.id, category: row.category, fileName: row.fileName };
 }
 
 export async function deletePhotoService(auth: AuthContext, reportId: string, photoId: string) {
   const report = await loadOwnedReport(auth, reportId);
-  if (report.eveningStatus === "submitted") assertEditable(report.reportDate, "Photos", report.id);
   const photo = await getPhoto(getDb(), reportId, photoId);
   if (!photo) throw new NotFoundError("Photo not found", { photoId });
+  if ((photo.category === "permit" ? report.morningStatus : report.eveningStatus) === "submitted") assertEditable(report.reportDate, "Photos", report.id);
   await deletePhoto(getDb(), photoId);
   // Orphaned bytes are harmless; a failed remove must not resurrect the row.
   await getStorage()

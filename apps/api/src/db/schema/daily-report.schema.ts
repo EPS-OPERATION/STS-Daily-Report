@@ -281,6 +281,8 @@ export const dailyReportPermits = pgTable(
     highRisk: boolean("high_risk").notNull().default(false),
     taskName: text("task_name"),
     supervisorName: text("supervisor_name"),
+    // Stable id of the permit card in the form (survives re-sends, which rewrite the rows): its site photos point here.
+    photoKey: uuid("photo_key"),
     // EPS fixes: a permit EPS added (shown even before the contractor sends the report) or edited.
     // Both are kept when the contractor re-sends the morning report.
     epsAdded: boolean("eps_added").notNull().default(false),
@@ -420,10 +422,12 @@ export const dailyReportPhotos = pgTable(
     contentType: text("content_type").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     uploadedBy: uuid("uploaded_by").references(() => users.id, { onDelete: "set null" }),
+    // category "permit": the work-permit card (daily_report_permits.photo_key) this site photo belongs to.
+    permitKey: uuid("permit_key"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    check("daily_report_photos_category_check", sql`${t.category} IN ('progress', 'safety')`),
+    check("daily_report_photos_category_check", sql`${t.category} IN ('progress', 'safety', 'permit')`),
     index("daily_report_photos_report_idx").on(t.reportId),
   ],
 );

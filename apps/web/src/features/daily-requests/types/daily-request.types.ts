@@ -39,6 +39,8 @@ export interface ReportPermit {
   highRisk: boolean;
   taskName: string | null;
   supervisorName: string | null;
+  /** Stable id of the form card; site photos (category "permit") point to it. */
+  photoKey?: string | null;
 }
 
 export interface ReportRoadUsage {
@@ -102,6 +104,7 @@ export interface PermitPayload {
   highRisk?: boolean;
   taskName?: string;
   supervisorName?: string;
+  photoKey?: string;
 }
 
 export interface WeeklyBooking {

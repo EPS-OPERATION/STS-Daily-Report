@@ -86,6 +86,8 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
       highRisk: p.highRisk ?? false,
       taskName: p.taskName ?? "",
       supervisorName: p.supervisorName ?? "",
+      // A copied card is a new job today: new key, so yesterday's photos stay with yesterday's report.
+      photoKey: crypto.randomUUID(),
     }));
     setValue("permits", sourcePermits, { shouldDirty: true });
     setCopied({ date: source.reportDate, snapshot });
@@ -218,6 +220,7 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
             highRisk: p.highRisk,
             taskName: p.highRisk ? p.taskName.trim() : undefined,
             supervisorName: p.highRisk ? p.supervisorName.trim() : undefined,
+            photoKey: p.photoKey,
           })),
           crews: DISCIPLINE_CODES.filter((d) => v.disciplines.includes(d)).map((d) => {
             const c = v.crews[d];

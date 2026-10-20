@@ -79,6 +79,8 @@ export interface ReportCrew {
 export interface ReportPhoto {
   id: string;
   category: PhotoCategory;
+  /** category "permit": the permit card (photoKey) this site photo belongs to. */
+  permitKey?: string | null;
   fileName: string;
   contentType: string;
   sizeBytes: number;

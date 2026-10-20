@@ -130,6 +130,8 @@ export const permitSchema = z
     highRisk: z.boolean(),
     taskName: z.string().trim().max(120),
     supervisorName: z.string().trim().max(120),
+    /** Stable card id: its site photos point to it (kept across re-sends, new on copy). */
+    photoKey: z.string().uuid().optional(),
   })
   .refine((p) => p.permitType !== "other" || Boolean(p.otherLabel), {
     message: "ระบุชื่องาน",

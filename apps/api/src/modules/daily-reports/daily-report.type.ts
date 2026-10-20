@@ -38,6 +38,8 @@ export interface PermitInput {
   highRisk?: boolean;
   taskName?: string;
   supervisorName?: string;
+  /** Stable id of the form card; its site photos point to it. */
+  photoKey?: string;
 }
 
 // One discipline's crew: people by position plus the nationality/sex split of the same people.
@@ -139,6 +141,7 @@ export interface EveningInput {
 export interface PhotoUploadInput {
   category: PhotoCategory;
   file: File;
+  permitKey?: string;
 }
 
 // EPS review decision on a submitted report (approved, or rejected with a note
