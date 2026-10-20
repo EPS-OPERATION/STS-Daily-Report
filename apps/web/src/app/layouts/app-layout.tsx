@@ -127,7 +127,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
           display: "flex",
           alignItems: "center",
           px: collapsed ? 1.5 : 2.5,
-          bgcolor: "common.white",
+          bgcolor: "background.default",
           borderBottom: "1px solid",
           borderColor: "divider",
           justifyContent: collapsed ? "center" : "flex-start",
@@ -150,8 +150,10 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
           <Box
             component="img"
             src={collapsed ? "/brand/logo-eps-mark-white.png" : "/brand/logo-eps-white.png"}
-            alt="EPS — STS Platform"
-            sx={collapsed ? { width: 36, height: 36, display: "block" } : { height: 32, width: "auto", display: "block" }}
+            alt="EPS - STS Platform"
+            sx={collapsed
+              ? { width: 36, height: 36, display: "block", mixBlendMode: "multiply" }
+              : { height: 32, width: "auto", display: "block", mixBlendMode: "multiply" }}
           />
         </Box>
       </Box>
