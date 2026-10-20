@@ -2,7 +2,7 @@ import { useTheme } from "@mui/material/styles";
 import { memo, useEffect, useMemo, useRef, type RefObject } from "react";
 import { Circle, Group, Line, Rect, Text, Transformer } from "react-konva";
 import Konva from "konva";
-import { COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN, type CoordinationInput, type CoordinationItem, type CoordinationPoint } from "@sts/shared";
+import { type CoordinationInput, type CoordinationItem, type CoordinationPoint } from "@sts/shared";
 import { CoordinationIconShape } from "./coordination-icon.js";
 import type { MapDisplay } from "./map-filters.js";
 import { RouteMarks } from "./route-marks.js";
@@ -140,7 +140,6 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
   // This job's own icon size (saved per job); captions under it are counter-scaled to stay readable.
   const size = route ? 1 : item.iconScale ?? 1;
   const markerScale = markScale * size;
-  const liveSize = useRef(size);
   const rectStart = useRef<{ x: number; y: number } | null>(null);
   // Stable per (touch, ink) so the Transformer is not re-styled on every render.
   const inkSecondary = theme.palette.text.secondary;
@@ -280,24 +279,6 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
         {item.icon !== "text" && captionShown && captionLayout && <Text x={-captionLayout.width / 2} width={captionLayout.width} text={captionLayout.lines.join("\n")} fontFamily="Inter" fontSize={12} fontStyle="600" lineHeight={CAPTION_LINE_HEIGHT / 12} align="center" fill={theme.palette.text.primary} stroke={paper} strokeWidth={3} fillAfterStrokeEnabled perfectDrawEnabled={false} />}
         {noteLayout && <Text x={-noteLayout.width / 2} y={item.icon === "text" ? 0 : noteY - 28} width={noteLayout.width} text={noteLayout.lines.join("\n")} fontFamily="Inter" fontSize={11} lineHeight={NOTE_LINE_HEIGHT / 11} align="center" fill={theme.palette.text.secondary} stroke={paper} strokeWidth={3} fillAfterStrokeEnabled perfectDrawEnabled={false} />}
       </Group>
-      {/* Resize handle on the ring (45°): drag out/in to size this job's icon; saved once on drop. */}
-      {editable && selected && item.icon !== "text" && <Circle x={17} y={17} radius={9 / (display.markSize * size)} fill={paper} stroke={color} strokeWidth={2 / (display.markSize * size)}
-        hitStrokeWidth={(coarse ? 24 : 10) / (display.markSize * size)} perfectDrawEnabled={false} draggable
-        onMouseEnter={(e) => { const box = e.target.getStage()?.container(); if (box) box.style.cursor = "nwse-resize"; }}
-        onMouseLeave={(e) => { const box = e.target.getStage()?.container(); if (box) box.style.cursor = ""; }}
-        onDragStart={(e) => { e.cancelBubble = true; liveSize.current = size; }}
-        onDragMove={(e) => {
-          e.cancelBubble = true;
-          const group = markerRef.current, pointer = e.target.getStage()?.getPointerPosition();
-          if (!group || !pointer) return;
-          const c = group.getAbsolutePosition();
-          // The ring's on-screen radius is 24 × markSize × size, so the pointer distance gives the size.
-          const next = Math.min(COORDINATION_ICON_SCALE_MAX, Math.max(COORDINATION_ICON_SCALE_MIN, Math.hypot(pointer.x - c.x, pointer.y - c.y) / (24 * display.markSize)));
-          liveSize.current = next;
-          group.scale({ x: markScale * next, y: markScale * next });
-          e.target.position({ x: 17, y: 17 });
-        }}
-        onDragEnd={(e) => { e.cancelBubble = true; actions.change({ iconScale: Math.round(liveSize.current * 100) / 100 }); }} />}
     </Group>}
   </Group>;
 });

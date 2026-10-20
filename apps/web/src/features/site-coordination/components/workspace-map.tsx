@@ -40,7 +40,7 @@ import type { UseCoordinationWorkspaceState } from "../hooks/use-coordination-wo
 const CoordinationCanvas = lazy(() => import("./coordination-canvas.js").then((module) => ({ default: module.CoordinationCanvas })));
 
 export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
-  const { date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadNameGroups, roadNames, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, startCreate, counter, goToDate, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact, phone, fill, placing, setPlacing, placeItem } = ed;
+  const { guard, openItem, date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadNameGroups, roadNames, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, startCreate, counter, goToDate, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact, phone, fill, placing, setPlacing, placeItem } = ed;
   const [panelOpen, setPanelOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
@@ -108,8 +108,8 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
       {data.lock && <DayLockBanner lock={data.lock} canUnlock={!readOnly && data.canLock} busy={dayLock.isPending} onUnlock={() => void unlockDay()} />}
       {!compact && !phone && isFiltered && <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: "action.hover" }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>กำลังกรอง · แสดง {items.length} จาก {data.items.length} งาน</Typography>
-        {contractorIds && <Chip size="small" label={`Contractor: ${contractorIds.size === 0 ? "none" : data.contractors.filter((c) => contractorIds.has(c.id)).map((c) => c.code).join(", ")}`} onDelete={() => { selectItem(null); setContractorIds(null); }} />}
-        {typeFiltered && <Chip size="small" label={`Type: ${types.size ? [...types].map((t) => typeByCode.get(t)?.labelTh ?? t).join(", ") : "None"}`} onDelete={() => { selectItem(null); setTypes(new Set(itemTypes.map((t) => t.code))); }} />}
+        {contractorIds && <Chip size="small" label={`Contractor: ${contractorIds.size === 0 ? "none" : data.contractors.filter((c) => contractorIds.has(c.id)).map((c) => c.code).join(", ")}`} onDelete={() => guard(() => { openItem(null); setContractorIds(null); })} />}
+        {typeFiltered && <Chip size="small" label={`Type: ${types.size ? [...types].map((t) => typeByCode.get(t)?.labelTh ?? t).join(", ") : "None"}`} onDelete={() => guard(() => { openItem(null); setTypes(new Set(itemTypes.map((t) => t.code))); })} />}
         {q && <Chip size="small" label={`Search: "${search.trim()}"`} onDelete={() => setSearch("")} />}
         <Button startIcon={<FilterAltOffOutlined fontSize="small" />} onClick={clearFilters} sx={{ ml: "auto" }}>Clear filters</Button>
       </Stack>}

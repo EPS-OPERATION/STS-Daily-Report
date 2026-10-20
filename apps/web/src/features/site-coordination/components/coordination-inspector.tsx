@@ -30,7 +30,7 @@ import { TOKENS } from "@/app/theme/tokens.js";
 
 interface Props {
   item: CoordinationItem;
-  /** Present when the viewer may edit this job (autosaved through onPatch). */
+  /** Present when the viewer may edit this job (changed through onPatch, stored on Save). */
   draft: CoordinationInput | null;
   contractors: CoordinationContractor[];
   editableContractors: CoordinationContractor[];
@@ -39,6 +39,12 @@ interface Props {
   areaDirty: boolean;
   geometryError: string | null;
   saving: boolean;
+  /** Edits not saved yet: the header shows Save / Cancel instead of "saved". */
+  dirty: boolean;
+  /** False while the job is invalid or a shape is still being drawn (finish it first). */
+  canSave: boolean;
+  onSave: () => void;
+  onCancel: () => void;
   isLocked?: boolean;
   isEps?: boolean;
   onPatch: (patch: Partial<CoordinationInput>) => void;
@@ -67,7 +73,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 // Edit panel for the selected job (replaces the floating icon bar + settings dialog): every control
-// is labelled, sits in one place, and saves automatically. Read-only jobs show the same layout as text.
+// is labelled, sits in one place, and is stored with the Save button in the header. Read-only jobs show the same layout as text.
 export function CoordinationInspector({
   item,
   draft,
@@ -78,6 +84,10 @@ export function CoordinationInspector({
   areaDirty,
   geometryError,
   saving,
+  dirty,
+  canSave,
+  onSave,
+  onCancel,
   isLocked = false,
   isEps = false,
   onPatch,
@@ -121,12 +131,20 @@ export function CoordinationInspector({
             {v.title || "—"}
           </Typography>
         </Box>
-        {editable ? (
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: saving ? "text.secondary" : "success.main", pr: 0.5 }}>
-            {saving ? <SyncOutlined sx={{ fontSize: 15 }} /> : <CheckCircleOutlineOutlined sx={{ fontSize: 15 }} />}
-            <Typography variant="caption" sx={{ whiteSpace: "nowrap" }}>
-              {saving ? "กำลังบันทึก…" : "บันทึกแล้ว"}
-            </Typography>
+        {editable && (dirty || saving) ? (
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
+            <Button size="small" color="inherit" disabled={saving} onClick={onCancel} sx={{ minWidth: 0, textTransform: "none" }}>
+              ยกเลิก
+            </Button>
+            <Button size="small" variant="contained" disableElevation disabled={saving || !canSave} onClick={onSave}
+              startIcon={saving ? <SyncOutlined sx={{ fontSize: 16 }} /> : undefined} sx={{ textTransform: "none", whiteSpace: "nowrap" }}>
+              {saving ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </Stack>
+        ) : editable ? (
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "success.main", pr: 0.5 }}>
+            <CheckCircleOutlineOutlined sx={{ fontSize: 15 }} />
+            <Typography variant="caption" sx={{ whiteSpace: "nowrap" }}>บันทึกแล้ว</Typography>
           </Stack>
         ) : null}
       </Stack>

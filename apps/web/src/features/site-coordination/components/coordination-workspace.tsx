@@ -25,7 +25,7 @@ import { ContractorColorDialog } from "./contractor-color-dialog.js";
 
 export function CoordinationWorkspace(props: Parameters<typeof useCoordinationWorkspace>[0]) {
   const ed = useCoordinationWorkspace(props);
-  const { projects, activeProject, date, setSelectedId, tool, addAnchor, setAddAnchor, deleteTarget, setDeleteTarget, query, remove, dayLock, lockConfirm, setLockConfirm, lockDay, data, selected, company, editableCompanies, wide, items, updateWorking, createItem, startCreate, pendingIcon, setPendingIcon, filteredCompanyId, filterControls, inspector, readOnly, compact, phone, fill } = ed;
+  const { projects, activeProject, date, setSelectedId, tool, addAnchor, setAddAnchor, deleteTarget, setDeleteTarget, query, remove, dayLock, lockConfirm, setLockConfirm, lockDay, data, selected, company, editableCompanies, wide, items, updateWorking, createItem, startCreate, pendingIcon, setPendingIcon, filteredCompanyId, filterControls, inspector, readOnly, compact, phone, fill, leaveAction, setLeaveAction, saveEdits, cancelEdits, save } = ed;
   const canManageItemTypes = !readOnly && isEpsAdmin(ed.me.data?.data.user.role);
   // Below lg the inspector is a bottom sheet. It opens as a slim strip (handle + job name) so the job stays
   // visible and draggable on the map; tapping the handle expands it for editing.
@@ -106,6 +106,23 @@ export function CoordinationWorkspace(props: Parameters<typeof useCoordinationWo
     >
       {remove.isError ? <Alert severity="error" sx={{ mt: 2 }}>{remove.error.message}</Alert> : null}
     </ConfirmDialog>
+    {/* Leaving a job with unsaved edits: save them, throw them away, or stay on the job. */}
+    <ConfirmDialog
+      open={Boolean(leaveAction)}
+      title="บันทึกการแก้ไขก่อนไหม?"
+      description="งานนี้มีการแก้ไขที่ยังไม่ได้บันทึก — บันทึกก่อนไป หรือทิ้งการแก้ไขแล้วกลับเป็นค่าเดิม"
+      confirmLabel="บันทึก"
+      cancelLabel="อยู่ต่อ"
+      tone="primary"
+      loading={save.isPending}
+      onClose={() => setLeaveAction(null)}
+      onConfirm={async () => {
+        const action = leaveAction;
+        if (!(await saveEdits())) return;
+        setLeaveAction(null); action?.();
+      }}
+      secondaryAction={{ label: "ทิ้งการแก้ไข", onClick: () => { const action = leaveAction; cancelEdits(); setLeaveAction(null); action?.(); } }}
+    />
     <ContractorColorDialog ed={ed} />
   </Box>;
 }
