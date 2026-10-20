@@ -16,12 +16,12 @@ import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
-import TablePagination from "@mui/material/TablePagination";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
+import { useEffect, useRef } from "react";
 import { DateRangeFields } from "@/components/ui/date-range-fields.js";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
@@ -37,11 +37,29 @@ import { useDailyReportsPage } from "../hooks/use-daily-reports-page.js";
 import { SubmissionSummary } from "../components/submission-summary.js";
 import { SubmissionHistory } from "../components/submission-history.js";
 
-// Daily report summary for EPS: work done, and a submission history of who sent what — every
-// contractor every day, so missing reports are visible. No approval step (history only).
+// Daily report summary for EPS: work done, and a submission history of who sent what. The history lists
+// rows where something was sent; the «ยังไม่ส่ง» chip shows who sent nothing. No approval step (history only).
+
+/** Calls `onVisible` whenever it scrolls into view (the end of a list): load-more without a button press. */
+function LoadMoreSentinel({ onVisible }: { onVisible: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) onVisible(); }, { rootMargin: "400px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [onVisible]);
+  return (
+    <Box ref={ref} sx={{ py: 1.5, textAlign: "center" }}>
+      {/* The observer does the work; the button covers keyboard users and browsers without it. */}
+      <Button size="small" variant="text" onClick={onVisible}>แสดงเพิ่ม</Button>
+    </Box>
+  );
+}
 export function DailyReportsPage() {
   const ed = useDailyReportsPage();
-  const { from, to, isRange, viewMode, search, setSearch, contractor, setContractor, filter, setFilter, detail, setDetail, projectId, history, inspections, setRange, queue, contractorNames, allCodes, selectedCodes, setContractors, filterItems, workDoneItems, rfiByDay, counts, workContractorNames, rows, pagedRows, currentHistoryPage, setHistoryPage, historyPerPage, setHistoryPerPage, exportSummaryPdf, loadError, loading, shiftChip, dateRangeLabel } = ed;
+  const { from, to, isRange, viewMode, search, setSearch, contractor, setContractor, filter, setFilter, detail, setDetail, projectId, history, inspections, setRange, contractorNames, allCodes, selectedCodes, setContractors, filterItems, workDoneItems, rfiByDay, counts, workContractorNames, rows, shownRows, hasMoreHistory, loadMoreHistory, loadError, loading, shiftChip, dateRangeLabel } = ed;
 
   return (
     <Box>
@@ -101,7 +119,7 @@ export function DailyReportsPage() {
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, flexWrap: "wrap", rowGap: 1 }} role="group" aria-label="Filter by submission status">
                 {(
                   [
-                    ["all", `ทั้งหมด (${counts.all})`],
+                    ["all", `ส่งแล้ว (${counts.sent})`],
                     ["complete", `ส่งครบ (${counts.complete})`],
                     ["partial", `ส่งบางส่วน (${counts.partial})`],
                     ["none", `ยังไม่ส่ง (${counts.none})`],
@@ -117,15 +135,6 @@ export function DailyReportsPage() {
                     onClick={() => setFilter(value)}
                   />
                 ))}
-                <Box sx={{ flexGrow: 1 }} />
-                <Button
-                  variant="outlined"
-                  startIcon={<PictureAsPdfOutlinedIcon />}
-                  onClick={exportSummaryPdf}
-                  disabled={rows.length === 0}
-                >
-                  Export PDF (summary table)
-                </Button>
               </Stack>
 
               <Card variant="outlined">
@@ -155,18 +164,18 @@ export function DailyReportsPage() {
                   {rows.length === 0 ? (
                     <EmptyState
                       icon={<HistoryOutlinedIcon />}
-                      title="ไม่มีรายการที่ตรงกับเงื่อนไข"
-                      description="ลองเปลี่ยนช่วงวันที่ ตัวกรอง หรือล้างคำค้นหา"
+                      title={filter === "all" && !search.trim() && contractor === ALL_CONTRACTORS ? "ยังไม่มีผู้รับเหมาส่งรายงานในช่วงนี้" : "ไม่มีรายการที่ตรงกับเงื่อนไข"}
+                      description={filter === "all" && !search.trim() && contractor === ALL_CONTRACTORS ? "ดูผู้ที่ยังไม่ส่งได้จากตัวกรอง «ยังไม่ส่ง» หรือลองเปลี่ยนช่วงวันที่" : "ลองเปลี่ยนช่วงวันที่ ตัวกรอง หรือล้างคำค้นหา"}
                       action={
                         <Button
                           variant="outlined"
                           onClick={() => {
-                            setFilter("all");
+                            setFilter(filter === "all" && !search.trim() && contractor === ALL_CONTRACTORS ? "none" : "all");
                             setSearch("");
                             setContractor(ALL_CONTRACTORS);
                           }}
                         >
-                          View all
+                          {filter === "all" && !search.trim() && contractor === ALL_CONTRACTORS ? "ดูผู้ที่ยังไม่ส่ง" : "View all"}
                         </Button>
                       }
                     />
@@ -185,7 +194,7 @@ export function DailyReportsPage() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {pagedRows.map((r) => {
+                          {shownRows.map((r) => {
                             const people = r.totalHeadcount || r.eveningHeadcount;
                             const openable = Boolean(r.id);
                             return (
@@ -240,27 +249,11 @@ export function DailyReportsPage() {
                     </TableContainer>
                   )}
 
-                  {/* Count + hint on the left, pagination on the right: one footer row (wraps on narrow screens). */}
-                  <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: 2, mt: 1 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      แสดง {rows.length} จาก {queue.length} รายการ · คลิกแถวที่ส่งแล้วเพื่อดูรายละเอียด
-                    </Typography>
-                    {rows.length > 0 ? (
-                      <TablePagination
-                        component="div"
-                        count={rows.length}
-                        page={currentHistoryPage}
-                        onPageChange={(_, p) => setHistoryPage(p)}
-                        rowsPerPage={historyPerPage}
-                        onRowsPerPageChange={(e) => {
-                          setHistoryPerPage(Number(e.target.value));
-                          setHistoryPage(0);
-                        }}
-                        rowsPerPageOptions={[25, 50, 100]}
-                        labelRowsPerPage="แถวต่อหน้า"
-                      />
-                    ) : null}
-                  </Box>
+                  {/* key = row count: a fresh observer after every batch, so a tall screen keeps loading until it is filled */}
+                  {hasMoreHistory ? <LoadMoreSentinel key={shownRows.length} onVisible={loadMoreHistory} /> : null}
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                    แสดง {shownRows.length} จาก {rows.length} รายการ · คลิกแถวที่ส่งแล้วเพื่อดูรายละเอียด
+                  </Typography>
                 </CardContent>
               </Card>
             </Box>
@@ -269,7 +262,7 @@ export function DailyReportsPage() {
       )}
 
       {/* Read-only report detail (Export PDF available) */}
-      <ReviewDialog report={detail} projectId={projectId} onClose={() => setDetail(null)} />
+      <ReviewDialog report={detail} onClose={() => setDetail(null)} />
     </Box>
   );
 }
