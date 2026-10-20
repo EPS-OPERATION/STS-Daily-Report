@@ -2,18 +2,16 @@ import { type Discipline } from "@sts/shared";
 import { useEffect } from "react";
 import { useFieldArray, useWatch, type UseFormReturn } from "react-hook-form";
 import { StandardItemsPanel } from "@/features/report-standard-items/index.js";
-import { placementStatus, type MorningFormValues } from "../schemas/daily-report.schema.js";
+import { isBlankActivity, placementStatus, type MorningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building } from "@/features/buildings/index.js";
 import { CrewManpower, crewTotals } from "./crew-manpower.js";
 import { SectionCard } from "./section-card.js";
-import AddIcon from "@mui/icons-material/AddOutlined";
-import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { disciplineLabel } from "./morning-helpers.js";
 import { newActivity } from "./morning-helpers.js";
 import { activityFromStandard } from "./morning-helpers.js";
-import { ActivityRow } from "./morning-activity-row.js";
+import { ActivityTable } from "./activity-table.js";
 
 // One discipline's morning form: who works (by position + nationality/sex) and Today Activity —
 // which building, what work, how many people, optionally when and with a plan %.
@@ -46,9 +44,9 @@ export function MorningCrewSection({
   const errors = formState.errors.crews?.[discipline];
   const listError = errors?.allocations?.root?.message ?? errors?.allocations?.message;
 
-  // A freshly opened discipline starts with one empty activity.
+  // A freshly opened discipline starts with 3 empty lines; unused ones are simply left blank.
   useEffect(() => {
-    if (getValues(`crews.${discipline}.allocations`).length === 0) activities.append(newActivity(1));
+    if (getValues(`crews.${discipline}.allocations`).length === 0) activities.append([newActivity(0), newActivity(0), newActivity(0)]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -71,22 +69,10 @@ export function MorningCrewSection({
         Today Activity
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        ลงรายละเอียดงานพร้อมจำนวนคนที่ทำ — ถ้าย้ายอาคารระหว่างวัน กด “ระบุเวลา” ได้ (ไม่บังคับ)
+        1 แถว = 1 งาน: อาคาร · งาน · จำนวนคน — แผน % และเวลา (ปุ่มนาฬิกา) ไม่บังคับ: ว่าง = ไม่มีแผน / ทั้งวัน
       </Typography>
 
-      <Stack spacing={1.5}>
-        {activities.fields.map((row, i) => (
-          <ActivityRow
-            key={row.id}
-            index={i}
-            discipline={discipline}
-            form={form}
-            buildings={buildings}
-            canRemove={activities.fields.length > 1}
-            onRemove={() => activities.remove(i)}
-          />
-        ))}
-      </Stack>
+      <ActivityTable discipline={discipline} form={form} buildings={buildings} activities={activities} />
 
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
         <Typography
@@ -102,14 +88,6 @@ export function MorningCrewSection({
             ? "กรอกจำนวนคนด้านบนก่อน"
             : (problem ?? (placement.placed === t.total ? `ลงงานครบ ${t.total} คนแล้ว` : `ลงงาน ${placement.placed}/${t.total} คน`))}
         </Typography>
-        <Button
-          startIcon={<AddIcon />}
-          variant="outlined"
-          disabled={activities.fields.length >= 32}
-          onClick={() => activities.append(newActivity(1))}
-        >
-          Add activity
-        </Button>
       </Stack>
       {listError && listError !== problem ? (
         <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.5 }}>
@@ -124,7 +102,7 @@ export function MorningCrewSection({
         onApply={(items) => {
           const have = new Set(rows.map((r) => `${r.buildingId}|${r.workDescription.trim().toLowerCase()}`));
           const fresh = items.filter((i) => i.buildingId && !have.has(`${i.buildingId}|${i.label.trim().toLowerCase()}`));
-          activities.append(fresh.map(activityFromStandard));
+          activities.replace([...rows.filter((r) => !isBlankActivity(r)), ...fresh.map(activityFromStandard)]);
         }}
         onSaveFromForm={() =>
           rows

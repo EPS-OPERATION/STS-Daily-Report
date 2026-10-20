@@ -53,3 +53,51 @@ export function filterWorkDone(
     return true;
   });
 }
+
+// Work Done Summary: click a column header to sort; default = contractor, then building.
+export type WorkDoneSortKey = "date" | "work" | "building" | "contractor" | "headcount" | "plan" | "actual" | "status";
+export type WorkDoneSort = { key: WorkDoneSortKey; dir: "asc" | "desc" };
+
+// Status order when sorting: waiting for the afternoon, behind plan, on plan / recorded, ahead.
+const statusRank = (i: WorkDoneItem) =>
+  i.actualPercent === null ? 0 : i.planPercent !== null && i.actualPercent < i.planPercent ? 1 : i.planPercent !== null && i.actualPercent > i.planPercent ? 3 : 2;
+const text = (a: string, b: string) => a.localeCompare(b, "th");
+// Blank plan / actual always go last, whichever direction.
+const num = (a: number | null, b: number | null, dir: 1 | -1) => (a === null ? (b === null ? 0 : 1) : b === null ? -1 : (a - b) * dir);
+
+function compare(a: WorkDoneItem, b: WorkDoneItem, { key, dir }: WorkDoneSort): number {
+  const d = dir === "asc" ? 1 : -1;
+  switch (key) {
+    case "date":
+      return text(a.reportDate, b.reportDate) * d;
+    case "work":
+      return text(a.workDescription, b.workDescription) * d;
+    case "building":
+      return text(a.buildingName, b.buildingName) * d;
+    case "contractor":
+      return text(a.contractorName || a.contractorCode, b.contractorName || b.contractorCode) * d;
+    case "headcount":
+      return (a.headcount - b.headcount) * d;
+    case "plan":
+      return num(a.planPercent, b.planPercent, d);
+    case "actual":
+      return num(a.actualPercent, b.actualPercent, d);
+    case "status":
+      return (statusRank(a) - statusRank(b)) * d;
+  }
+}
+
+// Ties fall back to contractor → building → date → work, so rows of one company stay together.
+const TIE_BREAK: WorkDoneSortKey[] = ["contractor", "building", "date", "work"];
+export function sortWorkDone(items: WorkDoneItem[], sort: WorkDoneSort): WorkDoneItem[] {
+  return [...items].sort((a, b) => {
+    const first = compare(a, b, sort);
+    if (first !== 0) return first;
+    for (const key of TIE_BREAK) {
+      if (key === sort.key) continue;
+      const next = compare(a, b, { key, dir: "asc" });
+      if (next !== 0) return next;
+    }
+    return 0;
+  });
+}

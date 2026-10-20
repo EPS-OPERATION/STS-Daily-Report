@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -15,6 +15,7 @@ import TableContainer from "@mui/material/TableContainer";
 import { TableCard } from "@/components/ui/table-card.js";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import TableSortLabel from "@mui/material/TableSortLabel";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import FileDownloadIcon from "@mui/icons-material/FileDownloadOutlined";
@@ -23,7 +24,7 @@ import { ContractorBadge } from "@/features/contractors/index.js";
 import { EmptyState } from "@/components/ui/empty-state.js";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
-import { ALL_BUILDINGS, filterWorkDone } from "../utils/work-done.js";
+import { ALL_BUILDINGS, filterWorkDone, sortWorkDone, type WorkDoneSort, type WorkDoneSortKey } from "../utils/work-done.js";
 
 export interface WorkDoneItem {
   id: string;
@@ -67,9 +68,18 @@ export function WorkDoneSummaryTable({
     return [...new Set(items.map((i) => i.buildingName))].filter(Boolean).sort();
   }, [items]);
 
+  const [sort, setSort] = useState<WorkDoneSort>({ key: "contractor", dir: "asc" });
   const filteredItems = useMemo(
-    () => filterWorkDone(items, { contractor: selectedContractor, building: buildingFilter, search }),
-    [items, selectedContractor, buildingFilter, search],
+    () => sortWorkDone(filterWorkDone(items, { contractor: selectedContractor, building: buildingFilter, search }), sort),
+    [items, selectedContractor, buildingFilter, search, sort],
+  );
+  // Same column again flips the direction; a new column starts A→Z (numbers: high first).
+  const sortBy = (key: WorkDoneSortKey) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "headcount" || key === "plan" || key === "actual" ? "desc" : "asc" }));
+  const sortLabel = (key: WorkDoneSortKey, children: ReactNode) => (
+    <TableSortLabel active={sort.key === key} direction={sort.key === key ? sort.dir : "asc"} onClick={() => sortBy(key)} sx={{ alignItems: "flex-start" }}>
+      <span>{children}</span>
+    </TableSortLabel>
   );
 
 
@@ -233,33 +243,33 @@ export function WorkDoneSummaryTable({
                     <Typography variant="caption" color="text.secondary">ลำดับที่</Typography>
                   </TableCell>
                   {isRange && (
-                    <TableCell sx={{ fontWeight: 700, width: 110 }}>วันที่</TableCell>
+                    <TableCell sx={{ fontWeight: 700, width: 110 }}>{sortLabel("date", "วันที่")}</TableCell>
                   )}
                   <TableCell sx={{ fontWeight: 700, minWidth: 280 }}>
-                    Description of work done<br />
-                    <Typography variant="caption" color="text.secondary">ลักษณะงานที่ทำ</Typography>
+                    {sortLabel("work", <>Description of work done<br />
+                    <Typography variant="caption" color="text.secondary">ลักษณะงานที่ทำ</Typography></>)}
                   </TableCell>
                   <TableCell sx={{ fontWeight: 700, width: 150 }}>
-                    Building / Area<br />
-                    <Typography variant="caption" color="text.secondary">อาคาร / พื้นที่</Typography>
+                    {sortLabel("building", <>Building / Area<br />
+                    <Typography variant="caption" color="text.secondary">อาคาร / พื้นที่</Typography></>)}
                   </TableCell>
                   <TableCell sx={{ fontWeight: 700, width: 150 }}>
-                    Contractor<br />
-                    <Typography variant="caption" color="text.secondary">ผู้รับเหมา</Typography>
+                    {sortLabel("contractor", <>Contractor<br />
+                    <Typography variant="caption" color="text.secondary">ผู้รับเหมา</Typography></>)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, width: 90 }}>
-                    คน<br />
-                    <Typography variant="caption" color="text.secondary">Workers</Typography>
+                    {sortLabel("headcount", <>คน<br />
+                    <Typography variant="caption" color="text.secondary">Workers</Typography></>)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, width: 100, bgcolor: "action.selected" }}>
-                    Plan<br />
-                    <Typography variant="caption" color="text.secondary">แผนงาน</Typography>
+                    {sortLabel("plan", <>Plan<br />
+                    <Typography variant="caption" color="text.secondary">แผนงาน</Typography></>)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, width: 110, bgcolor: "action.selected" }}>
-                    Actual<br />
-                    <Typography variant="caption" color="text.secondary">ทำจริง</Typography>
+                    {sortLabel("actual", <>Actual<br />
+                    <Typography variant="caption" color="text.secondary">ทำจริง</Typography></>)}
                   </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700, width: 110 }}>สถานะ</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, width: 110 }}>{sortLabel("status", "สถานะ")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
