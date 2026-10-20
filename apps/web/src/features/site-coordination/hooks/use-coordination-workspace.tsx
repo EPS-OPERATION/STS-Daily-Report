@@ -319,14 +319,16 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   </ToggleButtonGroup>;
   const dateControl = datePicker;
   // Same multi-select popover as Manpower / Daily Request (colour, search, select all, job count).
-  const filterCompanies = data?.contractors.filter((c) => c.isContractor) ?? [];
+  // Only companies with a job on this day are listed (an empty row is just noise in a meeting).
+  const filterCompanies = data?.contractors.filter((c) => c.isContractor && data.items.some((v) => v.contractorId === c.id)) ?? [];
   const allContractorCodes = filterCompanies.map((c) => c.code);
   const contractorControl = data ? <ContractorFilterPopover
       items={filterCompanies.map((c) => ({ code: c.code, name: c.name, color: c.color, countLabel: `${data.items.filter((v) => v.contractorId === c.id).length} งาน` }))}
       selectedCodes={new Set(contractorIds ? filterCompanies.filter((c) => contractorIds.has(c.id)).map((c) => c.code) : allContractorCodes)}
       onChange={(codes) => {
         void flush(); updateWorking(null); setSelectedId(null);
-        setContractorIds(codes.size === 0 || codes.size === allContractorCodes.length ? null : new Set(filterCompanies.filter((c) => codes.has(c.code)).map((c) => c.id)));
+        // Clear = nothing ticked (an empty set shows no jobs) so one company can be ticked next; all ticked = no filter.
+        setContractorIds(codes.size === allContractorCodes.length ? null : new Set(filterCompanies.filter((c) => codes.has(c.code)).map((c) => c.id)));
       }}
     /> : null;
   // Contractor logins can narrow the map to the companies they belong to in the open project (same filter state as the popover).

@@ -78,6 +78,7 @@ export function MultiSelectFilter({
   emptyText = "No options",
   clearLabel = "Clear",
   doneLabel = "Done",
+  onlyLabel = "Only",
   align = "left",
   width = 300,
 }: {
@@ -93,6 +94,8 @@ export function MultiSelectFilter({
   emptyText?: string;
   clearLabel?: string;
   doneLabel?: string;
+  /** Per-row shortcut: keep just this option and close (one tap to look at one thing). */
+  onlyLabel?: string;
   align?: "left" | "right";
   width?: number;
 }) {
@@ -120,6 +123,10 @@ export function MultiSelectFilter({
   const close = () => {
     setAnchor(null);
     setSearch("");
+  };
+  const only = (value: string) => {
+    onChange(new Set([value]));
+    close();
   };
 
   return (
@@ -182,6 +189,7 @@ export function MultiSelectFilter({
                 <Box
                   key={o.value}
                   onClick={() => toggle(o.value)}
+                  className="fp-row"
                   sx={{
                     display: "flex",
                     alignItems: "center",
@@ -194,6 +202,11 @@ export function MultiSelectFilter({
                     userSelect: "none",
                     opacity: o.dim ? 0.55 : 1,
                     "&:hover": { bgcolor: "action.hover" },
+                    // Pointer devices swap the count for "Only" on hover; touch has no hover, so both stay visible.
+                    "& .fp-only": { display: "none" },
+                    "&:hover .fp-only": { display: "inline-flex" },
+                    "&:hover .fp-count": { display: "none" },
+                    "@media (hover: none)": { "& .fp-only": { display: "inline-flex" }, "&:hover .fp-count": { display: "inline" } },
                   }}
                 >
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0, flex: 1 }}>
@@ -210,11 +223,24 @@ export function MultiSelectFilter({
                       ) : null}
                     </Box>
                   </Stack>
-                  {o.count ? (
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
-                      {o.count}
-                    </Typography>
-                  ) : null}
+                  <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+                    {o.count ? (
+                      <Typography className="fp-count" variant="caption" sx={{ fontWeight: 600, color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>
+                        {o.count}
+                      </Typography>
+                    ) : null}
+                    {allValues.length > 1 && !(checked && selected.size === 1) ? (
+                      <Button
+                        className="fp-only"
+                        size="small"
+                        variant="outlined"
+                        onClick={(e) => { e.stopPropagation(); only(o.value); }}
+                        sx={{ minWidth: 0, px: 1, py: 0, fontSize: 12, lineHeight: 1.8 }}
+                      >
+                        {onlyLabel}
+                      </Button>
+                    ) : null}
+                  </Stack>
                 </Box>
               );
             })

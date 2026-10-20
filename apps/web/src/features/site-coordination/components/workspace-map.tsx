@@ -108,7 +108,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
       {data.lock && <DayLockBanner lock={data.lock} canUnlock={!readOnly && data.canLock} busy={dayLock.isPending} onUnlock={() => void unlockDay()} />}
       {!compact && !phone && isFiltered && <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: "action.hover" }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>กำลังกรอง · แสดง {items.length} จาก {data.items.length} งาน</Typography>
-        {contractorIds && <Chip size="small" label={`Contractor: ${data.contractors.filter((c) => contractorIds.has(c.id)).map((c) => c.code).join(", ")}`} onDelete={() => { selectItem(null); setContractorIds(null); }} />}
+        {contractorIds && <Chip size="small" label={`Contractor: ${contractorIds.size === 0 ? "none" : data.contractors.filter((c) => contractorIds.has(c.id)).map((c) => c.code).join(", ")}`} onDelete={() => { selectItem(null); setContractorIds(null); }} />}
         {typeFiltered && <Chip size="small" label={`Type: ${types.size ? [...types].map((t) => typeByCode.get(t)?.labelTh ?? t).join(", ") : "None"}`} onDelete={() => { selectItem(null); setTypes(new Set(itemTypes.map((t) => t.code))); }} />}
         {q && <Chip size="small" label={`Search: "${search.trim()}"`} onDelete={() => setSearch("")} />}
         <Button startIcon={<FilterAltOffOutlined fontSize="small" />} onClick={clearFilters} sx={{ ml: "auto" }}>Clear filters</Button>
