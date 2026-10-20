@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { requireAuth } from "@/middleware/require-auth.js";
+import { assertEpsAdmin } from "@/middleware/require-eps.js";
 import { ok } from "@/shared/http/response.js";
 import {
   bulkSaveAreasService,
@@ -28,6 +29,8 @@ export const sitePlanRoutes = new Elysia()
     { params: sitePlanProjectParams },
   )
   .use(requireAuth)
+  // Writes are EPS admin only (the site plan is an admin "Option" page); a signed-in contractor gets 403.
+  .onBeforeHandle(({ auth }) => assertEpsAdmin(auth))
   .post(
     "/site-plans/:sitePlanId/areas",
     async ({ params, body, set }) => {
@@ -45,13 +48,13 @@ export const sitePlanRoutes = new Elysia()
   .patch(
     "/site-plans/:sitePlanId/areas/:areaId",
     async ({ params, body }) =>
-      ok(await updateAreaService(params.areaId, { zoneId: body.zoneId, geometry: body.geometry })),
+      ok(await updateAreaService(params.sitePlanId, params.areaId, { zoneId: body.zoneId, geometry: body.geometry })),
     { params: areaIdParams, body: patchAreaBody },
   )
   .delete(
     "/site-plans/:sitePlanId/areas/:areaId",
     async ({ params, set }) => {
-      await deleteAreaService(params.areaId);
+      await deleteAreaService(params.sitePlanId, params.areaId);
       set.status = 204;
       return null;
     },
@@ -59,7 +62,7 @@ export const sitePlanRoutes = new Elysia()
   )
   .post(
     "/site-plans/:sitePlanId/areas/:areaId/reset",
-    async ({ params }) => ok(await resetAreaService(params.areaId)),
+    async ({ params }) => ok(await resetAreaService(params.sitePlanId, params.areaId)),
     { params: areaIdParams },
   )
   .put(
