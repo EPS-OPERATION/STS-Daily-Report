@@ -1,4 +1,5 @@
 import Autocomplete from "@mui/material/Autocomplete";
+import type { Ref } from "react";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
@@ -15,6 +16,8 @@ export function BuildingSelect({
   disabledIds = [],
   error,
   placeholder = "พิมพ์รหัสหรือชื่ออาคาร...",
+  dense = false,
+  inputRef,
 }: {
   label: string;
   buildings: Building[];
@@ -23,6 +26,9 @@ export function BuildingSelect({
   disabledIds?: string[];
   error?: string;
   placeholder?: string;
+  /** Table cell: no floating label or helper line (label becomes the aria-label; errors show as a red border). */
+  dense?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
 }) {
   const selectedBuilding = buildings.find((b) => b.id === value) ?? null;
 
@@ -94,12 +100,15 @@ export function BuildingSelect({
       renderInput={(params) => (
         <TextField
           {...params}
-          label={label}
-          placeholder={selectedBuilding ? undefined : placeholder}
+          inputRef={inputRef}
+          label={dense ? undefined : label}
+          placeholder={selectedBuilding ? undefined : dense ? "อาคาร" : placeholder}
           size="small"
           fullWidth
           error={Boolean(error)}
-          helperText={error ?? (buildings.length === 0 ? "ยังไม่มีอาคารให้เลือก" : undefined)}
+          title={dense ? error : undefined}
+          helperText={dense ? undefined : (error ?? (buildings.length === 0 ? "ยังไม่มีอาคารให้เลือก" : undefined))}
+          slotProps={{ htmlInput: { ...params.inputProps, "aria-label": label } }}
         />
       )}
     />

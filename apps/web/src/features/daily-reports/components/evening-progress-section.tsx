@@ -5,7 +5,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { ProgressRow } from "./evening-progress-row.js";
+import { ProgressTable } from "./progress-table.js";
 import { AdditionalWorkRow } from "./evening-additional-work-row.js";
 import type { UseEveningFormState } from "../hooks/use-evening-form.js";
 
@@ -79,9 +79,7 @@ export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
             <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase" }}>
               งานตามแผนรอบเช้า ({morningAllocations.length} รายการ)
             </Typography>
-            {progress.fields.map((row, i) => (
-              <ProgressRow key={row.id} index={i} control={control} allocation={morningAllocations[i]!} />
-            ))}
+            <ProgressTable control={control} allocations={morningAllocations.slice(0, progress.fields.length)} />
           </Stack>
         ) : null}
 

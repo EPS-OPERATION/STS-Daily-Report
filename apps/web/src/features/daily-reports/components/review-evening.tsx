@@ -231,10 +231,10 @@ export function ReviewEvening({ ed }: { ed: UseReviewDialogState }) {
         ) : <Nothing>ไม่ได้ลงนาม</Nothing>}
       </ReviewSection>
 
-      {data.photos.length > 0 ? (
+      {data.photos.some((p) => p.category !== "permit") ? (
         <ReviewSection index={7} title="รูปถ่าย" subtitle="ที่แนบไว้ก่อนหน้า (ฟอร์มปัจจุบันไม่มีการอัปโหลดรูปแล้ว)">
           <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1}>
-            {data.photos.filter((p) => p.url).map((p) => (
+            {data.photos.filter((p) => p.url && p.category !== "permit").map((p) => (
               <Box key={p.id} component="a" href={p.url ?? undefined} target="_blank" rel="noopener">
                 <Box component="img" src={p.url ?? undefined} alt={p.fileName} loading="lazy" sx={{ display: "block", height: 96, width: 128, objectFit: "cover", borderRadius: 1, border: 1, borderColor: "divider" }} />
               </Box>

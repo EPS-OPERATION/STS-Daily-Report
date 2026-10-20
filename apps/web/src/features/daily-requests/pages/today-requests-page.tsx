@@ -76,8 +76,8 @@ export function TodayRequestsPage() {
       {view === "requests" ? (
         <ExportButtons
           disabled={!data || machines.length + equipment.length + roads.length + inspections.length === 0}
-          onPrint={() => printSections("Daily Request — คำขอประจำวัน", `${rangeLabel} · ผู้รับเหมา ${selectedCodes.size === allCodes.length ? "ทั้งหมด" : [...selectedCodes].join(", ")}`, requestSections())}
-          onCsv={() => downloadCsv(`STS_Daily_Request_${isRange ? `${from}_${to}` : from}.csv`, requestSections())}
+          onPrint={() => printSections("Daily Request — คำขอประจำวัน", `${rangeLabel} · ผู้รับเหมา ${selectedCodes.size === allCodes.length ? "ทั้งหมด" : [...selectedCodes].join(", ")}`, requestSections(true))}
+          onCsv={() => downloadCsv(`STS_Daily_Request_${isRange ? `${from}_${to}` : from}.csv`, requestSections(false))}
         />
       ) : null}
       </Stack>

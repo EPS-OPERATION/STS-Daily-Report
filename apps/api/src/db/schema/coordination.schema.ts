@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import type { CoordinationAreaKind, CoordinationGeometry, CoordinationIcon, CoordinationPoint } from "@sts/shared";
+import { boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import type { CoordinationAreaKind, CoordinationGeometry, CoordinationPoint } from "@sts/shared";
 import { projects } from "./project.schema.js";
 import { projectContractors } from "./project-contractor.schema.js";
 import { users } from "./user.schema.js";
@@ -22,11 +22,32 @@ export const coordinationColors = pgTable("coordination_colors", {
   check("coordination_colors_hex_check", sql`${t.color} ~ '^#[0-9A-Fa-f]{6}$'`),
 ]);
 
+// The project's Add-item catalog (work types). The 9 built-ins are `isSystem` and cannot be deleted;
+// EPS admins can add types, change their names/glyph, reorder them, or hide them from the picker.
+export const coordinationItemTypes = pgTable("coordination_item_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  // Stored on coordination_items.icon; immutable after creation.
+  code: text("code").notNull(),
+  label: text("label").notNull(),
+  labelTh: text("label_th").notNull(),
+  iconKey: text("icon_key").notNull().default("map-pin"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  isSystem: boolean("is_system").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("coordination_item_types_project_code_unique").on(t.projectId, t.code),
+  index("coordination_item_types_project_idx").on(t.projectId),
+  check("coordination_item_types_code_check", sql`char_length(${t.code}) between 1 and 50`),
+]);
+
 export const coordinationItems = pgTable("coordination_items", {
   id: uuid("id").primaryKey().defaultRandom(),
   mapId: uuid("map_id").notNull().references(() => coordinationMaps.id, { onDelete: "cascade" }),
   projectId: uuid("project_id").notNull(), contractorId: uuid("contractor_id").notNull(),
-  workDate: date("work_date").notNull(), title: text("title").notNull(), icon: text("icon").$type<CoordinationIcon>().notNull(),
+  workDate: date("work_date").notNull(), title: text("title").notNull(), icon: text("icon").notNull(),
   x: numeric("x", { precision: 9, scale: 8, mode: "number" }).notNull(),
   y: numeric("y", { precision: 9, scale: 8, mode: "number" }).notNull(),
   rotation: numeric("rotation", { precision: 7, scale: 3, mode: "number" }).notNull().default(0),
@@ -49,7 +70,6 @@ export const coordinationItems = pgTable("coordination_items", {
   // Must mirror COORDINATION_MIN/COORDINATION_MAX in @sts/shared (margin around the drawing).
   check("coordination_items_xy_check", sql`${t.x} BETWEEN -0.15 AND 1.15 AND ${t.y} BETWEEN -0.15 AND 1.15`),
   check("coordination_items_revision_check", sql`${t.revision} > 0`),
-  check("coordination_items_icon_check", sql`${t.icon} IN ('crane','machinery','truck','weld','pipe','box','pin','road','text')`),
   check("coordination_items_area_kind_check", sql`${t.areaKind} IN ('rectangle','polygon','route')`),
 ]);
 

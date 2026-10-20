@@ -1,4 +1,6 @@
+import { useState } from "react";
 import Box from "@mui/material/Box";
+import { PhotoViewer } from "@/components/ui/photo-viewer.js";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -21,6 +23,7 @@ const disciplineLabel = (d: string | null) => (d === null ? "ผู้ปฏิ�
 // 1 general · 2 weather · crews with their Today Activity · site equipment · work permits.
 export function ReviewMorning({ ed }: { ed: UseReviewDialogState }) {
   const { data, weatherLabel, positionLabel } = ed;
+  const [viewing, setViewing] = useState<string | null>(null);
   if (!data) return null;
   if (data.morningStatus !== "submitted") return <NotSent shift="morning" />;
   const crews = crewsOf(data, "morning");
@@ -117,6 +120,16 @@ export function ReviewMorning({ ed }: { ed: UseReviewDialogState }) {
                   <Typography variant="caption" color="text.secondary">
                     ผู้ปฏิบัติงาน {p.workers} คน{p.taskName ? ` · ${p.taskName}` : ""}{p.supervisorName ? ` · ผู้ควบคุม ${p.supervisorName}` : ""}
                   </Typography>
+                  {/* Site photos the contractor attached to this job (optional). */}
+                  {p.photoKey && data.photos.some((ph) => ph.permitKey === p.photoKey && ph.url) ? (
+                    <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.75} sx={{ mt: 0.75 }}>
+                      {data.photos.filter((ph) => ph.permitKey === p.photoKey && ph.url).map((ph) => (
+                        <Box key={ph.id} component="button" type="button" aria-label={`ดูรูป ${ph.fileName}`} onClick={() => setViewing(ph.url)} sx={{ p: 0, border: 0, bgcolor: "transparent", cursor: "zoom-in" }}>
+                          <Box component="img" src={ph.url ?? undefined} alt={ph.fileName} loading="lazy" sx={{ display: "block", height: 72, width: 96, objectFit: "cover", borderRadius: 1, border: 1, borderColor: "divider" }} />
+                        </Box>
+                      ))}
+                    </Stack>
+                  ) : null}
                 </Box>
                 {p.highRisk ? <Chip size="small" color="warning" label="งานเสี่ยงสูง" sx={{ fontWeight: 600, flexShrink: 0 }} /> : null}
               </Stack>
@@ -124,6 +137,7 @@ export function ReviewMorning({ ed }: { ed: UseReviewDialogState }) {
           </Stack>
         )}
       </ReviewSection>
+      <PhotoViewer src={viewing} onClose={() => setViewing(null)} />
     </Stack>
   );
 }

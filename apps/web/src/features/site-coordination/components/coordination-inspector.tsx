@@ -1,6 +1,6 @@
 import Slider from "@mui/material/Slider";
 import { COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN } from "@sts/shared";
-import type { CoordinationContractor, CoordinationInput, CoordinationItem } from "@sts/shared";
+import type { CoordinationContractor, CoordinationInput, CoordinationItem, CoordinationItemType } from "@sts/shared";
 import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
 import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
 import SwapHorizOutlined from "@mui/icons-material/SwapHorizOutlined";
@@ -11,7 +11,6 @@ import PaletteOutlined from "@mui/icons-material/PaletteOutlined";
 import PentagonOutlined from "@mui/icons-material/PentagonOutlined";
 import RestartAltOutlined from "@mui/icons-material/RestartAltOutlined";
 import SyncOutlined from "@mui/icons-material/SyncOutlined";
-import TextFieldsOutlined from "@mui/icons-material/TextFieldsOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -24,21 +23,28 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
-import { areaLabel, ICON_LABELS } from "../types/icon-labels.js";
-import { MachineGlyph } from "./machine-icon.js";
+import { areaLabel } from "../types/icon-labels.js";
+import { CoordinationGlyph } from "./coordination-icon.js";
 import { TypePicker } from "./type-picker.js";
 import { TOKENS } from "@/app/theme/tokens.js";
 
 interface Props {
   item: CoordinationItem;
-  /** Present when the viewer may edit this job (autosaved through onPatch). */
+  /** Present when the viewer may edit this job (changed through onPatch, stored on Save). */
   draft: CoordinationInput | null;
   contractors: CoordinationContractor[];
   editableContractors: CoordinationContractor[];
+  itemTypes: CoordinationItemType[];
   drawing: boolean;
   areaDirty: boolean;
   geometryError: string | null;
   saving: boolean;
+  /** Edits not saved yet: the header shows Save / Cancel instead of "saved". */
+  dirty: boolean;
+  /** False while the job is invalid or a shape is still being drawn (finish it first). */
+  canSave: boolean;
+  onSave: () => void;
+  onCancel: () => void;
   isLocked?: boolean;
   isEps?: boolean;
   onPatch: (patch: Partial<CoordinationInput>) => void;
@@ -67,16 +73,21 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 // Edit panel for the selected job (replaces the floating icon bar + settings dialog): every control
-// is labelled, sits in one place, and saves automatically. Read-only jobs show the same layout as text.
+// is labelled, sits in one place, and is stored with the Save button in the header. Read-only jobs show the same layout as text.
 export function CoordinationInspector({
   item,
   draft,
   contractors,
   editableContractors,
+  itemTypes,
   drawing,
   areaDirty,
   geometryError,
   saving,
+  dirty,
+  canSave,
+  onSave,
+  onCancel,
   isLocked = false,
   isEps = false,
   onPatch,
@@ -104,7 +115,7 @@ export function CoordinationInspector({
           </IconButton>
         </Tooltip>
         <Box sx={{ width: 30, display: "flex", justifyContent: "center" }}>
-          {v.icon === "text" ? <TextFieldsOutlined fontSize="small" sx={{ color }} /> : <MachineGlyph icon={v.icon} color={color} />}
+          <CoordinationGlyph iconKey={itemTypes.find((t) => t.code === v.icon)?.iconKey ?? "map-pin"} size={22} color={color} />
         </Box>
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Stack direction="row" spacing={0.75} alignItems="center">
@@ -120,12 +131,20 @@ export function CoordinationInspector({
             {v.title || "—"}
           </Typography>
         </Box>
-        {editable ? (
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: saving ? "text.secondary" : "success.main", pr: 0.5 }}>
-            {saving ? <SyncOutlined sx={{ fontSize: 15 }} /> : <CheckCircleOutlineOutlined sx={{ fontSize: 15 }} />}
-            <Typography variant="caption" sx={{ whiteSpace: "nowrap" }}>
-              {saving ? "กำลังบันทึก…" : "บันทึกแล้ว"}
-            </Typography>
+        {editable && (dirty || saving) ? (
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
+            <Button size="small" color="inherit" disabled={saving} onClick={onCancel} sx={{ minWidth: 0, textTransform: "none" }}>
+              ยกเลิก
+            </Button>
+            <Button size="small" variant="contained" disableElevation disabled={saving || !canSave} onClick={onSave}
+              startIcon={saving ? <SyncOutlined sx={{ fontSize: 16 }} /> : undefined} sx={{ textTransform: "none", whiteSpace: "nowrap" }}>
+              {saving ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </Stack>
+        ) : editable ? (
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "success.main", pr: 0.5 }}>
+            <CheckCircleOutlineOutlined sx={{ fontSize: 15 }} />
+            <Typography variant="caption" sx={{ whiteSpace: "nowrap" }}>บันทึกแล้ว</Typography>
           </Stack>
         ) : null}
       </Stack>
@@ -224,7 +243,7 @@ export function CoordinationInspector({
               </Stack>
             ) : <>
             <Field label="Work type">
-              <TypePicker value={draft.icon} onPick={(icon) => onPatch({ icon })} exclude={["road"]} />
+              <TypePicker types={itemTypes} value={draft.icon} onPick={(icon) => onPatch({ icon })} exclude={["road"]} />
             </Field>
             <Divider />
             <Field label="Work area">
@@ -278,7 +297,7 @@ export function CoordinationInspector({
         ) : (
           <>
             <Field label="Work type">
-              <Typography variant="body2">{ICON_LABELS[item.icon]}</Typography>
+              <Typography variant="body2">{itemTypes.find((t) => t.code === item.icon)?.labelTh ?? item.icon}</Typography>
             </Field>
             <Field label="Note / details">
               <Typography variant="body2" color={item.note ? "text.primary" : "text.secondary"} sx={{ whiteSpace: "pre-line" }}>

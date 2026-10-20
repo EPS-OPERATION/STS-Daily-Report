@@ -223,7 +223,8 @@
             "workers": 4,
             "highRisk": true,
             "taskName": "Welding",
-            "supervisorName": "QA Sup"
+            "supervisorName": "QA Sup",
+            "photoKey": null
           }
         ],
         "roadUsage": [],
@@ -379,7 +380,8 @@
               "workers": 4,
               "highRisk": true,
               "taskName": "Welding",
-              "supervisorName": "QA Sup"
+              "supervisorName": "QA Sup",
+              "photoKey": null
             }
           ],
           "roadUsage": [],
@@ -695,7 +697,8 @@
             "workers": 4,
             "highRisk": true,
             "taskName": "Welding",
-            "supervisorName": "QA Sup"
+            "supervisorName": "QA Sup",
+            "photoKey": null
           }
         ],
         "roadUsage": [
@@ -951,7 +954,8 @@
               "workers": 4,
               "highRisk": true,
               "taskName": "Welding",
-              "supervisorName": "QA Sup"
+              "supervisorName": "QA Sup",
+              "photoKey": null
             }
           ],
           "roadUsage": [
@@ -1224,7 +1228,8 @@
               "workers": 4,
               "highRisk": true,
               "taskName": "Welding",
-              "supervisorName": "QA Sup"
+              "supervisorName": "QA Sup",
+              "photoKey": null
             }
           ],
           "roadUsage": [
@@ -1558,7 +1563,8 @@
             "workers": 4,
             "highRisk": true,
             "taskName": "Welding",
-            "supervisorName": "QA Sup"
+            "supervisorName": "QA Sup",
+            "photoKey": null
           }
         ],
         "roadUsage": [
@@ -1827,7 +1833,8 @@
             "workers": 4,
             "highRisk": true,
             "taskName": "Welding",
-            "supervisorName": "QA Sup"
+            "supervisorName": "QA Sup",
+            "photoKey": null
           }
         ],
         "roadUsage": [
@@ -2140,7 +2147,8 @@
             "workers": 4,
             "highRisk": true,
             "taskName": "Welding",
-            "supervisorName": "QA Sup"
+            "supervisorName": "QA Sup",
+            "photoKey": null
           }
         ],
         "roadUsage": [

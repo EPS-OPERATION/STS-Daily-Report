@@ -1,8 +1,8 @@
 import { strict as assert } from "node:assert";
 import { eq, inArray } from "drizzle-orm";
-import { COORDINATION_MAX, COORDINATION_MIN, type CoordinationData, type CoordinationInput, type CoordinationItem } from "@sts/shared";
+import { COORDINATION_ITEM_TYPE_DEFAULTS, COORDINATION_MAX, COORDINATION_MIN, type CoordinationData, type CoordinationInput, type CoordinationItem } from "@sts/shared";
 import { getDb } from "../src/db/client.js";
-import { contractors, contractorMemberships, coordinationMaps, projectContractors, projects, users } from "../src/db/schema/index.js";
+import { contractors, contractorMemberships, coordinationItemTypes, coordinationMaps, projectContractors, projects, users } from "../src/db/schema/index.js";
 import { createSession } from "../src/auth/session.service.js";
 import { getEnv } from "../src/config/env.js";
 
@@ -30,6 +30,9 @@ try {
     { projectId: projectIds[1]!, contractorId: contractorIds[0]! },
   ]);
   await db.insert(coordinationMaps).values(projectIds.map((projectId) => ({ projectId, imagePath: "/site-plan/STS_KY_Layout_Plan.png", width: 6542, height: 4951 })));
+  await db.insert(coordinationItemTypes).values(projectIds.flatMap((projectId) => COORDINATION_ITEM_TYPE_DEFAULTS.map((t) => ({
+    projectId, code: t.code, label: t.label, labelTh: t.labelTh, iconKey: t.iconKey, sortOrder: t.sortOrder, isSystem: true,
+  }))));
   await db.insert(users).values(userIds.map((id, index) => ({ id, email: `${prefix.toLowerCase()}${index}@example.test`, role: index === 0 ? "eps_admin" : index === 1 ? "eps_site" : "contractor", status: "active" })));
   await db.insert(contractorMemberships).values([
     { projectId: projectIds[0]!, userId: userIds[2]!, contractorId: contractorIds[0]! },

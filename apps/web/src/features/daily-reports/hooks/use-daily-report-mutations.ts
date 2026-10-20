@@ -31,8 +31,8 @@ export function useEnsureDraft(projectId: string | null) {
 export function useUploadPhoto() {
   const invalidate = useInvalidateReports();
   return useMutation({
-    mutationFn: ({ reportId, category, file }: { reportId: string; category: PhotoCategory; file: File }) =>
-      dailyReportApi.uploadPhoto(reportId, category, file),
+    mutationFn: ({ reportId, category, file, permitKey }: { reportId: string; category: PhotoCategory; file: File; permitKey?: string }) =>
+      dailyReportApi.uploadPhoto(reportId, category, file, permitKey),
     onSuccess: invalidate,
   });
 }

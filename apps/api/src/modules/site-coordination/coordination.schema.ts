@@ -9,7 +9,7 @@ export const revisionQuery = t.Object({ revision: t.Numeric({ minimum: 1 }) });
 const point = t.Object({ x: t.Number({ minimum: COORDINATION_MIN, maximum: COORDINATION_MAX }), y: t.Number({ minimum: COORDINATION_MIN, maximum: COORDINATION_MAX }) });
 const fields = {
   contractorId: uuid, workDate: t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }), title: t.String({ minLength: 1, maxLength: 200 }),
-  icon: t.Union([t.Literal("crane"), t.Literal("machinery"), t.Literal("truck"), t.Literal("weld"), t.Literal("pipe"), t.Literal("box"), t.Literal("pin"), t.Literal("road"), t.Literal("text")]),
+  icon: t.String({ minLength: 1, maxLength: 50, pattern: "^[a-z0-9_]+$" }),
   x: t.Number({ minimum: COORDINATION_MIN, maximum: COORDINATION_MAX }), y: t.Number({ minimum: COORDINATION_MIN, maximum: COORDINATION_MAX }), rotation: t.Number({ minimum: -360, maximum: 360 }),
   areaKind: t.Union([t.Literal("rectangle"), t.Literal("polygon"), t.Literal("route")]),
   // Areas are closed polygons (3+ points); a road route is an open polyline (2+ points).
@@ -23,6 +23,26 @@ export const createBody = t.Object(fields, { additionalProperties: false });
 export const updateBody = t.Object({ ...fields, revision: t.Integer({ minimum: 1 }) }, { additionalProperties: false });
 export const dayNoteBody = t.Object({ note: t.String({ maxLength: 2000 }) }, { additionalProperties: false });
 export const colorBody = t.Object({ color: t.String({ pattern: "^#[0-9A-Fa-f]{6}$" }), revision: t.Integer({ minimum: 1 }) });
+
+// Project item catalog ("Add item" menu). Code is optional: the server derives it from the English label.
+export const itemTypeParams = t.Object({ projectId: uuid, id: uuid });
+export const createItemTypeBody = t.Object({
+  code: t.Optional(t.String({ minLength: 1, maxLength: 50, pattern: "^[a-z0-9_]+$" })),
+  label: t.String({ minLength: 1, maxLength: 100 }),
+  labelTh: t.String({ minLength: 1, maxLength: 100 }),
+  iconKey: t.String({ minLength: 1, maxLength: 50 }),
+  sortOrder: t.Optional(t.Integer({ minimum: 0, maximum: 9999 })),
+}, { additionalProperties: false });
+export const reorderItemTypesBody = t.Object({
+  ids: t.Array(uuid, { minItems: 1, maxItems: 100 }),
+}, { additionalProperties: false });
+export const updateItemTypeBody = t.Object({
+  label: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
+  labelTh: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
+  iconKey: t.Optional(t.String({ minLength: 1, maxLength: 50 })),
+  sortOrder: t.Optional(t.Integer({ minimum: 0, maximum: 9999 })),
+  isActive: t.Optional(t.Boolean()),
+}, { additionalProperties: false });
 
 // Road register (EPS): one segment between junctions, drawn as an open line.
 export const roadParams = t.Object({ projectId: uuid, id: uuid });

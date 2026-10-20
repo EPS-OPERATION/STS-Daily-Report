@@ -66,10 +66,16 @@ export interface AreaPatch {
   geometry?: unknown;
 }
 
-export async function updateAreaService(areaId: string, patch: AreaPatch) {
+// The area must belong to the plan named in the URL (an area id alone could reach another project's plan).
+async function areaOnPlan(sitePlanId: string, areaId: string) {
+  const area = await getAreaById(getDb(), areaId);
+  if (!area || area.sitePlanId !== sitePlanId) throw new NotFoundError("Map area not found", { areaId });
+  return area;
+}
+
+export async function updateAreaService(sitePlanId: string, areaId: string, patch: AreaPatch) {
   const db = getDb();
-  const area = await getAreaById(db, areaId);
-  if (!area) throw new NotFoundError("Map area not found", { areaId });
+  const area = await areaOnPlan(sitePlanId, areaId);
   if (patch.zoneId !== undefined && patch.zoneId !== area.zoneId) {
     const plan = await getSitePlanById(db, area.sitePlanId);
     const zone = await getZoneById(db, patch.zoneId);
@@ -91,14 +97,16 @@ export async function updateAreaService(areaId: string, patch: AreaPatch) {
   return updated;
 }
 
-export async function deleteAreaService(areaId: string) {
+export async function deleteAreaService(sitePlanId: string, areaId: string) {
   // Removes the geometry assignment only — zones, activities and
   // contractors are untouched.
+  await areaOnPlan(sitePlanId, areaId);
   const ok = await deleteArea(getDb(), areaId);
   if (!ok) throw new NotFoundError("Map area not found", { areaId });
 }
 
-export async function resetAreaService(areaId: string) {
+export async function resetAreaService(sitePlanId: string, areaId: string) {
+  await areaOnPlan(sitePlanId, areaId);
   const reset = await resetAreaToDefault(getDb(), areaId);
   if (!reset) throw new NotFoundError("Map area not found or has no default geometry", { areaId });
   return reset;

@@ -21,3 +21,6 @@ supabase/.temp
 .vscode/
 backups/
 .claude-tmp/
+
+# Local MCP client config (per developer, may point at private projects)
+.mcp.json

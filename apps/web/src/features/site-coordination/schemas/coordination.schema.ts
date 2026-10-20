@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { COORDINATION_ICONS, COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN, COORDINATION_MAX, COORDINATION_MIN, coordinationDateValid, coordinationGeometryError } from "@sts/shared";
+import { COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN, COORDINATION_MAX, COORDINATION_MIN, coordinationDateValid, coordinationGeometryError } from "@sts/shared";
 export const coordinationFormSchema = z.object({
   contractorId: z.string().uuid("เลือกผู้รับเหมา"), workDate: z.string().refine(coordinationDateValid, "เลือกวันที่ทำงาน"),
   title: z.string().trim().min(1, "ระบุชื่องาน").max(200, "ชื่องานยาวได้ไม่เกิน 200 ตัวอักษร"),
-  icon: z.enum(COORDINATION_ICONS), x: z.number().min(COORDINATION_MIN).max(COORDINATION_MAX), y: z.number().min(COORDINATION_MIN).max(COORDINATION_MAX),
+  icon: z.string().min(1).max(50).regex(/^[a-z0-9_]+$/), x: z.number().min(COORDINATION_MIN).max(COORDINATION_MAX), y: z.number().min(COORDINATION_MIN).max(COORDINATION_MAX),
   rotation: z.number().min(-360).max(360), areaKind: z.enum(["rectangle", "polygon", "route"]),
   geometry: z.object({ type: z.enum(["polygon", "polyline"]), points: z.array(z.object({ x: z.number(), y: z.number() })) }),
   linkArea: z.boolean().optional(),

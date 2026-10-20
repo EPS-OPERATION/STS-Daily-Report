@@ -19,6 +19,7 @@ export function ConfirmDialog({
   onConfirm,
   onClose,
   children,
+  secondaryAction,
 }: {
   open: boolean;
   title: string;
@@ -30,6 +31,8 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onClose: () => void;
   children?: ReactNode;
+  /** A third choice, shown on the left of the buttons (e.g. "discard" next to save / stay). */
+  secondaryAction?: { label: string; onClick: () => void };
 }) {
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="xs">
@@ -39,6 +42,9 @@ export function ConfirmDialog({
         {children}
       </DialogContent>
       <DialogActions>
+        {secondaryAction ? (
+          <Button variant="text" color="error" disabled={loading} onClick={secondaryAction.onClick} sx={{ mr: "auto" }}>{secondaryAction.label}</Button>
+        ) : null}
         <Button variant="outlined" color="inherit" disabled={loading} onClick={onClose}>{cancelLabel}</Button>
         <Button color={tone} disabled={loading} onClick={onConfirm}>{loading ? "Working…" : confirmLabel}</Button>
       </DialogActions>

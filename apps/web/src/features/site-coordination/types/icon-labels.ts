@@ -1,7 +1,4 @@
-import type { CoordinationIcon, CoordinationInput } from "@sts/shared";
-export const ICON_LABELS: Record<CoordinationIcon, string> = {
-  crane: "รถเครน", machinery: "เครื่องจักร", truck: "รถขนส่ง", weld: "งานเชื่อม", pipe: "งานท่อ", box: "จุดวางของ", pin: "จุดงาน", road: "ใช้ถนน", text: "ข้อความ",
-};
+import type { CoordinationInput } from "@sts/shared";
 
 // How a job's area reads in lists and panels.
 export function areaLabel(item: Pick<CoordinationInput, "areaKind" | "geometry">, withCount = false): string {

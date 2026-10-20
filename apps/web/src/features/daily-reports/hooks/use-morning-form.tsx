@@ -5,7 +5,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { dailyReportApi } from "../api/daily-report.api.js";
 import { useSubmitMorning } from "./use-daily-report-mutations.js";
-import { morningSchema, placementStatus, type MorningFormValues } from "../schemas/daily-report.schema.js";
+import { isBlankActivity, morningSchema, placementStatus, type MorningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building } from "@/features/buildings/index.js";
 import type { DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { crewTotals } from "../components/crew-manpower.js";
@@ -86,6 +86,8 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
       highRisk: p.highRisk ?? false,
       taskName: p.taskName ?? "",
       supervisorName: p.supervisorName ?? "",
+      // A copied card is a new job today: new key, so yesterday's photos stay with yesterday's report.
+      photoKey: crypto.randomUUID(),
     }));
     setValue("permits", sourcePermits, { shouldDirty: true });
     setCopied({ date: source.reportDate, snapshot });
@@ -218,6 +220,7 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
             highRisk: p.highRisk,
             taskName: p.highRisk ? p.taskName.trim() : undefined,
             supervisorName: p.highRisk ? p.supervisorName.trim() : undefined,
+            photoKey: p.photoKey,
           })),
           crews: DISCIPLINE_CODES.filter((d) => v.disciplines.includes(d)).map((d) => {
             const c = v.crews[d];
@@ -230,7 +233,7 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
               thaiFemale: c.thaiFemale,
               foreignMale: c.foreignMale,
               foreignFemale: c.foreignFemale,
-              allocations: c.allocations.map((a) => ({
+              allocations: c.allocations.filter((a) => !isBlankActivity(a)).map((a) => ({
                 buildingId: a.buildingId,
                 headcount: a.headcount,
                 workDescription: a.workDescription.trim(),

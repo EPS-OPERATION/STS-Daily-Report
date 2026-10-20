@@ -49,20 +49,30 @@ function checkCrews(
   }
 }
 
+// A row with neither building nor work is an unused spare line (the table starts with 3): it is
+// skipped by every check and never sent.
+export const isBlankActivity = (a: { buildingId: string; workDescription: string }) => !a.buildingId && !a.workDescription.trim();
+
 // One Today Activity row. Time window and plan % are opt-in (timed / hasPlan) so contractors
 // who do not need them only fill building, work and people.
 export const allocationSchema = z
   .object({
-    buildingId: z.string().min(1, "เลือกอาคาร"),
-    headcount: z.number().int().min(1, "อย่างน้อย 1 คน").max(5000),
-    workDescription: z.string().trim().min(1, "ระบุรายละเอียดงาน").max(500),
+    buildingId: z.string(),
+    headcount: z.number().int().min(0).max(5000),
+    workDescription: z.string().trim().max(500),
     timed: z.boolean(),
     startTime: hhmm,
     endTime: hhmm,
     hasPlan: z.boolean(),
     planPercent: z.number().int().min(0).max(100),
   })
-  .refine((a) => !a.timed || a.startTime < a.endTime, { message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม", path: ["endTime"] });
+  .superRefine((a, ctx) => {
+    if (isBlankActivity(a)) return;
+    if (!a.buildingId) ctx.addIssue({ code: "custom", path: ["buildingId"], message: "เลือกอาคาร" });
+    if (!a.workDescription.trim()) ctx.addIssue({ code: "custom", path: ["workDescription"], message: "ระบุรายละเอียดงาน" });
+    if (a.headcount < 1) ctx.addIssue({ code: "custom", path: ["headcount"], message: "ใส่จำนวนคน (อย่างน้อย 1)" });
+    if (a.timed && a.startTime >= a.endTime) ctx.addIssue({ code: "custom", path: ["endTime"], message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม" });
+  });
 
 export type ActivityValues = z.infer<typeof allocationSchema>;
 
@@ -76,11 +86,12 @@ export const activityWindow = (a: Pick<ActivityValues, "headcount" | "timed" | "
 // Most people placed at once vs the crew. Only "more than came" blocks sending; fewer is
 // shown as information (not everyone has to be assigned).
 export function placementStatus(
-  rows: Pick<ActivityValues, "headcount" | "timed" | "startTime" | "endTime">[],
+  all: Pick<ActivityValues, "buildingId" | "workDescription" | "headcount" | "timed" | "startTime" | "endTime">[],
   dayStart: string,
   dayEnd: string,
   total: number,
 ): { placed: number; over: string | null } {
+  const rows = all.filter((r) => !isBlankActivity(r));
   const peak = allocationPeak(rows.map(activityWindow), dayStart, dayEnd);
   const when = rows.some((r) => r.timed) ? `ช่วง ${peak.from}–${peak.to} ` : "";
   return {
@@ -119,6 +130,8 @@ export const permitSchema = z
     highRisk: z.boolean(),
     taskName: z.string().trim().max(120),
     supervisorName: z.string().trim().max(120),
+    /** Stable card id: its site photos point to it (kept across re-sends, new on copy). */
+    photoKey: z.string().uuid().optional(),
   })
   .refine((p) => p.permitType !== "other" || Boolean(p.otherLabel), {
     message: "ระบุชื่องาน",
@@ -169,8 +182,8 @@ export const morningSchema = z
     checkCrews(v.crews, v.disciplines, ctx);
     for (const d of v.disciplines) {
       const crew = v.crews[d];
-      if (crew.allocations.length === 0) {
-        ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: "เพิ่มอาคารอย่างน้อย 1 รายการ" });
+      if (crew.allocations.every(isBlankActivity)) {
+        ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: "ลงงานอย่างน้อย 1 แถว (อาคาร + งาน + คน)" });
       }
       const { over } = placementStatus(crew.allocations, v.startTime, v.endTime, sumCounts(crew.positions));
       if (over) ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: over });
