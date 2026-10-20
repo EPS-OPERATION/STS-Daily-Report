@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { StatusChip } from "@/components/ui/status-chip.js";
 import { CHART_OTHER } from "@/app/theme/chart-palette.js";
@@ -18,6 +18,9 @@ import { HttpError } from "@/services/http/client.js";
 export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export type PageViewMode = "work-summary" | "history";
+
+/** Submission History rows shown at first, and added each time the list is scrolled to its end. */
+const HISTORY_BATCH = 30;
 
 export function useDailyReportsPage() {
   const [params, setParams] = useSearchParams();
@@ -128,26 +131,13 @@ export function useDailyReportsPage() {
 
   const rows = useMemo(() => filterSubmissions(visibleQueue, { filter, contractor, search }), [visibleQueue, filter, contractor, search]);
 
-  // Submission History paging (client-side): back to the first page whenever the result set changes.
-  const [historyPage, setHistoryPage] = useState(0);
-  const [historyPerPage, setHistoryPerPage] = useState(25);
-  useEffect(() => setHistoryPage(0), [filter, contractor, search, from, to]);
-  const lastPage = Math.max(0, Math.ceil(rows.length / historyPerPage) - 1);
-  const currentHistoryPage = Math.min(historyPage, lastPage);
-  const pagedRows = useMemo(
-    () => rows.slice(currentHistoryPage * historyPerPage, (currentHistoryPage + 1) * historyPerPage),
-    [rows, currentHistoryPage, historyPerPage],
-  );
-
-  // Summary PDF of exactly what the table shows (opens the print page in a new tab).
-  const exportSummaryPdf = () => {
-    const p = new URLSearchParams({ from, to, filter });
-    if (projectId) p.set("projectId", projectId);
-    if (contractor !== ALL_CONTRACTORS) p.set("contractor", contractor);
-    if (selectedCodes.size < allCodes.length) p.set("contractors", [...selectedCodes].join(","));
-    if (search.trim()) p.set("q", search.trim());
-    window.open(`/daily-reports/history/print?${p.toString()}`, "_blank", "noopener");
-  };
+  // Submission History loads more as you scroll (rows are already in memory): the first batch, then
+  // `loadMoreHistory` adds the next; back to the first batch whenever the result set changes.
+  const [historyShown, setHistoryShown] = useState(HISTORY_BATCH);
+  useEffect(() => setHistoryShown(HISTORY_BATCH), [filter, contractor, search, from, to, selectedCodes]);
+  const shownRows = useMemo(() => rows.slice(0, historyShown), [rows, historyShown]);
+  const hasMoreHistory = shownRows.length < rows.length;
+  const loadMoreHistory = useCallback(() => setHistoryShown((n) => n + HISTORY_BATCH), []);
 
   const loadError: HttpError | null =
     history.error instanceof HttpError
@@ -202,12 +192,9 @@ export function useDailyReportsPage() {
     counts,
     workContractorNames,
     rows,
-    pagedRows,
-    currentHistoryPage,
-    setHistoryPage,
-    historyPerPage,
-    setHistoryPerPage,
-    exportSummaryPdf,
+    shownRows,
+    hasMoreHistory,
+    loadMoreHistory,
     loadError,
     loading,
     shiftChip,

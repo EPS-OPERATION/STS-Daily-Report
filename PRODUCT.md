@@ -25,7 +25,7 @@ and turns it into dashboards, exports and a shared site plan.
 | `/daily-reports`, `/today-requests`, `/manpower`, `/safety`, `/qaqc` | Operate | EPS review + dashboards; desktop-dense |
 | `/site-coordination`, `/site-plan` | Operate (canvas) | Konva map editing; Canva-style direct manipulation |
 | `/admin/users`, `/contractors`, `/site-plan/config` | Operate (admin) | Registries and configuration |
-| Print pages (`/daily-reports/print`, `/…/work-done/print`, `/…/history/print`, `/safety/report`, `/site-coordination/report`) | Read (paper) | Standalone A4/A3 documents; own CSS allowed |
+| Print pages (`/daily-reports/print`, `/…/work-done/print`, `/safety/report`, `/site-coordination/report`) | Read (paper) | Standalone A4/A3 documents; own CSS allowed |
 | `/login`, `/reset-password` | Persuade-lite (auth) | One job: get in |
 
 ## Product truths that the UI must keep

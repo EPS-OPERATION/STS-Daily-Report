@@ -36,7 +36,6 @@ export const router = createBrowserRouter([
         element: <RoleGuard allowedRoles={["eps_site", "eps_admin"]} redirectTo="/field" />,
         children: [
           { path: "safety/report", lazy: page(() => import("@/features/safety/pages/safety-report-page.js"), "SafetyReportPrintPage") },
-          { path: "daily-reports/history/print", lazy: page(() => import("@/features/daily-reports/pages/submission-history-print-page.js"), "SubmissionHistoryPrintPage") },
           { path: "daily-reports/work-done/print", lazy: page(() => import("@/features/daily-reports/pages/work-done-print-page.js"), "WorkDonePrintPage") },
           { path: "daily-reports/print", lazy: page(() => import("@/features/daily-reports/pages/daily-report-print-page.js"), "DailyReportsBatchPrintPage") },
           { path: "site-coordination/report", lazy: page(() => import("@/features/site-coordination/pages/site-coordination-report-page.js"), "SiteCoordinationReportPage") },

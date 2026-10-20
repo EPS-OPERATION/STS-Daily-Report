@@ -1,8 +1,7 @@
-import ConstructionOutlinedIcon from "@mui/icons-material/ConstructionOutlined";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
-import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
-import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
-import HealthAndSafetyOutlinedIcon from "@mui/icons-material/HealthAndSafetyOutlined";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -11,118 +10,115 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
-import { StatusChip } from "@/components/ui/status-chip.js";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { QueryError } from "@/components/ui/query-error.js";
 import { BlockSkeleton } from "@/components/ui/skeletons.js";
+import { formatNumber } from "@/lib/format.js";
 import { formatThaiDate } from "@/lib/dates.js";
-import { useReviewDialog } from "../hooks/use-review-dialog.js";
-import { ReviewOverviewTab } from "./review-overview-tab.js";
-import { ReviewAllocationsTab } from "./review-allocations-tab.js";
-import { ReviewRequestsTab } from "./review-requests-tab.js";
-import { ReviewSafetyTab } from "./review-safety-tab.js";
+import { useReviewDialog, type ReviewPart } from "../hooks/use-review-dialog.js";
+import { overtimeSummary } from "../utils/overtime.js";
+import { ReviewMorning } from "./review-morning.js";
+import { ReviewEvening } from "./review-evening.js";
 
+function ShiftChip({ label, sent, at }: { label: string; sent: boolean; at?: string | null }) {
+  return (
+    <Chip
+      size="small"
+      icon={sent ? <CheckCircleOutlineIcon /> : <RadioButtonUncheckedIcon />}
+      label={`${label}: ${sent ? "Submitted" : "Not submitted"}`}
+      sx={{ bgcolor: sent ? "common.white" : "transparent", color: sent ? "primary.main" : "common.white", border: 1, borderColor: "rgba(255,255,255,0.5)", fontWeight: 600, "& .MuiChip-icon": { color: "inherit" } }}
+      title={sent && at ? `ส่งเมื่อ ${at}` : undefined}
+    />
+  );
+}
+
+// Everything the contractor filled that day, as the two forms (Daily Report = morning, Daily Request = evening).
 export function ReviewDialog(props: Parameters<typeof useReviewDialog>[0]) {
   const ed = useReviewDialog(props);
-  const { tab, setTab, reportQuery, data, dataLoading, dataError, report, onClose } = ed;
+  const { part, setPart, reportQuery, data, dataLoading, dataError, report, onClose } = ed;
+  const theme = useTheme();
+  const phone = useMediaQuery(theme.breakpoints.down("md"));
+  const morningSent = report?.morningStatus === "submitted", eveningSent = report?.eveningStatus === "submitted";
+
+  // Summary strip: the totals the dashboards use (server-calculated), whichever shifts were sent.
+  const morningTotal = data ? data.thaiMale + data.thaiFemale + data.foreignMale + data.foreignFemale : 0;
+  const headcount = morningSent ? morningTotal : eveningSent ? data?.eveningHeadcount ?? 0 : 0;
+  const hoursKnown = data?.workHours != null;
+  const summary = data ? [
+    { label: "กำลังคน", value: `${headcount} คน`, sub: [morningSent ? `เช้า ${morningTotal}` : "ยังไม่ส่งเช้า", eveningSent ? `บ่าย ${data.eveningHeadcount}` : "ยังไม่ส่งบ่าย"].join(" · ") },
+    { label: "เวลาทำงาน / OT", value: hoursKnown ? `${data.workHours} ชม.` : "—", sub: eveningSent ? overtimeSummary(data) : "ยังไม่ส่งบ่าย" },
+    { label: "Man-day · NMH", value: hoursKnown ? `${formatNumber(data.manDays)} · ${formatNumber(data.manHours)} ชม.` : "—", sub: hoursKnown ? "คน-วัน · ชั่วโมงคนรวม" : "รอเวลาทำงานจากรายงานเช้า" },
+  ] : [];
 
   return (
-    <Dialog open={report !== null} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog open={report !== null} onClose={onClose} fullWidth maxWidth="lg" fullScreen={phone} scroll="paper" slotProps={{ paper: { sx: { height: phone ? undefined : "min(92vh, 960px)" } } }}>
       <DialogTitle sx={{ p: 2.5, pb: 1.5, bgcolor: "navy.dark", color: "common.white" }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-          <Box>
+          <Box sx={{ minWidth: 0 }}>
             <Stack direction="row" spacing={1} alignItems="center">
-              <Chip
-                label={report?.contractorCode ?? "CTR"}
-                size="small"
-                sx={{ bgcolor: "rgba(255,255,255,0.2)", color: "common.white", fontWeight: 700 }}
-              />
-              <Typography variant="h6" sx={{ color: "common.white", fontWeight: 700 }}>
-                {report?.contractorName}
-              </Typography>
+              <Chip label={report?.contractorCode ?? "CTR"} size="small" sx={{ bgcolor: "rgba(255,255,255,0.2)", color: "common.white", fontWeight: 700 }} />
+              <Typography variant="h6" noWrap sx={{ color: "common.white", fontWeight: 700 }}>{report?.contractorName}</Typography>
             </Stack>
             <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.8)", mt: 0.5 }}>
               รายงานประจำวัน · {report ? formatThaiDate(report.reportDate) : ""}
             </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.25 }}>
+              <ShiftChip label="Daily Report (เช้า)" sent={morningSent} at={data?.morningSubmittedAt ? new Date(data.morningSubmittedAt).toLocaleString("th-TH") : null} />
+              <ShiftChip label="Daily Request (บ่าย)" sent={eveningSent} at={data?.eveningSubmittedAt ? new Date(data.eveningSubmittedAt).toLocaleString("th-TH") : null} />
+            </Stack>
           </Box>
-          <Stack direction="row" spacing={1}>
-            <StatusChip
-              status={report?.morningStatus ?? "draft"}
-              label={`Daily Report: ${report?.morningStatus === "submitted" ? "Submitted" : "Not submitted"}`}
-            />
-            <StatusChip
-              status={report?.eveningStatus ?? "draft"}
-              label={`Daily Request: ${report?.eveningStatus === "submitted" ? "Submitted" : "Not submitted"}`}
-            />
-          </Stack>
+          <IconButton aria-label="Close" onClick={onClose} sx={{ color: "common.white", mr: -1, mt: -0.5 }}><CloseOutlinedIcon /></IconButton>
         </Stack>
       </DialogTitle>
 
       <Box sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "grey.50" }}>
-        <Tabs
-          value={tab}
-          onChange={(_, v: number) => setTab(v)}
-          variant="scrollable"
-          scrollButtons="auto"
-          aria-label="Daily report review tabs"
-        >
-          <Tab icon={<GroupsOutlinedIcon />} iconPosition="start" label="Manpower & site" />
-          <Tab icon={<ConstructionOutlinedIcon />} iconPosition="start" label="Allocation & buildings" />
-          <Tab icon={<FactCheckOutlinedIcon />} iconPosition="start" label="Tomorrow's requests" />
-          <Tab icon={<HealthAndSafetyOutlinedIcon />} iconPosition="start" label="Safety & signature" />
+        <Tabs value={part} onChange={(_, v: ReviewPart) => setPart(v)} variant="fullWidth" aria-label="Daily forms">
+          <Tab value="morning" icon={morningSent ? <CheckCircleOutlineIcon /> : <RadioButtonUncheckedIcon />} iconPosition="start" label={phone ? "เช้า" : "เช้า · Daily Report"} />
+          <Tab value="evening" icon={eveningSent ? <CheckCircleOutlineIcon /> : <RadioButtonUncheckedIcon />} iconPosition="start" label={phone ? "บ่าย" : "บ่าย · Daily Request"} />
         </Tabs>
       </Box>
 
-      <DialogContent sx={{ p: 2.5 }}>
+      <DialogContent sx={{ p: 2.5, bgcolor: "background.default" }}>
         {dataLoading ? (
           <Stack spacing={1.5} aria-busy="true">
-            <BlockSkeleton height={56} />
+            <BlockSkeleton height={72} />
             <BlockSkeleton height={160} />
             <BlockSkeleton height={120} />
           </Stack>
         ) : dataError ? (
           <QueryError error={dataError} onRetry={() => void reportQuery.refetch()} />
         ) : !data ? (
-          <Alert severity="info" sx={{ my: 2 }}>
-            ยังไม่มีข้อมูลรายงานเช้า/เย็นของรายการนี้ในระบบ — ไม่สามารถตรวจสอบได้จนกว่าผู้รับเหมาจะส่งข้อมูล
-          </Alert>
+          <Alert severity="info">ยังไม่มีข้อมูลรายงานของรายการนี้ในระบบ — ผู้รับเหมายังไม่ได้ส่งข้อมูล</Alert>
         ) : (
           <Stack spacing={2.5}>
-            {/* TAB 0: Manpower & Site Overview */}
-            {tab === 0 && (
-              <ReviewOverviewTab ed={ed} />
-            )}
-
-            {/* TAB 1: Building Allocations & Progress */}
-            {tab === 1 && (
-              <ReviewAllocationsTab ed={ed} />
-            )}
-
-            {/* TAB 2: Tomorrow's Requests */}
-            {tab === 2 && (
-              <ReviewRequestsTab ed={ed} />
-            )}
-
-            {/* TAB 3: Safety & Sign-off */}
-            {tab === 3 && (
-              <ReviewSafetyTab ed={ed} />
-            )}
-
+            {/* Phone: three compact cells in one row (the detail line is hidden) so the form starts on screen one. */}
+            <Grid container spacing={{ xs: 0.75, sm: 1.5 }}>
+              {summary.map((s) => (
+                <Grid key={s.label} size={4}>
+                  <Box sx={{ px: { xs: 1, sm: 2 }, py: { xs: 0.75, sm: 1.25 }, height: "100%", border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "background.paper" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{s.label}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.3, fontSize: { xs: "0.95rem", sm: undefined } }}>{s.value}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>{s.sub}</Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+            {part === "morning" ? <ReviewMorning ed={ed} /> : <ReviewEvening ed={ed} />}
           </Stack>
         )}
       </DialogContent>
 
-      <DialogActions sx={{ p: 2.5, pt: 1.5, borderTop: 1, borderColor: "divider" }}>
+      <DialogActions sx={{ p: 2, borderTop: 1, borderColor: "divider" }}>
         <Button onClick={onClose}>Close</Button>
-        <Button
-          variant="outlined"
-          startIcon={<PictureAsPdfOutlinedIcon />}
-          disabled={!report?.id}
-          onClick={() => report?.id && window.open(`/daily-reports/${report.id}/print`, "_blank", "noopener")}
-        >
+        <Button variant="outlined" startIcon={<PictureAsPdfOutlinedIcon />} disabled={!report?.id}
+          onClick={() => report?.id && window.open(`/daily-reports/${report.id}/print`, "_blank", "noopener")}>
           Export PDF
         </Button>
       </DialogActions>
