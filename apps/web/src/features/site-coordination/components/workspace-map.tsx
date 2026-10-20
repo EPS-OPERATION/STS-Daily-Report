@@ -16,7 +16,6 @@ import { Suspense, lazy, useState } from "react";
 import dayjs from "dayjs";
 import Badge from "@mui/material/Badge";
 import Drawer from "@mui/material/Drawer";
-import Divider from "@mui/material/Divider";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -71,29 +70,34 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
           <Button variant="outlined" startIcon={<TuneOutlined />} onClick={() => setPanelOpen(true)} sx={{ whiteSpace: "nowrap", height: 40, minWidth: 0, px: 1.25, "& .MuiButton-startIcon": { mr: 0.5 } }}>Filters</Button>
         </Badge>
       </Stack>}
-      {/* Desktop/tablet: one row in three groups — day | what to show | what to do. Rare EPS actions sit in ⋯. */}
-      {!compact && !phone && <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ px: 1.5, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
-        {datePicker}
-        {quickDayControl}
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-        {mineControl}
-        {contractorControl}
-        {typeControl}
-        {searchControl}
-        <DisplayOptions value={display} onChange={setDisplay} exclude={roadNames ? [] : ["roadNames"]} />
-        <Box sx={{ flex: 1 }} />
-        {!readOnly && <Button variant="contained" disableElevation startIcon={<AddOutlined />} onClick={(e) => setAddAnchor(e.currentTarget)} disabled={addDisabled} sx={{ whiteSpace: "nowrap" }}>Add item</Button>}
-        {/* Draw the road this contractor will use today: tap points along it, arrows show the way. */}
-        {!readOnly && <Button variant="outlined" startIcon={<RouteOutlined />} onClick={() => startCreate("road")} disabled={addDisabled} sx={{ whiteSpace: "nowrap" }}>Draw road</Button>}
-        {(canLock || canExport) && <>
-          <Tooltip title="More actions"><Button variant="outlined" color="inherit" aria-label="More actions" aria-haspopup="menu" onClick={(e) => setMoreAnchor(e.currentTarget)} sx={{ minWidth: 40, px: 0, borderColor: "divider" }}><MoreHoriz /></Button></Tooltip>
-          <Menu anchorEl={moreAnchor} open={Boolean(moreAnchor)} onClose={() => setMoreAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
-            {canLock && <MenuItem onClick={() => { setMoreAnchor(null); setLockConfirm(true); }}><ListItemIcon><LockOutlined fontSize="small" /></ListItemIcon>Lock plan</MenuItem>}
-            {canExport && <MenuItem component="a" href={reportHref} target="_blank" rel="noopener" onClick={() => setMoreAnchor(null)}><ListItemIcon><PrintOutlined fontSize="small" /></ListItemIcon>Export PDF</MenuItem>}
-            {/* EPS keeps the site road register that contractors pick road segments from. */}
-            {canExport && <MenuItem component={RouterLink} to="/site-coordination/roads" onClick={() => setMoreAnchor(null)}><ListItemIcon><AddRoadOutlined fontSize="small" /></ListItemIcon>Road register</MenuItem>}
-          </Menu>
-        </>}
+      {/* Desktop/tablet, two rows that always fill the width:
+          row 1 = day (left) + actions (right edge; rare EPS ones in ⋯); row 2 = filters, the search box takes the leftover width. */}
+      {!compact && !phone && <Stack spacing={1} sx={{ px: 1.5, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          {datePicker}
+          {quickDayControl}
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: "auto" }}>
+            {!readOnly && <Button variant="contained" disableElevation startIcon={<AddOutlined />} onClick={(e) => setAddAnchor(e.currentTarget)} disabled={addDisabled} sx={{ whiteSpace: "nowrap" }}>Add item</Button>}
+            {/* Draw the road this contractor will use today: tap points along it, arrows show the way. */}
+            {!readOnly && <Button variant="outlined" startIcon={<RouteOutlined />} onClick={() => startCreate("road")} disabled={addDisabled} sx={{ whiteSpace: "nowrap" }}>Draw road</Button>}
+            {(canLock || canExport) && <>
+              <Tooltip title="More actions"><Button variant="outlined" color="inherit" aria-label="More actions" aria-haspopup="menu" onClick={(e) => setMoreAnchor(e.currentTarget)} sx={{ minWidth: 40, px: 0, borderColor: "divider" }}><MoreHoriz /></Button></Tooltip>
+              <Menu anchorEl={moreAnchor} open={Boolean(moreAnchor)} onClose={() => setMoreAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
+                {canLock && <MenuItem onClick={() => { setMoreAnchor(null); setLockConfirm(true); }}><ListItemIcon><LockOutlined fontSize="small" /></ListItemIcon>Lock plan</MenuItem>}
+                {canExport && <MenuItem component="a" href={reportHref} target="_blank" rel="noopener" onClick={() => setMoreAnchor(null)}><ListItemIcon><PrintOutlined fontSize="small" /></ListItemIcon>Export PDF</MenuItem>}
+                {/* EPS keeps the site road register that contractors pick road segments from. */}
+                {canExport && <MenuItem component={RouterLink} to="/site-coordination/roads" onClick={() => setMoreAnchor(null)}><ListItemIcon><AddRoadOutlined fontSize="small" /></ListItemIcon>Road register</MenuItem>}
+              </Menu>
+            </>}
+          </Stack>
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          {mineControl}
+          {contractorControl}
+          {typeControl}
+          <Box sx={{ flex: "1 1 200px", minWidth: 180, "& .MuiTextField-root": { width: "100%" } }}>{searchControl}</Box>
+          <DisplayOptions value={display} onChange={setDisplay} exclude={roadNames ? [] : ["roadNames"]} />
+        </Stack>
       </Stack>}
       {data.lock && <DayLockBanner lock={data.lock} canUnlock={!readOnly && data.canLock} busy={dayLock.isPending} onUnlock={() => void unlockDay()} />}
       {!compact && !phone && isFiltered && <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: "action.hover" }}>
