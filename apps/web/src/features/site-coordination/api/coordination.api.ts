@@ -4,6 +4,9 @@ export const coordinationApi = {
   get(projectId: string, date: string): Promise<{ data: CoordinationData }> {
     return http.get(`/projects/${projectId}/coordination?${new URLSearchParams({ date })}`);
   },
+  version(projectId: string, date: string): Promise<{ data: { version: string } }> {
+    return http.get(`/projects/${projectId}/coordination/version?${new URLSearchParams({ date })}`);
+  },
   report(projectId: string, date: string): Promise<{ data: CoordinationReport }> {
     return http.get(`/projects/${projectId}/coordination/report?${new URLSearchParams({ date })}`);
   },

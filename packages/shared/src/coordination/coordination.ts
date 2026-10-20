@@ -46,6 +46,8 @@ export interface CoordinationData {
   editableContractorIds: string[]; canManageColors: boolean;
   dayNote: CoordinationDayNote | null; canEditDayNote: boolean;
   lock: CoordinationDayLock | null; canLock: boolean;
+  /** Fingerprint of everything above: the open map polls `/coordination/version` and refetches when it differs. */
+  version: string;
 }
 /** Printable day report (EPS only): the drawing with every job of the day and the day note. */
 export interface CoordinationReport {
