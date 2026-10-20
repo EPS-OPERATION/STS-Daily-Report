@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { CoordinationInput, CoordinationPoint } from "@sts/shared";
 import type { QueryDb } from "@/db/client.js";
-import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItems, coordinationMaps, coordinationRoadSegments, dailyReportRoadUsage, dailyReports, projectContractors, users } from "@/db/schema/index.js";
+import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItems, coordinationMaps, coordinationRoadSegments, projectContractors, users } from "@/db/schema/index.js";
 
 export async function getMap(db: QueryDb, projectId: string, lock = false) {
   const query = db.select().from(coordinationMaps).where(eq(coordinationMaps.projectId, projectId)).limit(1);
@@ -114,11 +114,10 @@ export async function deleteRoadSegment(db: QueryDb, projectId: string, id: stri
   await db.delete(coordinationRoadSegments).where(and(eq(coordinationRoadSegments.projectId, projectId), eq(coordinationRoadSegments.id, id)));
 }
 
-// Road requests made for this day (Daily Request of the day before). Times are what EPS settled.
 // A fingerprint of everything GET /coordination returns for one day: it changes whenever the map would look
 // different. The map polls this (one small query) and fetches the whole day only when it moved. Each part is
-// a count plus a revision sum / latest timestamp, so inserts, edits AND deletes all change it. Road requests
-// have no updated_at: they are rewritten (new created_at) on every resubmit, and EPS time changes set adjusted_at.
+// a count plus a revision sum / latest timestamp, so inserts, edits AND deletes all change it. The map is
+// independent of the Daily Request, so nothing from the reports belongs here.
 export async function coordinationVersion(db: QueryDb, projectId: string, date: string): Promise<string> {
   const rows = await db.execute<{ v: string }>(sql`
     select md5(concat_ws('|',
@@ -132,27 +131,9 @@ export async function coordinationVersion(db: QueryDb, projectId: string, date: 
          from ${coordinationColors} where ${coordinationColors.projectId} = ${projectId}),
       (select count(*) || ':' || coalesce(max(${coordinationRoadSegments.updatedAt})::text, '')
          from ${coordinationRoadSegments} where ${coordinationRoadSegments.projectId} = ${projectId}),
-      (select count(*) || ':' || coalesce(max(${dailyReportRoadUsage.createdAt})::text, '') || ':' || coalesce(max(${dailyReportRoadUsage.adjustedAt})::text, '')
-         from ${dailyReportRoadUsage} inner join ${dailyReports} on ${dailyReportRoadUsage.reportId} = ${dailyReports.id}
-         where ${dailyReports.projectId} = ${projectId} and ${dailyReportRoadUsage.targetDate} = ${date}),
       (select count(*) || ':' || coalesce(max(${contractors.updatedAt})::text, '')
          from ${projectContractors} inner join ${contractors} on ${projectContractors.contractorId} = ${contractors.id}
          where ${projectContractors.projectId} = ${projectId})
     )) as v`);
   return rows[0]!.v;
-}
-export async function listRoadRequests(db: QueryDb, projectId: string, date: string) {
-  return db.select({
-    id: dailyReportRoadUsage.id,
-    contractorId: dailyReports.contractorId,
-    roadLocation: dailyReportRoadUsage.roadLocation,
-    startTime: sql<string>`coalesce(${dailyReportRoadUsage.adjustedStartTime}, ${dailyReportRoadUsage.startTime})`,
-    endTime: sql<string>`coalesce(${dailyReportRoadUsage.adjustedEndTime}, ${dailyReportRoadUsage.endTime})`,
-    purpose: dailyReportRoadUsage.purpose,
-    segmentIds: dailyReportRoadUsage.segmentIds,
-    route: dailyReportRoadUsage.route,
-  }).from(dailyReportRoadUsage)
-    .innerJoin(dailyReports, eq(dailyReportRoadUsage.reportId, dailyReports.id))
-    .where(and(eq(dailyReports.projectId, projectId), eq(dailyReportRoadUsage.targetDate, date)))
-    .orderBy(asc(dailyReportRoadUsage.startTime));
 }
