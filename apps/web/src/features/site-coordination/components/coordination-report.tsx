@@ -73,7 +73,7 @@ export function CoordinationReportDocument({ report, snapshot, onSnapshot }: { r
 
   const map = snapshot === null ? (
     <CoordinationCanvas map={report.map} contractors={report.contractors} items={report.items}
-      roads={report.roads.map((r) => ({ id: r.id, points: r.route, alert: r.clash, label: `${report.contractors.find((c) => c.id === r.contractorId)?.code ?? ""} ${r.startTime}–${r.endTime}`, color: report.contractors.find((c) => c.id === r.contractorId)?.color ?? "#0B4D8B" }))} selectedId={null} draft={null} tool="move"
+      selectedId={null} draft={null} tool="move"
       readOnly fixedHeight={MAP_HEIGHT} onSelect={noop} onChange={noop} onFinish={noop} onDeselect={noop} textEditing={false} onEditText={noop}
       onReady={(stage) => onSnapshot(stage ? stage.toDataURL({ pixelRatio: SNAPSHOT_RATIO, mimeType: "image/png" }) : "")} />
   ) : snapshot ? (

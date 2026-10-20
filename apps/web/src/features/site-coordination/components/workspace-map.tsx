@@ -40,7 +40,7 @@ import type { UseCoordinationWorkspaceState } from "../hooks/use-coordination-wo
 const CoordinationCanvas = lazy(() => import("./coordination-canvas.js").then((module) => ({ default: module.CoordinationCanvas })));
 
 export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
-  const { date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadLines, roadNameGroups, roadNames, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, startCreate, counter, goToDate, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact, phone, fill, placing, setPlacing, placeItem } = ed;
+  const { date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadNameGroups, roadNames, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, startCreate, counter, goToDate, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact, phone, fill, placing, setPlacing, placeItem } = ed;
   const [panelOpen, setPanelOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
@@ -115,7 +115,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
           onSelect={selectItem} onChange={patchItem} onFinish={finish}
           onDeselect={() => selectItem(null)}
           textEditing={textEditId !== null && textEditId === working?.id} onEditText={() => { if (workingRef.current) setTextEditId(workingRef.current.id); }}
-          display={display} clashes={clashes} roads={roadLines} roadNames={roadNameGroups} /></Suspense>
+          display={display} clashes={clashes} roadNames={roadNameGroups} /></Suspense>
         {/* Detail card for the clicked job: two lines (+ the note when there is one). Below lg the bottom
             sheet already shows the same, so the card is for the dashboard and wide screens only. */}
         {(compact || (display.detailCard && wide)) && selected && !textEditId && tool === "move" && (

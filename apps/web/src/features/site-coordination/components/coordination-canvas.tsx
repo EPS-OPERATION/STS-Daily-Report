@@ -1,6 +1,6 @@
 import { alpha, keyframes, useTheme } from "@mui/material/styles";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Group, Image as CanvasImage, Layer, Line, Rect, Stage, Text } from "react-konva";
+import { Group, Image as CanvasImage, Layer, Rect, Stage, Text } from "react-konva";
 import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationPoint } from "@sts/shared";
 import { COORDINATION_MAX, COORDINATION_MIN, coordinationGeometryError } from "@sts/shared";
 import { CanvasItem, REDUCED_MOTION, TapRipple, type AreaDrag, type CanvasItemActions, type IconDrag } from "./canvas-item.js";
@@ -27,7 +27,6 @@ import Konva from "konva";
 import { clamp } from "../utils/canvas-geometry.js";
 import { previewImagePath, scanContent } from "../utils/canvas-geometry.js";
 import { routeMidpoint } from "../utils/canvas-geometry.js";
-import { RouteMarks } from "./route-marks.js";
 import { REPORT_ROOM } from "../utils/canvas-report.js";
 import { reportBounds } from "../utils/canvas-report.js";
 import { TEXT_LINE_HEIGHT } from "../utils/canvas-text.js";
@@ -61,9 +60,6 @@ interface Props {
   onReady?: (stage: Konva.Stage | null) => void;
   /** Road routes that cross or run along another contractor's route that day (id → other contractor ids). */
   clashes?: ReadonlyMap<string, string[]>;
-  /** Road requests of the day (Daily Request): arrows under the jobs, red outline on a clash. */
-  /** `arrows`: false for a road picked from the register (no direction), true for a drawn route. */
-  roads?: { id: string; points: CoordinationPoint[]; color: string; label: string; alert: boolean; arrows?: boolean }[];
   /** Register road names (no lines): one label per road, on its longest piece. */
   roadNames?: { name: string; pieces: CoordinationPoint[][] }[];
 }
@@ -108,7 +104,7 @@ const isCoarsePointer = () => typeof window !== "undefined" && Boolean(window.ma
 
 const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true, markSize: MARK_SCALE };
 
-export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roads = [], roadNames = [] }: Props) {
+export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roadNames = [] }: Props) {
   const theme = useTheme();
   // Point-by-point drawing: a free-shape area (closed) or a road route (open line).
   const drawingTool = tool === "polygon" || tool === "route";
@@ -139,6 +135,10 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
   const height = fixedHeight ?? (fill ? boxHeight : compact ? 390 : width < 600 ? 430 : 620);
   const fit = Math.min(width / map.width, height / map.height);
   const scale = fit * zoom;
+  // Icons, captions and line widths are sized against the fitted drawing (`fit`), not the zoom: they belong to the
+  // map, so zooming in magnifies them with it and the icon-size controls are the only way to change them.
+  // Read-only views (report snapshot, dashboard card) frame the jobs by zooming, so they keep a fixed screen size.
+  const unit = readOnly ? scale : fit;
   const offset = { x: (width - map.width * fit) / 2 + pan.x, y: (height - map.height * fit) / 2 + pan.y };
   const contentBounds = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   // Default view = the drawing content (plus a small padding), not the whole
@@ -333,8 +333,9 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
     const pts = item.geometry.points.map((p) => t.point({ x: p.x * map.width, y: p.y * map.height }));
     if (item.areaKind !== "route") {
       const c = t.point({ x: item.x * map.width, y: item.y * map.height });
-      const r = 24 * display.markSize * (item.iconScale ?? 1) + 6;
-      pts.push({ x: c.x - r, y: c.y - r }, { x: c.x + r, y: c.y + r + 30 }); // + caption under the ring
+      const z = node.scaleX() / fit; // markers grow with the zoom, so their screen size does too
+      const r = (24 * display.markSize * (item.iconScale ?? 1)) * z + 6;
+      pts.push({ x: c.x - r, y: c.y - r }, { x: c.x + r, y: c.y + r + 30 * z }); // + caption under the ring
     }
     const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
     const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
@@ -456,37 +457,20 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
             if (longest.length < 2) return null;
             const mid = routeMidpoint(longest, map.width, map.height);
             return (
-              <Group key={road.name} x={mid.x} y={mid.y} scaleX={display.markSize / scale} scaleY={display.markSize / scale}>
+              <Group key={road.name} x={mid.x} y={mid.y} scaleX={display.markSize / unit} scaleY={display.markSize / unit}>
                 <Text text={road.name} width={180} offsetX={90} offsetY={7} align="center" fontSize={12} fontStyle="bold"
                   fill={theme.palette.text.secondary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled />
               </Group>
             );
           })}
         </Layer>}
-        <Layer listening={false}>
-          {roads.map((road, index) => {
-            const pts = road.points.flatMap((p) => [p.x * map.width, p.y * map.height]);
-            // Labels sit under each route's midpoint; when an earlier label is close on screen, go one line lower.
-            const mid = routeMidpoint(road.points, map.width, map.height);
-            const below = roads.slice(0, index).filter((o) => {
-              const m = routeMidpoint(o.points, map.width, map.height);
-              return Math.hypot(m.x - mid.x, m.y - mid.y) * scale < 90;
-            }).length;
-            return <Group key={road.id}>
-              <Line points={pts} stroke={road.alert ? theme.palette.error.main : theme.palette.background.paper} strokeWidth={(road.alert ? 15 : 11) / scale} lineCap="round" lineJoin="round" opacity={0.95} />
-              <Line points={pts} stroke={road.color} strokeWidth={7 / scale} lineCap="round" lineJoin="round" />
-              <RouteMarks points={road.points.map((p) => ({ x: p.x * map.width, y: p.y * map.height }))} dx={0} dy={0} color={road.color}
-                paper={theme.palette.background.paper} scale={scale} title={road.label} textColor={theme.palette.text.primary} labelDy={14 + below * 17} arrowsHidden={road.arrows === false} markScale={display.markSize} />
-            </Group>;
-          })}
-        </Layer>
         {/* While placing, jobs ignore taps so a tap on top of one still places the new job. */}
         <JobsLayer api={dragApi} listening={!placing}>{(areaDrag, iconDrag) => <>
           {displayed.map(({ item, id, editing }) => {
             const company = companyById.get(item.contractorId);
             return <CanvasItem key={id} item={item} id={id} editing={editing} selected={id === selectedId || editing} hasDraft={Boolean(draft)} focus={Boolean(selectedId || draft)}
               color={company?.color ?? theme.palette.primary.main} code={company?.code} clash={item.areaKind === "route" && Boolean(clashes.get(id))}
-              scale={scale} tool={tool} drawingTool={drawingTool} textEditing={textEditing} dragging={editing && dragging} display={display}
+              scale={unit} tool={tool} drawingTool={drawingTool} textEditing={textEditing} dragging={editing && dragging} display={display}
               dragOffset={areaDrag?.id === id ? areaDrag : null} iconDrag={iconDrag?.id === id ? iconDrag : null} mapWidth={map.width} mapHeight={map.height} coarse={coarse}
               actions={actions} rectangleRef={rectangle} transformerRef={transformer} />;
           })}
@@ -548,11 +532,11 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
         // Multiline textarea mirrors the final pill (same wrap width, same
         // line height) so what you type is what the marker will look like.
         <InputBase autoFocus multiline rows={overlay.text.lines.length} value={draft.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="พิมพ์ข้อความ…" inputProps={{ "aria-label": "ข้อความบนผัง" }}
-          sx={{ position: "absolute", left: overlay.left, top: overlay.top, transform: "translate(-50%, -50%)", width: Math.max(168, overlay.text.width), px: 1.5, py: "7px", borderRadius: 2, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 13, fontWeight: 700, lineHeight: `${TEXT_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
+          sx={{ position: "absolute", left: overlay.left, top: overlay.top, transform: `translate(-50%, -50%) scale(${zoom})`, width: Math.max(168, overlay.text.width), px: 1.5, py: "7px", borderRadius: 2, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 13, fontWeight: 700, lineHeight: `${TEXT_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
       ) : (
         // Icon caption editor: typed in place of the halo caption under the marker.
         <InputBase autoFocus multiline rows={overlay.caption.lines.length} value={draft.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="ชื่อเครื่องจักร…" inputProps={{ "aria-label": "ชื่อเครื่องจักรบนผัง" }}
-          sx={{ position: "absolute", left: overlay.left, top: overlay.top + 28 * display.markSize, transform: "translateX(-50%)", width: Math.max(168, overlay.caption.width), px: 1, py: "4px", borderRadius: 1, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 12, fontWeight: 600, lineHeight: `${CAPTION_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
+          sx={{ position: "absolute", left: overlay.left, top: overlay.top + 28 * display.markSize * zoom, transform: `translateX(-50%) scale(${zoom})`, transformOrigin: "top center", width: Math.max(168, overlay.caption.width), px: 1, py: "4px", borderRadius: 1, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 12, fontWeight: 600, lineHeight: `${CAPTION_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
       ))}
     {overlay && draft && draft.icon === "text" && textEditing && (() => {
       // While a text marker is being typed the HTML editor covers it, so this grip moves it.

@@ -32,17 +32,9 @@ export interface CoordinationDayNote {
 export interface CoordinationDayLock {
   lockedAt: string; lockedByName: string | null;
 }
-/** A road request for this day that has a route on the map (from the contractors' Daily Request). */
-export interface CoordinationRoad {
-  id: string; contractorId: string; roadLocation: string; startTime: string; endTime: string; purpose: string;
-  route: CoordinationPoint[];
-  /** Another contractor uses the same place at an overlapping time. */
-  clash: boolean;
-}
 export interface CoordinationData {
   map: { id: string; projectId: string; imagePath: string; width: number; height: number };
   contractors: CoordinationContractor[]; items: CoordinationItem[];
-  roads: CoordinationRoad[];
   editableContractorIds: string[]; canManageColors: boolean;
   dayNote: CoordinationDayNote | null; canEditDayNote: boolean;
   lock: CoordinationDayLock | null; canLock: boolean;
@@ -53,7 +45,6 @@ export interface CoordinationData {
 export interface CoordinationReport {
   projectName: string; date: string; generatedAt: string; generatedByName: string | null;
   map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[];
-  roads: CoordinationRoad[];
   dayNote: CoordinationDayNote | null;
 }
 // Separate from chart colours: every contractor remains individually identifiable.
