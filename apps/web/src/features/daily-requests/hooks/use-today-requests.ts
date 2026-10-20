@@ -91,7 +91,7 @@ export function useTodayRequests() {
   const inspections = allInspections.filter(keep);
   const loadError = [week.error, rfi.error].find((e) => e instanceof HttpError) as HttpError | undefined;
   const forecasts = allForecasts.filter(keep);
-  const requestSections = () => buildRequestSections({ machines, equipment, roads, inspections, contractorNames });
+  const requestSections = (forPrint = false) => buildRequestSections({ machines, equipment, roads, inspections, contractorNames }, forPrint);
   // A range (up to 62 days) is shown as an overview of its days; one day is opened in detail (?day=YYYY-MM-DD).
   const [clashOnly, setClashOnly] = useState(false);
   const dayRows = useMemo(() => summarizeDays(machines, equipment, roads, inspections), [machines, equipment, roads, inspections]);

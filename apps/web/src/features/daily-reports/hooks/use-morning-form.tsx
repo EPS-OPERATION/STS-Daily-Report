@@ -5,7 +5,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { dailyReportApi } from "../api/daily-report.api.js";
 import { useSubmitMorning } from "./use-daily-report-mutations.js";
-import { morningSchema, placementStatus, type MorningFormValues } from "../schemas/daily-report.schema.js";
+import { isBlankActivity, morningSchema, placementStatus, type MorningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building } from "@/features/buildings/index.js";
 import type { DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { crewTotals } from "../components/crew-manpower.js";
@@ -230,7 +230,7 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
               thaiFemale: c.thaiFemale,
               foreignMale: c.foreignMale,
               foreignFemale: c.foreignFemale,
-              allocations: c.allocations.map((a) => ({
+              allocations: c.allocations.filter((a) => !isBlankActivity(a)).map((a) => ({
                 buildingId: a.buildingId,
                 headcount: a.headcount,
                 workDescription: a.workDescription.trim(),

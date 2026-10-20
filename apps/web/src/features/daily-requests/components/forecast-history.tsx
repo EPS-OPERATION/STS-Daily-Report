@@ -48,13 +48,18 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
   const current = Math.min(page, Math.max(0, Math.ceil(visible.length / perPage) - 1));
   const pageRows = visible.slice(current * perPage, (current + 1) * perPage);
 
-  const section = (): ExportSection => ({
+  const section = (forPrint = false): ExportSection => ({
     title: "Tomorrow Forecast Activities",
     head: ["วันที่", "ผู้รับเหมา", "รายละเอียดงาน", "พื้นที่"],
-    rows: visible.map((r) => [r.targetDate, `${r.contractorCode} ${r.contractorName}`, r.description, `${r.buildingCode} ${r.buildingName}`]),
+    rows: visible.map((r) => [
+      forPrint ? formatThaiDate(r.targetDate) : r.targetDate,
+      `${r.contractorCode} ${r.contractorName}`,
+      r.description,
+      `${r.buildingCode} ${r.buildingName}`,
+    ]),
   });
-  const exportCsv = () => downloadCsv(`STS_Tomorrow_Forecast_${fileTag}.csv`, [section()]);
-  const print = () => printSections("Tomorrow Forecast Activities", `${rangeLabel} · ${visible.length} รายการ`, [section()]);
+  const exportCsv = () => downloadCsv(`STS_Tomorrow_Forecast_${fileTag}.csv`, [section(false)]);
+  const print = () => printSections("Tomorrow Forecast Activities", `${rangeLabel} · ${visible.length} รายการ`, [section(true)]);
 
   return (
     <Card>
