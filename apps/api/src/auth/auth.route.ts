@@ -57,17 +57,11 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       expires: expiresAt,
     });
     set.status = 201;
-    const contractors = await loadMe({
-      userId: context.user.id,
-      email: context.user.email,
-      method: "session",
-    }).then((me) => me.data.contractors);
+    const contractors = await loadMe(context).then((me) => me.data.contractors);
     return ok({ user: context.user, contractors });
   }, { body: loginBody })
   .use(requireAuth)
-  .get("/me", async ({ auth }) => {
-    return loadMe({ userId: auth.user.id, email: auth.user.email, method: auth.identity.method });
-  })
+  .get("/me", async ({ auth }) => loadMe(auth))
   .post("/logout", async ({ cookie }) => {
     const jar = cookieJar(cookie as Record<string, { value?: unknown } | undefined>);
     const raw = typeof jar?.value === "string" ? jar.value : undefined;

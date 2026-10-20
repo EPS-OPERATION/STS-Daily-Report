@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { getDb, type QueryDb } from "@/db/client.js";
 import { getEnv } from "@/config/env.js";
 import {
-  findSessionByTokenHash,
+  findSessionWithUser,
   insertSession,
   revokeSessionByTokenHash,
   touchSession,
@@ -33,16 +33,21 @@ export async function createSession(userId: string, db: QueryDb = getDb()): Prom
 export interface ValidSession {
   sessionId: string;
   userId: string;
+  user: NonNullable<Awaited<ReturnType<typeof findSessionWithUser>>>["user"];
 }
+
+// last_seen_at is a coarse "recently used" marker: refresh it at most once a minute, not on every request.
+const TOUCH_AFTER_MS = 60_000;
 
 export async function validateSessionToken(rawToken: string): Promise<ValidSession | null> {
   if (!rawToken) return null;
-  const row = await findSessionByTokenHash(getDb(), hashSessionToken(rawToken));
+  const row = await findSessionWithUser(getDb(), hashSessionToken(rawToken));
   if (!row) return null;
-  if (row.revokedAt) return null;
-  if (row.expiresAt.getTime() <= Date.now()) return null;
-  await touchSession(getDb(), row.id);
-  return { sessionId: row.id, userId: row.userId };
+  const { session, user } = row;
+  if (session.revokedAt) return null;
+  if (session.expiresAt.getTime() <= Date.now()) return null;
+  if (Date.now() - session.lastSeenAt.getTime() > TOUCH_AFTER_MS) await touchSession(getDb(), session.id);
+  return { sessionId: session.id, userId: session.userId, user };
 }
 
 export async function revokeSessionToken(rawToken: string): Promise<void> {

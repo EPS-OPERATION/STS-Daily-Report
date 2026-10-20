@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CoordinationInput, RoadSegment } from "@sts/shared";
 import { coordinationApi } from "../api/coordination.api.js";
@@ -23,8 +24,22 @@ export function useDeleteRoadSegment(projectId: string | null) {
   const client = useQueryClient();
   return useMutation({ mutationFn: (id: string) => coordinationApi.removeRoad(projectId!, id), onSuccess: () => client.invalidateQueries({ queryKey: coordinationKeys.roads(projectId!) }) });
 }
+// The open map follows other people's changes without refetching the whole day every 10 s: it polls a tiny
+// fingerprint (/coordination/version) and refetches the day only when that differs from the day's own `version`.
+// A refetch can only be triggered by a poll result, so an API outage cannot turn into a tight retry loop.
 export function useCoordination(projectId: string | null, date: string) {
-  return useQuery({ queryKey: coordinationKeys.day(projectId ?? "", date), queryFn: () => coordinationApi.get(projectId!, date), enabled: Boolean(projectId), refetchInterval: 10_000 });
+  const day = useQuery({ queryKey: coordinationKeys.day(projectId ?? "", date), queryFn: () => coordinationApi.get(projectId!, date), enabled: Boolean(projectId) });
+  const latest = useQuery({
+    queryKey: [...coordinationKeys.day(projectId ?? "", date), "version"],
+    queryFn: () => coordinationApi.version(projectId!, date),
+    enabled: Boolean(projectId) && day.isSuccess,
+    refetchInterval: 10_000,
+  });
+  const changed = Boolean(latest.data && day.data && latest.data.data.version !== day.data.data.version);
+  useEffect(() => {
+    if (changed && !day.isFetching) void day.refetch();
+  }, [latest.dataUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  return day;
 }
 export function useSaveCoordination(projectId: string | null) {
   const client = useQueryClient();

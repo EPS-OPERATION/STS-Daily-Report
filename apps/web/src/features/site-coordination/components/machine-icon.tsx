@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 import { Group, Image as CanvasImage } from "react-konva";
 import type { CoordinationIcon } from "@sts/shared";
-import boxUrl from "../icons/box.png";
-import craneUrl from "../icons/crane.png";
-import machineryUrl from "../icons/machinery.png";
-import pinUrl from "../icons/pin.png";
-import pipeUrl from "../icons/pipe.png";
-import roadUrl from "../icons/road.png";
-import truckUrl from "../icons/truck.png";
-import weldUrl from "../icons/weld.png";
+import boxUrl from "../icons/box.webp";
+import craneUrl from "../icons/crane.webp";
+import machineryUrl from "../icons/machinery.webp";
+import pinUrl from "../icons/pin.webp";
+import pipeUrl from "../icons/pipe.webp";
+import roadUrl from "../icons/road.webp";
+import truckUrl from "../icons/truck.webp";
+import weldUrl from "../icons/weld.webp";
 
 // "text" markers render as a title pill (see coordination-canvas), never as a glyph.
 type MachineIconName = Exclude<CoordinationIcon, "text">;
 
-// PNG artwork is a black silhouette on white; at runtime the silhouette is used as
+// The icon artwork (320px WebP, down from 1254px PNG: ~97% smaller) is a black silhouette on white; at runtime the silhouette is used as
 // an alpha mask and recoloured with the contractor colour, so one image serves all.
 export const MACHINE_ICON_URLS: Record<MachineIconName, string> = {
   crane: craneUrl, machinery: machineryUrl, truck: truckUrl, weld: weldUrl, pipe: pipeUrl, box: boxUrl, pin: pinUrl, road: roadUrl,

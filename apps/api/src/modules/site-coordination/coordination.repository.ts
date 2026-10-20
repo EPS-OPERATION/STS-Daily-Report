@@ -115,6 +115,32 @@ export async function deleteRoadSegment(db: QueryDb, projectId: string, id: stri
 }
 
 // Road requests made for this day (Daily Request of the day before). Times are what EPS settled.
+// A fingerprint of everything GET /coordination returns for one day: it changes whenever the map would look
+// different. The map polls this (one small query) and fetches the whole day only when it moved. Each part is
+// a count plus a revision sum / latest timestamp, so inserts, edits AND deletes all change it. Road requests
+// have no updated_at: they are rewritten (new created_at) on every resubmit, and EPS time changes set adjusted_at.
+export async function coordinationVersion(db: QueryDb, projectId: string, date: string): Promise<string> {
+  const rows = await db.execute<{ v: string }>(sql`
+    select md5(concat_ws('|',
+      (select count(*) || ':' || coalesce(sum(${coordinationItems.revision}), 0) || ':' || coalesce(max(${coordinationItems.updatedAt})::text, '')
+         from ${coordinationItems} where ${coordinationItems.projectId} = ${projectId} and ${coordinationItems.workDate} = ${date}),
+      (select coalesce(max(${coordinationDayNotes.updatedAt})::text, '')
+         from ${coordinationDayNotes} where ${coordinationDayNotes.projectId} = ${projectId} and ${coordinationDayNotes.workDate} = ${date}),
+      (select coalesce(max(${coordinationDayLocks.lockedAt})::text, '')
+         from ${coordinationDayLocks} where ${coordinationDayLocks.projectId} = ${projectId} and ${coordinationDayLocks.workDate} = ${date}),
+      (select count(*) || ':' || coalesce(sum(${coordinationColors.revision}), 0)
+         from ${coordinationColors} where ${coordinationColors.projectId} = ${projectId}),
+      (select count(*) || ':' || coalesce(max(${coordinationRoadSegments.updatedAt})::text, '')
+         from ${coordinationRoadSegments} where ${coordinationRoadSegments.projectId} = ${projectId}),
+      (select count(*) || ':' || coalesce(max(${dailyReportRoadUsage.createdAt})::text, '') || ':' || coalesce(max(${dailyReportRoadUsage.adjustedAt})::text, '')
+         from ${dailyReportRoadUsage} inner join ${dailyReports} on ${dailyReportRoadUsage.reportId} = ${dailyReports.id}
+         where ${dailyReports.projectId} = ${projectId} and ${dailyReportRoadUsage.targetDate} = ${date}),
+      (select count(*) || ':' || coalesce(max(${contractors.updatedAt})::text, '')
+         from ${projectContractors} inner join ${contractors} on ${projectContractors.contractorId} = ${contractors.id}
+         where ${projectContractors.projectId} = ${projectId})
+    )) as v`);
+  return rows[0]!.v;
+}
 export async function listRoadRequests(db: QueryDb, projectId: string, date: string) {
   return db.select({
     id: dailyReportRoadUsage.id,

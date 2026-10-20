@@ -8,7 +8,8 @@ import { coordinationToday } from "@sts/shared";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useCurrentProject } from "@/features/projects/index.js";
-import { CoordinationReportDocument, REPORT_STYLES, useCoordinationReport } from "@/features/site-coordination/index.js";
+import { CoordinationReportDocument, REPORT_STYLES } from "../components/coordination-report.js";
+import { useCoordinationReport } from "../hooks/use-coordination.js";
 import { HttpError } from "@/services/http/client.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;

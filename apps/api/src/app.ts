@@ -24,7 +24,7 @@ import { permitTypeRoutes } from "@/modules/permit-types/index.js";
 import { weatherCronRoutes, weatherRoutes } from "@/modules/weather/index.js";
 import { errorPlugin } from "@/plugins/errors.js";
 import { securityHeaders } from "@/plugins/security-headers.js";
-import { resolveAuthIdentity } from "@/auth/auth.service.js";
+import { authenticateRequest } from "@/auth/request-auth.js";
 import { AuthRequiredError } from "@/shared/errors/app-error.js";
 
 
@@ -47,7 +47,7 @@ export function buildApp() {
       if (!path.startsWith(API_PREFIX) || isPublicApi(request.method, path)) return;
       const jar = (cookie as Record<string, { value?: unknown } | undefined>)[env.SESSION_COOKIE_NAME];
       const token = typeof jar?.value === "string" ? jar.value : undefined;
-      if (!(await resolveAuthIdentity(token))) throw new AuthRequiredError();
+      if (!(await authenticateRequest(request, token))) throw new AuthRequiredError();
     })
     .get(HEALTH_PATH, () => ({ status: "ok" }))
     // Readiness for uptime monitors: 503 when Postgres is unreachable (liveness above never touches it).

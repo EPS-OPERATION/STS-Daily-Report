@@ -1,4 +1,4 @@
-import { alpha, useTheme } from "@mui/material/styles";
+import { alpha, keyframes, useTheme } from "@mui/material/styles";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Group, Image as CanvasImage, Layer, Line, Rect, Stage, Text } from "react-konva";
 import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationPoint } from "@sts/shared";
@@ -69,6 +69,11 @@ interface Props {
 }
 
 const NO_CLASHES: ReadonlyMap<string, string[]> = new Map();
+
+const SELECTED_HINT = "ลากไอคอนไปจุดทำงาน · ลากพื้นที่เพื่อย้าย · มุมสี่เหลี่ยมปรับขนาด/หมุน · ดับเบิลคลิกเพื่อแก้ชื่อ · ตั้งค่าอื่นที่แผงด้านข้าง";
+const IDLE_HINT = "คลิกงานเพื่อดูและแก้ไข · ลากผังว่างเพื่อเลื่อน · ล้อเมาส์เพื่อซูม";
+// Visible for the first moments after a selection, then gone (the hint is a reminder, not permanent chrome).
+const hintFade = keyframes`0%, 80% { opacity: 1; } 100% { opacity: 0; }`;
 
 type DragApi = { area: (drag: AreaDrag | null) => void; icon: (drag: IconDrag | null) => void };
 /** Owns the live drag offsets, so a drag frame re-renders only the jobs layer — not the Stage (whose
@@ -408,9 +413,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
       <AddOutlined fontSize="small" color="primary" />
       <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}>แตะบนผังตรงจุดที่ทำงาน</Typography>
       <Button size="small" color="inherit" onClick={onCancelPlace} sx={{ whiteSpace: "nowrap" }}>Cancel</Button>
-    </Stack> : !readOnly && (drawingTool && draft ? null : (!fill || (draft && !coarse)) && <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider" }}>
-      {draft ? "ลากไอคอนไปจุดทำงาน · ลากพื้นที่เพื่อย้าย · มุมสี่เหลี่ยมปรับขนาด/หมุน · ดับเบิลคลิกเพื่อแก้ชื่อ · ตั้งค่าอื่นที่แผงด้านข้าง" : "คลิกงานเพื่อดูและแก้ไข · ลากผังว่างเพื่อเลื่อน · ล้อเมาส์เพื่อซูม"}
-    </Typography>)}
+    </Stack> : null}
     {imageError ? <Alert severity="error" sx={{ m: 1.5 }}>โหลดภาพผังไม่สำเร็จ กรุณาตรวจภาพพื้นหลังแล้วลองใหม่</Alert> : <Box ref={stageBox} role="img" aria-label="Daily plan. Select an item from the side list to see details." sx={{ position: "relative", bgcolor: "background.paper", touchAction: "none", cursor: drawingTool || placing ? "crosshair" : undefined, ...(fill && { flex: 1, minHeight: 0, overflow: "hidden" }) }}>
       <Stage ref={stage} width={width} height={height} scaleX={scale} scaleY={scale} x={offset.x} y={offset.y}         draggable={tool === "move" && !readOnly}
         dragBoundFunc={(pos) => bound(pos, stage.current?.scaleX() ?? scale)}
@@ -490,6 +493,17 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
           {ripple && <TapRipple key={ripple.key} x={ripple.x} y={ripple.y} scale={scale} color={theme.palette.primary.main} onDone={() => setRipple(null)} />}
         </>}</JobsLayer>
       </Stage>
+      {/* Selection hint: a small pill over the bottom of the map that fades out on its own. It floats (a bar above the
+          map pushed the whole drawing down every time a job was selected) and never blocks a tap. */}
+      {!readOnly && !drawingTool && !placing && (!fill || (draft && !coarse)) && (
+        <Typography key={draftId ?? "idle"} variant="caption" color="text.secondary" noWrap
+          title={draft ? SELECTED_HINT : IDLE_HINT}
+          sx={{ position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", zIndex: 20, maxWidth: "calc(100% - 200px)", px: 1.5, py: 0.5,
+            bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 999, pointerEvents: "none",
+            animation: `${hintFade} 7s ease forwards`, "@media (prefers-reduced-motion: reduce)": { animation: "none" } }}>
+          {draft ? SELECTED_HINT : IDLE_HINT}
+        </Typography>
+      )}
       {/* Drawing a road / free area (live, in the meeting): the instruction is a small pill at the top
           (never blocks taps) and the controls float at the bottom within thumb reach — Done is the one
           primary action, Undo is labelled (used often), Start over is icon-only (rare). */}
