@@ -14,7 +14,6 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { TOKENS } from "@/app/theme/tokens.js";
 import { useMe } from "@/features/auth/index.js";
 import { ContractorFilterPopover } from "@/features/contractors/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
@@ -40,7 +39,8 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   const me = useMe();
   const [activeProject, setActiveProject] = useState(projectId);
   const [params, setParams] = useSearchParams();
-  const date = params.get("mapDate") ?? coordinationToday();
+  // The meeting plans the next day: the Map pages open on tomorrow (the dashboard card stays on today).
+  const date = params.get("mapDate") ?? (compact ? coordinationToday() : dayjs(coordinationToday()).add(1, "day").format("YYYY-MM-DD"));
   // EPS only (the API refuses others too); the report opens in a new tab and prints at once.
   const canExport = !readOnly && !compact && Boolean(projectId) && isEpsStaff(me.data?.data.user.role);
   const reportHref = `/site-coordination/report?${new URLSearchParams({ projectId: projectId ?? "", date, print: "1" })}`;
@@ -130,16 +130,6 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
         return m.set(key, g);
       }, new Map<string, { name: string; pieces: CoordinationPoint[][] }>()).values()]
     : [], [roadNames, display.roadNames, registerSegments]);
-  // Road requests for this day with the company and time (same filters as jobs).
-  const roadLines = useMemo(() => display.roads ? (data?.roads ?? [])
-    .filter((r) => !contractorIds || contractorIds.has(r.contractorId))
-    .map((r) => ({
-      id: r.id, points: r.route, alert: r.clash,
-      // "<request>:<road>" = a register road picked for the request (no direction); else a drawn route.
-      arrows: !r.id.includes(":"),
-      color: data?.contractors.find((c) => c.id === r.contractorId)?.color ?? TOKENS.primary,
-      label: `${data?.contractors.find((c) => c.id === r.contractorId)?.code ?? ""} ${r.startTime}–${r.endTime}${r.clash ? " · ชนกัน" : ""}`,
-    })) : [], [display.roads, data, contractorIds]);
   const q = search.trim().toLowerCase();
   const items = useMemo(() => data?.items.filter((item) =>
     (!contractorIds || contractorIds.has(item.contractorId))
@@ -445,7 +435,6 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     codeOf,
     clashes,
     clashCodes,
-    roadLines,
     roadNameGroups,
     roadNames,
     q,
