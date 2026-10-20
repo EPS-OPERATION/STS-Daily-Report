@@ -1,6 +1,6 @@
 import Slider from "@mui/material/Slider";
 import { COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN } from "@sts/shared";
-import type { CoordinationContractor, CoordinationInput, CoordinationItem } from "@sts/shared";
+import type { CoordinationContractor, CoordinationInput, CoordinationItem, CoordinationItemType } from "@sts/shared";
 import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
 import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
 import SwapHorizOutlined from "@mui/icons-material/SwapHorizOutlined";
@@ -11,7 +11,6 @@ import PaletteOutlined from "@mui/icons-material/PaletteOutlined";
 import PentagonOutlined from "@mui/icons-material/PentagonOutlined";
 import RestartAltOutlined from "@mui/icons-material/RestartAltOutlined";
 import SyncOutlined from "@mui/icons-material/SyncOutlined";
-import TextFieldsOutlined from "@mui/icons-material/TextFieldsOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -24,8 +23,8 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
-import { areaLabel, ICON_LABELS } from "../types/icon-labels.js";
-import { MachineGlyph } from "./machine-icon.js";
+import { areaLabel } from "../types/icon-labels.js";
+import { CoordinationGlyph } from "./coordination-icon.js";
 import { TypePicker } from "./type-picker.js";
 import { TOKENS } from "@/app/theme/tokens.js";
 
@@ -35,6 +34,7 @@ interface Props {
   draft: CoordinationInput | null;
   contractors: CoordinationContractor[];
   editableContractors: CoordinationContractor[];
+  itemTypes: CoordinationItemType[];
   drawing: boolean;
   areaDirty: boolean;
   geometryError: string | null;
@@ -73,6 +73,7 @@ export function CoordinationInspector({
   draft,
   contractors,
   editableContractors,
+  itemTypes,
   drawing,
   areaDirty,
   geometryError,
@@ -104,7 +105,7 @@ export function CoordinationInspector({
           </IconButton>
         </Tooltip>
         <Box sx={{ width: 30, display: "flex", justifyContent: "center" }}>
-          {v.icon === "text" ? <TextFieldsOutlined fontSize="small" sx={{ color }} /> : <MachineGlyph icon={v.icon} color={color} />}
+          <CoordinationGlyph iconKey={itemTypes.find((t) => t.code === v.icon)?.iconKey ?? "map-pin"} size={22} color={color} />
         </Box>
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Stack direction="row" spacing={0.75} alignItems="center">
@@ -224,7 +225,7 @@ export function CoordinationInspector({
               </Stack>
             ) : <>
             <Field label="Work type">
-              <TypePicker value={draft.icon} onPick={(icon) => onPatch({ icon })} exclude={["road"]} />
+              <TypePicker types={itemTypes} value={draft.icon} onPick={(icon) => onPatch({ icon })} exclude={["road"]} />
             </Field>
             <Divider />
             <Field label="Work area">
@@ -278,7 +279,7 @@ export function CoordinationInspector({
         ) : (
           <>
             <Field label="Work type">
-              <Typography variant="body2">{ICON_LABELS[item.icon]}</Typography>
+              <Typography variant="body2">{itemTypes.find((t) => t.code === item.icon)?.labelTh ?? item.icon}</Typography>
             </Field>
             <Field label="Note / details">
               <Typography variant="body2" color={item.note ? "text.primary" : "text.secondary"} sx={{ whiteSpace: "pre-line" }}>

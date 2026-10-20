@@ -1,6 +1,5 @@
-import { COORDINATION_ICONS, type CoordinationIcon } from "@sts/shared";
+import type { CoordinationItemType } from "@sts/shared";
 import CategoryOutlined from "@mui/icons-material/CategoryOutlined";
-import TextFieldsOutlined from "@mui/icons-material/TextFieldsOutlined";
 import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -12,9 +11,8 @@ import Switch from "@mui/material/Switch";
 import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
 import { FilterButton, MultiSelectFilter, type FilterOption } from "@/components/ui/filter-popover.js";
-import { ICON_LABELS } from "../types/icon-labels.js";
 import { MARK_SCALE, MARK_SCALE_MAX, MARK_SCALE_MIN, OLD_MARK_SCALES } from "../utils/canvas-text.js";
-import { MachineGlyph } from "./machine-icon.js";
+import { CoordinationGlyph } from "./coordination-icon.js";
 
 // What the map draws (per browser): the job icon is always shown, everything else can be switched off.
 export interface MapDisplay {
@@ -73,24 +71,26 @@ const DISPLAY_OPTIONS: { key: DisplaySwitch; label: string; hint: string; group:
 
 // Work-type filter: one row per icon type with its glyph and how many jobs of that type are on the day.
 export function TypeFilter({
+  types = [],
   selected,
   counts,
   onChange,
 }: {
-  selected: Set<CoordinationIcon>;
-  counts: Map<CoordinationIcon, number>;
-  onChange: (next: Set<CoordinationIcon>) => void;
+  types: CoordinationItemType[];
+  selected: Set<string>;
+  counts: Map<string, number>;
+  onChange: (next: Set<string>) => void;
 }) {
-  const all = selected.size === COORDINATION_ICONS.length;
+  const all = selected.size === types.length;
 
-  const options: FilterOption[] = COORDINATION_ICONS.map((icon) => {
-    const n = counts.get(icon) ?? 0;
+  const options: FilterOption[] = types.map((type) => {
+    const n = counts.get(type.code) ?? 0;
     return {
-      value: icon,
-      label: ICON_LABELS[icon],
+      value: type.code,
+      label: type.labelTh,
       leading: (
         <Box sx={{ width: 24, display: "flex", justifyContent: "center", color: "text.secondary" }}>
-          {icon === "text" ? <TextFieldsOutlined fontSize="small" /> : <MachineGlyph icon={icon} />}
+          <CoordinationGlyph iconKey={type.iconKey} size={20} />
         </Box>
       ),
       count: `${n} งาน`,
@@ -103,11 +103,11 @@ export function TypeFilter({
   return (
     <MultiSelectFilter
       icon={<CategoryOutlined fontSize="small" />}
-      buttonLabel={all ? "ประเภทงาน: ทั้งหมด" : `ประเภทงาน: ${selected.size}/${COORDINATION_ICONS.length}`}
+      buttonLabel={all ? "ประเภทงาน: ทั้งหมด" : `ประเภทงาน: ${selected.size}/${types.length}`}
       filteredCount={all ? undefined : selected.size}
       options={options}
       selected={selectedValues}
-      onChange={(next) => onChange(new Set([...next] as CoordinationIcon[]))}
+      onChange={(next) => onChange(new Set([...next]))}
       doneLabel="ตกลง"
       align="left"
     />

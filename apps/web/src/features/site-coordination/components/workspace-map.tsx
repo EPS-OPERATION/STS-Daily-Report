@@ -1,4 +1,4 @@
-import { COORDINATION_ICONS } from "@sts/shared";
+import { isEpsAdmin } from "@sts/shared";
 import AddOutlined from "@mui/icons-material/AddOutlined";
 import FilterAltOffOutlined from "@mui/icons-material/FilterAltOffOutlined";
 import InfoOutlined from "@mui/icons-material/InfoOutlined";
@@ -34,7 +34,7 @@ import { DayLockBanner, DayLockStamp } from "./day-lock.js";
 import { DayNote } from "./day-note.js";
 import { CoordinationJobList } from "./coordination-job-list.js";
 import { DisplayOptions } from "./map-filters.js";
-import { areaLabel, ICON_LABELS } from "../types/icon-labels.js";
+import { areaLabel } from "../types/icon-labels.js";
 import type { UseCoordinationWorkspaceState } from "../hooks/use-coordination-workspace.js";
 
 const CoordinationCanvas = lazy(() => import("./coordination-canvas.js").then((module) => ({ default: module.CoordinationCanvas })));
@@ -45,7 +45,10 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
   const [listOpen, setListOpen] = useState(false);
   const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
   if (!data) return null;
+  const itemTypes = data.itemTypes ?? [];
+  const typeByCode = new Map(itemTypes.map((t) => [t.code, t]));
   const canLock = !readOnly && data.canLock && !data.lock;
+  const canManageItemTypes = !readOnly && isEpsAdmin(ed.me.data?.data.user.role);
   const addDisabled = !editableCompanies.length || creating || Boolean(draft) || Boolean(placing);
   // EPS actions (lock / export / road register); on phones they move into the filter drawer.
   const epsActions = <>
@@ -56,6 +59,8 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
     {/* EPS keeps the site road register that contractors pick road segments from. */}
     {canExport && <Button variant="outlined" startIcon={<AddRoadOutlined />} component={RouterLink} to="/site-coordination/roads"
       sx={{ whiteSpace: "nowrap", width: { xs: "100%", sm: "auto" } }}>Road register</Button>}
+    {canManageItemTypes && <Button variant="outlined" startIcon={<TuneOutlined />} component={RouterLink} to="/site-coordination/item-types"
+      sx={{ whiteSpace: "nowrap", width: { xs: "100%", sm: "auto" } }}>Item types</Button>}
   </>;
   const shiftDay = (days: number) => goToDate(dayjs(date).add(days, "day").format("YYYY-MM-DD"));
   return (
@@ -87,6 +92,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
                 {canExport && <MenuItem component="a" href={reportHref} target="_blank" rel="noopener" onClick={() => setMoreAnchor(null)}><ListItemIcon><PrintOutlined fontSize="small" /></ListItemIcon>Export PDF</MenuItem>}
                 {/* EPS keeps the site road register that contractors pick road segments from. */}
                 {canExport && <MenuItem component={RouterLink} to="/site-coordination/roads" onClick={() => setMoreAnchor(null)}><ListItemIcon><AddRoadOutlined fontSize="small" /></ListItemIcon>Road register</MenuItem>}
+                {canManageItemTypes && <MenuItem component={RouterLink} to="/site-coordination/item-types" onClick={() => setMoreAnchor(null)}><ListItemIcon><TuneOutlined fontSize="small" /></ListItemIcon>Item types</MenuItem>}
               </Menu>
             </>}
           </Stack>
@@ -103,7 +109,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
       {!compact && !phone && isFiltered && <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap sx={{ px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider", bgcolor: "action.hover" }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>กำลังกรอง · แสดง {items.length} จาก {data.items.length} งาน</Typography>
         {contractorIds && <Chip size="small" label={`Contractor: ${data.contractors.filter((c) => contractorIds.has(c.id)).map((c) => c.code).join(", ")}`} onDelete={() => { selectItem(null); setContractorIds(null); }} />}
-        {typeFiltered && <Chip size="small" label={`Type: ${types.size ? [...types].map((t) => ICON_LABELS[t]).join(", ") : "None"}`} onDelete={() => { selectItem(null); setTypes(new Set(COORDINATION_ICONS)); }} />}
+        {typeFiltered && <Chip size="small" label={`Type: ${types.size ? [...types].map((t) => typeByCode.get(t)?.labelTh ?? t).join(", ") : "None"}`} onDelete={() => { selectItem(null); setTypes(new Set(itemTypes.map((t) => t.code))); }} />}
         {q && <Chip size="small" label={`Search: "${search.trim()}"`} onDelete={() => setSearch("")} />}
         <Button startIcon={<FilterAltOffOutlined fontSize="small" />} onClick={clearFilters} sx={{ ml: "auto" }}>Clear filters</Button>
       </Stack>}
@@ -111,7 +117,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
       <Box sx={phone ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } : { display: "grid", gridTemplateColumns: { xs: "1fr", lg: !compact && (display.jobList || selected) ? "minmax(0, 1fr) 360px" : "1fr" }, ...(fill && { flex: 1, minHeight: 0, gridTemplateRows: "minmax(0, 1fr)" }) }}>
       <Box ref={mapBoxRef} sx={{ position: "relative", minWidth: 0, scrollMarginTop: 64, ...(fill && { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }) }}>
         {data.lock && <DayLockStamp lock={data.lock} date={date} small={compact} />}
-        <Suspense fallback={<BlockSkeleton height={compact ? 390 : 620} />}><CoordinationCanvas map={data.map} contractors={data.contractors} items={items} selectedId={selectedId} draft={draft} draftId={working?.id} tool={tool} compact={compact} fill={fill} placing={Boolean(placing)} onPlace={placeItem} onCancelPlace={() => setPlacing(null)}
+        <Suspense fallback={<BlockSkeleton height={compact ? 390 : 620} />}><CoordinationCanvas map={data.map} contractors={data.contractors} items={items} itemTypes={itemTypes} selectedId={selectedId} draft={draft} draftId={working?.id} tool={tool} compact={compact} fill={fill} placing={Boolean(placing)} onPlace={placeItem} onCancelPlace={() => setPlacing(null)}
           onSelect={selectItem} onChange={patchItem} onFinish={finish}
           onDeselect={() => selectItem(null)}
           textEditing={textEditId !== null && textEditId === working?.id} onEditText={() => { if (workingRef.current) setTextEditId(workingRef.current.id); }}
@@ -126,7 +132,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
               <IconButton size="small" aria-label="Close details" onClick={() => selectItem(null)} sx={{ p: 0.25, mr: -0.75 }}><CloseOutlined sx={{ fontSize: 16 }} /></IconButton>
             </Stack>
             <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
-              {company?.name} · {ICON_LABELS[(draft ?? selected).icon]} · {areaLabel(draft ?? selected, true)}
+              {company?.name} · {typeByCode.get((draft ?? selected).icon)?.labelTh ?? (draft ?? selected).icon} · {areaLabel(draft ?? selected, true)}
             </Typography>
             {(draft?.note ?? selected.note) && <Typography variant="body2" sx={{ whiteSpace: "pre-line", mt: 0.5 }}>{draft?.note ?? selected.note}</Typography>}
           </Box>
@@ -157,7 +163,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
         </Stack>}
       </Box>
       {!compact && selected && wide ? <Box sx={{ borderLeft: "1px solid", borderColor: "divider", height: "100%", minHeight: 0 }}>{inspector}</Box>
-        : !compact && !phone && display.jobList && <CoordinationJobList embedded items={items} contractors={data.contractors} clashCodes={clashCodes} selectedId={selectedId} onSelect={selectItem} onCollapse={() => setDisplay({ ...display, jobList: false })}
+        : !compact && !phone && display.jobList && <CoordinationJobList embedded items={items} contractors={data.contractors} itemTypes={itemTypes} clashCodes={clashCodes} selectedId={selectedId} onSelect={selectItem} onCollapse={() => setDisplay({ ...display, jobList: false })}
           footer={<DayNote date={date} dayNote={data.dayNote} canEdit={!readOnly && data.canEditDayNote} onSave={(note) => saveDayNote.mutateAsync(note)} />} />}
       </Box>
       {/* Phone drawer: quick days, filters, display, EPS actions. */}
@@ -184,7 +190,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
       {/* Phone: the job list + day note get their own drawer (opened from the Jobs button on the map). */}
       {phone && <Drawer anchor="bottom" open={listOpen} onClose={() => setListOpen(false)}
         slotProps={{ paper: { sx: { maxHeight: "75dvh", borderTopLeftRadius: 16, borderTopRightRadius: 16, display: "flex", flexDirection: "column" } } }}>
-        <CoordinationJobList embedded items={items} contractors={data.contractors} clashCodes={clashCodes} selectedId={selectedId}
+        <CoordinationJobList embedded items={items} contractors={data.contractors} itemTypes={itemTypes} clashCodes={clashCodes} selectedId={selectedId}
           onSelect={(id) => { setListOpen(false); selectItem(id); }} onCollapse={() => setListOpen(false)}
           footer={<DayNote date={date} dayNote={data.dayNote} canEdit={!readOnly && data.canEditDayNote} onSave={(note) => saveDayNote.mutateAsync(note)} />} />
       </Drawer>}

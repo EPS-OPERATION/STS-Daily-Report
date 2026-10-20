@@ -1,4 +1,4 @@
-import { coordinationGeometryError, coordinationRouteClashes, coordinationToday, COORDINATION_ICONS, COORDINATION_MAX, COORDINATION_MIN, isEpsStaff, type CoordinationIcon, type CoordinationInput, type CoordinationItem, type CoordinationPoint } from "@sts/shared";
+import { coordinationGeometryError, coordinationRouteClashes, coordinationToday, COORDINATION_MAX, COORDINATION_MIN, isEpsStaff, type CoordinationInput, type CoordinationItem, type CoordinationPoint } from "@sts/shared";
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import Button from "@mui/material/Button";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -46,7 +46,8 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   const reportHref = `/site-coordination/report?${new URLSearchParams({ projectId: projectId ?? "", date, print: "1" })}`;
   // Filters: contractors (null = all), work types, free-text search (title / note / code).
   const [contractorIds, setContractorIds] = useState<Set<string> | null>(null);
-  const [types, setTypes] = useState<Set<CoordinationIcon>>(() => new Set(COORDINATION_ICONS));
+  const [types, setTypes] = useState<Set<string>>(() => new Set());
+  const knownTypeCodes = useRef<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [display, setDisplayState] = useState<MapDisplay>(loadMapDisplay);
   const setDisplay = (next: MapDisplay) => { setDisplayState(next); saveMapDisplay(next); };
@@ -86,6 +87,20 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   };
   const isEps = isEpsStaff(me.data?.data.user.role);
   const data = query.data?.data;
+  const itemTypes = data?.itemTypes ?? [];
+  // First load selects every type. Later refetches keep the user's choices and add types an admin just created.
+  useEffect(() => {
+    const list = data?.itemTypes;
+    if (!list) return;
+    const codes = list.map((t) => t.code);
+    setTypes((prev) => {
+      if (knownTypeCodes.current.size === 0) return new Set(codes);
+      const next = new Set([...prev].filter((code) => codes.includes(code)));
+      for (const code of codes) if (!knownTypeCodes.current.has(code)) next.add(code);
+      return next;
+    });
+    knownTypeCodes.current = new Set(codes);
+  }, [data?.itemTypes]);
   const selected = data?.items.find((v) => v.id === selectedId) ?? null;
   const company = data?.contractors.find((c) => c.id === (draft?.contractorId ?? selected?.contractorId));
   const editableCompanies = isEps
@@ -138,9 +153,9 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     && (display.roads || item.areaKind !== "route" || item.id === selectedId)
     && (!q || `${item.title} ${item.note ?? ""} ${data.contractors.find((c) => c.id === item.contractorId)?.code ?? ""}`.toLowerCase().includes(q))) ?? [],
   [data, contractorIds, types, display.roads, selectedId, q]);
-  const typeFiltered = types.size < COORDINATION_ICONS.length;
+  const typeFiltered = types.size < itemTypes.length;
   const isFiltered = Boolean(contractorIds) || typeFiltered || Boolean(q);
-  const clearFilters = () => { selectItem(null); setContractorIds(null); setTypes(new Set(COORDINATION_ICONS)); setSearch(""); };
+  const clearFilters = () => { selectItem(null); setContractorIds(null); setTypes(new Set(itemTypes.map((t) => t.code))); setSearch(""); };
   const updateWorking = (next: Working | null) => { workingRef.current = next; setWorking(next); };
   const finish = () => {
     const w = workingRef.current;
@@ -328,9 +343,9 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
       sx={{ whiteSpace: "nowrap", height: 40, bgcolor: mineActive ? undefined : "background.paper" }}>
       เฉพาะงานของฉัน{myCodes.length > 3 ? ` · ${myCodes.length} บริษัท` : myCodes.length ? ` · ${myCodes.join(", ")}` : ""}
     </Button> : null;
-  const typeCounts = new Map<CoordinationIcon, number>();
+  const typeCounts = new Map<string, number>();
   for (const item of data?.items ?? []) typeCounts.set(item.icon, (typeCounts.get(item.icon) ?? 0) + 1);
-  const typeControl = <TypeFilter selected={types} counts={typeCounts} onChange={(next) => { selectItem(null); setTypes(next); }} />;
+  const typeControl = <TypeFilter types={itemTypes} selected={types} counts={typeCounts} onChange={(next) => { selectItem(null); setTypes(next); }} />;
   const searchControl = <TextField size="small" placeholder="ค้นหางาน / หมายเหตุ" value={search} onChange={(e) => setSearch(e.target.value)} sx={{ width: { xs: "100%", sm: 220 } }}
     slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchOutlined fontSize="small" /></InputAdornment> } }} />;
   const filterControls = <>{dateControl}{contractorControl}</>;
@@ -339,6 +354,7 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     draft={draft}
     contractors={data?.contractors ?? []}
     editableContractors={editableCompanies}
+    itemTypes={itemTypes}
     drawing={tool === "polygon" || tool === "route"}
     clashWith={clashCodes(selected.id)}
     onDrawRoute={drawRoute}

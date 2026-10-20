@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { CoordinationInput, CoordinationPoint } from "@sts/shared";
 import type { QueryDb } from "@/db/client.js";
-import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItems, coordinationMaps, coordinationRoadSegments, projectContractors, users } from "@/db/schema/index.js";
+import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItemTypes, coordinationItems, coordinationMaps, coordinationRoadSegments, projectContractors, users } from "@/db/schema/index.js";
 
 export async function getMap(db: QueryDb, projectId: string, lock = false) {
   const query = db.select().from(coordinationMaps).where(eq(coordinationMaps.projectId, projectId)).limit(1);
@@ -131,6 +131,8 @@ export async function coordinationVersion(db: QueryDb, projectId: string, date: 
          from ${coordinationColors} where ${coordinationColors.projectId} = ${projectId}),
       (select count(*) || ':' || coalesce(max(${coordinationRoadSegments.updatedAt})::text, '')
          from ${coordinationRoadSegments} where ${coordinationRoadSegments.projectId} = ${projectId}),
+      (select count(*) || ':' || coalesce(max(${coordinationItemTypes.updatedAt})::text, '')
+         from ${coordinationItemTypes} where ${coordinationItemTypes.projectId} = ${projectId}),
       (select count(*) || ':' || coalesce(max(${contractors.updatedAt})::text, '')
          from ${projectContractors} inner join ${contractors} on ${projectContractors.contractorId} = ${contractors.id}
          where ${projectContractors.projectId} = ${projectId})

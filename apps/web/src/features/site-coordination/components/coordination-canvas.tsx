@@ -1,7 +1,7 @@
 import { alpha, keyframes, useTheme } from "@mui/material/styles";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Group, Image as CanvasImage, Layer, Rect, Stage, Text } from "react-konva";
-import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationPoint } from "@sts/shared";
+import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationItemType, CoordinationPoint } from "@sts/shared";
 import { COORDINATION_MAX, COORDINATION_MIN, coordinationGeometryError } from "@sts/shared";
 import { CanvasItem, REDUCED_MOTION, TapRipple, type AreaDrag, type CanvasItemActions, type IconDrag } from "./canvas-item.js";
 import type { MapDisplay } from "./map-filters.js";
@@ -40,7 +40,7 @@ import { layoutTextTitle } from "../utils/canvas-text.js";
 export type MapTool = "move" | "polygon" | "route";
 
 interface Props {
-  map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[];
+  map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[]; itemTypes: CoordinationItemType[];
   selectedId: string | null; draft: CoordinationInput | null; draftId?: string; tool: MapTool; compact?: boolean;
   onSelect: (id: string) => void; onChange: (patch: Partial<CoordinationInput>) => void; onFinish: () => void;
   onDeselect: () => void; textEditing: boolean; onEditText: () => void;
@@ -104,7 +104,7 @@ const isCoarsePointer = () => typeof window !== "undefined" && Boolean(window.ma
 
 const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true, markSize: MARK_SCALE };
 
-export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roadNames = [] }: Props) {
+export function CoordinationCanvas({ map, contractors, items, itemTypes = [], selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roadNames = [] }: Props) {
   const theme = useTheme();
   // Point-by-point drawing: a free-shape area (closed) or a road route (open line).
   const drawingTool = tool === "polygon" || tool === "route";
@@ -399,6 +399,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
     setIconDrag: (drag) => dragApi.current.icon(drag),
     areaDragStart, areaDragNodeStart,
   }), []);
+  const iconKeyByCode = useMemo(() => new Map(itemTypes.map((t) => [t.code, t.iconKey])), [itemTypes]);
   const displayed = items.filter((item) => item.id !== draftId).map((item) => ({ item, id: item.id, editing: false }));
   if (draft) displayed.push({ item: { ...draft, id: draftId ?? "draft", mapId: map.id, projectId: map.projectId, revision: 0, createdAt: "", updatedAt: "" }, id: draftId ?? "draft", editing: true });
   displayed.sort((a, b) => Number(a.id === selectedId || a.editing) - Number(b.id === selectedId || b.editing));
@@ -468,7 +469,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
         <JobsLayer api={dragApi} listening={!placing}>{(areaDrag, iconDrag) => <>
           {displayed.map(({ item, id, editing }) => {
             const company = companyById.get(item.contractorId);
-            return <CanvasItem key={id} item={item} id={id} editing={editing} selected={id === selectedId || editing} hasDraft={Boolean(draft)} focus={Boolean(selectedId || draft)}
+            return <CanvasItem key={id} item={item} iconKey={iconKeyByCode.get(item.icon) ?? "map-pin"} id={id} editing={editing} selected={id === selectedId || editing} hasDraft={Boolean(draft)} focus={Boolean(selectedId || draft)}
               color={company?.color ?? theme.palette.primary.main} code={company?.code} clash={item.areaKind === "route" && Boolean(clashes.get(id))}
               scale={unit} tool={tool} drawingTool={drawingTool} textEditing={textEditing} dragging={editing && dragging} display={display}
               dragOffset={areaDrag?.id === id ? areaDrag : null} iconDrag={iconDrag?.id === id ? iconDrag : null} mapWidth={map.width} mapHeight={map.height} coarse={coarse}

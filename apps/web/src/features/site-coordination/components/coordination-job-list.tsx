@@ -1,5 +1,4 @@
-import type { CoordinationContractor, CoordinationItem } from "@sts/shared";
-import TextFieldsOutlined from "@mui/icons-material/TextFieldsOutlined";
+import type { CoordinationContractor, CoordinationItem, CoordinationItemType } from "@sts/shared";
 import ChevronRightOutlined from "@mui/icons-material/ChevronRightOutlined";
 import ExpandLessOutlined from "@mui/icons-material/ExpandLessOutlined";
 import InboxOutlined from "@mui/icons-material/InboxOutlined";
@@ -10,16 +9,16 @@ import Tooltip from "@mui/material/Tooltip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
-import { ICON_LABELS } from "../types/icon-labels.js";
 import { EmptySection } from "@/components/ui/empty-state.js";
 import { TOKENS } from "@/app/theme/tokens.js";
-import { MachineGlyph } from "./machine-icon.js";
+import { CoordinationGlyph } from "./coordination-icon.js";
 
 // Every job of the day under the map (same contractor filter as the map), so the detail behind
 // each short title — the note — stays readable without opening jobs one by one.
 export function CoordinationJobList({
   items,
   contractors,
+  itemTypes = [],
   selectedId,
   onSelect,
   embedded = false,
@@ -33,6 +32,7 @@ export function CoordinationJobList({
   embedded?: boolean;
   items: CoordinationItem[];
   contractors: CoordinationContractor[];
+  itemTypes: CoordinationItemType[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   /** Folds the panel away (the map shows a tab to bring it back). */
@@ -41,6 +41,7 @@ export function CoordinationJobList({
   footer?: ReactNode;
 }) {
   const byId = new Map(contractors.map((c) => [c.id, c]));
+  const typeByCode = new Map(itemTypes.map((t) => [t.code, t]));
   const rows = [...items].sort((a, b) => (byId.get(a.contractorId)?.code ?? "").localeCompare(byId.get(b.contractorId)?.code ?? ""));
   const frame = embedded
     ? { borderTop: { xs: "1px solid", lg: "none" }, borderLeft: { lg: "1px solid" }, borderColor: "divider", height: { lg: "100%" }, display: "flex", flexDirection: "column" as const, minHeight: 0 }
@@ -91,7 +92,7 @@ export function CoordinationJobList({
             }}
           >
             <Box sx={{ width: 32, flexShrink: 0, display: "flex", justifyContent: "center", pt: 0.25 }}>
-              {item.icon === "text" ? <TextFieldsOutlined fontSize="small" sx={{ color }} /> : <MachineGlyph icon={item.icon} color={color} />}
+              <CoordinationGlyph iconKey={typeByCode.get(item.icon)?.iconKey ?? "map-pin"} size={22} color={color} />
             </Box>
             <Box sx={{ minWidth: 0, flex: 1 }}>
               <Stack direction="row" spacing={0.75} alignItems="center">
@@ -100,7 +101,7 @@ export function CoordinationJobList({
                   {c?.code ?? "—"}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" noWrap>
-                  {c?.name} · {ICON_LABELS[item.icon]}
+                  {c?.name} · {typeByCode.get(item.icon)?.labelTh ?? item.icon}
                 </Typography>
                 {clashCodes?.(item.id).length ? (
                   <Chip size="small" color="error" label={`ทับเส้นทาง ${clashCodes(item.id).join(", ")}`} sx={{ height: 20, flexShrink: 0 }} />
