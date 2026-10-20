@@ -75,7 +75,12 @@ export function ActivityRow({
               )}
             />
             {timed ? (
-              <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.25}
+                alignItems={{ xs: "stretch", sm: "center" }}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
+              >
                 {(["startTime", "endTime"] as const).map((k) => (
                   <Controller
                     key={k}
@@ -89,8 +94,7 @@ export function ActivityRow({
                         onBlur={field.onBlur}
                         step={30}
                         after={k === "endTime" ? activityStart : undefined}
-                        fullWidth={false}
-                        sx={{ width: 155 }}
+                        sx={{ width: { xs: "100%", sm: 155 }, minWidth: { xs: 0, sm: 155 } }}
                         error={Boolean(fieldState.error)}
                         helperText={fieldState.error?.message}
                       />

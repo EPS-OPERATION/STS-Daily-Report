@@ -19,7 +19,16 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
           </Typography>
         ) : null}
       </Stack>
-      {actions ? <Stack direction="row" spacing={1}>{actions}</Stack> : null}
+      {actions ? (
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", md: "flex-end" }, minWidth: 0 }}
+        >
+          {actions}
+        </Stack>
+      ) : null}
     </Stack>
   );
 }
