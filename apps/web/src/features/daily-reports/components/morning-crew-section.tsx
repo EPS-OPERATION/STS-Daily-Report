@@ -44,9 +44,9 @@ export function MorningCrewSection({
   const errors = formState.errors.crews?.[discipline];
   const listError = errors?.allocations?.root?.message ?? errors?.allocations?.message;
 
-  // A freshly opened discipline starts with 3 empty lines; unused ones are simply left blank.
+  // A freshly opened discipline starts with one empty line; "เพิ่มแถว" (or Enter in the last row) adds more.
   useEffect(() => {
-    if (getValues(`crews.${discipline}.allocations`).length === 0) activities.append([newActivity(0), newActivity(0), newActivity(0)]);
+    if (getValues(`crews.${discipline}.allocations`).length === 0) activities.append(newActivity(0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
