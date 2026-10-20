@@ -6,7 +6,7 @@ import { getProjectById } from "@/modules/projects/project.repository.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { coordinationVersion } from "./coordination.repository.js";
 import { deleteRoadSegment, findRoadSegmentByName, getRoadSegment, insertRoadSegment, listRoadSegments, updateRoadSegment, type RoadSegmentInput } from "./coordination.repository.js";
-import { findItemTypeByCode, listItemTypes } from "./coordination-item-type.repository.js";
+import { findItemTypeByCode, listItemTypesWithDefaults } from "./coordination-item-type.repository.js";
 import { deleteDayLock, deleteDayNote, deleteItem, getDayLock, getDayNote, getItem, getMap, insertDayLock, insertColor, insertItem, listCoordinationContractors, listCoordinationContractorsByIds, listItems, updateColor, updateItem, upsertDayNote } from "./coordination.repository.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 
@@ -50,7 +50,7 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
   const db = getDb();
   const map = await getMap(db, projectId);
   if (!map) throw new NotFoundError("This project has no coordination drawing configured");
-  const [initialProjectCompanies, items, itemTypes, dayNote, lock, version] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), listItemTypes(db, projectId, true), getDayNote(db, projectId, date), getDayLock(db, projectId, date), coordinationVersion(db, projectId, date)]);
+  const [initialProjectCompanies, items, itemTypes, dayNote, lock, version] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), listItemTypesWithDefaults(db, projectId, true), getDayNote(db, projectId, date), getDayLock(db, projectId, date), coordinationVersion(db, projectId, date)]);
   const missingContractorIds = [...new Set(items.map((i) => i.contractorId))].filter((id) => !initialProjectCompanies.some((c) => c.id === id));
   const extraCompanies = missingContractorIds.length > 0 ? await listCoordinationContractorsByIds(db, projectId, missingContractorIds) : [];
   const initialCompanies = [...initialProjectCompanies, ...extraCompanies];

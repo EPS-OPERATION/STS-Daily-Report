@@ -10,6 +10,7 @@ import {
   findItemTypeById,
   insertItemType,
   listItemTypes,
+  listItemTypesWithDefaults,
   nextItemTypeSortOrder,
   reorderItemTypes,
   updateItemType,
@@ -70,7 +71,7 @@ export interface UpdateItemTypeInput {
 export async function listItemTypesService(auth: AuthContext, projectId: string, includeInactive = true) {
   assertAdmin(auth);
   await assertProject(projectId);
-  return listItemTypes(getDb(), projectId, includeInactive);
+  return listItemTypesWithDefaults(getDb(), projectId, includeInactive);
 }
 
 export async function createItemTypeService(auth: AuthContext, projectId: string, input: CreateItemTypeInput): Promise<CoordinationItemType> {

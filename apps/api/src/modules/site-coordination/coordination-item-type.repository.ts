@@ -1,5 +1,5 @@
 import { and, asc, count, eq, max } from "drizzle-orm";
-import type { CoordinationItemType } from "@sts/shared";
+import { COORDINATION_ITEM_TYPE_DEFAULTS, type CoordinationItemType } from "@sts/shared";
 import type { Db, QueryDb } from "@/db/client.js";
 import { coordinationItemTypes, coordinationItems } from "@/db/schema/index.js";
 
@@ -20,6 +20,19 @@ export async function listItemTypes(db: QueryDb, projectId: string, includeInact
     .from(coordinationItemTypes)
     .where(and(eq(coordinationItemTypes.projectId, projectId), includeInactive ? undefined : eq(coordinationItemTypes.isActive, true)))
     .orderBy(asc(coordinationItemTypes.sortOrder), asc(coordinationItemTypes.code));
+}
+
+// A project with no item types at all (created after migration 0044, or a database that missed its backfill)
+// would show an empty "Add item" menu and an empty admin list. The built-in types are inserted on first read.
+// An initialised project never reads as empty: the road and text types are required and cannot be deactivated.
+export async function listItemTypesWithDefaults(db: QueryDb, projectId: string, includeInactive = false): Promise<CoordinationItemType[]> {
+  const rows = await listItemTypes(db, projectId, includeInactive);
+  if (rows.length > 0) return rows;
+  await db
+    .insert(coordinationItemTypes)
+    .values(COORDINATION_ITEM_TYPE_DEFAULTS.map((t) => ({ projectId, code: t.code, label: t.label, labelTh: t.labelTh, iconKey: t.iconKey, sortOrder: t.sortOrder, isActive: true, isSystem: true })))
+    .onConflictDoNothing({ target: [coordinationItemTypes.projectId, coordinationItemTypes.code] });
+  return listItemTypes(db, projectId, includeInactive);
 }
 
 export async function findItemTypeByCode(db: QueryDb, projectId: string, code: string): Promise<CoordinationItemType | null> {
