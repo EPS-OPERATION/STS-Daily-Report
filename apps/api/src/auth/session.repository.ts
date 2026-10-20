@@ -1,5 +1,5 @@
 import { and, eq, isNull, lt } from "drizzle-orm";
-import { sessions } from "@/db/schema/index.js";
+import { sessions, users } from "@/db/schema/index.js";
 import type { QueryDb as Db } from "@/db/client.js";
 
 export interface NewSession {
@@ -13,8 +13,14 @@ export async function insertSession(db: Db, input: NewSession) {
   return rows[0]!;
 }
 
-export async function findSessionByTokenHash(db: Db, tokenHash: string) {
-  const rows = await db.select().from(sessions).where(eq(sessions.tokenHash, tokenHash)).limit(1);
+// Session and its user in one round trip: authentication runs on every request, so each extra query is paid per call.
+export async function findSessionWithUser(db: Db, tokenHash: string) {
+  const rows = await db
+    .select({ session: sessions, user: users })
+    .from(sessions)
+    .innerJoin(users, eq(users.id, sessions.userId))
+    .where(eq(sessions.tokenHash, tokenHash))
+    .limit(1);
   return rows[0] ?? null;
 }
 
