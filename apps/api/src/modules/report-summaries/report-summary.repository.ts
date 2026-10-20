@@ -130,6 +130,23 @@ export async function listReportHoursInRange(db: Db, projectId: string, from: st
     .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReports.reportDate, from, to)));
 }
 
+// NMH of every sent report in the range, summed by the database (same rule as manHours() in @sts/shared:
+// headcount × (normal hours + OT); itemised OT counts only the people who stayed, in man-hours). Use this
+// instead of loading rows when only the total is needed — the all-time total grows with the project.
+export async function sumReportManHours(db: Db, projectId: string, from: string, to: string): Promise<number> {
+  const headcount = sql`(${dailyReports.thaiMale} + ${dailyReports.thaiFemale} + ${dailyReports.foreignMale} + ${dailyReports.foreignFemale})`;
+  const normal = sql`coalesce(${dailyReports.workHours}, 0)`;
+  const [row] = await db
+    .select({
+      total: sql<string | null>`sum(case when ${dailyReports.otManHours} is not null
+        then ${headcount} * ${normal} + ${dailyReports.otManHours}
+        else ${headcount} * (${normal} + coalesce(${dailyReports.otHours}, 0)) end)`,
+    })
+    .from(dailyReports)
+    .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReports.reportDate, from, to)));
+  return Number(row?.total ?? 0);
+}
+
 export async function countRequestsByStatusInRange(db: Db, projectId: string, from: string, to: string) {
   return db
     .select({ status: inspectionRequests.status, n: count() })

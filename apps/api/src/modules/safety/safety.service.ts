@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { ACCIDENT_CATEGORY_CODES, INJURY_CATEGORIES, isEpsStaff, manHours, type AccidentCategory, type FindingType } from "@sts/shared";
+import { ACCIDENT_CATEGORY_CODES, INJURY_CATEGORIES, isEpsStaff, type AccidentCategory, type FindingType } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import type { AuthContext } from "@/auth/auth.types.js";
-import { listReportHoursInRange } from "@/modules/report-summaries/index.js";
+import { sumReportManHours } from "@/modules/report-summaries/index.js";
 import { getProjectById } from "@/modules/projects/project.repository.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import { getStorage } from "@/shared/storage/index.js";
@@ -150,12 +150,12 @@ export async function safetyStatsService(projectId: string, from: string, to: st
   assertRange(from, to);
   const yearStart = `${to.slice(0, 4)}-01-01`;
   const start = (await firstReportDate(db, projectId)) ?? from;
-  const [allAccidents, findingsInRange, findingsYear, hoursRange, hoursTotal] = await Promise.all([
+  const [allAccidents, findingsInRange, findingsYear, manHoursPeriod, manHoursTotal] = await Promise.all([
     listAccidents(db, projectId, start < yearStart ? start : yearStart, to),
     listFindings(db, projectId, from, to),
     listFindings(db, projectId, yearStart, to),
-    listReportHoursInRange(db, projectId, from, to),
-    listReportHoursInRange(db, projectId, start, to),
+    sumReportManHours(db, projectId, from, to),
+    sumReportManHours(db, projectId, start, to),
   ]);
 
   const inRange = (d: string, a: string, b: string) => d >= a && d <= b;
@@ -179,13 +179,6 @@ export async function safetyStatsService(projectId: string, from: string, to: st
   }
   highest = Math.max(highest, daysWithoutAccident);
   const lastLti = allAccidents.filter((a) => a.category === "lti").at(-1)?.reportDate ?? null;
-
-  const nmh = (rows: typeof hoursRange) =>
-    rows.reduce((s, h) => {
-      const headcount = h.thaiMale + h.thaiFemale + h.foreignMale + h.foreignFemale;
-      // Itemised OT counts only the people who stayed; older reports: everyone × OT hours.
-      return s + (h.otManHours !== null ? manHours(headcount, h.workHours, 0) + h.otManHours : manHours(headcount, h.workHours, h.otHours));
-    }, 0);
 
   const done = findingsInRange.filter((f) => f.status === "done").length;
   const byContractor = (type: FindingType) => {
@@ -225,8 +218,8 @@ export async function safetyStatsService(projectId: string, from: string, to: st
     daysWithoutAccident,
     highestDaysWithoutAccident: highest,
     lastLti,
-    manHoursPeriod: nmh(hoursRange),
-    manHoursTotal: nmh(hoursTotal),
+    manHoursPeriod,
+    manHoursTotal,
     unsafeAct: typeSummary("unsafe_act"),
     unsafeCondition: typeSummary("unsafe_condition"),
     monthly,
