@@ -32,7 +32,7 @@ export function useManpowerPage() {
   const queryProject = tooLong ? null : projectId;
   const summary = useManpowerSummary(queryProject, from, to);
   const positions = usePositionMix(queryProject, from, to);
-  const contractorsList = useContractors({ page: 1, pageSize: 100 });
+  const contractorsList = useContractors({ page: 1, pageSize: 100, projectId: projectId ?? undefined });
 
   const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
@@ -71,7 +71,10 @@ export function useManpowerPage() {
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [data?.contractors, positions.data?.data]);
 
-  const colors = useMemo(() => contractorColorMap(allCodes), [allCodes]);
+  const colors = useMemo(
+    () => contractorColorMap(allCodes, contractorsList.data?.data),
+    [allCodes, contractorsList.data?.data],
+  );
 
   // Read selected contractors from URL query or default to all
   const selectedCodes = useMemo<Set<string>>(() => {

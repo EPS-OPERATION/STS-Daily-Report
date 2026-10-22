@@ -1,5 +1,5 @@
 import { and, asc, eq } from "drizzle-orm";
-import { contractors, projectContractors, projects } from "@/db/schema/index.js";
+import { contractors, coordinationColors, projectContractors, projects } from "@/db/schema/index.js";
 import type { Db } from "@/db/client.js";
 
 export async function listProjects(db: Db) {
@@ -12,9 +12,17 @@ export async function listProjects(db: Db) {
 
 export async function listProjectContractors(db: Db, projectId: string) {
   return db
-    .select({ id: contractors.id, code: contractors.code, name: contractors.name })
+    .select({ id: contractors.id, code: contractors.code, name: contractors.name, color: coordinationColors.color })
     .from(projectContractors)
     .innerJoin(contractors, eq(projectContractors.contractorId, contractors.id))
+    // The colour EPS set on the coordination map. Charts use the same colour as the Map/registry.
+    .leftJoin(
+      coordinationColors,
+      and(
+        eq(coordinationColors.projectId, projectContractors.projectId),
+        eq(coordinationColors.contractorId, contractors.id),
+      ),
+    )
     .where(and(eq(projectContractors.projectId, projectId), eq(contractors.isContractor, true), eq(contractors.active, true)))
     .orderBy(asc(contractors.code));
 }

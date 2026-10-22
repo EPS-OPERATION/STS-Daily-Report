@@ -5,7 +5,7 @@ import dayjs from "dayjs";
 import { useSearchParams } from "react-router-dom";
 import { contractorColorMap } from "@/features/contractors/index.js";
 import { todayIso } from "@/lib/dates.js";
-import { useCurrentProject } from "@/features/projects/index.js";
+import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
 import { FindingPie, StatisticTable, periodLabel, useSafetyFindings, useSafetyStats } from "@/features/safety/index.js";
 import { PrintMessage, PrintSheet, usePrintWhenReady } from "@/components/print/print-sheet.js";
 
@@ -21,16 +21,17 @@ export function SafetyReportPrintPage() {
   const { projectId } = useCurrentProject();
   const stats = useSafetyStats(projectId, from, to);
   const findings = useSafetyFindings(projectId, from, to);
+  const contractors = useProjectContractors(projectId);
 
   const s = stats.data?.data;
   const rows = findings.data?.data ?? [];
-  const ready = Boolean(s && findings.data);
+  const ready = Boolean(s && findings.data && contractors.data);
   const period = periodLabel(from, to);
-  const colors = contractorColorMap(rows.map((r) => r.contractorCode ?? "ไม่ระบุ"));
+  const colors = contractorColorMap(rows.map((r) => r.contractorCode ?? "ไม่ระบุ"), contractors.data?.data);
 
   usePrintWhenReady(ready, `Safety report ${from}${from === to ? "" : `_${to}`}`);
 
-  const loadError = (stats.error as Error | null) ?? (findings.error as Error | null);
+  const loadError = (stats.error as Error | null) ?? (findings.error as Error | null) ?? (contractors.error as Error | null);
   if (loadError) {
     return (
       <PrintMessage tone="error">โหลดรายงานไม่สำเร็จ — {loadError.message}</PrintMessage>

@@ -111,7 +111,7 @@ export function QaqcBoardPage() {
     setParams(p, { replace: true });
   };
 
-  const colors = useMemo(() => contractorColorMap(allCodes), [allCodes]);
+  const colors = useMemo(() => contractorColorMap(allCodes, projectContractors), [allCodes, projectContractors]);
 
   const filterItems = useMemo(() => {
     return allCodes.map((code) => {
@@ -146,9 +146,9 @@ export function QaqcBoardPage() {
 
   const contractorShares = useMemo<Share[]>(() => {
     const list = tally(visibleHistoryRows, (r) => r.contractorCode || "—", (r) => r.contractorName || r.contractorCode);
-    const cColors = contractorColorMap(list.map((c) => c.code));
+    const cColors = contractorColorMap(list.map((c) => c.code), projectContractors);
     return list.map((c) => ({ ...c, color: cColors.get(c.code) ?? CHART_SERIES[0]! }));
-  }, [visibleHistoryRows]);
+  }, [visibleHistoryRows, projectContractors]);
 
   const buildingShares = useMemo<Share[]>(
     () =>

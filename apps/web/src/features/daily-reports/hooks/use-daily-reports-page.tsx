@@ -93,7 +93,7 @@ export function useDailyReportsPage() {
     setParams(p, { replace: true });
   };
 
-  const colors = useMemo(() => contractorColorMap(allCodes), [allCodes]);
+  const colors = useMemo(() => contractorColorMap(allCodes, projectContractors), [allCodes, projectContractors]);
 
   const filterItems = useMemo(() => {
     return allCodes.map((code) => {

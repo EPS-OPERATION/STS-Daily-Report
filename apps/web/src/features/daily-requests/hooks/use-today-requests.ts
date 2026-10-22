@@ -114,7 +114,7 @@ export function useTodayRequests() {
   const dayInspections = isRange ? inspections.filter((i) => i.inspectionDate === selectedDay) : inspections;
   const dayAllRoads = isRange ? allRoads.filter((r) => r.targetDate === selectedDay) : allRoads;
 
-  const colors = useMemo(() => contractorColorMap(allCodes), [allCodes]);
+  const colors = useMemo(() => contractorColorMap(allCodes, projectContractors), [allCodes, projectContractors]);
   const filterItems = allCodes.map((code) => {
     const n =
       view === "plan"

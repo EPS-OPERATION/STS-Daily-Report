@@ -11,6 +11,8 @@ export interface ProjectContractorOption {
   id: string;
   code: string;
   name: string;
+  /** Colour EPS set for this company on the coordination map. */
+  color: string | null;
 }
 
 export const projectApi = {
