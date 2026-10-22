@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { PageHeader } from "@/components/ui/page-header.js";
@@ -20,7 +21,9 @@ import { Figure } from "../components/manpower-parts.js";
 // with Excel-style checkbox filter for contractors.
 export function ManpowerPage() {
   const ed = useManpowerPage();
-  const { from, to, span, tooLong, summary, setRange, thisWeek, thisMonth, data, error, allCodes, selectedCodes, updateContractorSelection, selectAllContractors, filterItems, isFiltered, isNoneSelected, totals, wide } = ed;
+  const { from, to, span, tooLong, summary, setRange, showToday, activePreset, thisWeek, thisMonth, data, error, allCodes, selectedCodes, updateContractorSelection, selectAllContractors, filterItems, isFiltered, isNoneSelected, totals, wide } = ed;
+  // Shown companies whose NMH includes afternoon-only days (standard 8 h per person).
+  const estimated = (data?.contractors ?? []).filter((c) => c.estimatedDays > 0 && selectedCodes.has(c.contractorCode));
 
   return (
     <Box>
@@ -44,10 +47,13 @@ export function ManpowerPage() {
               format="D MMM YYYY"
               slotProps={{ textField: { size: "small", sx: { width: 155 } } }}
             />
-            <Button variant="outlined" onClick={thisWeek}>
+            <Button variant={activePreset === "today" ? "contained" : "outlined"} onClick={showToday}>
+              Today
+            </Button>
+            <Button variant={activePreset === "week" ? "contained" : "outlined"} onClick={thisWeek}>
               This week
             </Button>
-            <Button variant="outlined" onClick={thisMonth}>
+            <Button variant={activePreset === "month" ? "contained" : "outlined"} onClick={thisMonth}>
               This month
             </Button>
             {allCodes.length > 0 && (
@@ -108,6 +114,12 @@ export function ManpowerPage() {
               value={isFiltered ? `${totals.count}/${allCodes.length}` : totals.count}
             />
           </Stack>
+          {estimated.length > 0 ? (
+            <Typography variant="caption" color="text.secondary">
+              * NMH บางวันเป็นค่าประมาณ — ส่งแต่รายงานบ่าย จึงคิดชั่วโมงปกติ 8 ชม./คน:{" "}
+              {estimated.map((c) => `${c.contractorCode} ${c.estimatedDays} วัน`).join(", ")}
+            </Typography>
+          ) : null}
 
           <ManpowerCharts ed={ed} />
         </Stack>

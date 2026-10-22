@@ -17,7 +17,6 @@ import {
 import { POSITIONS } from "@sts/shared";
 import dayjs from "dayjs";
 import { CHART_OTHER, CHART_PRIMARY, CHART_SERIES } from "@/app/theme/chart-palette.js";
-import { formatThaiDate } from "@/lib/dates.js";
 import type { ManpowerSummary, PositionMixRow } from "../types/report-summary.types.js";
 import { EmptySection } from "@/components/ui/empty-state.js";
 import { formatNumber } from "@/lib/format.js";
@@ -136,6 +135,9 @@ export function ManDayByContractorChart({
   const codes = allCodes.filter((c) => !hidden.has(c));
   const totals = days.map((d) => codes.reduce((s, c) => s + (perDay.get(c)?.get(d) ?? 0), 0));
   const week = days.length <= 7;
+  // Long ranges: short d/m labels, every step-th one shown, tilted only when still crowded.
+  const step = Math.ceil(days.length / 16);
+  const tilt = days.length > 16;
   const toggle = (c: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -145,7 +147,12 @@ export function ManDayByContractorChart({
     });
   return (
     <Box>
-      <Stack direction="row" alignItems="center" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: legend ? 1 : 0, justifyContent: "flex-end" }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{ mb: legend ? 1 : 0, height: 32, overflowX: "auto", overflowY: "hidden", scrollbarWidth: "thin", "& > *": { flexShrink: 0 }, "& > :first-child": { ml: "auto" } }}
+      >
         <Typography variant="caption" color="text.secondary">
           ผู้รับเหมา:
         </Typography>
@@ -174,25 +181,27 @@ export function ManDayByContractorChart({
       <BarChart
         height={Math.max(160, height - 32)}
         borderRadius={week ? 4 : 2}
-        margin={{ top: legend ? 24 : 12, bottom: 56 }}
+        margin={{ top: legend ? 24 : 12, bottom: tilt ? 40 : 8 }}
         xAxis={[
           {
             scaleType: "band",
             data: days,
+            // Few days: narrower bars instead of one block across the whole chart.
+            categoryGapRatio: days.length <= 2 ? 0.7 : days.length <= 7 ? 0.4 : 0.2,
             valueFormatter: (d: string) => {
               const djs = dayjs(d);
               if (week) {
-                return `${DAY_TH[(djs.day() + 6) % 7]} ${formatThaiDate(d)}`;
+                // Flat labels: weekday + day/month, short enough not to collide (the tooltip has the full date).
+                return `${DAY_TH[(djs.day() + 6) % 7]} ${djs.date()}/${djs.month() + 1}`;
               }
-              return formatThaiDate(d);
+              return `${djs.date()}/${djs.month() + 1}`;
             },
-            tickLabelInterval: () => true,
-            tickLabelStyle: {
-              fontSize: days.length > 20 ? 10 : 11,
-              angle: -45,
-              textAnchor: "end",
-            },
-            height: 56,
+            tickLabelInterval: (_: string, i: number) => i % step === 0,
+            // Flat up to 16 days; longer ranges tilt the short labels a little.
+            tickLabelStyle: tilt
+              ? { fontSize: 11, angle: -45, textAnchor: "end" }
+              : { fontSize: 12, angle: 0, textAnchor: "middle" },
+            height: tilt ? 40 : 28,
           },
         ]}
         // 15% headroom so the day total above the tallest bar is never clipped.
@@ -281,18 +290,28 @@ export function ManpowerTrendChart({ days, daily, height = 300 }: { days: string
 // Headcount by position, grouped by contractor (actual count in range).
 export function PositionByContractorChart({ rows, colors, height = 320 }: { rows: PositionMixRow[]; colors: Map<string, string>; height?: number }) {
   if (rows.length === 0) return <EmptySection title="ยังไม่มีข้อมูลตำแหน่งในช่วงนี้" height={height} />;
-  // Positions in the form's order, only those anyone used this week.
-  const positions = POSITIONS.filter((p) => rows.some((r) => r.position === p.code));
+  // Positions anyone used in the range, biggest first; each is one bar stacked by contractor.
+  const totalOf = (code: string) => rows.filter((r) => r.position === code).reduce((s, r) => s + (r.totalHeadcount ?? r.avgPerDay ?? 0), 0);
+  const positions = POSITIONS.filter((p) => rows.some((r) => r.position === p.code)).sort((a, b) => totalOf(b.code) - totalOf(a.code));
   const codes = [...new Set(rows.map((r) => r.contractorCode))].sort((a, b) => a.localeCompare(b));
+  const tilt = positions.length > 6;
   return (
     <BarChart
       height={height}
       borderRadius={4}
-      xAxis={[{ scaleType: "band", data: positions.map((p) => p.label), tickLabelInterval: () => true, tickLabelStyle: { fontSize: 11, angle: -30, textAnchor: "end" }, height: 64 }]}
+      xAxis={[{
+        scaleType: "band",
+        data: positions.map((p) => p.label),
+        categoryGapRatio: positions.length <= 3 ? 0.6 : 0.3,
+        tickLabelInterval: () => true,
+        tickLabelStyle: tilt ? { fontSize: 11, angle: -30, textAnchor: "end" } : { fontSize: 12, angle: 0, textAnchor: "middle" },
+        height: tilt ? 64 : 28,
+      }]}
       yAxis={[{ width: 44 }]}
       series={codes.map((code) => ({
         id: code,
         label: code,
+        stack: "total",
         color: colors.get(code) ?? CHART_OTHER,
         data: positions.map((p) => {
           const r = rows.find((row) => row.contractorCode === code && row.position === p.code);

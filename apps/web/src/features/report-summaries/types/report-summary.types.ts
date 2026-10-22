@@ -64,6 +64,8 @@ export interface ManpowerContractorTotals {
   manDays: number;
   manHours: number;
   reportedDays: number;
+  /** Days with only the afternoon report: NMH used the standard 8 h per person. */
+  estimatedDays: number;
   thaiMale: number;
   thaiFemale: number;
   foreignMale: number;

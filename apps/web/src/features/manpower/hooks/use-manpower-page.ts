@@ -18,9 +18,10 @@ export const MAX_DAYS = 62; // server limit per query
 export function useManpowerPage() {
   const [params, setParams] = useSearchParams();
   const today = todayIso();
-  const defaultFrom = mondayOf(today);
+  // Opens on today; This week / This month widen it.
+  const defaultFrom = today;
   const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : defaultFrom;
-  const rawTo = ISO_DATE.test(params.get("to") ?? "") ? params.get("to")! : addDaysIso(defaultFrom, 6);
+  const rawTo = ISO_DATE.test(params.get("to") ?? "") ? params.get("to")! : today;
   const from = rawFrom <= rawTo ? rawFrom : rawTo;
   const to = rawFrom <= rawTo ? rawTo : rawFrom;
   const span = dayjs(to).diff(dayjs(from), "day") + 1;
@@ -39,9 +40,16 @@ export function useManpowerPage() {
     p.set("to", t);
     setParams(p, { replace: true });
   };
-  const thisWeek = () => setRange(mondayOf(today), addDaysIso(mondayOf(today), 6));
-  const thisMonth = () =>
-    setRange(dayjs(today).startOf("month").format("YYYY-MM-DD"), dayjs(today).endOf("month").format("YYYY-MM-DD"));
+  const presets = {
+    today: [today, today],
+    week: [mondayOf(today), addDaysIso(mondayOf(today), 6)],
+    month: [dayjs(today).startOf("month").format("YYYY-MM-DD"), dayjs(today).endOf("month").format("YYYY-MM-DD")],
+  } as const;
+  const showToday = () => setRange(...presets.today);
+  const thisWeek = () => setRange(...presets.week);
+  const thisMonth = () => setRange(...presets.month);
+  // Which preset the shown range is (highlighted button), if any.
+  const activePreset = (Object.keys(presets) as (keyof typeof presets)[]).find((k) => presets[k][0] === from && presets[k][1] === to) ?? null;
 
   const data = summary.data?.data;
   const error = summary.error instanceof HttpError ? summary.error : null;
@@ -200,6 +208,8 @@ export function useManpowerPage() {
     positions,
     contractorsList,
     setRange,
+    showToday,
+    activePreset,
     thisWeek,
     thisMonth,
     data,

@@ -23,3 +23,14 @@ test("attendanceOf counts only the shifts that were submitted", () => {
   expect(morningOnly.manDays).toBeGreaterThan(0);
   expect(nothing.manDays).toBe(0);
 });
+
+test("an afternoon-only day counts the standard 8 h per person plus its OT (ZT 20 Oct: 87 people, 118 OT h)", () => {
+  const zt = attendanceOf({
+    morningStatus: "draft", eveningStatus: "submitted",
+    thaiMale: 0, thaiFemale: 0, foreignMale: 0, foreignFemale: 0,
+    eveningThaiMale: 60, eveningThaiFemale: 7, eveningForeignMale: 20, eveningForeignFemale: 0,
+    workHours: null, otHours: null, otManHours: 118,
+  });
+  expect(zt.manDays).toBe(87);
+  expect(zt.manHours).toBe(87 * 8 + 118);
+});

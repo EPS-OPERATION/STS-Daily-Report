@@ -1,4 +1,4 @@
-import { and, asc, between, count, desc, eq, ilike, sql } from "drizzle-orm";
+import { and, asc, between, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import { reportSent } from "@/db/report-filters.js";
 import { contractors, dailyReportAllocations, dailyReportMaterials, dailyReportPositions, dailyReports, inspectionRequests } from "@/db/schema/index.js";
@@ -97,7 +97,11 @@ export async function listAllocationsInRange(db: Db, projectId: string, from: st
     .where(
       and(
         eq(dailyReports.projectId, projectId),
-        eq(dailyReports.morningStatus, "submitted"),
+        // Morning plan rows, plus extra work added in the afternoon (also when no morning report was sent).
+        or(
+          eq(dailyReports.morningStatus, "submitted"),
+          and(eq(dailyReports.eveningStatus, "submitted"), eq(dailyReportAllocations.isAdditional, true)),
+        ),
         between(dailyReports.reportDate, from, to),
       ),
     );
@@ -154,8 +158,11 @@ export async function listPositionsInRange(db: Db, projectId: string, from: stri
     .where(
       and(
         eq(dailyReports.projectId, projectId),
-        eq(dailyReports.morningStatus, "submitted"),
-        eq(dailyReportPositions.shift, "morning"),
+        // The morning crew; the afternoon crew only when no morning report was sent.
+        or(
+          and(eq(dailyReports.morningStatus, "submitted"), eq(dailyReportPositions.shift, "morning")),
+          and(ne(dailyReports.morningStatus, "submitted"), eq(dailyReports.eveningStatus, "submitted"), eq(dailyReportPositions.shift, "evening")),
+        ),
         between(dailyReports.reportDate, from, to),
       ),
     );

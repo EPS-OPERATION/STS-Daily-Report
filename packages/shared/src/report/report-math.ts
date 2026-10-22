@@ -2,6 +2,10 @@ import { dayManpower } from "./allocation-time.js";
 
 export const round1 = (n: number) => Math.round(n * 10) / 10;
 
+// Normal hours per person for NMH when only the afternoon report was sent (it does not ask for hours):
+// the site day 08:00–17:00. Such days are flagged as estimated where totals are shown.
+export const STANDARD_WORK_HOURS = 8;
+
 export function addDays(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -36,5 +40,6 @@ export function attendanceOf(r: {
     r.eveningStatus === "submitted" && r.eveningThaiMale !== null
       ? r.eveningThaiMale + (r.eveningThaiFemale ?? 0) + (r.eveningForeignMale ?? 0) + (r.eveningForeignFemale ?? 0)
       : null;
-  return dayManpower({ morning, evening, workHours: r.workHours, otHours: r.otHours, otManHours: r.otManHours });
+  const workHours = r.workHours ?? (morning === null && evening !== null ? STANDARD_WORK_HOURS : null);
+  return dayManpower({ morning, evening, workHours, otHours: r.otHours, otManHours: r.otManHours });
 }

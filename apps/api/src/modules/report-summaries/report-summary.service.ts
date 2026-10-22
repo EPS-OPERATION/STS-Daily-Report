@@ -217,7 +217,7 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   ]);
   const byContractor = new Map<
     string,
-    { contractorId: string; contractorCode: string; manDays: number; manHours: number; reportedDays: number; thaiMale: number; thaiFemale: number; foreignMale: number; foreignFemale: number }
+    { contractorId: string; contractorCode: string; manDays: number; manHours: number; reportedDays: number; estimatedDays: number; thaiMale: number; thaiFemale: number; foreignMale: number; foreignFemale: number }
   >();
   const daily: { date: string; contractorCode: string; headcount: number }[] = [];
   for (const r of rows) {
@@ -228,6 +228,7 @@ export async function manpowerSummaryService(projectId: string, from: string, to
       manDays: 0,
       manHours: 0,
       reportedDays: 0,
+      estimatedDays: 0,
       thaiMale: 0,
       thaiFemale: 0,
       foreignMale: 0,
@@ -236,10 +237,13 @@ export async function manpowerSummaryService(projectId: string, from: string, to
     c.manDays = round1(c.manDays + headcount);
     c.manHours = round1(c.manHours + hours);
     c.reportedDays += 1;
-    c.thaiMale += r.thaiMale;
-    c.thaiFemale += r.thaiFemale;
-    c.foreignMale += r.foreignMale;
-    c.foreignFemale += r.foreignFemale;
+    // Nationality/sex of the crew that was reported: the morning one, else the afternoon one.
+    const morningSent = r.morningStatus === "submitted";
+    if (!morningSent && r.workHours === null) c.estimatedDays += 1; // NMH used STANDARD_WORK_HOURS
+    c.thaiMale += morningSent ? r.thaiMale : (r.eveningThaiMale ?? 0);
+    c.thaiFemale += morningSent ? r.thaiFemale : (r.eveningThaiFemale ?? 0);
+    c.foreignMale += morningSent ? r.foreignMale : (r.eveningForeignMale ?? 0);
+    c.foreignFemale += morningSent ? r.foreignFemale : (r.eveningForeignFemale ?? 0);
     byContractor.set(r.contractorId, c);
     daily.push({ date: r.reportDate, contractorCode: r.contractorCode, headcount });
   }
