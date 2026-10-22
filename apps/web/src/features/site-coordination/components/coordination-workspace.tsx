@@ -25,7 +25,7 @@ import { ContractorColorDialog } from "./contractor-color-dialog.js";
 
 export function CoordinationWorkspace(props: Parameters<typeof useCoordinationWorkspace>[0]) {
   const ed = useCoordinationWorkspace(props);
-  const { projects, activeProject, date, setSelectedId, tool, addAnchor, setAddAnchor, deleteTarget, setDeleteTarget, query, remove, dayLock, lockConfirm, setLockConfirm, lockDay, data, selected, company, editableCompanies, wide, items, updateWorking, createItem, startCreate, pendingIcon, setPendingIcon, filteredCompanyId, filterControls, inspector, readOnly, compact, phone, fill, leaveAction, setLeaveAction, saveEdits, cancelEdits, save } = ed;
+  const { projects, activeProject, date, setSelectedId, tool, addAnchor, setAddAnchor, deleteTarget, setDeleteTarget, query, remove, dayLock, lockConfirm, setLockConfirm, lockDay, data, selected, company, editableCompanies, wide, items, updateWorking, createItem, startCreate, pendingIcon, setPendingIcon, filteredCompanyId, filterControls, inspector, readOnly, compact, phone, fill, meeting, leaveAction, setLeaveAction, saveEdits, cancelEdits, save } = ed;
   const canManageItemTypes = !readOnly && isEpsAdmin(ed.me.data?.data.user.role);
   // Below lg the inspector is a bottom sheet. It opens as a slim strip (handle + job name) so the job stays
   // visible and draggable on the map; tapping the handle expands it for editing.
@@ -35,7 +35,8 @@ export function CoordinationWorkspace(props: Parameters<typeof useCoordinationWo
   // Fill: exactly one window tall, so the page does not scroll and the map stays put. Phone: 100dvh − 65px
   // topbar (incl. border) − main's 16px top / 80px bottom padding (clears the field bottom nav).
   // lg+: − 65px topbar − main's 24px + 24px padding (a floor keeps short windows usable; they scroll).
-  return <Box sx={fill ? { height: phone ? "calc(100dvh - 161px)" : "calc(100dvh - 113px)", minHeight: phone ? undefined : 560, display: "flex", flexDirection: "column" } : undefined}>
+  // Meeting mode: above the app bar and sidebar (1200) but under popovers/dialogs/drawers (1300).
+  return <Box sx={meeting ? { position: "fixed", inset: 0, zIndex: 1250, bgcolor: "background.default", p: { xs: 0, md: 1.5 }, display: "flex", flexDirection: "column" } : fill ? { height: phone ? "calc(100dvh - 161px)" : "calc(100dvh - 113px)", minHeight: phone ? undefined : 560, display: "flex", flexDirection: "column" } : undefined}>
     {compact && <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "center" }} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
       {filterControls}
       <Typography variant="caption" color="text.secondary" sx={{ ml: { sm: "auto" } }}>{projects.find((p) => p.id === activeProject)?.code} · {items.length} รายการ</Typography>
@@ -46,7 +47,7 @@ export function CoordinationWorkspace(props: Parameters<typeof useCoordinationWo
       {!readOnly && !data.lock && !editableCompanies.length && <Alert severity="info" sx={{ mb: 2 }}>บัญชีนี้ยังไม่ได้ผูกกับผู้รับเหมาในโครงการ จึงเพิ่มหรือแก้รายการงานไม่ได้</Alert>}
       <WorkspaceMap ed={ed} />
       {/* Phone: the sheet steps aside while drawing so the whole map is free to tap (the hint bar has เสร็จ). */}
-      {!compact && selected && !wide && tool === "move" && <Paper elevation={8} sx={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 1200, maxHeight: sheetOpen ? "60dvh" : 104, display: "flex", flexDirection: "column", borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: "hidden" }}>
+      {!compact && selected && !wide && tool === "move" && <Paper elevation={8} sx={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: meeting ? 1260 : 1200, maxHeight: sheetOpen ? "60dvh" : 104, display: "flex", flexDirection: "column", borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: "hidden" }}>
         <ButtonBase onClick={() => setSheetOpen((v) => !v)} aria-expanded={sheetOpen} aria-label={sheetOpen ? "Collapse details" : "Expand details"}
           sx={{ flexShrink: 0, height: 22, width: "100%", color: "text.secondary" }}>
           {sheetOpen ? <ExpandMoreOutlined fontSize="small" /> : <ExpandLessOutlined fontSize="small" />}

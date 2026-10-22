@@ -12,6 +12,8 @@ import CloseOutlined from "@mui/icons-material/CloseOutlined";
 import ViewSidebarOutlined from "@mui/icons-material/ViewSidebarOutlined";
 import LockOutlined from "@mui/icons-material/LockOutlined";
 import PrintOutlined from "@mui/icons-material/PrintOutlined";
+import FullscreenOutlined from "@mui/icons-material/FullscreenOutlined";
+import FullscreenExitOutlined from "@mui/icons-material/FullscreenExitOutlined";
 import { Suspense, lazy, useState } from "react";
 import dayjs from "dayjs";
 import Badge from "@mui/material/Badge";
@@ -40,7 +42,7 @@ import type { UseCoordinationWorkspaceState } from "../hooks/use-coordination-wo
 const CoordinationCanvas = lazy(() => import("./coordination-canvas.js").then((module) => ({ default: module.CoordinationCanvas })));
 
 export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
-  const { guard, openItem, date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadNameGroups, roadNames, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, startCreate, counter, goToDate, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact, phone, fill, placing, setPlacing, placeItem } = ed;
+  const { guard, openItem, date, canExport, reportHref, contractorIds, setContractorIds, types, setTypes, search, setSearch, display, setDisplay, selectedId, working, tool, setAddAnchor, textEditId, setTextEditId, creating, workingRef, mapBoxRef, draft, saveDayNote, dayLock, setLockConfirm, unlockDay, data, selected, company, editableCompanies, wide, clashes, clashCodes, roadNameGroups, roadNames, q, items, typeFiltered, isFiltered, clearFilters, finish, patchItem, selectItem, startCreate, counter, goToDate, datePicker, quickDayControl, contractorControl, mineControl, typeControl, searchControl, inspector, readOnly, compact, phone, fill, meeting, toggleMeeting, placing, setPlacing, placeItem } = ed;
   const [panelOpen, setPanelOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
@@ -62,6 +64,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
     {canManageItemTypes && <Button variant="outlined" startIcon={<TuneOutlined />} component={RouterLink} to="/site-coordination/item-types"
       sx={{ whiteSpace: "nowrap", width: { xs: "100%", sm: "auto" } }}>Item types</Button>}
   </>;
+  const meetingLabel = meeting ? "Exit full screen" : "Full screen (meeting)";
   const shiftDay = (days: number) => goToDate(dayjs(date).add(days, "day").format("YYYY-MM-DD"));
   return (
     <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, overflow: "hidden", bgcolor: "background.paper", mb: compact ? 0 : 2,
@@ -74,6 +77,7 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
         <Badge color="primary" variant="dot" invisible={!isFiltered} overlap="rectangular">
           <Button variant="outlined" startIcon={<TuneOutlined />} onClick={() => setPanelOpen(true)} sx={{ whiteSpace: "nowrap", height: 40, minWidth: 0, px: 1.25, "& .MuiButton-startIcon": { mr: 0.5 } }}>Filters</Button>
         </Badge>
+        <IconButton aria-label={meetingLabel} aria-pressed={meeting} color={meeting ? "primary" : "default"} onClick={toggleMeeting} sx={{ p: 0.75 }}>{meeting ? <FullscreenExitOutlined /> : <FullscreenOutlined />}</IconButton>
       </Stack>}
       {/* Desktop/tablet, two rows that always fill the width:
           row 1 = day (left) + actions (right edge; rare EPS ones in ⋯); row 2 = filters, the search box takes the leftover width. */}
@@ -85,6 +89,9 @@ export function WorkspaceMap({ ed }: { ed: UseCoordinationWorkspaceState }) {
             {!readOnly && <Button variant="contained" disableElevation startIcon={<AddOutlined />} onClick={(e) => setAddAnchor(e.currentTarget)} disabled={addDisabled} sx={{ whiteSpace: "nowrap" }}>Add item</Button>}
             {/* Draw the road this contractor will use today: tap points along it, arrows show the way. */}
             {!readOnly && <Button variant="outlined" startIcon={<RouteOutlined />} onClick={() => startCreate("road")} disabled={addDisabled} sx={{ whiteSpace: "nowrap" }}>Draw road</Button>}
+            <Tooltip title={meeting ? "Exit full screen (Esc)" : "Full screen for meetings — hides the menu bars"}>
+              <Button variant={meeting ? "contained" : "outlined"} disableElevation startIcon={meeting ? <FullscreenExitOutlined /> : <FullscreenOutlined />} aria-pressed={meeting} onClick={toggleMeeting} sx={{ whiteSpace: "nowrap" }}>{meeting ? "Exit full screen" : "Full screen"}</Button>
+            </Tooltip>
             {(canLock || canExport) && <>
               <Tooltip title="More actions"><Button variant="outlined" color="inherit" aria-label="More actions" aria-haspopup="menu" onClick={(e) => setMoreAnchor(e.currentTarget)} sx={{ minWidth: 40, px: 0, borderColor: "divider" }}><MoreHoriz /></Button></Tooltip>
               <Menu anchorEl={moreAnchor} open={Boolean(moreAnchor)} onClose={() => setMoreAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>

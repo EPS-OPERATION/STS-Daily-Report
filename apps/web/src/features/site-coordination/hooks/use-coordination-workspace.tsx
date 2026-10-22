@@ -118,8 +118,28 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   const wide = useMediaQuery(theme.breakpoints.up("lg"));
   // Phones/small tablets (full page only): the map fills the screen under one slim bar; filters live in a drawer.
   const phone = useMediaQuery(theme.breakpoints.down("md")) && !compact;
-  // The map takes the rest of the window (phones and lg+); md–lg tablets keep the fixed height + list below.
-  const fill = phone || (wide && !compact);
+  // Meeting mode: the workspace covers the whole window (browser full screen where allowed; iPhone = window only).
+  // Esc / the browser leaving full screen ends it; leaving the page drops full screen too.
+  const [meeting, setMeeting] = useState(false);
+  useEffect(() => {
+    const onChange = () => { if (!document.fullscreenElement) setMeeting(false); };
+    document.addEventListener("fullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    };
+  }, []);
+  const toggleMeeting = () => {
+    if (meeting) {
+      setMeeting(false);
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+      return;
+    }
+    setMeeting(true);
+    void document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+  // The map takes the rest of the window (phones, lg+ and meeting mode); md–lg tablets keep the fixed height + list below.
+  const fill = phone || (wide && !compact) || meeting;
   // Back to a rectangle: the bounding box of the current corners.
   const makeRectangle = () => {
     const w = workingRef.current;
@@ -463,6 +483,8 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     wide,
     phone,
     fill,
+    meeting,
+    toggleMeeting,
     makeRectangle,
     codeOf,
     clashes,
