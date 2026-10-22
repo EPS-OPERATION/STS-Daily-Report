@@ -1041,6 +1041,7 @@
           "id": "u3",
           "code": "<qa>",
           "name": "Snapshot QA contractor <qa>",
+          "color": null,
           "projectId": "u2"
         },
         "report": {
@@ -2822,6 +2823,7 @@
             "manDays": 8,
             "manHours": 70,
             "reportedDays": 1,
+            "estimatedDays": 0,
             "thaiMale": 6,
             "thaiFemale": 1,
             "foreignMale": 1,
