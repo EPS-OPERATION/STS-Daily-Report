@@ -2,7 +2,6 @@ import type { CoordinationReport } from "@sts/shared";
 import { coordinationToday } from "@sts/shared";
 import { useMemo } from "react";
 import { formatThaiDate } from "@/lib/dates.js";
-import { ICON_LABELS } from "../types/icon-labels.js";
 import { CoordinationCanvas } from "./coordination-canvas.js";
 
 // Drawing height on the A4 landscape sheet (277mm wide): 560px ≈ 148mm, the rest is header and footer.
@@ -59,6 +58,7 @@ export const REPORT_STYLES = `
 // Pure view: the page owns loading, the map snapshot and the print dialog.
 export function CoordinationReportDocument({ report, snapshot, onSnapshot }: { report: CoordinationReport; snapshot: string | null; onSnapshot: (dataUrl: string) => void }) {
   const companies = useMemo(() => new Map(report.contractors.map((c) => [c.id, c])), [report.contractors]);
+  const types = useMemo(() => new Map((report.itemTypes ?? []).map((t) => [t.code, t])), [report.itemTypes]);
   const jobCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const item of report.items) counts.set(item.contractorId, (counts.get(item.contractorId) ?? 0) + 1);
@@ -72,8 +72,8 @@ export function CoordinationReportDocument({ report, snapshot, onSnapshot }: { r
   const day = formatThaiDate(report.date);
 
   const map = snapshot === null ? (
-    <CoordinationCanvas map={report.map} contractors={report.contractors} items={report.items}
-      roads={report.roads.map((r) => ({ id: r.id, points: r.route, alert: r.clash, label: `${report.contractors.find((c) => c.id === r.contractorId)?.code ?? ""} ${r.startTime}–${r.endTime}`, color: report.contractors.find((c) => c.id === r.contractorId)?.color ?? "#0B4D8B" }))} selectedId={null} draft={null} tool="move"
+    <CoordinationCanvas map={report.map} contractors={report.contractors} items={report.items} itemTypes={report.itemTypes ?? []}
+      selectedId={null} draft={null} tool="move"
       readOnly fixedHeight={MAP_HEIGHT} onSelect={noop} onChange={noop} onFinish={noop} onDeselect={noop} textEditing={false} onEditText={noop}
       onReady={(stage) => onSnapshot(stage ? stage.toDataURL({ pixelRatio: SNAPSHOT_RATIO, mimeType: "image/png" }) : "")} />
   ) : snapshot ? (
@@ -137,7 +137,7 @@ export function CoordinationReportDocument({ report, snapshot, onSnapshot }: { r
                       <div className="rpt-sub">{company?.name}</div>
                     </td>
                     <td><strong>{item.title}</strong></td>
-                    <td>{ICON_LABELS[item.icon]}</td>
+                    <td>{types.get(item.icon)?.labelTh ?? item.icon}</td>
                     <td className="rpt-pre">{item.note || "—"}</td>
                   </tr>
                 );

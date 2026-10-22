@@ -31,15 +31,17 @@ export function DashboardPage() {
               label="From"
               value={from}
               onChange={setFrom}
+              format="D MMM YYYY"
               slotProps={{ textField: { size: "small" } }}
-              sx={{ width: 150 }}
+              sx={{ width: 165, flexShrink: 0 }}
             />
             <DatePicker
               label="To"
               value={to}
               onChange={setTo}
+              format="D MMM YYYY"
               slotProps={{ textField: { size: "small" } }}
-              sx={{ width: 150 }}
+              sx={{ width: 165, flexShrink: 0 }}
             />
             {allCodes.length > 0 && (
               <ContractorFilterPopover

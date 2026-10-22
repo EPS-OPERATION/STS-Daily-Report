@@ -309,6 +309,20 @@
       "when": 1792424001067,
       "tag": "0043_coordination_icon_scale",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792502638208,
+      "tag": "0044_mute_nova",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792511661044,
+      "tag": "0045_bizarre_winter_soldier",
+      "breakpoints": true
     }
   ]
 }

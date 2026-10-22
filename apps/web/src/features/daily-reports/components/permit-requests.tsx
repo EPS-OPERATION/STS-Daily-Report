@@ -19,6 +19,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import type { ReactNode } from "react";
 
 // A saved permit becomes one request row. A custom ("other") permit keeps its name in otherLabel.
 export const permitFromStandard = (i: StandardItem) => ({
@@ -29,6 +30,7 @@ export const permitFromStandard = (i: StandardItem) => ({
   highRisk: i.highRisk,
   taskName: i.taskName,
   supervisorName: i.supervisorName,
+  photoKey: crypto.randomUUID(),
 });
 
 export function PermitRequests({
@@ -36,11 +38,14 @@ export function PermitRequests({
   buildings,
   projectId,
   contractorId,
+  renderPhotos,
 }: {
   control: Control<MorningFormValues>;
   buildings: Building[];
   projectId: string;
   contractorId: string;
+  /** Optional site photos at the foot of each permit card (by the card's photoKey). */
+  renderPhotos?: (photoKey: string | undefined) => ReactNode;
 }) {
   const rows = useFieldArray({ control, name: "permits" });
   const permits = useWatch({ control, name: "permits" });
@@ -58,7 +63,7 @@ export function PermitRequests({
               icon={<Icon style={{ fontSize: 16 }} />}
               label={p.label}
               variant="outlined"
-              onClick={() => rows.append({ permitType: p.code as PermitType, otherLabel: "", buildingId: "", workers: 1, highRisk: false, taskName: "", supervisorName: "" })}
+              onClick={() => rows.append({ permitType: p.code as PermitType, otherLabel: "", buildingId: "", workers: 1, highRisk: false, taskName: "", supervisorName: "", photoKey: crypto.randomUUID() })}
               sx={{ minHeight: 36 }}
             />
           );
@@ -85,9 +90,10 @@ export function PermitRequests({
             }))
         }
       />
-      <Stack spacing={1.5}>
+      <Stack spacing={1.5} sx={{ mt: rows.fields.length ? 2 : 0 }}>
         {rows.fields.map((row, i) => (
-          <PermitRow key={row.id} index={i} control={control} buildings={buildings} permitTypesList={permitTypesList} onRemove={() => rows.remove(i)} />
+          <PermitRow key={row.id} index={i} control={control} buildings={buildings} permitTypesList={permitTypesList} onRemove={() => rows.remove(i)}
+            footer={renderPhotos?.(permits?.[i]?.photoKey)} />
         ))}
       </Stack>
     </Box>
@@ -100,12 +106,14 @@ export function PermitRow({
   buildings,
   permitTypesList = PERMIT_TYPES,
   onRemove,
+  footer,
 }: {
   index: number;
   control: Control<MorningFormValues>;
   buildings: Building[];
   permitTypesList?: readonly { code: string; label: string; labelTh?: string; iconKey?: string }[];
   onRemove: () => void;
+  footer?: ReactNode;
 }) {
   const type = useWatch({ control, name: `permits.${index}.permitType` }) as PermitType;
   const highRisk = useWatch({ control, name: `permits.${index}.highRisk` });
@@ -222,6 +230,7 @@ export function PermitRow({
               />
             </Stack>
           ) : null}
+          {footer}
         </Stack>
       </CardContent>
     </Card>

@@ -11,6 +11,7 @@ export function MorningPermitsSection({ ed }: { ed: UseMorningFormState }) {
       title="ใบอนุญาตงานเสี่ยง (Work Permits)"
       subtitle="สำหรับงานเสี่ยงที่จะทำวันนี้ (Hot Work, Work at Height, Lifting ฯลฯ)"
     >
+      {/* No photo upload on permit cards (saves storage); photos sent earlier stay on EPS pages. */}
       <PermitRequests control={control} buildings={buildings} projectId={projectId} contractorId={contractor.id} />
     </SectionCard>
   );

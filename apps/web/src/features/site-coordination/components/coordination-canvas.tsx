@@ -1,8 +1,8 @@
-import { alpha, useTheme } from "@mui/material/styles";
+import { alpha, keyframes, useTheme } from "@mui/material/styles";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Group, Image as CanvasImage, Layer, Line, Rect, Stage, Text } from "react-konva";
-import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationPoint } from "@sts/shared";
-import { COORDINATION_MAX, COORDINATION_MIN, coordinationGeometryError } from "@sts/shared";
+import { Group, Image as CanvasImage, Layer, Rect, Stage, Text } from "react-konva";
+import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationItemType, CoordinationPoint } from "@sts/shared";
+import { COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN, COORDINATION_MAX, COORDINATION_MIN, coordinationGeometryError } from "@sts/shared";
 import { CanvasItem, REDUCED_MOTION, TapRipple, type AreaDrag, type CanvasItemActions, type IconDrag } from "./canvas-item.js";
 import type { MapDisplay } from "./map-filters.js";
 import AddOutlined from "@mui/icons-material/AddOutlined";
@@ -27,7 +27,6 @@ import Konva from "konva";
 import { clamp } from "../utils/canvas-geometry.js";
 import { previewImagePath, scanContent } from "../utils/canvas-geometry.js";
 import { routeMidpoint } from "../utils/canvas-geometry.js";
-import { RouteMarks } from "./route-marks.js";
 import { REPORT_ROOM } from "../utils/canvas-report.js";
 import { reportBounds } from "../utils/canvas-report.js";
 import { TEXT_LINE_HEIGHT } from "../utils/canvas-text.js";
@@ -36,12 +35,13 @@ import { CAPTION_MAX_WIDTH } from "../utils/canvas-text.js";
 import { CAPTION_LINE_HEIGHT } from "../utils/canvas-text.js";
 import { MARK_SCALE } from "../utils/canvas-text.js";
 import { CAPTION_MAX_LINES } from "../utils/canvas-text.js";
-import { layoutTextTitle } from "../utils/canvas-text.js";
+import { layoutTextTitle, NOTE_FONT, NOTE_LINE_HEIGHT } from "../utils/canvas-text.js";
+import { declutter, type DeclutterEntry, type Detail } from "../utils/declutter.js";
 
 export type MapTool = "move" | "polygon" | "route";
 
 interface Props {
-  map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[];
+  map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[]; itemTypes: CoordinationItemType[];
   selectedId: string | null; draft: CoordinationInput | null; draftId?: string; tool: MapTool; compact?: boolean;
   onSelect: (id: string) => void; onChange: (patch: Partial<CoordinationInput>) => void; onFinish: () => void;
   onDeselect: () => void; textEditing: boolean; onEditText: () => void;
@@ -61,14 +61,16 @@ interface Props {
   onReady?: (stage: Konva.Stage | null) => void;
   /** Road routes that cross or run along another contractor's route that day (id → other contractor ids). */
   clashes?: ReadonlyMap<string, string[]>;
-  /** Road requests of the day (Daily Request): arrows under the jobs, red outline on a clash. */
-  /** `arrows`: false for a road picked from the register (no direction), true for a drawn route. */
-  roads?: { id: string; points: CoordinationPoint[]; color: string; label: string; alert: boolean; arrows?: boolean }[];
   /** Register road names (no lines): one label per road, on its longest piece. */
   roadNames?: { name: string; pieces: CoordinationPoint[][] }[];
 }
 
 const NO_CLASHES: ReadonlyMap<string, string[]> = new Map();
+
+const SELECTED_HINT = "แก้เสร็จกด «บันทึก» · ลากไอคอนไปจุดทำงาน · ลากพื้นที่เพื่อย้าย · มุมสี่เหลี่ยมปรับขนาด/หมุน · ดับเบิลคลิกเพื่อแก้ชื่อ";
+const IDLE_HINT = "คลิกงานเพื่อดูและแก้ไข · ลากผังว่างเพื่อเลื่อน · ล้อเมาส์เพื่อซูม";
+// Visible for the first moments after a selection, then gone (the hint is a reminder, not permanent chrome).
+const hintFade = keyframes`0%, 80% { opacity: 1; } 100% { opacity: 0; }`;
 
 type DragApi = { area: (drag: AreaDrag | null) => void; icon: (drag: IconDrag | null) => void };
 /** Owns the live drag offsets, so a drag frame re-renders only the jobs layer — not the Stage (whose
@@ -92,6 +94,8 @@ function JobsLayer({ api, listening, children }: { api: RefObject<DragApi>; list
   return <Layer listening={listening}>{children(area, icon)}</Layer>;
 }
 
+/** Drawing width on screen (px) at which markers have their full default size (a desktop map at 100%). */
+const REFERENCE_DRAWING_PX = 840;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 6;
 /** Phones report 2-3x screens; drawing the map at 3x costs 2.25x the pixels of 2x for little visible gain. */
@@ -103,7 +107,7 @@ const isCoarsePointer = () => typeof window !== "undefined" && Boolean(window.ma
 
 const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true, markSize: MARK_SCALE };
 
-export function CoordinationCanvas({ map, contractors, items, selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roads = [], roadNames = [] }: Props) {
+export function CoordinationCanvas({ map, contractors, items, itemTypes = [], selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roadNames = [] }: Props) {
   const theme = useTheme();
   // Point-by-point drawing: a free-shape area (closed) or a road route (open line).
   const drawingTool = tool === "polygon" || tool === "route";
@@ -134,6 +138,14 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
   const height = fixedHeight ?? (fill ? boxHeight : compact ? 390 : width < 600 ? 430 : 620);
   const fit = Math.min(width / map.width, height / map.height);
   const scale = fit * zoom;
+  // Icons, captions and line widths are sized against the fitted drawing (`fit`), not the zoom: they belong to the
+  // map, so zooming in magnifies them with it and the icon-size controls are the only way to change them.
+  // Read-only views (report snapshot, dashboard card) frame the jobs by zooming, so they keep a fixed screen size.
+  // A small screen shows the whole drawing small, so markers shrink with it (down to 60% so they stay tappable):
+  // on a phone they no longer cover the drawing, and zooming in grows them back.
+  const unit = readOnly ? scale : fit / Math.min(1, Math.max(0.6, (map.width * fit) / REFERENCE_DRAWING_PX));
+  /** On-screen size of one marker unit relative to the default (1 = desktop at 100%). */
+  const markZoom = scale / unit;
   const offset = { x: (width - map.width * fit) / 2 + pan.x, y: (height - map.height * fit) / 2 + pan.y };
   const contentBounds = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   // Default view = the drawing content (plus a small padding), not the whole
@@ -328,8 +340,9 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
     const pts = item.geometry.points.map((p) => t.point({ x: p.x * map.width, y: p.y * map.height }));
     if (item.areaKind !== "route") {
       const c = t.point({ x: item.x * map.width, y: item.y * map.height });
-      const r = 24 * display.markSize * (item.iconScale ?? 1) + 6;
-      pts.push({ x: c.x - r, y: c.y - r }, { x: c.x + r, y: c.y + r + 30 }); // + caption under the ring
+      const z = (node.scaleX() / fit) * (fit / unit); // markers grow with the zoom, so their screen size does too
+      const r = (24 * display.markSize * (item.iconScale ?? 1)) * z + 6;
+      pts.push({ x: c.x - r, y: c.y - r }, { x: c.x + r, y: c.y + r + 30 * z }); // + caption under the ring
     }
     const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
     const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
@@ -393,6 +406,49 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
     setIconDrag: (drag) => dragApi.current.icon(drag),
     areaDragStart, areaDragNodeStart,
   }), []);
+  const iconKeyByCode = useMemo(() => new Map(itemTypes.map((t) => [t.code, t.iconKey])), [itemTypes]);
+  // Crowded map (phones, many jobs): zoomed out shows icons only, zooming in brings names then notes, and a
+  // label that would cover another job's icon or label waits until there is room (utils/declutter). Recomputed
+  // when the zoom settles, not per frame. Read-only views (report, dashboard card) keep every label.
+  const detail = useMemo(() => {
+    if (readOnly) return null;
+    const m = display.markSize * markZoom; // on-screen size of one marker unit
+    const ordered = [...items].sort((a, b) => Number(b.id === selectedId) - Number(a.id === selectedId) || (b.iconScale ?? 1) - (a.iconScale ?? 1));
+    const entries: DeclutterEntry[] = [];
+    const routes = new Set<string>();
+    for (const item of ordered) {
+      if (item.areaKind === "route") { routes.add(item.id); continue; }
+      const size = item.iconScale ?? 1;
+      const cx = item.x * map.width * scale, cy = item.y * map.height * scale;
+      const s = m * Math.sqrt(size); // captions grow with √size
+      const pinned = item.id === selectedId || item.id === draftId;
+      if (item.icon === "text") {
+        const t = layoutTextTitle(item.title);
+        const hw = (t.width / 2) * m * size, hh = (t.height / 2) * m * size;
+        const note = item.note?.trim() ? layoutTextTitle(item.note.replace(/\s+/g, " ").trim(), { font: NOTE_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: NOTE_LINE_HEIGHT, maxLines: 2, minWidth: 64 }) : null;
+        entries.push({ id: item.id, pinned, mark: [cx - hw, cy - hh, cx + hw, cy + hh], caption: null,
+          full: note ? [cx - (note.width / 2) * s, cy + hh, cx + (note.width / 2) * s, cy + hh + note.height * s] : null });
+        continue;
+      }
+      const ring = 24 * m * size;
+      const cap = item.title.trim() ? layoutTextTitle(item.title, { font: CAPTION_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: CAPTION_LINE_HEIGHT, maxLines: CAPTION_MAX_LINES, minWidth: 64 }) : null;
+      const note = item.note?.trim() ? layoutTextTitle(item.note.replace(/\s+/g, " ").trim(), { font: NOTE_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: NOTE_LINE_HEIGHT, maxLines: 2, minWidth: 64 }) : null;
+      const top = cy + 28 * m * size, capH = cap ? cap.height * s : 0, w = Math.max(cap?.width ?? 0, note?.width ?? 0) / 2 * s;
+      entries.push({ id: item.id, pinned, mark: [cx - ring, cy - ring, cx + ring, cy + ring],
+        caption: cap ? [cx - (cap.width / 2) * s, top, cx + (cap.width / 2) * s, top + capH] : null,
+        full: note ? [cx - w, top, cx + w, top + capH + 2 * s + note.height * s] : null });
+    }
+    const result = declutter(entries, map.width * scale);
+    // Road routes: only the level of detail (their names sit along the line, away from icons).
+    const zoomedOut = map.width * scale < 700;
+    for (const id of routes) result.set(id, zoomedOut && id !== selectedId ? "icon" : "full");
+    return result;
+  }, [readOnly, items, selectedId, draftId, display.markSize, scale, unit, map.width, map.height]);
+  const detailDisplay = useMemo(() => ({
+    full: display,
+    caption: { ...display, notes: false },
+    icon: { ...display, labels: false, notes: false, chips: false },
+  }) satisfies Record<Detail, typeof display>, [display]);
   const displayed = items.filter((item) => item.id !== draftId).map((item) => ({ item, id: item.id, editing: false }));
   if (draft) displayed.push({ item: { ...draft, id: draftId ?? "draft", mapId: map.id, projectId: map.projectId, revision: 0, createdAt: "", updatedAt: "" }, id: draftId ?? "draft", editing: true });
   displayed.sort((a, b) => Number(a.id === selectedId || a.editing) - Number(b.id === selectedId || b.editing));
@@ -408,9 +464,7 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
       <AddOutlined fontSize="small" color="primary" />
       <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}>แตะบนผังตรงจุดที่ทำงาน</Typography>
       <Button size="small" color="inherit" onClick={onCancelPlace} sx={{ whiteSpace: "nowrap" }}>Cancel</Button>
-    </Stack> : !readOnly && (drawingTool && draft ? null : (!fill || (draft && !coarse)) && <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1.5, py: 0.75, borderBottom: "1px solid", borderColor: "divider" }}>
-      {draft ? "ลากไอคอนไปจุดทำงาน · ลากพื้นที่เพื่อย้าย · มุมสี่เหลี่ยมปรับขนาด/หมุน · ดับเบิลคลิกเพื่อแก้ชื่อ · ตั้งค่าอื่นที่แผงด้านข้าง" : "คลิกงานเพื่อดูและแก้ไข · ลากผังว่างเพื่อเลื่อน · ล้อเมาส์เพื่อซูม"}
-    </Typography>)}
+    </Stack> : null}
     {imageError ? <Alert severity="error" sx={{ m: 1.5 }}>โหลดภาพผังไม่สำเร็จ กรุณาตรวจภาพพื้นหลังแล้วลองใหม่</Alert> : <Box ref={stageBox} role="img" aria-label="Daily plan. Select an item from the side list to see details." sx={{ position: "relative", bgcolor: "background.paper", touchAction: "none", cursor: drawingTool || placing ? "crosshair" : undefined, ...(fill && { flex: 1, minHeight: 0, overflow: "hidden" }) }}>
       <Stage ref={stage} width={width} height={height} scaleX={scale} scaleY={scale} x={offset.x} y={offset.y}         draggable={tool === "move" && !readOnly}
         dragBoundFunc={(pos) => bound(pos, stage.current?.scaleX() ?? scale)}
@@ -453,43 +507,37 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
             if (longest.length < 2) return null;
             const mid = routeMidpoint(longest, map.width, map.height);
             return (
-              <Group key={road.name} x={mid.x} y={mid.y} scaleX={display.markSize / scale} scaleY={display.markSize / scale}>
+              <Group key={road.name} x={mid.x} y={mid.y} scaleX={display.markSize / unit} scaleY={display.markSize / unit}>
                 <Text text={road.name} width={180} offsetX={90} offsetY={7} align="center" fontSize={12} fontStyle="bold"
                   fill={theme.palette.text.secondary} stroke={theme.palette.background.paper} strokeWidth={3} fillAfterStrokeEnabled />
               </Group>
             );
           })}
         </Layer>}
-        <Layer listening={false}>
-          {roads.map((road, index) => {
-            const pts = road.points.flatMap((p) => [p.x * map.width, p.y * map.height]);
-            // Labels sit under each route's midpoint; when an earlier label is close on screen, go one line lower.
-            const mid = routeMidpoint(road.points, map.width, map.height);
-            const below = roads.slice(0, index).filter((o) => {
-              const m = routeMidpoint(o.points, map.width, map.height);
-              return Math.hypot(m.x - mid.x, m.y - mid.y) * scale < 90;
-            }).length;
-            return <Group key={road.id}>
-              <Line points={pts} stroke={road.alert ? theme.palette.error.main : theme.palette.background.paper} strokeWidth={(road.alert ? 15 : 11) / scale} lineCap="round" lineJoin="round" opacity={0.95} />
-              <Line points={pts} stroke={road.color} strokeWidth={7 / scale} lineCap="round" lineJoin="round" />
-              <RouteMarks points={road.points.map((p) => ({ x: p.x * map.width, y: p.y * map.height }))} dx={0} dy={0} color={road.color}
-                paper={theme.palette.background.paper} scale={scale} title={road.label} textColor={theme.palette.text.primary} labelDy={14 + below * 17} arrowsHidden={road.arrows === false} markScale={display.markSize} />
-            </Group>;
-          })}
-        </Layer>
         {/* While placing, jobs ignore taps so a tap on top of one still places the new job. */}
         <JobsLayer api={dragApi} listening={!placing}>{(areaDrag, iconDrag) => <>
           {displayed.map(({ item, id, editing }) => {
             const company = companyById.get(item.contractorId);
-            return <CanvasItem key={id} item={item} id={id} editing={editing} selected={id === selectedId || editing} hasDraft={Boolean(draft)} focus={Boolean(selectedId || draft)}
+            return <CanvasItem key={id} item={item} iconKey={iconKeyByCode.get(item.icon) ?? "map-pin"} id={id} editing={editing} selected={id === selectedId || editing} hasDraft={Boolean(draft)} focus={Boolean(selectedId || draft)}
               color={company?.color ?? theme.palette.primary.main} code={company?.code} clash={item.areaKind === "route" && Boolean(clashes.get(id))}
-              scale={scale} tool={tool} drawingTool={drawingTool} textEditing={textEditing} dragging={editing && dragging} display={display}
+              scale={unit} tool={tool} drawingTool={drawingTool} textEditing={textEditing} dragging={editing && dragging} display={detail ? detailDisplay[detail.get(id) ?? "full"] : display}
               dragOffset={areaDrag?.id === id ? areaDrag : null} iconDrag={iconDrag?.id === id ? iconDrag : null} mapWidth={map.width} mapHeight={map.height} coarse={coarse}
               actions={actions} rectangleRef={rectangle} transformerRef={transformer} />;
           })}
           {ripple && <TapRipple key={ripple.key} x={ripple.x} y={ripple.y} scale={scale} color={theme.palette.primary.main} onDone={() => setRipple(null)} />}
         </>}</JobsLayer>
       </Stage>
+      {/* Selection hint: a small pill over the bottom of the map that fades out on its own. It floats (a bar above the
+          map pushed the whole drawing down every time a job was selected) and never blocks a tap. */}
+      {!readOnly && !drawingTool && !placing && (!fill || (draft && !coarse)) && (
+        <Typography key={draftId ?? "idle"} variant="caption" color="text.secondary" noWrap
+          title={draft ? SELECTED_HINT : IDLE_HINT}
+          sx={{ position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", zIndex: 20, maxWidth: "calc(100% - 200px)", px: 1.5, py: 0.5,
+            bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderRadius: 999, pointerEvents: "none",
+            animation: `${hintFade} 7s ease forwards`, "@media (prefers-reduced-motion: reduce)": { animation: "none" } }}>
+          {draft ? SELECTED_HINT : IDLE_HINT}
+        </Typography>
+      )}
       {/* Drawing a road / free area (live, in the meeting): the instruction is a small pill at the top
           (never blocks taps) and the controls float at the bottom within thumb reach — Done is the one
           primary action, Undo is labelled (used often), Start over is icon-only (rare). */}
@@ -530,15 +578,30 @@ export function CoordinationCanvas({ map, contractors, items, selectedId, draft,
           <circle cx={h.x} cy={h.y} r={4} fill={color} />
         </Box>;
       })()}
+      {/* Icon size: a − 100% + pill just above the selected icon (one tap per 10%, readable, finger-sized).
+          The slider in the edit panel sets the same value. */}
+      {!readOnly && overlay && draft && draft.icon !== "text" && draft.areaKind !== "route" && tool === "move" && !textEditing && !placing && (() => {
+        const size = draft.iconScale ?? 1;
+        const ring = 24 * display.markSize * size * markZoom;
+        const step = (d: number) => onChange({ iconScale: Math.round(Math.min(COORDINATION_ICON_SCALE_MAX, Math.max(COORDINATION_ICON_SCALE_MIN, size + d)) * 10) / 10 });
+        return <Paper elevation={0} onPointerDown={(e) => e.stopPropagation()}
+          sx={{ position: "absolute", left: Math.min(Math.max(overlay.left, 72), width - 72), top: Math.max(44, overlay.top - ring - 8), transform: "translate(-50%, -100%)", zIndex: 21,
+            display: "flex", alignItems: "center", gap: 0.25, px: 0.5, py: 0.25, borderRadius: 999, border: "1px solid", borderColor: "divider",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}>
+          <IconButton size="small" aria-label="Smaller icon" disabled={size <= COORDINATION_ICON_SCALE_MIN} onClick={() => step(-0.1)}><RemoveOutlined fontSize="small" /></IconButton>
+          <Typography variant="caption" sx={{ minWidth: 40, textAlign: "center", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{Math.round(size * 100)}%</Typography>
+          <IconButton size="small" aria-label="Bigger icon" disabled={size >= COORDINATION_ICON_SCALE_MAX} onClick={() => step(0.1)}><AddOutlined fontSize="small" /></IconButton>
+        </Paper>;
+      })()}
       {overlay && draft && textEditing && tool === "move" && (draft.icon === "text" ? (
         // Multiline textarea mirrors the final pill (same wrap width, same
         // line height) so what you type is what the marker will look like.
         <InputBase autoFocus multiline rows={overlay.text.lines.length} value={draft.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="พิมพ์ข้อความ…" inputProps={{ "aria-label": "ข้อความบนผัง" }}
-          sx={{ position: "absolute", left: overlay.left, top: overlay.top, transform: "translate(-50%, -50%)", width: Math.max(168, overlay.text.width), px: 1.5, py: "7px", borderRadius: 2, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 13, fontWeight: 700, lineHeight: `${TEXT_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
+          sx={{ position: "absolute", left: overlay.left, top: overlay.top, transform: `translate(-50%, -50%) scale(${markZoom})`, width: Math.max(168, overlay.text.width), px: 1.5, py: "7px", borderRadius: 2, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 13, fontWeight: 700, lineHeight: `${TEXT_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
       ) : (
         // Icon caption editor: typed in place of the halo caption under the marker.
         <InputBase autoFocus multiline rows={overlay.caption.lines.length} value={draft.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="ชื่อเครื่องจักร…" inputProps={{ "aria-label": "ชื่อเครื่องจักรบนผัง" }}
-          sx={{ position: "absolute", left: overlay.left, top: overlay.top + 28 * display.markSize, transform: "translateX(-50%)", width: Math.max(168, overlay.caption.width), px: 1, py: "4px", borderRadius: 1, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 12, fontWeight: 600, lineHeight: `${CAPTION_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
+          sx={{ position: "absolute", left: overlay.left, top: overlay.top + 28 * display.markSize * markZoom, transform: `translateX(-50%) scale(${markZoom})`, transformOrigin: "top center", width: Math.max(168, overlay.caption.width), px: 1, py: "4px", borderRadius: 1, bgcolor: "background.paper", border: "2px solid", borderColor: overlay.color, fontSize: 12, fontWeight: 600, lineHeight: `${CAPTION_LINE_HEIGHT}px`, "& textarea": { textAlign: "center", resize: "none", overflow: "hidden" } }} />
       ))}
     {overlay && draft && draft.icon === "text" && textEditing && (() => {
       // While a text marker is being typed the HTML editor covers it, so this grip moves it.

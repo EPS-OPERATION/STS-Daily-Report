@@ -10,25 +10,24 @@ import { hashSessionToken } from "./session.service.js";
 import { createSession, revokeSessionToken, validateSessionToken } from "./session.service.js";
 import type { AuthContext, AuthIdentity, MeResponse } from "./auth.types.js";
 
-async function buildContext(userId: string): Promise<AuthContext> {
-  const user = await findUserById(getDb(), userId);
-  if (!user || user.status !== "active") throw new InvalidLoginError();
-  return {
-    user: { id: user.id, email: user.email, displayName: user.displayName, role: toUserRole(user.role) },
-    identity: { method: "session" },
-  };
+export interface Authenticated {
+  identity: AuthIdentity;
+  context: AuthContext;
 }
 
-export async function resolveAuthIdentity(rawToken: string | undefined): Promise<AuthIdentity | null> {
+/** The caller behind a session cookie, from ONE query (session + user). Null: no/unknown/revoked/expired session or inactive user. */
+export async function authenticate(rawToken: string | undefined): Promise<Authenticated | null> {
   if (!rawToken) return null;
   const valid = await validateSessionToken(rawToken);
-  if (!valid) return null;
-  try {
-    const context = await buildContext(valid.userId);
-    return { userId: context.user.id, email: context.user.email, method: "session" };
-  } catch {
-    return null;
-  }
+  if (!valid || valid.user.status !== "active") return null;
+  const { user } = valid;
+  return {
+    identity: { userId: user.id, email: user.email, method: "session" },
+    context: {
+      user: { id: user.id, email: user.email, displayName: user.displayName, role: toUserRole(user.role) },
+      identity: { method: "session" },
+    },
+  };
 }
 
 export async function limitAuthAttempts(kind: string, key: string, limit: number) {
@@ -88,17 +87,12 @@ export async function registrationOptions(query: { page: number; pageSize: numbe
   return { rows: result.rows.map(({ id, code, name }) => ({ id, code, name })), total: result.total };
 }
 
-export async function loadAuthContext(identity: AuthIdentity): Promise<AuthContext> {
-  return buildContext(identity.userId);
-}
-
 export async function logoutSession(rawToken: string | undefined): Promise<void> {
   await revokeSessionToken(rawToken ?? "");
 }
 
-export async function loadMe(identity: AuthIdentity): Promise<MeResponse> {
-  const context = await loadAuthContext(identity);
-  const contractors = await listActiveContractorsForUser(getDb(), identity.userId);
+export async function loadMe(context: AuthContext): Promise<MeResponse> {
+  const contractors = await listActiveContractorsForUser(getDb(), context.user.id);
   return { data: { user: context.user, contractors } };
 }
 

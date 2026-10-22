@@ -90,6 +90,7 @@ export const morningBody = t.Object({
         highRisk: t.Optional(t.Boolean()),
         taskName: t.Optional(t.String({ maxLength: 120 })),
         supervisorName: t.Optional(t.String({ maxLength: 120 })),
+        photoKey: t.Optional(t.String({ format: "uuid" })),
       }),
       { maxItems: 50 },
     ),
@@ -217,4 +218,6 @@ export const eveningBody = t.Object({
 export const photoUploadBody = t.Object({
   category: t.Union(PHOTO_CATEGORIES.map((c) => t.Literal(c))),
   file: t.File({ type: "image", maxSize: "10m" }),
+  /** category "permit": the permit card's photoKey. */
+  permitKey: t.Optional(t.String({ format: "uuid" })),
 });

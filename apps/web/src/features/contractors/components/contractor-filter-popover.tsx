@@ -59,6 +59,7 @@ export function ContractorFilterPopover({
       searchPlaceholder="ค้นหาผู้รับเหมา..."
       emptyText="ไม่พบผู้รับเหมา"
       doneLabel="ตกลง"
+      onlyLabel="เฉพาะเจ้านี้"
       align="right"
     />
   );

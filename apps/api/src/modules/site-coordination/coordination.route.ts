@@ -3,10 +3,21 @@ import { requireAuth } from "@/middleware/require-auth.js";
 import { ok } from "@/shared/http/response.js";
 import { roadParams, roadSegmentBody } from "./coordination.schema.js";
 import { deleteRoadSegmentService, listRoadSegmentsService, saveRoadSegmentService } from "./coordination.service.js";
-import { colorBody, contractorParams, createBody, dateQuery, dayNoteBody, itemParams, projectParams, revisionQuery, updateBody } from "./coordination.schema.js";
-import { coordinationColorService, coordinationReportService, coordinationService, deleteCoordinationService, saveCoordinationService, saveDayNoteService, setDayLockService } from "./coordination.service.js";
+import { colorBody, contractorParams, createBody, createItemTypeBody, dateQuery, dayNoteBody, itemParams, itemTypeParams, projectParams, reorderItemTypesBody, revisionQuery, updateBody, updateItemTypeBody } from "./coordination.schema.js";
+import { coordinationColorService, coordinationReportService, coordinationService, coordinationVersionService, deleteCoordinationService, saveCoordinationService, saveDayNoteService, setDayLockService } from "./coordination.service.js";
+import { createItemTypeService, deleteItemTypeService, listItemTypesService, reorderItemTypesService, updateItemTypeService } from "./coordination-item-type.service.js";
 
 export const coordinationRoutes = new Elysia().use(requireAuth)
+  .get("/projects/:projectId/coordination/item-types", async ({ auth, params }) => ok(await listItemTypesService(auth, params.projectId)), { params: projectParams })
+  .post("/projects/:projectId/coordination/item-types", async ({ auth, params, body, set }) => {
+    const row = await createItemTypeService(auth, params.projectId, body);
+    set.status = 201; return ok(row);
+  }, { params: projectParams, body: createItemTypeBody })
+  .put("/projects/:projectId/coordination/item-types/order", async ({ auth, params, body }) => ok(await reorderItemTypesService(auth, params.projectId, body.ids)), { params: projectParams, body: reorderItemTypesBody })
+  .patch("/projects/:projectId/coordination/item-types/:id", async ({ auth, params, body }) => ok(await updateItemTypeService(auth, params.projectId, params.id, body)), { params: itemTypeParams, body: updateItemTypeBody })
+  .delete("/projects/:projectId/coordination/item-types/:id", async ({ auth, params, set }) => {
+    await deleteItemTypeService(auth, params.projectId, params.id); set.status = 204;
+  }, { params: itemTypeParams })
   .get("/projects/:projectId/coordination/roads", async ({ auth, params }) => ok(await listRoadSegmentsService(auth, params.projectId)), { params: projectParams })
   .post("/projects/:projectId/coordination/roads", async ({ auth, params, body, set }) => {
     const row = await saveRoadSegmentService(auth, params.projectId, body);
@@ -17,6 +28,7 @@ export const coordinationRoutes = new Elysia().use(requireAuth)
     await deleteRoadSegmentService(auth, params.projectId, params.id); set.status = 204;
   }, { params: roadParams })
   .get("/projects/:projectId/coordination", async ({ auth, params, query }) => ok(await coordinationService(auth, params.projectId, query.date)), { params: projectParams, query: dateQuery })
+  .get("/projects/:projectId/coordination/version", async ({ auth, params, query }) => ok(await coordinationVersionService(auth, params.projectId, query.date)), { params: projectParams, query: dateQuery })
   .get("/projects/:projectId/coordination/report", async ({ auth, params, query }) => ok(await coordinationReportService(auth, params.projectId, query.date)), { params: projectParams, query: dateQuery })
   .post("/projects/:projectId/coordination/items", async ({ auth, params, body, set }) => {
     const item = await saveCoordinationService(auth, params.projectId, body);

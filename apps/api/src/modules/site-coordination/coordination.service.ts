@@ -1,17 +1,19 @@
-import { COORDINATION_COLORS, coordinationDateValid, coordinationGeometryError, coordinationRectangleValid, isEpsStaff, roadPlacesMeet, routeGeometryError, timeWindowsOverlap, type CoordinationRoad, type RoadSegment, type CoordinationInput, type CoordinationReport } from "@sts/shared";
+import { COORDINATION_COLORS, coordinationDateValid, coordinationGeometryError, coordinationRectangleValid, isEpsStaff, routeGeometryError, type RoadSegment, type CoordinationInput, type CoordinationReport } from "@sts/shared";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import type { AuthContext } from "@/auth/auth.types.js";
 import { getDb } from "@/db/client.js";
 import { getProjectById } from "@/modules/projects/project.repository.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
-import { listRoadRequests } from "./coordination.repository.js";
+import { coordinationVersion } from "./coordination.repository.js";
 import { deleteRoadSegment, findRoadSegmentByName, getRoadSegment, insertRoadSegment, listRoadSegments, updateRoadSegment, type RoadSegmentInput } from "./coordination.repository.js";
+import { findItemTypeByCode, listItemTypesWithDefaults } from "./coordination-item-type.repository.js";
 import { deleteDayLock, deleteDayNote, deleteItem, getDayLock, getDayNote, getItem, getMap, insertDayLock, insertColor, insertItem, listCoordinationContractors, listCoordinationContractorsByIds, listItems, updateColor, updateItem, upsertDayNote } from "./coordination.repository.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 
 async function access(auth: AuthContext, projectId: string, contractorId?: string) {
-  if (!await getProjectById(getDb(), projectId)) throw new NotFoundError("Project not found");
-  const memberships = await listActiveContractorsForUser(getDb(), auth.user.id, projectId);
+  // Independent reads: one round trip instead of two.
+  const [project, memberships] = await Promise.all([getProjectById(getDb(), projectId), listActiveContractorsForUser(getDb(), auth.user.id, projectId)]);
+  if (!project) throw new NotFoundError("Project not found");
   if (!isEpsStaff(auth.user.role) && (!memberships.length || (contractorId && !memberships.some((m) => m.id === contractorId)))) {
     throw new ForbiddenError("You cannot edit another contractor's plan or access this project");
   }
@@ -48,7 +50,7 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
   const db = getDb();
   const map = await getMap(db, projectId);
   if (!map) throw new NotFoundError("This project has no coordination drawing configured");
-  const [initialProjectCompanies, items, dayNote, lock, roads] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), getDayNote(db, projectId, date), getDayLock(db, projectId, date), mapRoads(projectId, date)]);
+  const [initialProjectCompanies, items, itemTypes, dayNote, lock, version] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), listItemTypesWithDefaults(db, projectId, true), getDayNote(db, projectId, date), getDayLock(db, projectId, date), coordinationVersion(db, projectId, date)]);
   const missingContractorIds = [...new Set(items.map((i) => i.contractorId))].filter((id) => !initialProjectCompanies.some((c) => c.id === id));
   const extraCompanies = missingContractorIds.length > 0 ? await listCoordinationContractorsByIds(db, projectId, missingContractorIds) : [];
   const initialCompanies = [...initialProjectCompanies, ...extraCompanies];
@@ -73,13 +75,20 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
   return {
     map: { id: map.id, projectId, imagePath: map.imagePath, width: map.width, height: map.height },
     contractors: companies.map((c) => ({ ...c, color: c.color!, revision: c.revision! })),
-    items: items.map(dto), roads, editableContractorIds: lock ? [] : isEpsStaff(auth.user.role) ? companies.filter((c) => c.isContractor).map((c) => c.id) : memberships.map((m) => m.id),
+    items: items.map(dto), itemTypes, editableContractorIds: lock ? [] : isEpsStaff(auth.user.role) ? companies.filter((c) => c.isContractor).map((c) => c.id) : memberships.map((m) => m.id),
     canManageColors: isEpsStaff(auth.user.role),
     dayNote: dayNote ? { note: dayNote.note, updatedAt: dayNote.updatedAt.toISOString(), updatedByName: dayNote.updatedByName ?? dayNote.updatedByEmail ?? null } : null,
     canEditDayNote: !lock && isEpsStaff(auth.user.role),
     lock: lock ? lockDto(lock) : null,
     canLock: isEpsStaff(auth.user.role),
+    version,
   };
+}
+// The open map polls this instead of the whole day (see coordinationVersion): same access rule, one small query.
+export async function coordinationVersionService(auth: AuthContext, projectId: string, date: string) {
+  await access(auth, projectId);
+  if (!coordinationDateValid(date)) throw new ValidationError("Invalid work date");
+  return { version: await coordinationVersion(getDb(), projectId, date) };
 }
 // Day note: EPS only; an empty note removes it.
 export async function saveDayNoteService(auth: AuthContext, projectId: string, date: string, raw: string) {
@@ -98,6 +107,11 @@ export async function saveCoordinationService(auth: AuthContext, projectId: stri
   const input = clean(raw);
   await access(auth, projectId, input.contractorId);
   const db = getDb();
+  // The code must belong to this project's catalog. Hidden types stay usable on existing jobs,
+  // but a new job can only use a visible one.
+  const itemType = await findItemTypeByCode(db, projectId, input.icon);
+  if (!itemType) throw new ValidationError("Choose a valid item type");
+  if (!id && !itemType.isActive) throw new ValidationError("This item type is hidden; choose another one");
   const map = await getMap(db, projectId);
   if (!map) throw new NotFoundError("Coordination drawing not configured");
   if (input.areaKind === "rectangle" && !coordinationRectangleValid(input.geometry.points, map.width, map.height)) throw new ValidationError("Rectangle corners must form a rectangle");
@@ -151,7 +165,7 @@ export async function coordinationReportService(auth: AuthContext, projectId: st
     map: data.map,
     contractors: data.contractors,
     items: data.items,
-    roads: data.roads,
+    itemTypes: data.itemTypes,
     dayNote: data.dayNote,
   };
 }
@@ -193,23 +207,4 @@ export async function deleteRoadSegmentService(auth: AuthContext, projectId: str
   const db = getDb();
   if (!await getRoadSegment(db, projectId, id)) throw new NotFoundError("Road segment not found");
   await deleteRoadSegment(db, projectId, id);
-}
-
-// Road requests of the day that have a route, each flagged when another contractor uses the same
-// place at an overlapping time (checked against every request that day, routes or not).
-// Road requests of the day as map lines. A request is the set of register roads it uses (one line per
-// road, ids "<request>:<road>"); requests drawn before that keep their single drawn line.
-async function mapRoads(projectId: string, date: string): Promise<CoordinationRoad[]> {
-  const db = getDb();
-  const [rows, register] = await Promise.all([listRoadRequests(db, projectId, date), listRoadSegments(db, projectId)]);
-  const roadById = new Map(register.map((s) => [s.id, s]));
-  return rows.flatMap((r) => {
-    const clash = rows.some((o) => o.id !== r.id && o.contractorId !== r.contractorId && timeWindowsOverlap(r.startTime, r.endTime, o.startTime, o.endTime) && roadPlacesMeet(r, o));
-    const base = { contractorId: r.contractorId, roadLocation: r.roadLocation, startTime: r.startTime, endTime: r.endTime, purpose: r.purpose, clash };
-    if (r.route && r.route.length >= 2) return [{ ...base, id: r.id, route: r.route }];
-    return (r.segmentIds ?? []).flatMap((id) => {
-      const road = roadById.get(id);
-      return road && road.points.length >= 2 ? [{ ...base, id: `${r.id}:${id}`, route: road.points }] : [];
-    });
-  });
 }

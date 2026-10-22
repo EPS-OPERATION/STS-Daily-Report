@@ -40,6 +40,7 @@ export async function listPermits(db: Db, reportId: string) {
       highRisk: dailyReportPermits.highRisk,
       taskName: dailyReportPermits.taskName,
       supervisorName: dailyReportPermits.supervisorName,
+      photoKey: dailyReportPermits.photoKey,
     })
     .from(dailyReportPermits)
     .innerJoin(buildings, eq(dailyReportPermits.buildingId, buildings.id))

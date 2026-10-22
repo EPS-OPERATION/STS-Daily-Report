@@ -204,7 +204,12 @@ function ActivityLine({
         </Box>
         <Box sx={{ gridArea: "time", minWidth: 0, display: timed ? "block" : "none" }}>
           {timed ? (
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ pt: 0.5 }}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              alignItems={{ xs: "stretch", sm: "center" }}
+              sx={{ pt: 0.5, width: { xs: "100%", sm: "auto" } }}
+            >
               <Typography variant="caption" color="text.secondary">
                 เวลา
               </Typography>
@@ -222,13 +227,13 @@ function ActivityLine({
                       step={30}
                       after={k === "endTime" ? start : undefined}
                       fullWidth
-                      sx={{ minWidth: 0, width: 116, "& .MuiAutocomplete-inputRoot": { pr: "10px !important" } }}
+                      sx={{ minWidth: 0, width: { xs: "100%", sm: 116 }, "& .MuiAutocomplete-inputRoot": { pr: "10px !important" } }}
                       error={Boolean(fieldState.error)}
                     />
                   )}
                 />
               ))}
-              <IconButton size="small" aria-label="ทั้งวัน (ไม่ระบุเวลา)" onClick={() => setValue(`${path}.timed`, false, { shouldDirty: true, shouldValidate: validate })}>
+              <IconButton size="small" aria-label="ทั้งวัน (ไม่ระบุเวลา)" onClick={() => setValue(`${path}.timed`, false, { shouldDirty: true, shouldValidate: validate })} sx={{ alignSelf: { xs: "flex-end", sm: "center" } }}>
                 <CloseOutlinedIcon fontSize="small" />
               </IconButton>
             </Stack>

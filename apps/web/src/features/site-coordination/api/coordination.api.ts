@@ -1,8 +1,12 @@
-import type { CoordinationData, CoordinationDayLock, CoordinationDayNote, CoordinationInput, CoordinationItem, CoordinationReport, RoadSegment } from "@sts/shared";
+import type { CoordinationData, CoordinationDayLock, CoordinationDayNote, CoordinationInput, CoordinationItem, CoordinationItemType, CoordinationReport, RoadSegment } from "@sts/shared";
+import type { CreateItemTypeInput, UpdateItemTypeInput } from "../types/item-type.types.js";
 import { http } from "@/services/http/client.js";
 export const coordinationApi = {
   get(projectId: string, date: string): Promise<{ data: CoordinationData }> {
     return http.get(`/projects/${projectId}/coordination?${new URLSearchParams({ date })}`);
+  },
+  version(projectId: string, date: string): Promise<{ data: { version: string } }> {
+    return http.get(`/projects/${projectId}/coordination/version?${new URLSearchParams({ date })}`);
   },
   report(projectId: string, date: string): Promise<{ data: CoordinationReport }> {
     return http.get(`/projects/${projectId}/coordination/report?${new URLSearchParams({ date })}`);
@@ -34,5 +38,20 @@ export const coordinationApi = {
   },
   color(projectId: string, contractorId: string, color: string, revision: number) {
     return http.patch(`/projects/${projectId}/coordination/contractors/${contractorId}`, { color, revision });
+  },
+  itemTypes(projectId: string): Promise<{ data: CoordinationItemType[] }> {
+    return http.get(`/projects/${projectId}/coordination/item-types`);
+  },
+  createItemType(projectId: string, input: CreateItemTypeInput): Promise<{ data: CoordinationItemType }> {
+    return http.post(`/projects/${projectId}/coordination/item-types`, input);
+  },
+  updateItemType(projectId: string, id: string, input: UpdateItemTypeInput): Promise<{ data: CoordinationItemType }> {
+    return http.patch(`/projects/${projectId}/coordination/item-types/${id}`, input);
+  },
+  reorderItemTypes(projectId: string, ids: string[]): Promise<{ data: CoordinationItemType[] }> {
+    return http.put(`/projects/${projectId}/coordination/item-types/order`, { ids });
+  },
+  removeItemType(projectId: string, id: string): Promise<void> {
+    return http.delete(`/projects/${projectId}/coordination/item-types/${id}`);
   },
 };

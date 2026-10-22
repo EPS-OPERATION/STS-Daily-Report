@@ -2,8 +2,8 @@ import { useTheme } from "@mui/material/styles";
 import { memo, useEffect, useMemo, useRef, type RefObject } from "react";
 import { Circle, Group, Line, Rect, Text, Transformer } from "react-konva";
 import Konva from "konva";
-import { COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN, type CoordinationInput, type CoordinationItem, type CoordinationPoint } from "@sts/shared";
-import { MachineIcon } from "./machine-icon.js";
+import { type CoordinationInput, type CoordinationItem, type CoordinationPoint } from "@sts/shared";
+import { CoordinationIconShape } from "./coordination-icon.js";
 import type { MapDisplay } from "./map-filters.js";
 import { RouteMarks } from "./route-marks.js";
 import { areaCentroid, areaDelta, clamp, nearestBoundaryPoint, routeMidpoint, shiftPoints } from "../utils/canvas-geometry.js";
@@ -33,6 +33,8 @@ interface Props {
   /** Some job is selected or being edited: the others fade back. */
   focus: boolean;
   color: string; code: string | undefined; clash: boolean;
+  /** Phosphor key resolved from the project's item-type catalog. */
+  iconKey: string;
   scale: number; tool: MapTool; drawingTool: boolean; textEditing: boolean; dragging: boolean;
   display: Pick<MapDisplay, "areas" | "labels" | "notes" | "links" | "chips" | "markSize">;
   dragOffset: AreaDrag | null; iconDrag: IconDrag | null; mapWidth: number; mapHeight: number;
@@ -99,7 +101,7 @@ export function TapRipple({ x, y, scale, color, onDone }: { x: number; y: number
 const CAPTION_OPTIONS ={ font: CAPTION_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: CAPTION_LINE_HEIGHT, maxLines: CAPTION_MAX_LINES, minWidth: 64 };
 const NOTE_OPTIONS = { font: NOTE_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: NOTE_LINE_HEIGHT, maxLines: 2, minWidth: 64 };
 
-export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected, hasDraft, focus, color, code, clash, scale, tool, drawingTool, textEditing, dragging, display, dragOffset, iconDrag, mapWidth, mapHeight, coarse, actions, rectangleRef, transformerRef }: Props) {
+export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected, hasDraft, focus, color, code, clash, iconKey, scale, tool, drawingTool, textEditing, dragging, display, dragOffset, iconDrag, mapWidth, mapHeight, coarse, actions, rectangleRef, transformerRef }: Props) {
   const theme = useTheme();
   const paper = theme.palette.background.paper;
   const editable = editing && tool === "move";
@@ -138,7 +140,6 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
   // This job's own icon size (saved per job); captions under it are counter-scaled to stay readable.
   const size = route ? 1 : item.iconScale ?? 1;
   const markerScale = markScale * size;
-  const liveSize = useRef(size);
   const rectStart = useRef<{ x: number; y: number } | null>(null);
   // Stable per (touch, ink) so the Transformer is not re-styled on every render.
   const inkSecondary = theme.palette.text.secondary;
@@ -270,7 +271,7 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
         <Circle ref={pulseRef} radius={24} stroke={color} strokeWidth={3} opacity={0} listening={false} perfectDrawEnabled={false} />
         <Circle y={2} radius={25} fill={LIFT} opacity={LIFT_OPACITY} listening={false} perfectDrawEnabled={false} />
         <Circle radius={24} fill={paper} stroke={color} strokeWidth={selected ? 4 : 3} hitStrokeWidth={coarse ? 24 : undefined} perfectDrawEnabled={false} />
-        <MachineIcon icon={item.icon} color={color} rotation={item.rotation} />
+        <CoordinationIconShape iconKey={iconKey} color={color} rotation={item.rotation} />
       </>}
       {/* Caption + note hang under the ring/pill and grow with √size: a bigger icon gets a bigger name,
           but 250% icon → 1.6× text (not 2.5×), so labels stay in proportion with the rest of the map. */}
@@ -278,24 +279,6 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
         {item.icon !== "text" && captionShown && captionLayout && <Text x={-captionLayout.width / 2} width={captionLayout.width} text={captionLayout.lines.join("\n")} fontFamily="Inter" fontSize={12} fontStyle="600" lineHeight={CAPTION_LINE_HEIGHT / 12} align="center" fill={theme.palette.text.primary} stroke={paper} strokeWidth={3} fillAfterStrokeEnabled perfectDrawEnabled={false} />}
         {noteLayout && <Text x={-noteLayout.width / 2} y={item.icon === "text" ? 0 : noteY - 28} width={noteLayout.width} text={noteLayout.lines.join("\n")} fontFamily="Inter" fontSize={11} lineHeight={NOTE_LINE_HEIGHT / 11} align="center" fill={theme.palette.text.secondary} stroke={paper} strokeWidth={3} fillAfterStrokeEnabled perfectDrawEnabled={false} />}
       </Group>
-      {/* Resize handle on the ring (45°): drag out/in to size this job's icon; saved once on drop. */}
-      {editable && selected && item.icon !== "text" && <Circle x={17} y={17} radius={9 / (display.markSize * size)} fill={paper} stroke={color} strokeWidth={2 / (display.markSize * size)}
-        hitStrokeWidth={(coarse ? 24 : 10) / (display.markSize * size)} perfectDrawEnabled={false} draggable
-        onMouseEnter={(e) => { const box = e.target.getStage()?.container(); if (box) box.style.cursor = "nwse-resize"; }}
-        onMouseLeave={(e) => { const box = e.target.getStage()?.container(); if (box) box.style.cursor = ""; }}
-        onDragStart={(e) => { e.cancelBubble = true; liveSize.current = size; }}
-        onDragMove={(e) => {
-          e.cancelBubble = true;
-          const group = markerRef.current, pointer = e.target.getStage()?.getPointerPosition();
-          if (!group || !pointer) return;
-          const c = group.getAbsolutePosition();
-          // The ring's on-screen radius is 24 × markSize × size, so the pointer distance gives the size.
-          const next = Math.min(COORDINATION_ICON_SCALE_MAX, Math.max(COORDINATION_ICON_SCALE_MIN, Math.hypot(pointer.x - c.x, pointer.y - c.y) / (24 * display.markSize)));
-          liveSize.current = next;
-          group.scale({ x: markScale * next, y: markScale * next });
-          e.target.position({ x: 17, y: 17 });
-        }}
-        onDragEnd={(e) => { e.cancelBubble = true; actions.change({ iconScale: Math.round(liveSize.current * 100) / 100 }); }} />}
     </Group>}
   </Group>;
 });

@@ -89,6 +89,7 @@ export function toDefaults(report: DailyReport | null): MorningFormValues {
       highRisk: p.highRisk ?? false,
       taskName: p.taskName ?? "",
       supervisorName: p.supervisorName ?? "",
+      photoKey: p.photoKey ?? crypto.randomUUID(),
     })),
   };
 }

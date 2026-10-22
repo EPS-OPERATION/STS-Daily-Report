@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { CoordinationInput, CoordinationPoint } from "@sts/shared";
 import type { QueryDb } from "@/db/client.js";
-import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItems, coordinationMaps, coordinationRoadSegments, dailyReportRoadUsage, dailyReports, projectContractors, users } from "@/db/schema/index.js";
+import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItemTypes, coordinationItems, coordinationMaps, coordinationRoadSegments, projectContractors, users } from "@/db/schema/index.js";
 
 export async function getMap(db: QueryDb, projectId: string, lock = false) {
   const query = db.select().from(coordinationMaps).where(eq(coordinationMaps.projectId, projectId)).limit(1);
@@ -114,19 +114,28 @@ export async function deleteRoadSegment(db: QueryDb, projectId: string, id: stri
   await db.delete(coordinationRoadSegments).where(and(eq(coordinationRoadSegments.projectId, projectId), eq(coordinationRoadSegments.id, id)));
 }
 
-// Road requests made for this day (Daily Request of the day before). Times are what EPS settled.
-export async function listRoadRequests(db: QueryDb, projectId: string, date: string) {
-  return db.select({
-    id: dailyReportRoadUsage.id,
-    contractorId: dailyReports.contractorId,
-    roadLocation: dailyReportRoadUsage.roadLocation,
-    startTime: sql<string>`coalesce(${dailyReportRoadUsage.adjustedStartTime}, ${dailyReportRoadUsage.startTime})`,
-    endTime: sql<string>`coalesce(${dailyReportRoadUsage.adjustedEndTime}, ${dailyReportRoadUsage.endTime})`,
-    purpose: dailyReportRoadUsage.purpose,
-    segmentIds: dailyReportRoadUsage.segmentIds,
-    route: dailyReportRoadUsage.route,
-  }).from(dailyReportRoadUsage)
-    .innerJoin(dailyReports, eq(dailyReportRoadUsage.reportId, dailyReports.id))
-    .where(and(eq(dailyReports.projectId, projectId), eq(dailyReportRoadUsage.targetDate, date)))
-    .orderBy(asc(dailyReportRoadUsage.startTime));
+// A fingerprint of everything GET /coordination returns for one day: it changes whenever the map would look
+// different. The map polls this (one small query) and fetches the whole day only when it moved. Each part is
+// a count plus a revision sum / latest timestamp, so inserts, edits AND deletes all change it. The map is
+// independent of the Daily Request, so nothing from the reports belongs here.
+export async function coordinationVersion(db: QueryDb, projectId: string, date: string): Promise<string> {
+  const rows = await db.execute<{ v: string }>(sql`
+    select md5(concat_ws('|',
+      (select count(*) || ':' || coalesce(sum(${coordinationItems.revision}), 0) || ':' || coalesce(max(${coordinationItems.updatedAt})::text, '')
+         from ${coordinationItems} where ${coordinationItems.projectId} = ${projectId} and ${coordinationItems.workDate} = ${date}),
+      (select coalesce(max(${coordinationDayNotes.updatedAt})::text, '')
+         from ${coordinationDayNotes} where ${coordinationDayNotes.projectId} = ${projectId} and ${coordinationDayNotes.workDate} = ${date}),
+      (select coalesce(max(${coordinationDayLocks.lockedAt})::text, '')
+         from ${coordinationDayLocks} where ${coordinationDayLocks.projectId} = ${projectId} and ${coordinationDayLocks.workDate} = ${date}),
+      (select count(*) || ':' || coalesce(sum(${coordinationColors.revision}), 0)
+         from ${coordinationColors} where ${coordinationColors.projectId} = ${projectId}),
+      (select count(*) || ':' || coalesce(max(${coordinationRoadSegments.updatedAt})::text, '')
+         from ${coordinationRoadSegments} where ${coordinationRoadSegments.projectId} = ${projectId}),
+      (select count(*) || ':' || coalesce(max(${coordinationItemTypes.updatedAt})::text, '')
+         from ${coordinationItemTypes} where ${coordinationItemTypes.projectId} = ${projectId}),
+      (select count(*) || ':' || coalesce(max(${contractors.updatedAt})::text, '')
+         from ${projectContractors} inner join ${contractors} on ${projectContractors.contractorId} = ${contractors.id}
+         where ${projectContractors.projectId} = ${projectId})
+    )) as v`);
+  return rows[0]!.v;
 }

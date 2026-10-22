@@ -28,10 +28,11 @@ export const dailyReportApi = {
   ensureDraft(projectId: string, date: string, contractorId: string): Promise<{ data: DailyReport }> {
     return http.post(`/projects/${projectId}/daily-reports/draft`, { date, contractorId });
   },
-  uploadPhoto(reportId: string, category: PhotoCategory, file: File): Promise<{ data: { id: string } }> {
+  uploadPhoto(reportId: string, category: PhotoCategory, file: File, permitKey?: string): Promise<{ data: { id: string } }> {
     const form = new FormData();
     form.set("category", category);
     form.set("file", file);
+    if (permitKey) form.set("permitKey", permitKey);
     return http.upload(`/daily-reports/${reportId}/photos`, form);
   },
   deletePhoto(reportId: string, photoId: string): Promise<null> {

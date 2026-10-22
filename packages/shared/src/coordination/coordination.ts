@@ -1,5 +1,46 @@
+/** Built-in item codes. Projects can add more in `coordination_item_types`; stored items use the code. */
 export const COORDINATION_ICONS = ["crane", "machinery", "truck", "weld", "pipe", "box", "pin", "road", "text"] as const;
-export type CoordinationIcon = (typeof COORDINATION_ICONS)[number];
+export type BuiltInCoordinationIcon = (typeof COORDINATION_ICONS)[number];
+export type CoordinationIcon = string;
+
+/** Icons the admin can pick (Phosphor fill set, vendored in the web app). */
+export const COORDINATION_ICON_KEYS = [
+  "crane", "crane-tower", "bulldozer", "tractor", "truck", "truck-trailer",
+  "traffic-cone", "traffic-sign", "hard-hat", "fire", "fire-extinguisher",
+  "pipe", "pipe-wrench", "wrench", "hammer", "toolbox", "package", "warehouse",
+  "factory", "wall", "stairs", "ruler", "paint-roller", "engine", "gear",
+  "drop", "lightning", "warning", "map-pin", "road-horizon", "text-t",
+] as const;
+export type CoordinationIconKey = (typeof COORDINATION_ICON_KEYS)[number];
+
+/** One entry in a project's "Add item" menu. `code` is stored on the job and never changes. */
+export interface CoordinationItemType {
+  id: string;
+  code: string;
+  label: string;
+  labelTh: string;
+  iconKey: string;
+  sortOrder: number;
+  isActive: boolean;
+  /** Built-in types (road/text included) cannot be deleted. */
+  isSystem: boolean;
+}
+
+/** Seeded for every project by the migration and `bun db:seed`. */
+export const COORDINATION_ITEM_TYPE_DEFAULTS = [
+  { code: "crane", label: "Crane", labelTh: "รถเครน", iconKey: "crane", sortOrder: 10 },
+  { code: "machinery", label: "Machinery", labelTh: "เครื่องจักร", iconKey: "bulldozer", sortOrder: 20 },
+  { code: "truck", label: "Truck", labelTh: "รถขนส่ง", iconKey: "truck", sortOrder: 30 },
+  { code: "weld", label: "Welding", labelTh: "งานเชื่อม", iconKey: "fire", sortOrder: 40 },
+  { code: "pipe", label: "Piping", labelTh: "งานท่อ", iconKey: "pipe", sortOrder: 50 },
+  { code: "box", label: "Material laydown", labelTh: "จุดวางของ", iconKey: "package", sortOrder: 60 },
+  { code: "pin", label: "Work point", labelTh: "จุดงาน", iconKey: "map-pin", sortOrder: 70 },
+  { code: "road", label: "Road use", labelTh: "ใช้ถนน", iconKey: "road-horizon", sortOrder: 80 },
+  { code: "text", label: "Text", labelTh: "ข้อความ", iconKey: "text-t", sortOrder: 90 },
+] as const;
+
+/** Codes that change behaviour, not just the glyph: a route, or the free-text marker. */
+export const COORDINATION_RESERVED_ICONS = ["road", "text"] as const;
 export interface CoordinationPoint { x: number; y: number }
 // polygon = a work area (rectangle or free shape); polyline = a road route (open line, "route" items).
 export interface CoordinationGeometry { type: "polygon" | "polyline"; points: CoordinationPoint[] }
@@ -32,26 +73,22 @@ export interface CoordinationDayNote {
 export interface CoordinationDayLock {
   lockedAt: string; lockedByName: string | null;
 }
-/** A road request for this day that has a route on the map (from the contractors' Daily Request). */
-export interface CoordinationRoad {
-  id: string; contractorId: string; roadLocation: string; startTime: string; endTime: string; purpose: string;
-  route: CoordinationPoint[];
-  /** Another contractor uses the same place at an overlapping time. */
-  clash: boolean;
-}
 export interface CoordinationData {
   map: { id: string; projectId: string; imagePath: string; width: number; height: number };
   contractors: CoordinationContractor[]; items: CoordinationItem[];
-  roads: CoordinationRoad[];
+  /** The project's Add-item catalog; inactive entries stay for old jobs but are hidden from the picker. */
+  itemTypes: CoordinationItemType[];
   editableContractorIds: string[]; canManageColors: boolean;
   dayNote: CoordinationDayNote | null; canEditDayNote: boolean;
   lock: CoordinationDayLock | null; canLock: boolean;
+  /** Fingerprint of everything above: the open map polls `/coordination/version` and refetches when it differs. */
+  version: string;
 }
 /** Printable day report (EPS only): the drawing with every job of the day and the day note. */
 export interface CoordinationReport {
   projectName: string; date: string; generatedAt: string; generatedByName: string | null;
   map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[];
-  roads: CoordinationRoad[];
+  itemTypes: CoordinationItemType[];
   dayNote: CoordinationDayNote | null;
 }
 // Separate from chart colours: every contractor remains individually identifiable.

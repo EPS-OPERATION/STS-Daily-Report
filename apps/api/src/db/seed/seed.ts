@@ -1,6 +1,6 @@
 import { eq, inArray, sql } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
-import { BUILDINGS, RETIRED_BUILDING_CODES, type BuildingCode, DEFAULT_SITE_LOCATION, PERMIT_TYPES } from "@sts/shared";
+import { BUILDINGS, RETIRED_BUILDING_CODES, type BuildingCode, COORDINATION_ITEM_TYPE_DEFAULTS, DEFAULT_SITE_LOCATION, PERMIT_TYPES } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { coordinationMaps } from "@/db/schema/coordination.schema.js";
 import {
@@ -8,6 +8,7 @@ import {
   buildings,
   contractorAliases,
   contractors,
+  coordinationItemTypes,
   droneLogs,
   permitTypes,
   projectContractors,
@@ -262,6 +263,23 @@ await db
 // (Sample daily reports, QAQC inspection requests and safety findings were
 // removed on 2026-10-11 so the seeded database is deploy-ready. Restore from
 // git history if demo data is needed.)
+
+// --- Coordination item catalog ("Add item" menu): the 9 built-in work types ---
+await db
+  .insert(coordinationItemTypes)
+  .values(
+    COORDINATION_ITEM_TYPE_DEFAULTS.map((t) => ({
+      projectId: PROJECT_ID,
+      code: t.code,
+      label: t.label,
+      labelTh: t.labelTh,
+      iconKey: t.iconKey,
+      sortOrder: t.sortOrder,
+      isActive: true,
+      isSystem: true,
+    })),
+  )
+  .onConflictDoNothing({ target: [coordinationItemTypes.projectId, coordinationItemTypes.code] });
 
 // Dedicated coordination image; does not change WBS or facility marker backgrounds.
 await db.insert(coordinationMaps).values({ projectId: PROJECT_ID, imagePath: "/site-plan/STS_KY_Layout_Plan.png", width: 6542, height: 4951 }).onConflictDoNothing();

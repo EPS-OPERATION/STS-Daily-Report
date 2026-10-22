@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { requireAuth } from "@/middleware/require-auth.js";
+import { assertEpsAdmin } from "@/middleware/require-eps.js";
 import { ok } from "@/shared/http/response.js";
 import {
   createActivityService,
@@ -29,6 +30,8 @@ export const siteActivityRoutes = new Elysia()
     { params: projectActivitiesParams, query: listActivitiesQuery },
   )
   .use(requireAuth)
+  // Writes are EPS admin only (activities are managed on the admin "Option" site plan page); a signed-in contractor gets 403.
+  .onBeforeHandle(({ auth }) => assertEpsAdmin(auth))
   .post(
     "/projects/:projectId/activities",
     async ({ params, body, auth, set }) => {
