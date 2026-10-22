@@ -3,6 +3,8 @@ import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import {
   BarChart,
   ChartsTooltipCell,
@@ -23,8 +25,13 @@ import { formatNumber } from "@/lib/format.js";
 
 const DAY_TH = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."];
 
+// One line under the bars; many contractors scroll sideways instead of wrapping out of a fixed-height panel.
 const legendBottom = {
-  legend: { direction: "horizontal" as const, position: { vertical: "bottom" as const, horizontal: "center" as const } },
+  legend: {
+    direction: "horizontal" as const,
+    position: { vertical: "bottom" as const, horizontal: "center" as const },
+    sx: { maxWidth: "100%", flexWrap: "nowrap", overflowX: "auto", overflowY: "hidden", justifyContent: "flex-start", gap: 1.5, scrollbarWidth: "thin", "& > li": { flexShrink: 0 } },
+  },
 };
 
 function CustomStackedBarTooltip(props: ChartsTooltipProps) {
@@ -124,6 +131,8 @@ export function ManDayByContractorChart({
 }) {
   // Contractors hidden by the filter chips (empty = show all).
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  // Phones: plain d/m labels and fewer of them, or the week's weekday labels run into each other.
+  const narrow = useMediaQuery(useTheme().breakpoints.down("sm"));
   if (daily.length === 0) return <EmptySection title="ยังไม่มีรายงานเช้าในช่วงนี้" height={height} />;
   const perDay = new Map<string, Map<string, number>>(); // contractor → date → headcount
   for (const r of daily) {
@@ -134,10 +143,10 @@ export function ManDayByContractorChart({
   const allCodes = [...perDay.keys()].sort((a, b) => a.localeCompare(b));
   const codes = allCodes.filter((c) => !hidden.has(c));
   const totals = days.map((d) => codes.reduce((s, c) => s + (perDay.get(c)?.get(d) ?? 0), 0));
-  const week = days.length <= 7;
+  const week = days.length <= 7 && !narrow;
   // Long ranges: short d/m labels, every step-th one shown, tilted only when still crowded.
-  const step = Math.ceil(days.length / 16);
-  const tilt = days.length > 16;
+  const step = Math.ceil(days.length / (narrow ? 8 : 16));
+  const tilt = days.length > (narrow ? 7 : 16);
   const toggle = (c: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -187,7 +196,7 @@ export function ManDayByContractorChart({
             scaleType: "band",
             data: days,
             // Few days: narrower bars instead of one block across the whole chart.
-            categoryGapRatio: days.length <= 2 ? 0.7 : days.length <= 7 ? 0.4 : 0.2,
+            categoryGapRatio: days.length <= 2 ? 0.7 : days.length <= 7 ? 0.3 : 0.2,
             valueFormatter: (d: string) => {
               const djs = dayjs(d);
               if (week) {
@@ -205,7 +214,7 @@ export function ManDayByContractorChart({
           },
         ]}
         // 15% headroom so the day total above the tallest bar is never clipped.
-        yAxis={[{ label: legend ? "People" : undefined, width: legend ? 48 : 40, min: 0, max: Math.max(10, Math.ceil((Math.max(...totals) * 1.15) / 10) * 10) }]}
+        yAxis={[{ label: legend ? "People" : undefined, width: legend ? 60 : 40, min: 0, max: Math.max(10, Math.ceil((Math.max(...totals) * 1.15) / 10) * 10) }]}
         series={codes.map((code) => ({
           id: code,
           label: code,
@@ -287,41 +296,72 @@ export function ManpowerTrendChart({ days, daily, height = 300 }: { days: string
   );
 }
 
-// Headcount by position, grouped by contractor (actual count in range).
-export function PositionByContractorChart({ rows, colors, height = 320 }: { rows: PositionMixRow[]; colors: Map<string, string>; height?: number }) {
+// Headcount by position, stacked by contractor (actual count in range). Horizontal with each total in the
+// label, so small trades stay readable next to Worker; «ซ่อนคนงาน» drops Worker to rescale the rest.
+// Every position gets its own bar (never merged); in a fixed-height panel the bars scroll and the legend stays put.
+export function PositionByContractorChart({ rows, colors, height }: { rows: PositionMixRow[]; colors: Map<string, string>; height?: number }) {
+  const [hideWorker, setHideWorker] = useState(false);
   if (rows.length === 0) return <EmptySection title="ยังไม่มีข้อมูลตำแหน่งในช่วงนี้" height={height} />;
-  // Positions anyone used in the range, biggest first; each is one bar stacked by contractor.
-  const totalOf = (code: string) => rows.filter((r) => r.position === code).reduce((s, r) => s + (r.totalHeadcount ?? r.avgPerDay ?? 0), 0);
-  const positions = POSITIONS.filter((p) => rows.some((r) => r.position === p.code)).sort((a, b) => totalOf(b.code) - totalOf(a.code));
+  const count = (r: PositionMixRow) => r.totalHeadcount ?? r.avgPerDay ?? 0;
   const codes = [...new Set(rows.map((r) => r.contractorCode))].sort((a, b) => a.localeCompare(b));
-  const tilt = positions.length > 6;
+  const hasWorker = rows.some((r) => r.position === "worker" && count(r) > 0);
+  const bars = POSITIONS.filter((p) => !(hideWorker && p.code === "worker"))
+    .map((p) => {
+      const byCode: Record<string, number> = {};
+      for (const r of rows) if (r.position === p.code) byCode[r.contractorCode] = (byCode[r.contractorCode] ?? 0) + count(r);
+      return { name: p.label as string, byCode, total: Object.values(byCode).reduce((a, n) => a + n, 0) };
+    })
+    .filter((b) => b.total > 0)
+    .sort((a, b) => b.total - a.total);
+  const shown = bars;
+  const chartHeight = bars.length * BUILDING_ROW + 12; // no x axis: each total is in its label
+  // Fixed panel: chip row (36) and legend (28) stay; the bars area scrolls when the rows do not fit.
+  const viewport = height === undefined ? undefined : Math.max(120, height - (hasWorker ? 36 : 0) - 28);
+  const scrolls = viewport !== undefined && chartHeight > viewport;
   return (
-    <BarChart
-      height={height}
-      borderRadius={4}
-      xAxis={[{
-        scaleType: "band",
-        data: positions.map((p) => p.label),
-        categoryGapRatio: positions.length <= 3 ? 0.6 : 0.3,
-        tickLabelInterval: () => true,
-        tickLabelStyle: tilt ? { fontSize: 11, angle: -30, textAnchor: "end" } : { fontSize: 12, angle: 0, textAnchor: "middle" },
-        height: tilt ? 64 : 28,
-      }]}
-      yAxis={[{ width: 44 }]}
-      series={codes.map((code) => ({
-        id: code,
-        label: code,
-        stack: "total",
-        color: colors.get(code) ?? CHART_OTHER,
-        data: positions.map((p) => {
-          const r = rows.find((row) => row.contractorCode === code && row.position === p.code);
-          return r?.totalHeadcount ?? r?.avgPerDay ?? 0;
-        }),
-        valueFormatter: (v: number | null) => (v ? `${formatNumber(v)} คน` : null),
-      }))}
-      slotProps={legendBottom}
-      grid={{ horizontal: true }}
-    />
+    <Box>
+      {hasWorker ? (
+        <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={1} sx={{ height: 32, mb: 0.5 }}>
+          {scrolls ? <Typography variant="caption" color="text.secondary">{bars.length} ตำแหน่ง · เลื่อนดู ↓</Typography> : null}
+          <Chip
+            size="small"
+            label="ซ่อนคนงาน (Worker)"
+            color={hideWorker ? "primary" : "default"}
+            variant={hideWorker ? "filled" : "outlined"}
+            onClick={() => setHideWorker((v) => !v)}
+            aria-pressed={hideWorker}
+          />
+        </Stack>
+      ) : null}
+      <Box sx={viewport === undefined ? undefined : { height: viewport, overflowY: "auto", scrollbarWidth: "thin" }}>
+      <BarChart
+        height={viewport === undefined ? chartHeight : Math.max(viewport - 2, chartHeight)}
+        hideLegend
+        margin={{ top: 6, bottom: 6, right: 12 }}
+        layout="horizontal"
+        borderRadius={3}
+        yAxis={[{ scaleType: "band", data: shown.map((b) => `${b.name}  ${formatNumber(b.total)}`), width: 200, tickLabelStyle: { fontSize: 12 } }]}
+        xAxis={[{ min: 0, position: "none" }]}
+        series={codes.map((code) => ({
+          id: code,
+          label: code,
+          stack: "total",
+          color: colors.get(code) ?? CHART_OTHER,
+          data: shown.map((b) => b.byCode[code] ?? 0),
+          valueFormatter: (v: number | null) => (v ? `${formatNumber(v)} คน` : null),
+        }))}
+        grid={{ vertical: true }}
+      />
+      </Box>
+      <Stack direction="row" spacing={1.5} justifyContent="safe center" sx={{ height: 28, alignItems: "center", overflowX: "auto", scrollbarWidth: "thin", "& > *": { flexShrink: 0 } }}>
+        {codes.map((code) => (
+          <Stack key={code} direction="row" spacing={0.75} alignItems="center">
+            <Box sx={{ width: 13, height: 13, borderRadius: "2px", bgcolor: colors.get(code) ?? CHART_OTHER }} />
+            <Typography variant="body2">{code}</Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
   );
 }
 
