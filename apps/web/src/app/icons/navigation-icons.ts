@@ -1,4 +1,5 @@
 import AccountTreeOutlined from "@mui/icons-material/AccountTreeOutlined";
+import ApartmentOutlined from "@mui/icons-material/ApartmentOutlined";
 import ManageAccountsOutlined from "@mui/icons-material/ManageAccountsOutlined";
 import AssessmentOutlined from "@mui/icons-material/AssessmentOutlined";
 import AssignmentOutlined from "@mui/icons-material/AssignmentOutlined";
@@ -30,6 +31,7 @@ export const navigationIcons = {
   tomorrow: EventNoteOutlined,
   weeklySummary: CalendarViewWeekOutlined,
   contractors: BusinessOutlined,
+  buildings: ApartmentOutlined,
   manpower: EngineeringOutlined,
   workPermits: AssignmentOutlined,
   qaqc: FactCheckOutlined,

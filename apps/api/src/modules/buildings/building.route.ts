@@ -2,7 +2,11 @@ import { Elysia } from "elysia";
 import { requireAuth } from "@/middleware/require-auth.js";
 import { ok } from "@/shared/http/response.js";
 import {
+  createBuildingService,
   createPartService,
+  listBuildingsAdminService,
+  reorderBuildingsService,
+  updateBuildingService,
   deletePartService,
   listBuildingsService,
   placeMarkerService,
@@ -13,7 +17,10 @@ import {
   updatePartService,
 } from "./building.service.js";
 import {
+  buildingCreateBody,
+  buildingOrderBody,
   buildingParams,
+  buildingUpdateBody,
   markerBody,
   markerParams,
   partBody,
@@ -31,6 +38,29 @@ export const buildingRoutes = new Elysia()
   })
   // Marker placement is EPS-only (checked in the service).
   .use(requireAuth)
+  // Building list management: eps_admin only (checked in the service). Hide = status inactive; no delete.
+  .get("/projects/:projectId/buildings/manage", async ({ params, auth }) => ok(await listBuildingsAdminService(auth, params.projectId)), {
+    params: projectIdParams,
+  })
+  .post(
+    "/projects/:projectId/buildings",
+    async ({ params, body, auth, set }) => {
+      const res = await createBuildingService(auth, params.projectId, body);
+      set.status = 201;
+      return ok(res);
+    },
+    { params: projectIdParams, body: buildingCreateBody },
+  )
+  .put(
+    "/projects/:projectId/buildings/order",
+    async ({ params, body, auth }) => ok(await reorderBuildingsService(auth, params.projectId, body.ids)),
+    { params: projectIdParams, body: buildingOrderBody },
+  )
+  .patch(
+    "/projects/:projectId/buildings/:buildingId",
+    async ({ params, body, auth }) => ok(await updateBuildingService(auth, params.projectId, params.buildingId, body)),
+    { params: buildingParams, body: buildingUpdateBody },
+  )
   .put(
     "/projects/:projectId/buildings/:buildingId/markers/:view",
     async ({ params, body, auth }) =>
