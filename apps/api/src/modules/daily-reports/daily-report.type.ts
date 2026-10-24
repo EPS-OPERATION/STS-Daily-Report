@@ -70,6 +70,8 @@ export interface MorningInput {
   // One crew per discipline that worked today (CE / ME / EE); the report is their sum.
   crews: MorningCrewInput[];
   permits?: PermitInput[];
+  // Owner (EPS) manpower only. Regular contractor reports keep OT on the evening Daily Request.
+  otHours?: number | null;
 }
 
 export interface RoadUsageInput {

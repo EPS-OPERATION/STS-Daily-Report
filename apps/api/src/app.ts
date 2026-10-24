@@ -12,6 +12,7 @@ import { dailyReportRoutes } from "@/modules/daily-reports/index.js";
 import { dailyRequestRoutes } from "@/modules/daily-requests/index.js";
 import { reportSummaryRoutes } from "@/modules/report-summaries/index.js";
 import { droneRoutes } from "@/modules/drone/index.js";
+import { epsManpowerRoutes } from "@/modules/eps-manpower/index.js";
 import { inspectionRequestRoutes } from "@/modules/inspection-requests/index.js";
 import { safetyRoutes } from "@/modules/safety/index.js";
 import { projectRoutes } from "@/modules/projects/index.js";
@@ -57,7 +58,7 @@ export function buildApp() {
       return { status: ready ? "ok" : "unavailable", db: ready ? "ok" : "down" };
     })
     .group(API_PREFIX, (group) =>
-      group.use(weatherCronRoutes).use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(reportSummaryRoutes).use(dailyRequestRoutes).use(inspectionRequestRoutes).use(safetyRoutes).use(coordinationRoutes).use(droneRoutes).use(reportStandardItemRoutes).use(permitTypeRoutes).use(weatherRoutes),
+      group.use(weatherCronRoutes).use(authRoutes).use(userRoutes).use(contractorRoutes).use(projectRoutes).use(zoneRoutes).use(siteActivityRoutes).use(sitePlanRoutes).use(buildingRoutes).use(dailyReportRoutes).use(reportSummaryRoutes).use(dailyRequestRoutes).use(inspectionRequestRoutes).use(safetyRoutes).use(coordinationRoutes).use(droneRoutes).use(reportStandardItemRoutes).use(permitTypeRoutes).use(weatherRoutes).use(epsManpowerRoutes),
     )
     .get("/", () => ({ status: "ok", service: "sts-api" }));
   return app;

@@ -46,6 +46,9 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
       weather: input.weather,
       temperatureC: input.temperatureC ?? null,
       humidityPct: input.humidityPct ?? null,
+      // Only the owner (EPS) manpower entry sends this; a contractor morning re-send must not clear
+      // the evening Daily Request's OT.
+      ...(input.otHours !== undefined ? { otHours: input.otHours } : {}),
       ...split,
       morningStatus: "submitted",
       morningSubmittedAt: isEdit ? (existing.morningSubmittedAt ?? now) : now,
@@ -170,7 +173,10 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
         };
       });
     });
-    await tx.insert(dailyReportAllocations).values(allocationRows.map((a, i) => ({ ...a, sortOrder: i })));
+    // EPS owner manpower may be site-wide with no building rows; a morning report always has some.
+    if (allocationRows.length > 0) {
+      await tx.insert(dailyReportAllocations).values(allocationRows.map((a, i) => ({ ...a, sortOrder: i })));
+    }
     return reportId;
   });
 }
