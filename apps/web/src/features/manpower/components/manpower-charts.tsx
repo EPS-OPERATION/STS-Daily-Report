@@ -11,11 +11,11 @@ export function ManpowerCharts({ ed }: { ed: UseManpowerPageState }) {
       <Grid size={{ xs: 12, lg: 6 }}>
         <ChartPanel
           height={panelHeight}
-          title="Man-day รายวัน แยกตามผู้รับเหมา"
+          title="Man-day รายวัน แยกตามบริษัท"
           note={
             isFiltered
-              ? `จำนวนคนเข้างานต่อวัน (กรองเฉพาะ ${selectedCodes.size} เจ้าที่เลือก)`
-              : "จำนวนคนเข้างานต่อวัน (รายงานเช้า)"
+              ? `Man-days ต่อวัน (กรองเฉพาะ ${selectedCodes.size} บริษัทที่เลือก)`
+              : "Man-days ต่อวัน (เฉลี่ยเช้า/บ่าย; EPS หนึ่งรายการต่อวัน)"
           }
         >
           <ManDayByContractorChart days={days} daily={filteredDaily} colors={colors} height={chartHeight} legend={chartHeight === undefined} />

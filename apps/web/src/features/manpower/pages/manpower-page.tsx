@@ -1,3 +1,4 @@
+import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -6,12 +7,14 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
+import { useState } from "react";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { QueryError } from "@/components/ui/query-error.js";
 import { BlockSkeleton } from "@/components/ui/skeletons.js";
 import { formatNumber } from "@/lib/format.js";
 import { ContractorFilterPopover } from "@/features/contractors/index.js";
 import { useManpowerPage, MAX_DAYS } from "../hooks/use-manpower-page.js";
+import { EpsManpowerDialog } from "../components/eps-manpower-dialog.js";
 import { FilterBanner } from "../components/filter-banner.js";
 import { ManpowerCharts } from "../components/manpower-charts.js";
 import { Figure } from "../components/manpower-parts.js";
@@ -21,7 +24,8 @@ import { Figure } from "../components/manpower-parts.js";
 // with Excel-style checkbox filter for contractors.
 export function ManpowerPage() {
   const ed = useManpowerPage();
-  const { from, to, span, tooLong, summary, setRange, showToday, activePreset, thisWeek, thisMonth, data, error, allCodes, selectedCodes, updateContractorSelection, selectAllContractors, filterItems, isFiltered, isNoneSelected, totals, wide } = ed;
+  const { from, to, span, tooLong, summary, setRange, showToday, activePreset, thisWeek, thisMonth, data, error, allCodes, selectedCodes, updateContractorSelection, selectAllContractors, filterItems, isFiltered, isNoneSelected, totals, projectId, wide } = ed;
+  const [epsOpen, setEpsOpen] = useState(false);
   // Shown companies whose NMH includes afternoon-only days (standard 8 h per person).
   const estimated = (data?.contractors ?? []).filter((c) => c.estimatedDays > 0 && selectedCodes.has(c.contractorCode));
 
@@ -29,7 +33,7 @@ export function ManpowerPage() {
     <Box>
       <PageHeader
         title="กำลังคน (Manpower)"
-        subtitle="จากรายงานเช้าของผู้รับเหมา · เลือกช่วงวันที่และกรองผู้รับเหมาตามต้องการ"
+        subtitle="จากรายงานประจำวันของผู้รับเหมาและ EPS · เลือกช่วงวันที่และกรองบริษัทตามต้องการ"
         actions={
           <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
             <DatePicker
@@ -55,6 +59,18 @@ export function ManpowerPage() {
             </Button>
             <Button variant={activePreset === "month" ? "contained" : "outlined"} onClick={thisMonth}>
               This month
+            </Button>
+            {/* An action, not a date filter: solid green so it stands apart from the navy range buttons. */}
+            <Button
+              variant="contained"
+              color="success"
+              disableElevation
+              startIcon={<EngineeringOutlinedIcon />}
+              onClick={() => setEpsOpen(true)}
+              disabled={!projectId}
+              sx={{ fontWeight: 700, whiteSpace: "nowrap" }}
+            >
+              เพิ่มกำลังคน EPS
             </Button>
             {allCodes.length > 0 && (
               <ContractorFilterPopover
@@ -110,7 +126,7 @@ export function ManpowerPage() {
             <Figure label="NMH (ชม.)" value={formatNumber(totals.manHours)} />
             <Figure label="เฉลี่ยคน/วัน" value={formatNumber(totals.avgDaily)} />
             <Figure
-              label="ผู้รับเหมาที่วิเคราะห์"
+              label="บริษัทที่วิเคราะห์"
               value={isFiltered ? `${totals.count}/${allCodes.length}` : totals.count}
             />
           </Stack>
@@ -124,6 +140,7 @@ export function ManpowerPage() {
           <ManpowerCharts ed={ed} />
         </Stack>
       )}
+      <EpsManpowerDialog open={epsOpen} projectId={projectId} defaultDate={to} onClose={() => setEpsOpen(false)} />
     </Box>
   );
 }
