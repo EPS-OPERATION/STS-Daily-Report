@@ -44,7 +44,7 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const [buildings, allocations, permits, bookings, hours, requestCounts, roads, equipmentRequests] = await Promise.all([
-    listBuildings(db, projectId),
+    listBuildings(db, projectId, { includeInactive: true }),
     listAllocationsInRange(db, projectId, weekStart, weekEnd),
     listPermitsInRange(db, projectId, weekStart, weekEnd),
     listBookingsInRange(db, projectId, weekStart, weekEnd),
@@ -213,7 +213,7 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   const [rows, allocations, buildingList] = await Promise.all([
     listReportHoursInRange(db, projectId, from, to),
     listAllocationsInRange(db, projectId, from, to),
-    listBuildings(db, projectId),
+    listBuildings(db, projectId, { includeInactive: true }),
   ]);
   const byContractor = new Map<
     string,
@@ -286,7 +286,7 @@ export async function siteDayService(projectId: string, from: string, to: string
   await assertProject(projectId);
   assertRange(from, to);
   const [buildingList, allocations, machinery, equipment, roads, permits, inspections] = await Promise.all([
-    listBuildings(db, projectId),
+    listBuildings(db, projectId, { includeInactive: true }),
     listAllocationDetailsInRange(db, projectId, from, to),
     listBookingsInRange(db, projectId, from, to),
     listEquipmentRequestsInRange(db, projectId, from, to),

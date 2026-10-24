@@ -1,13 +1,66 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { buildingMarkers, buildingPartMarkers, buildingParts, buildings, type SiteMapView } from "@/db/schema/index.js";
+import { buildingMarkers, buildingPartMarkers, buildingParts, buildings, dailyReportAllocations, type SiteMapView } from "@/db/schema/index.js";
 import type { Db } from "@/db/client.js";
 
-export async function listBuildings(db: Db, projectId: string) {
+// Active buildings only (pickers, validation). Summaries pass includeInactive so a hidden building's
+// past man-days stay on the charts.
+export async function listBuildings(db: Db, projectId: string, opts: { includeInactive?: boolean } = {}) {
   return db
     .select()
     .from(buildings)
-    .where(and(eq(buildings.projectId, projectId), eq(buildings.status, "active")))
+    .where(opts.includeInactive ? eq(buildings.projectId, projectId) : and(eq(buildings.projectId, projectId), eq(buildings.status, "active")))
     .orderBy(asc(buildings.sortOrder), asc(buildings.code));
+}
+
+// Admin list: every building of the project with how many report activities use it.
+export async function listBuildingsForAdmin(db: Db, projectId: string) {
+  return db
+    .select({
+      id: buildings.id,
+      code: buildings.code,
+      name: buildings.name,
+      nameTh: buildings.nameTh,
+      sortOrder: buildings.sortOrder,
+      status: buildings.status,
+      usage: sql<number>`count(${dailyReportAllocations.id})::int`,
+    })
+    .from(buildings)
+    .leftJoin(dailyReportAllocations, eq(dailyReportAllocations.buildingId, buildings.id))
+    .where(eq(buildings.projectId, projectId))
+    .groupBy(buildings.id)
+    .orderBy(asc(buildings.sortOrder), asc(buildings.code));
+}
+
+export async function findBuildingByCode(db: Db, projectId: string, code: string) {
+  const rows = await db
+    .select({ id: buildings.id })
+    .from(buildings)
+    .where(and(eq(buildings.projectId, projectId), sql`lower(${buildings.code}) = lower(${code})`))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function insertBuilding(db: Db, projectId: string, input: { code: string; name: string; nameTh: string | null }) {
+  // New buildings go to the end of the list.
+  const [last] = await db
+    .select({ max: sql<number>`coalesce(max(${buildings.sortOrder}), -1)::int` })
+    .from(buildings)
+    .where(eq(buildings.projectId, projectId));
+  const rows = await db.insert(buildings).values({ projectId, ...input, sortOrder: (last?.max ?? -1) + 1 }).returning();
+  return rows[0]!;
+}
+
+export async function updateBuilding(db: Db, id: string, input: { code?: string; name?: string; nameTh?: string | null; status?: string }) {
+  const rows = await db.update(buildings).set({ ...input, updatedAt: sql`now()` }).where(eq(buildings.id, id)).returning();
+  return rows[0] ?? null;
+}
+
+export async function setBuildingOrder(db: Db, projectId: string, ids: string[]) {
+  await db.transaction(async (tx) => {
+    for (const [i, id] of ids.entries()) {
+      await tx.update(buildings).set({ sortOrder: i, updatedAt: sql`now()` }).where(and(eq(buildings.id, id), eq(buildings.projectId, projectId)));
+    }
+  });
 }
 
 export async function listBuildingsByIds(db: Db, projectId: string, ids: string[]) {

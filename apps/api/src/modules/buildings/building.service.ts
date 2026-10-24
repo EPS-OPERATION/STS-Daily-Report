@@ -1,15 +1,20 @@
-import { isEpsStaff } from "@sts/shared";
+import { isEpsAdmin, isEpsStaff } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import type { AuthContext } from "@/auth/auth.types.js";
 import type { SiteMapView } from "@/db/schema/index.js";
 import { getProjectById } from "@/modules/projects/project.repository.js";
-import { ConflictError, ForbiddenError, NotFoundError } from "@/shared/errors/app-error.js";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import {
   deleteMarker,
   deletePart,
   deletePartMarker,
+  findBuildingByCode,
   findPartByCode,
   getBuilding,
+  insertBuilding,
+  listBuildingsForAdmin,
+  setBuildingOrder,
+  updateBuilding,
   getPart,
   insertPart,
   listBuildings,
@@ -26,6 +31,69 @@ export async function listBuildingsService(projectId: string) {
   const project = await getProjectById(db, projectId);
   if (!project) throw new NotFoundError("Project not found", { projectId });
   return listBuildings(db, projectId);
+}
+
+// ---- Admin: manage the building list (eps_admin). Buildings are hidden, never deleted:
+// daily reports reference them (FK restrict) and old reports must keep their building names.
+function assertAdmin(auth: AuthContext) {
+  if (!isEpsAdmin(auth.user.role)) throw new ForbiddenError("Only EPS admin can manage buildings");
+}
+
+async function assertProjectExists(projectId: string) {
+  if (!(await getProjectById(getDb(), projectId))) throw new NotFoundError("Project not found", { projectId });
+}
+
+export interface BuildingInput { code: string; name: string; nameTh?: string | null; status?: "active" | "inactive" }
+
+const clean = (input: Partial<BuildingInput>) => ({
+  ...(input.code !== undefined ? { code: input.code.trim() } : {}),
+  ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+  ...(input.nameTh !== undefined ? { nameTh: input.nameTh?.trim() || null } : {}),
+  ...(input.status !== undefined ? { status: input.status } : {}),
+});
+
+export async function listBuildingsAdminService(auth: AuthContext, projectId: string) {
+  assertAdmin(auth);
+  await assertProjectExists(projectId);
+  return listBuildingsForAdmin(getDb(), projectId);
+}
+
+export async function createBuildingService(auth: AuthContext, projectId: string, input: BuildingInput) {
+  assertAdmin(auth);
+  await assertProjectExists(projectId);
+  const db = getDb();
+  const values = clean(input);
+  if (!values.code || !values.name) throw new ValidationError("Code and name are required");
+  if (await findBuildingByCode(db, projectId, values.code)) {
+    throw new ConflictError("Building code already exists in this project", { code: values.code });
+  }
+  return insertBuilding(db, projectId, { code: values.code, name: values.name, nameTh: values.nameTh ?? null });
+}
+
+export async function updateBuildingService(auth: AuthContext, projectId: string, buildingId: string, input: Partial<BuildingInput>) {
+  assertAdmin(auth);
+  const db = getDb();
+  const building = await getBuilding(db, buildingId);
+  if (!building || building.projectId !== projectId) throw new NotFoundError("Building not found", { buildingId });
+  const values = clean(input);
+  if (values.code === "" || values.name === "") throw new ValidationError("Code and name are required");
+  if (values.code && values.code.toLowerCase() !== building.code.toLowerCase()) {
+    const other = await findBuildingByCode(db, projectId, values.code);
+    if (other && other.id !== buildingId) throw new ConflictError("Building code already exists in this project", { code: values.code });
+  }
+  return updateBuilding(db, buildingId, values);
+}
+
+export async function reorderBuildingsService(auth: AuthContext, projectId: string, ids: string[]) {
+  assertAdmin(auth);
+  const db = getDb();
+  const all = await listBuildingsForAdmin(db, projectId);
+  const known = new Set(all.map((b) => b.id));
+  if (ids.length !== all.length || new Set(ids).size !== ids.length || ids.some((id) => !known.has(id))) {
+    throw new ValidationError("Send every building of the project exactly once");
+  }
+  await setBuildingOrder(db, projectId, ids);
+  return listBuildingsForAdmin(db, projectId);
 }
 
 // Buildings in site order with their marker (if placed) on each map view.
