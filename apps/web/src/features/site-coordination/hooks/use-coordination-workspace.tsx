@@ -69,7 +69,8 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   const workingRef = useRef<Working | null>(null);
   const mapBoxRef = useRef<HTMLDivElement | null>(null);
   const draft = working?.input ?? null;
-  const query = useCoordination(activeProject, date);
+  // Live updates only on the Map page itself; the compact dashboard card loads once.
+  const query = useCoordination(activeProject, date, { live: !compact });
   // Register road names under everything (Map page only): one label per name, pieces of a cut road share it.
   const register = useRoadSegments(roadNames ? activeProject : null);
   const save = useSaveCoordination(activeProject);
