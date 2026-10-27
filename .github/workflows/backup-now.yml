@@ -1,0 +1,26 @@
+# One-off encrypted database backup before moving the Vercel project (27 Oct 2026).
+# Runs only when this backup/* branch is pushed; never touches dev or deploys anything.
+name: Backup now
+
+on:
+  push:
+    branches: ["backup/**"]
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.MIGRATE_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dump + encrypt
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then echo "::error::Missing MIGRATE_DATABASE_URL or BACKUP_PASSPHRASE"; exit 1; fi
+          bash scripts/db-backup.sh "sts-db-before-move-$(date -u +%Y%m%d-%H%M).dump.gpg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sts-db-before-move
+          path: sts-db-before-move-*.dump.gpg
+          retention-days: 30
+          if-no-files-found: error
