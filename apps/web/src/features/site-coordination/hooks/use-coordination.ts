@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CoordinationInput, CoordinationItemType, RoadSegment } from "@sts/shared";
 import type { CreateItemTypeInput, UpdateItemTypeInput } from "../types/item-type.types.js";
@@ -65,17 +65,51 @@ export function useReorderItemTypes(projectId: string | null) {
 }
 
 export type { CoordinationItemType };
-// The open map follows other people's changes without refetching the whole day every 10 s: it polls a tiny
+// Live updates cost server time (Vercel bills memory while the API instance stays awake), so polling is
+// rationed: every 20 s, only where asked (`live`: the Map page itself — not the dashboard card or the road
+// picker), and only while someone is using the page: 5 min without a pointer/key/touch stops it until the
+// next interaction, which polls at once. React Query already pauses while the tab is hidden.
+const POLL_MS = 20_000;
+const IDLE_MS = 5 * 60_000;
+
+/** True while the page had a pointer, key, touch or scroll in the last `idleMs`. */
+function useUserActive(enabled: boolean, idleMs = IDLE_MS) {
+  const [active, setActive] = useState(true);
+  useEffect(() => {
+    if (!enabled) return;
+    let timer = window.setTimeout(() => setActive(false), idleMs);
+    const wake = () => {
+      window.clearTimeout(timer);
+      setActive(true);
+      timer = window.setTimeout(() => setActive(false), idleMs);
+    };
+    const events = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart"] as const;
+    for (const e of events) window.addEventListener(e, wake, { passive: true });
+    return () => {
+      window.clearTimeout(timer);
+      for (const e of events) window.removeEventListener(e, wake);
+    };
+  }, [enabled, idleMs]);
+  return active;
+}
+
+// The open map follows other people's changes without refetching the whole day: it polls a tiny
 // fingerprint (/coordination/version) and refetches the day only when that differs from the day's own `version`.
 // A refetch can only be triggered by a poll result, so an API outage cannot turn into a tight retry loop.
-export function useCoordination(projectId: string | null, date: string) {
+export function useCoordination(projectId: string | null, date: string, { live = false }: { live?: boolean } = {}) {
   const day = useQuery({ queryKey: coordinationKeys.day(projectId ?? "", date), queryFn: () => coordinationApi.get(projectId!, date), enabled: Boolean(projectId) });
+  const active = useUserActive(live);
+  const polling = live && active && Boolean(projectId) && day.isSuccess;
   const latest = useQuery({
     queryKey: [...coordinationKeys.day(projectId ?? "", date), "version"],
     queryFn: () => coordinationApi.version(projectId!, date),
-    enabled: Boolean(projectId) && day.isSuccess,
-    refetchInterval: 10_000,
+    enabled: polling,
+    refetchInterval: polling ? POLL_MS : false,
   });
+  // Back from idle: check right away instead of waiting a full interval.
+  useEffect(() => {
+    if (polling && latest.data) void latest.refetch();
+  }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
   const changed = Boolean(latest.data && day.data && latest.data.data.version !== day.data.data.version);
   useEffect(() => {
     if (changed && !day.isFetching) void day.refetch();
