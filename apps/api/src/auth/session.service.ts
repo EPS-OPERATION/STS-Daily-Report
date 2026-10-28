@@ -46,7 +46,7 @@ export async function validateSessionToken(rawToken: string): Promise<ValidSessi
   const { session, user } = row;
   if (session.revokedAt) return null;
   if (session.expiresAt.getTime() <= Date.now()) return null;
-  if (Date.now() - session.lastSeenAt.getTime() > TOUCH_AFTER_MS) await touchSession(getDb(), session.id);
+  if (Date.now() - session.lastSeenAt.getTime() > TOUCH_AFTER_MS) await touchSession(getDb(), session.id, session.userId);
   return { sessionId: session.id, userId: session.userId, user };
 }
 

@@ -11,6 +11,7 @@ import EngineeringOutlined from "@mui/icons-material/EngineeringOutlined";
 import EventNoteOutlined from "@mui/icons-material/EventNoteOutlined";
 import FactCheckOutlined from "@mui/icons-material/FactCheckOutlined";
 import HealthAndSafetyOutlined from "@mui/icons-material/HealthAndSafetyOutlined";
+import InsightsOutlined from "@mui/icons-material/InsightsOutlined";
 import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
 import MapOutlined from "@mui/icons-material/MapOutlined";
 import PhotoCameraOutlined from "@mui/icons-material/PhotoCameraOutlined";
@@ -43,6 +44,7 @@ export const navigationIcons = {
   projects: AccountTreeOutlined,
   settings: SettingsOutlined,
   users: ManageAccountsOutlined,
+  usage: InsightsOutlined,
   zoneConfig: TuneOutlined,
 } satisfies Record<string, NavigationIcon>;
 

@@ -6,6 +6,9 @@ import type { CreateUserInput, UserFilters } from "../types/user.types.js";
 export function useUsers(filters: UserFilters) {
   return useQuery({ queryKey: usersKeys.list(filters), queryFn: () => usersApi.list(filters), placeholderData: keepPreviousData });
 }
+export function useUserActivity(from: string, to: string) {
+  return useQuery({ queryKey: usersKeys.activity(from, to), queryFn: () => usersApi.activity(from, to), placeholderData: keepPreviousData });
+}
 export function useDecideUser() {
   const client = useQueryClient();
   return useMutation({

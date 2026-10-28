@@ -95,6 +95,7 @@ const GROUPS: NavGroup[] = [
     items: [
       // User management and contractor master data stay eps_admin-only.
       { to: "/admin/users", label: "Users", icon: "users", roles: ["eps_admin"] },
+      { to: "/admin/usage", label: "Usage", icon: "usage", roles: ["eps_admin"] },
       { to: "/contractors", label: "Contractors", icon: "contractors", roles: ["eps_admin"] },
       { to: "/buildings", label: "Buildings", icon: "buildings", roles: ["eps_admin"] },
       { to: "/site-coordination/item-types", label: "Map Item Types", icon: "sitePlan", roles: ["eps_admin"] },

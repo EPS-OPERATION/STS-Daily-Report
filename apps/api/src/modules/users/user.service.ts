@@ -9,13 +9,20 @@ import { getDb } from "@/db/client.js";
 import { assertEpsAdmin } from "@/middleware/require-eps.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
-import { activateMembership, countActiveMemberships, decideUser, insertUser, listProjectIdsForContractor, listUsers, setUserRole, setUserStatus } from "./user.repository.js";
+import { activateMembership, countActiveMemberships, decideUser, insertUser, listProjectIdsForContractor, listUserActivity, listUsers, setUserRole, setUserStatus } from "./user.repository.js";
 import type { ListUsersQuery } from "./user.type.js";
 
 // User management (approvals included) is eps_admin-only; eps_site stays operational.
 export async function listUsersService(auth: AuthContext, query: ListUsersQuery) {
   assertEpsAdmin(auth);
   return listUsers(getDb(), query);
+}
+// Usage log for the admin Usage page: at most a year per request.
+export async function userActivityService(auth: AuthContext, from: string, to: string) {
+  assertEpsAdmin(auth);
+  if (from > to) throw new ValidationError("from must be on or before to", { from, to });
+  if ((Date.parse(to) - Date.parse(from)) / 86_400_000 > 366) throw new ValidationError("Pick at most 366 days", { from, to });
+  return listUserActivity(getDb(), from, to);
 }
 // Membership needs a project: use the explicit one, or the contractor's only project.
 async function resolveContractorProject(db: QueryDb, contractorId: string, projectId?: string) {

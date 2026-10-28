@@ -76,6 +76,7 @@ export const router = createBrowserRouter([
                   { path: "contractors", lazy: page(() => import("@/features/contractors/pages/contractors-page.js"), "ContractorsPage") },
                   { path: "buildings", lazy: page(() => import("@/features/buildings/pages/buildings-page.js"), "BuildingsPage") },
                   { path: "admin/users", lazy: page(() => import("@/features/users/pages/admin-users-page.js"), "AdminUsersPage") },
+                  { path: "admin/usage", lazy: page(() => import("@/features/users/pages/usage-page.js"), "UsagePage") },
                   { path: "site-coordination/item-types", lazy: page(() => import("@/features/site-coordination/pages/item-types-page.js"), "ItemTypesPage") },
                   { path: "site-plan", lazy: page(() => import("@/features/site-plan/pages/site-plan-page.js"), "SitePlanPage") },
                   { path: "site-plan/config", lazy: page(() => import("@/features/site-plan/pages/site-plan-config-page.js"), "SitePlanConfigPage") },
