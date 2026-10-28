@@ -2,8 +2,8 @@ import { Elysia } from "elysia";
 import { normalizePagination } from "@sts/shared";
 import { requireAuth } from "@/middleware/require-auth.js";
 import { ok, paginated } from "@/shared/http/response.js";
-import { approveBody, changeRoleBody, changeStatusBody, createUserBody, linkUserBody, listUsersQuery, rejectBody, userIdParams } from "./user.schema.js";
-import { changeUserRoleService, changeUserStatusService, createUserService, decideUserService, issueResetLinkService, linkUserService, listUsersService } from "./user.service.js";
+import { approveBody, userActivityQuery, changeRoleBody, changeStatusBody, createUserBody, linkUserBody, listUsersQuery, rejectBody, userIdParams } from "./user.schema.js";
+import { changeUserRoleService, changeUserStatusService, createUserService, decideUserService, issueResetLinkService, linkUserService, listUsersService, userActivityService } from "./user.service.js";
 
 export const userRoutes = new Elysia({ prefix: "/users" }).use(requireAuth)
   .onAfterHandle(({ set }) => { set.headers["cache-control"] = "no-store"; })
@@ -12,6 +12,7 @@ export const userRoutes = new Elysia({ prefix: "/users" }).use(requireAuth)
     const { rows, total } = await listUsersService(auth, { ...p, status: query.status, projectId: query.projectId, contractorId: query.contractorId });
     return paginated(rows, p.page, p.pageSize, total);
   }, { query: listUsersQuery })
+  .get("/activity", async ({ auth, query }) => ok(await userActivityService(auth, query.from, query.to)), { query: userActivityQuery })
   .post("/", async ({ auth, body, set }) => {
     set.status = 201;
     return ok(await createUserService(auth, body));

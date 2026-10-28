@@ -7,6 +7,10 @@ export const listUsersQuery = t.Object({
   projectId: t.Optional(t.String({ format: "uuid" })),
   contractorId: t.Optional(t.String({ format: "uuid" })),
 });
+export const userActivityQuery = t.Object({
+  from: t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+  to: t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+});
 export const approveBody = t.Object({ contractorId: t.Optional(t.String({ format: "uuid" })), projectId: t.Optional(t.String({ format: "uuid" })) }, { additionalProperties: false });
 export const rejectBody = t.Object({ reason: t.String({ minLength: 1, maxLength: 500 }) }, { additionalProperties: false });
 export const changeRoleBody = t.Object(

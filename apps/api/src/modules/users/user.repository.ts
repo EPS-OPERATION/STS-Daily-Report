@@ -87,3 +87,47 @@ export async function insertUser(
     .returning({ id: users.id });
   return row!.id;
 }
+
+export interface UserActivityRow {
+  id: string;
+  username: string | null;
+  displayName: string | null;
+  email: string;
+  role: string;
+  status: string;
+  company: string | null;
+  activeDays: number;
+  activeMinutes: number;
+  reportsSubmitted: number;
+  lastSeenAt: string | null;
+}
+
+// Usage page: people per day + per-user days/minutes/reports in [from, to] (Thai calendar days).
+// Everyone active is listed (0 days = never used it in the range); disabled/pending only if they did use it.
+export async function listUserActivity(db: QueryDb, from: string, to: string) {
+  const [daily, people] = await Promise.all([
+    db.execute<{ day: string; users: number }>(sql`
+      select day::text as day, count(*)::int as users from user_activity_days
+      where day between ${from} and ${to} group by day order by day`),
+    db.execute<Omit<UserActivityRow, "lastSeenAt"> & { lastSeenAt: Date | string | null }>(sql`
+      select u.id, u.username, u.display_name as "displayName", u.email, u.role, u.status,
+        (select string_agg(distinct c.code, ', ') from contractor_memberships m join contractors c on c.id = m.contractor_id
+          where m.user_id = u.id and m.status = 'active') as company,
+        count(a.day)::int as "activeDays",
+        coalesce(sum(a.active_minutes), 0)::int as "activeMinutes",
+        ((select count(*) from daily_reports r where r.morning_submitted_by = u.id
+            and (r.morning_submitted_at at time zone 'Asia/Bangkok')::date between ${from} and ${to})
+         + (select count(*) from daily_reports r where r.evening_submitted_by = u.id
+            and (r.evening_submitted_at at time zone 'Asia/Bangkok')::date between ${from} and ${to}))::int as "reportsSubmitted",
+        (select max(x.last_seen_at) from user_activity_days x where x.user_id = u.id) as "lastSeenAt"
+      from users u
+      left join user_activity_days a on a.user_id = u.id and a.day between ${from} and ${to}
+      group by u.id
+      having u.status = 'active' or count(a.day) > 0
+      order by "activeDays" desc, "lastSeenAt" desc nulls last, u.username`),
+  ]);
+  return {
+    daily: [...daily],
+    users: [...people].map((p) => ({ ...p, lastSeenAt: p.lastSeenAt ? new Date(p.lastSeenAt).toISOString() : null })),
+  };
+}
