@@ -1,20 +1,21 @@
 import { http } from "@/services/http/client.js";
-import type { FindingInput, SafetyFinding, SafetyStats } from "../types/safety.types.js";
+import type { FindingInput, SafetyFinding, SafetyStats, SafetyStatEntry, SafetyStatInput, SafetyStatVersion, SafetyBaselineInfo, SafetyBaselineInput, SafetyBaselineVersion } from "../types/safety.types.js";
 import type { RainLogEntry, RainLogInput } from "../types/rain-log.types.js";
 
 export const safetyKeys = {
   all: ["safety"] as const,
   findings: (projectId: string, from: string, to: string) => [...safetyKeys.all, "findings", projectId, from, to] as const,
   stats: (projectId: string, from: string, to: string) => [...safetyKeys.all, "stats", projectId, from, to] as const,
+  baseline: (projectId: string, asOf: string) => [...safetyKeys.all, "baseline", projectId, asOf] as const,
+  baselineVersions: (projectId: string) => [...safetyKeys.all, "baseline-versions", projectId] as const,
+  statEntries: (projectId: string, from: string, to: string) => [...safetyKeys.all, "stat-entries", projectId, from, to] as const,
+  statEntryVersions: (projectId: string, entryId: string) => [...safetyKeys.all, "stat-entries", projectId, "versions", entryId] as const,
   rainLogs: (projectId: string) => [...safetyKeys.all, "rain-logs", projectId] as const,
 };
 
 const base = (projectId: string) => `/projects/${projectId}/safety`;
 
 export const safetyApi = {
-  renumberWeek(projectId: string, date: string): Promise<{ data: { weekStart: string; count: number } }> {
-    return http.post(`${base(projectId)}/findings/renumber-week`, { date });
-  },
   rainLogs(projectId: string, from: string, to: string): Promise<{ data: RainLogEntry[] }> {
     return http.get(`${base(projectId)}/rain-logs?from=${from}&to=${to}`);
   },
@@ -33,6 +34,27 @@ export const safetyApi = {
   stats(projectId: string, from: string, to: string): Promise<{ data: SafetyStats }> {
     return http.get(`${base(projectId)}/stats?from=${from}&to=${to}`);
   },
+  statEntries(projectId: string, from: string, to: string): Promise<{ data: SafetyStatEntry[] }> {
+    return http.get(`${base(projectId)}/stat-entries?from=${from}&to=${to}`);
+  },
+  baseline(projectId: string, asOf: string): Promise<{ data: SafetyBaselineInfo }> {
+    return http.get(`${base(projectId)}/baseline?asOf=${asOf}`);
+  },
+  saveBaseline(projectId: string, input: SafetyBaselineInput): Promise<{ data: SafetyBaselineInfo }> {
+    return http.put(`${base(projectId)}/baseline`, input);
+  },
+  baselineVersions(projectId: string): Promise<{ data: SafetyBaselineVersion[] }> {
+    return http.get(`${base(projectId)}/baseline/versions`);
+  },
+  saveStatEntry(projectId: string, input: SafetyStatInput): Promise<{ data: { id: string; entry: SafetyStatEntry; version: number } }> {
+    return http.put(`${base(projectId)}/stat-entries`, input);
+  },
+  statEntryVersions(projectId: string, entryId: string): Promise<{ data: SafetyStatVersion[] }> {
+    return http.get(`${base(projectId)}/stat-entries/${entryId}/versions`);
+  },
+  deleteStatEntry(projectId: string, id: string): Promise<null> {
+    return http.delete(`${base(projectId)}/stat-entries/${id}`);
+  },
   create(projectId: string, input: FindingInput): Promise<{ data: { id: string } }> {
     return http.post(`${base(projectId)}/findings`, input);
   },
@@ -41,6 +63,9 @@ export const safetyApi = {
   },
   remove(projectId: string, id: string): Promise<null> {
     return http.delete(`${base(projectId)}/findings/${id}`);
+  },
+  renumberWeek(projectId: string, date: string): Promise<{ data: { weekStart: string; count: number } }> {
+    return http.post(`${base(projectId)}/findings/renumber-week`, { date });
   },
   uploadPhoto(projectId: string, id: string, kind: "finding" | "close", file: File): Promise<{ data: { id: string } }> {
     const form = new FormData();

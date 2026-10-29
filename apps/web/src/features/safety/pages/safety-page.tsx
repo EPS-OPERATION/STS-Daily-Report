@@ -213,7 +213,7 @@ export function SafetyPage() {
               ? "บันทึกเวลาฝนตกจริง · สถิติชั่วโมงสั่งหยุดงาน · หลักฐานประกอบการต่อรอง Delay (EOT Claim) กับ PM"
               : tab === "linewalk"
                 ? "Line walk (EPS) · บันทึกการเดินตรวจความปลอดภัย · รายการข้อแก้ไขและมาตรการ"
-                : "สถิติอุบัติเหตุจากรายงานผู้รับเหมา · Performance KPIs · แนวโน้มรายเดือน"
+                : "สถิติอุบัติเหตุจากรายงานผู้รับเหมา + EPS · Performance KPIs · แนวโน้มรายวัน/สัปดาห์/เดือน"
         }
         actions={
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -321,7 +321,7 @@ export function SafetyPage() {
           {!s ? (
             <BlockSkeleton height={420} />
           ) : (
-            <OverviewTab s={s} />
+            <OverviewTab s={s} projectId={projectId} />
           )}
         </>
       )}

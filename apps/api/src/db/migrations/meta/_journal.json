@@ -337,6 +337,13 @@
       "when": 1793235857218,
       "tag": "0047_safety_week_no",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793241689825,
+      "tag": "0048_safety_statistics",
+      "breakpoints": true
     }
   ]
 }
