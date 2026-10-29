@@ -1,12 +1,13 @@
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { mondayOf } from "@sts/shared";
 import dayjs from "dayjs";
 import { useSearchParams } from "react-router-dom";
 import { contractorColorMap } from "@/features/contractors/index.js";
 import { todayIso } from "@/lib/dates.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
-import { FindingPie, StatisticTable, periodLabel, useSafetyFindings, useSafetyStats } from "@/features/safety/index.js";
+import { FindingPie, StatisticTable, findingWeekLabel, periodLabel, useSafetyFindings, useSafetyStats, weekRangeTitle } from "@/features/safety/index.js";
 import { PrintMessage, PrintSheet, usePrintWhenReady } from "@/components/print/print-sheet.js";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,6 +28,9 @@ export function SafetyReportPrintPage() {
   const rows = findings.data?.data ?? [];
   const ready = Boolean(s && findings.data && contractors.data);
   const period = periodLabel(from, to);
+  const weekLabel = findingWeekLabel(rows);
+  // One week: the title above the table already names it, so the Week column is left out of the printout.
+  const oneWeek = mondayOf(from) === mondayOf(to);
   const colors = contractorColorMap(rows.map((r) => r.contractorCode ?? "ไม่ระบุ"), contractors.data?.data);
 
   usePrintWhenReady(ready, `Safety report ${from}${from === to ? "" : `_${to}`}`);
@@ -57,10 +61,14 @@ export function SafetyReportPrintPage() {
       {/* Page 1..n: Issue Safety Line Walk */}
       <Box className="sheet">
         <Header subtitle="Issue Safety Line Walk" period={period} />
+        <Typography sx={{ fontWeight: 700, fontSize: 13, mb: 0.75 }}>
+          {weekRangeTitle(from, to)} <span style={{ fontWeight: 400 }}>({period})</span>
+        </Typography>
         <table className="lw">
           <thead>
             <tr>
-              <th style={{ width: 34 }}>item no.</th>
+              {oneWeek ? null : <th style={{ width: 44 }}>Week</th>}
+              <th style={{ width: 34 }}>No.</th>
               <th>Observations Identified</th>
               <th style={{ width: 60 }}>Location</th>
               <th>Action to be taken</th>
@@ -76,14 +84,15 @@ export function SafetyReportPrintPage() {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={11} style={{ textAlign: "center", padding: 24 }}>
+                <td colSpan={oneWeek ? 11 : 12} style={{ textAlign: "center", padding: 24 }}>
                   ไม่มี Line walk ในช่วงนี้
                 </td>
               </tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.id}>
-                  <td style={{ textAlign: "center" }}>{r.itemNo}</td>
+                  {oneWeek ? null : <td style={{ textAlign: "center" }}>{weekLabel(r)}</td>}
+                  <td style={{ textAlign: "center", fontWeight: 700 }}>{r.weekNo}</td>
                   <td style={{ verticalAlign: "top" }}>{r.observation}</td>
                   <td style={{ textAlign: "center" }}>
                     {r.buildingCode ?? "-"}
@@ -130,14 +139,22 @@ export function SafetyReportPrintPage() {
 function Header({ subtitle, period }: { subtitle: string; period: string }) {
   return (
     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
-      <img src="/brand/logo-scg.png" alt="SCG" style={{ height: 44 }} />
+      {/* equal-width side slots keep the title centred whatever the logo widths are */}
+      <Box sx={{ width: 200, display: "flex", justifyContent: "flex-start" }}>
+        <img src="/brand/logo-scg.png" alt="SCG" style={{ height: 34 }} />
+      </Box>
       <Box sx={{ textAlign: "center", fontWeight: 700, lineHeight: 1.4, fontSize: 14 }}>
         <div>ECO PLANT SERVICES</div>
         <div>STS - 9.9 MW. BIOMASS POWER PLANT PROJECT</div>
         <div>{subtitle}</div>
         <div style={{ fontWeight: 400, fontSize: 12 }}>{period}</div>
       </Box>
-      <img src="/brand/logo-eps.png" alt="EPS" style={{ height: 40 }} />
+      <Box sx={{ width: 200, display: "flex", justifyContent: "flex-end" }}>
+        {/* logo-eps.png is a 447px square with the mark at x52–388, y184–260: crop the padding (146×33 window). */}
+        <div style={{ width: 146, height: 33, overflow: "hidden", position: "relative" }}>
+          <img src="/brand/logo-eps.png" alt="EPS" style={{ position: "absolute", width: 194, height: 194, left: -22.5, top: -80 }} />
+        </div>
+      </Box>
     </Stack>
   );
 }

@@ -6,7 +6,10 @@ import { projects } from "./project.schema.js";
 import { users } from "./user.schema.js";
 
 // EPS safety line walk: one row per finding ("Issue Safety Line Walk" form).
-// item_no is a running number per project. Photos live in MinIO (keys only here).
+// item_no is a permanent running number per project (internal ID). week_no is the number shown on the
+// weekly report: it restarts at 1 every ISO week (Mon–Sun) of inspection_date, is assigned when the finding
+// is created and stays put (gaps after a delete are closed by the EPS «Renumber week» action).
+// week_start is generated from inspection_date so it can never drift. Photos live in MinIO (keys only here).
 export const safetyFindings = pgTable(
   "safety_findings",
   {
@@ -21,6 +24,8 @@ export const safetyFindings = pgTable(
     actionToBeTaken: text("action_to_be_taken").notNull(),
     contractorId: uuid("contractor_id").references(() => contractors.id, { onDelete: "set null" }),
     inspectionDate: date("inspection_date").notNull(),
+    weekStart: date("week_start").generatedAlwaysAs(sql`inspection_date - (extract(isodow from inspection_date)::int - 1)`),
+    weekNo: integer("week_no").notNull(),
     expectedCompleteDate: date("expected_complete_date"),
     status: text("status").notNull().default("open"),
     findingType: text("finding_type").notNull(),
@@ -33,6 +38,8 @@ export const safetyFindings = pgTable(
   },
   (t) => [
     unique("safety_findings_project_item_unique").on(t.projectId, t.itemNo),
+    unique("safety_findings_project_week_no_unique").on(t.projectId, t.weekStart, t.weekNo),
+    check("safety_findings_week_no_check", sql`${t.weekNo} >= 1`),
     check("safety_findings_status_check", sql`${t.status} IN ('open', 'done')`),
     check("safety_findings_type_check", sql`${t.findingType} IN ('unsafe_act', 'unsafe_condition')`),
     index("safety_findings_project_date_idx").on(t.projectId, t.inspectionDate),

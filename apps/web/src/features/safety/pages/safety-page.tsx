@@ -24,7 +24,18 @@ import { ContractorFilterPopover } from "@/features/contractors/index.js";
 import { addDaysIso, mondayOf, todayIso, toIsoDate } from "@/lib/dates.js";
 import { useDailyRequests } from "@/features/daily-requests/index.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
-import { FindingDialog, useDeleteFinding, useSafetyFindings, useSafetyStats, type SafetyFinding } from "@/features/safety/index.js";
+import {
+  FindingDialog,
+  findingTitle,
+  isFullWeek,
+  useDeleteFinding,
+  useRenumberWeek,
+  useSafetyFindings,
+  useSafetyStats,
+  weekNeedsRenumber,
+  type SafetyFinding,
+} from "@/features/safety/index.js";
+import { isoWeekLabel } from "@sts/shared";
 import ThunderstormOutlinedIcon from "@mui/icons-material/ThunderstormOutlined";
 import { HttpError } from "@/services/http/client.js";
 import { WorkPermitsView } from "../components/work-permits-view.js";
@@ -69,8 +80,10 @@ export function SafetyPage() {
   // Permits are requested in the afternoon report; used for the permits tab counts.
   const permits = useDailyRequests(projectId, from, to).data?.data.permits ?? [];
   const remove = useDeleteFinding(projectId);
+  const renumber = useRenumberWeek(projectId);
   const [editing, setEditing] = useState<SafetyFinding | "new" | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SafetyFinding | null>(null);
+  const [renumberOpen, setRenumberOpen] = useState(false);
 
   const setRange = (f: string, t: string) => {
     const p = new URLSearchParams(params);
@@ -79,9 +92,13 @@ export function SafetyPage() {
     setParams(p, { replace: true });
   };
 
+  const fullWeek = isFullWeek(from, to);
+
   const handleExportCsv = () => {
+    // "No." restarts at 1 every ISO week; "Item ID" is the permanent running number of the project.
     const headers = [
-      "Item",
+      "Week",
+      "No.",
       "Observations Identified",
       "Location",
       "Location Detail",
@@ -91,9 +108,11 @@ export function SafetyPage() {
       "Expected Complete Date",
       "Finding Type",
       "Status",
+      "Item ID",
     ];
     const csvRows = visibleRows.map((r) => [
-      r.itemNo,
+      isoWeekLabel(r.weekStart),
+      r.weekNo,
       `"${(r.observation || "").replace(/"/g, '""')}"`,
       `"${(r.buildingCode || "").replace(/"/g, '""')}"`,
       `"${(r.locationDetail || "").replace(/"/g, '""')}"`,
@@ -103,13 +122,14 @@ export function SafetyPage() {
       r.expectedCompleteDate ? toIsoDate(r.expectedCompleteDate) : "",
       r.findingType === "unsafe_act" ? "Unsafe Act" : "Unsafe Condition",
       r.status === "done" ? "DONE" : "OPEN",
+      r.itemNo,
     ].join(","));
     const content = "\uFEFF" + [headers.join(","), ...csvRows].join("\n");
     const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `Safety_Line_Walk_${from}_${to}.csv`;
+    link.download = `Safety_Line_Walk_${fullWeek ? isoWeekLabel(from) : `${from}_${to}`}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -168,7 +188,11 @@ export function SafetyPage() {
     [rows, selectedCodes],
   );
 
-  const error = [stats.error, findings.error, remove.error].find((e) => e instanceof HttpError) as HttpError | undefined;
+  // «Renumber week» appears only when numbers have gaps or are out of date order; it works on one whole ISO week.
+  const renumberNeeded = weekNeedsRenumber(rows);
+  const renumberHint = fullWeek ? null : "เลขมีช่องว่าง — เลือกช่วงเป็นสัปดาห์เต็ม (จันทร์–อาทิตย์) ด้วยลูกศรสัปดาห์ก่อน แล้วจึงจัดเลขใหม่ได้";
+
+  const error = [stats.error, findings.error, remove.error, renumber.error].find((e) => e instanceof HttpError) as HttpError | undefined;
 
   return (
     <Box>
@@ -273,7 +297,19 @@ export function SafetyPage() {
           {!s ? (
             <BlockSkeleton height={420} />
           ) : (
-            <LineWalkTab s={s} colors={colors} visibleRows={visibleRows} removing={remove.isPending} onAdd={() => setEditing("new")} onEdit={setEditing} onDelete={setDeleteTarget} />
+            <LineWalkTab
+              s={s}
+              colors={colors}
+              visibleRows={visibleRows}
+              removing={remove.isPending}
+              from={from}
+              to={to}
+              onRangeChange={setRange}
+              renumber={{ show: renumberNeeded, hint: renumberHint, pending: renumber.isPending, onClick: () => setRenumberOpen(true) }}
+              onAdd={() => setEditing("new")}
+              onEdit={setEditing}
+              onDelete={setDeleteTarget}
+            />
           )}
         </>
       ) : (
@@ -296,7 +332,7 @@ export function SafetyPage() {
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Delete finding?"
-        description={deleteTarget ? `รายการที่ ${deleteTarget.itemNo} จะถูกลบถาวร` : undefined}
+        description={deleteTarget ? `รายการ ${findingTitle(deleteTarget)} จะถูกลบถาวร (เลขอื่นในสัปดาห์เดิมไม่เปลี่ยน — กด Renumber week เพื่อจัดเลขใหม่)` : undefined}
         loading={remove.isPending}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => {
@@ -306,6 +342,21 @@ export function SafetyPage() {
             onSettled: () => setDeleteTarget(null),
           });
         }}
+      />
+      <ConfirmDialog
+        open={renumberOpen}
+        title={`Renumber week ${isoWeekLabel(from)}?`}
+        description="เลขรายการของสัปดาห์นี้จะถูกจัดใหม่เป็น 1..N ตามวันที่ตรวจ — เลขที่เคยส่งในรายงานไปแล้วอาจเปลี่ยน"
+        confirmLabel="Renumber"
+        tone="warning"
+        loading={renumber.isPending}
+        onClose={() => setRenumberOpen(false)}
+        onConfirm={() =>
+          renumber.mutate(from, {
+            onSuccess: (res) => toast.success(`จัดเลข ${isoWeekLabel(from)} ใหม่แล้ว (${res.data.count} รายการ)`),
+            onSettled: () => setRenumberOpen(false),
+          })
+        }
       />
     </Box>
   );

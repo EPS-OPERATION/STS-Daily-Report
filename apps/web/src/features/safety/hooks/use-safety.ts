@@ -50,3 +50,12 @@ export function useDeleteFinding(projectId: string | null) {
     onSuccess: () => qc.invalidateQueries({ queryKey: safetyKeys.all }),
   });
 }
+
+// Close the gaps of one ISO week (1..N by inspection date). `date` = any day of that week.
+export function useRenumberWeek(projectId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (date: string) => safetyApi.renumberWeek(projectId!, date),
+    onSuccess: () => qc.invalidateQueries({ queryKey: safetyKeys.all }),
+  });
+}

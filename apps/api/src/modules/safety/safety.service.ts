@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ACCIDENT_CATEGORY_CODES, INJURY_CATEGORIES, isEpsStaff, type AccidentCategory, type FindingType } from "@sts/shared";
+import { ACCIDENT_CATEGORY_CODES, INJURY_CATEGORIES, isEpsStaff, mondayOf, type AccidentCategory, type FindingType } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import type { AuthContext } from "@/auth/auth.types.js";
 import { sumReportManHours } from "@/modules/report-summaries/index.js";
@@ -13,7 +13,7 @@ import {
   insertFinding,
   listAccidents,
   listFindings,
-  nextItemNo,
+  renumberWeek,
   updateFinding,
   type FindingRow,
 } from "./safety.repository.js";
@@ -81,18 +81,32 @@ function clean(input: FindingInput) {
   };
 }
 
+// Two saves racing for the same item_no / week_no hit a unique key (23505); the next try reads the new max.
+async function retryOnNumberClash<T>(run: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await run();
+    } catch (error) {
+      const outer = error as { code?: string; cause?: { code?: string } };
+      if ((outer.cause ?? outer).code !== "23505" || attempt >= 12) throw error;
+      // each round lets one writer through, so spread the losers out a little
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * 25));
+    }
+  }
+}
+
 export async function createFindingService(auth: AuthContext, projectId: string, input: FindingInput) {
   assertEps(auth);
   await assertProject(projectId);
   const values = clean(input);
   const db = getDb();
-  const id = await insertFinding(db, {
-    projectId,
-    itemNo: await nextItemNo(db, projectId),
-    ...values,
-    closedAt: values.status === "done" ? new Date() : null,
-    createdBy: auth.user.id,
-  });
+  const id = await retryOnNumberClash(() =>
+    insertFinding(
+      db,
+      { projectId, ...values, closedAt: values.status === "done" ? new Date() : null, createdBy: auth.user.id },
+      mondayOf(values.inspectionDate),
+    ),
+  );
   return { id };
 }
 
@@ -106,12 +120,31 @@ async function loadFinding(auth: AuthContext, projectId: string, findingId: stri
 export async function updateFindingService(auth: AuthContext, projectId: string, findingId: string, input: FindingInput) {
   const row = await loadFinding(auth, projectId, findingId);
   const values = clean(input);
-  await updateFinding(getDb(), findingId, {
-    ...values,
-    // keep the first close time; reopening clears it
-    closedAt: values.status === "done" ? (row.closedAt ?? new Date()) : null,
-  });
+  // Moving the inspection date into another ISO week = next number of that week (the old week keeps a gap).
+  const weekStart = mondayOf(values.inspectionDate);
+  const moveToWeek = weekStart !== row.weekStart ? { projectId, weekStart } : undefined;
+  await retryOnNumberClash(() =>
+    updateFinding(
+      getDb(),
+      findingId,
+      {
+        ...values,
+        // keep the first close time; reopening clears it
+        closedAt: values.status === "done" ? (row.closedAt ?? new Date()) : null,
+      },
+      moveToWeek,
+    ),
+  );
   return { id: findingId };
+}
+
+// EPS tidy-up before a weekly report goes out: numbers of one ISO week become 1..N by inspection date.
+export async function renumberWeekService(auth: AuthContext, projectId: string, date: string) {
+  assertEps(auth);
+  await assertProject(projectId);
+  const weekStart = mondayOf(date);
+  const count = await renumberWeek(getDb(), projectId, weekStart);
+  return { weekStart, count };
 }
 
 export async function deleteFindingService(auth: AuthContext, projectId: string, findingId: string) {

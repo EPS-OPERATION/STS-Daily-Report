@@ -1,10 +1,12 @@
-import { and, asc, between, eq, isNotNull, max, min, sql } from "drizzle-orm";
+import { and, asc, between, eq, isNotNull, min, sql } from "drizzle-orm";
 import { buildings, contractors, dailyReports, safetyFindings } from "@/db/schema/index.js";
 import type { Db } from "@/db/client.js";
 
 const findingColumns = {
   id: safetyFindings.id,
   itemNo: safetyFindings.itemNo,
+  weekStart: safetyFindings.weekStart,
+  weekNo: safetyFindings.weekNo,
   observation: safetyFindings.observation,
   buildingId: safetyFindings.buildingId,
   buildingCode: buildings.code,
@@ -36,7 +38,7 @@ export type FindingRow = Awaited<ReturnType<typeof listFindings>>[number];
 export async function listFindings(db: Db, projectId: string, from: string, to: string) {
   return findingQuery(db)
     .where(and(eq(safetyFindings.projectId, projectId), between(safetyFindings.inspectionDate, from, to)))
-    .orderBy(asc(safetyFindings.inspectionDate), asc(safetyFindings.itemNo));
+    .orderBy(asc(safetyFindings.weekStart), asc(safetyFindings.weekNo), asc(safetyFindings.itemNo));
 }
 
 export async function getFinding(db: Db, id: string) {
@@ -44,18 +46,57 @@ export async function getFinding(db: Db, id: string) {
   return rows[0] ?? null;
 }
 
-export async function nextItemNo(db: Db, projectId: string) {
-  const rows = await db.select({ n: max(safetyFindings.itemNo) }).from(safetyFindings).where(eq(safetyFindings.projectId, projectId));
-  return (rows[0]?.n ?? 0) + 1;
-}
+// Next free number in the project (item_no) or in one ISO week (week_no). Computed inside the INSERT/UPDATE
+// statement itself; two saves that race for the same number hit the unique key and the service retries.
+const nextItemNo = (projectId: string) =>
+  sql<number>`(select coalesce(max(${safetyFindings.itemNo}), 0) + 1 from ${safetyFindings} where ${safetyFindings.projectId} = ${projectId})`;
+const nextWeekNo = (projectId: string, weekStart: string) =>
+  sql<number>`(select coalesce(max(${safetyFindings.weekNo}), 0) + 1 from ${safetyFindings} where ${safetyFindings.projectId} = ${projectId} and ${safetyFindings.weekStart} = ${weekStart})`;
 
-export async function insertFinding(db: Db, values: typeof safetyFindings.$inferInsert) {
-  const rows = await db.insert(safetyFindings).values(values).returning({ id: safetyFindings.id });
+export type FindingValues = Omit<typeof safetyFindings.$inferInsert, "itemNo" | "weekNo">;
+
+export async function insertFinding(db: Db, values: FindingValues, weekStart: string) {
+  const rows = await db
+    .insert(safetyFindings)
+    .values({ ...values, itemNo: nextItemNo(values.projectId), weekNo: nextWeekNo(values.projectId, weekStart) })
+    .returning({ id: safetyFindings.id });
   return rows[0]!.id;
 }
 
-export async function updateFinding(db: Db, id: string, values: Partial<typeof safetyFindings.$inferInsert>) {
-  await db.update(safetyFindings).set({ ...values, updatedAt: sql`now()` }).where(eq(safetyFindings.id, id));
+// `moveToWeek` = the inspection date moved into another ISO week: take that week's next number.
+export async function updateFinding(
+  db: Db,
+  id: string,
+  values: Partial<FindingValues>,
+  moveToWeek?: { projectId: string; weekStart: string },
+) {
+  await db
+    .update(safetyFindings)
+    .set({
+      ...values,
+      ...(moveToWeek ? { weekNo: nextWeekNo(moveToWeek.projectId, moveToWeek.weekStart) } : {}),
+      updatedAt: sql`now()`,
+    })
+    .where(eq(safetyFindings.id, id));
+}
+
+// Close the gaps of one ISO week: 1..N by inspection date, then the old week number (entry order).
+// Two passes (shift out of range, then number) because the unique key is checked row by row.
+export async function renumberWeek(db: Db, projectId: string, weekStart: string) {
+  return db.transaction(async (tx) => {
+    const scope = and(eq(safetyFindings.projectId, projectId), eq(safetyFindings.weekStart, weekStart));
+    await tx.update(safetyFindings).set({ weekNo: sql`${safetyFindings.weekNo} + 1000000` }).where(scope);
+    const renumbered = await tx.execute(sql`
+      update ${safetyFindings} f set week_no = n.rn, updated_at = now()
+      from (
+        select id, row_number() over (order by inspection_date, week_no, item_no) as rn
+        from ${safetyFindings}
+        where project_id = ${projectId} and week_start = ${weekStart}
+      ) n
+      where f.id = n.id
+      returning f.id`);
+    return renumbered.length;
+  });
 }
 
 export async function deleteFinding(db: Db, id: string) {

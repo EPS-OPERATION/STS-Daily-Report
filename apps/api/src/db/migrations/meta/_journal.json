@@ -330,6 +330,13 @@
       "when": 1793175993159,
       "tag": "0046_user_activity_days",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793235857218,
+      "tag": "0047_safety_week_no",
+      "breakpoints": true
     }
   ]
 }
