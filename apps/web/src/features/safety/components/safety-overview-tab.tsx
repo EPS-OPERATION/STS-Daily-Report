@@ -1,14 +1,27 @@
 import HealthAndSafetyOutlinedIcon from "@mui/icons-material/HealthAndSafetyOutlined";
+import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
-import { type ReactNode } from "react";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import { useState, type ReactNode } from "react";
 import { KpiCard } from "@/components/ui/kpi-card.js";
 import { Panel } from "@/components/ui/panel.js";
-import { MonthlyTrendChart } from "./safety-charts.js";
+import { SafetyStatDialog } from "./safety-stat-dialog.js";
+import { SafetyTrendChart, type SafetyTrendPeriod } from "./safety-charts.js";
 import { StatisticTable } from "./statistic-table.js";
 import type { SafetyStats } from "../types/safety.types.js";
 
-export function OverviewTab({ s }: { s: SafetyStats }) {
+const TREND_TITLE: Record<SafetyTrendPeriod, string> = {
+  daily: "แนวโน้มความปลอดภัย (14 วันล่าสุด)",
+  weekly: "แนวโน้มความปลอดภัย (8 สัปดาห์ล่าสุด)",
+  monthly: "แนวโน้มความปลอดภัย (รายเดือน)",
+};
+
+export function OverviewTab({ s, projectId }: { s: SafetyStats; projectId: string | null }) {
+  const [period, setPeriod] = useState<SafetyTrendPeriod>("monthly");
+  const [statOpen, setStatOpen] = useState(false);
+  const trendTitle = period === "monthly" ? `แนวโน้มความปลอดภัย (รายเดือน ${s.to.slice(0, 4)})` : TREND_TITLE[period];
   return (
     <Stack spacing={2.5}>
           {/* tiles (deck "SAFETY PERFORMANCE") */}
@@ -27,16 +40,43 @@ export function OverviewTab({ s }: { s: SafetyStats }) {
     
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, lg: 6 }}>
-              <Panel fill title="STATISTIC" subtitle="จากรายงานบ่ายของผู้รับเหมา (ประเภทเหตุการณ์) + ชั่วโมงทำงาน">
+              <Panel
+                fill
+                title="STATISTIC"
+                subtitle="จากรายงาน และข้อมูลจาก EPS"
+                actions={
+                  <Button size="small" variant="outlined" onClick={() => setStatOpen(true)}>
+                    เพิ่ม / แก้ไขสถิติ
+                  </Button>
+                }
+              >
                 <StatisticTable stats={s} compact />
               </Panel>
             </Grid>
             <Grid size={{ xs: 12, lg: 6 }}>
-              <Panel fill title={`แนวโน้มความปลอดภัย (รายเดือน ${s.to.slice(0, 4)})`} subtitle="Near miss จากผู้รับเหมา · Safety inspection = Line walk ของ EPS">
-                <MonthlyTrendChart stats={s} height={300} />
+              <Panel
+                fill
+                title={trendTitle}
+                subtitle="Near miss + Safety inspection · เลือกดูรายวัน / รายสัปดาห์ / รายเดือน"
+                actions={
+                  <ToggleButtonGroup
+                    exclusive
+                    size="small"
+                    value={period}
+                    onChange={(_, v: SafetyTrendPeriod | null) => v && setPeriod(v)}
+                    aria-label="Safety trend period"
+                  >
+                    <ToggleButton value="daily" sx={{ px: 1.25, py: 0.5 }}>Daily</ToggleButton>
+                    <ToggleButton value="weekly" sx={{ px: 1.25, py: 0.5 }}>Weekly</ToggleButton>
+                    <ToggleButton value="monthly" sx={{ px: 1.25, py: 0.5 }}>Monthly</ToggleButton>
+                  </ToggleButtonGroup>
+                }
+              >
+                <SafetyTrendChart stats={s} period={period} height={300} />
               </Panel>
             </Grid>
           </Grid>
+          <SafetyStatDialog projectId={projectId} stats={s} open={statOpen} onClose={() => setStatOpen(false)} />
         </Stack>
   );
 }

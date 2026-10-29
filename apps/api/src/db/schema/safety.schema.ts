@@ -1,4 +1,4 @@
-import { check, date, index, integer, numeric, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { check, date, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { buildings } from "./building.schema.js";
 import { contractors } from "./contractor.schema.js";
@@ -47,6 +47,135 @@ export const safetyFindings = pgTable(
 );
 
 export type SafetyFinding = typeof safetyFindings.$inferSelect;
+
+// EPS manual safety statistics. Contractors only report accidents through their evening report;
+// when they do not report, EPS can fill the daily values used by the Safety statistic table and
+// trend chart. One row per project per date; entered values are added to contractor report data.
+export const safetyStatEntries = pgTable(
+  "safety_stat_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    entryDate: date("entry_date").notNull(),
+    nearMiss: integer("near_miss").notNull().default(0),
+    inspections: integer("inspections").notNull().default(0),
+    lti: integer("lti").notNull().default(0),
+    nonLti: integer("non_lti").notNull().default(0),
+    propertyDamage: integer("property_damage").notNull().default(0),
+    emergency: integer("emergency").notNull().default(0),
+    manHours: numeric("man_hours", { precision: 10, scale: 1, mode: "number" }).notNull().default(0),
+    // Hand-written safety clock (paper form's STATISTIC rows), as of entry_date. When set, the stats
+    // continue counting from it (accumulate) / treat it as a floor for the project record — an empty
+    // value falls back to the automatic computation from accident dates.
+    daysWithoutAccident: integer("days_without_accident"),
+    highestDaysWithoutAccident: integer("highest_days_without_accident"),
+    note: text("note"),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("safety_stat_entries_project_date_unique").on(t.projectId, t.entryDate),
+    index("safety_stat_entries_project_date_idx").on(t.projectId, t.entryDate),
+    check(
+      "safety_stat_entries_counts_check",
+      sql`${t.nearMiss} >= 0 AND ${t.inspections} >= 0 AND ${t.lti} >= 0 AND ${t.nonLti} >= 0 AND ${t.propertyDamage} >= 0 AND ${t.emergency} >= 0 AND ${t.manHours} >= 0`,
+    ),
+  ],
+);
+
+// Append-only edit history of EPS safety statistics (same rule as daily_report_versions): every
+// confirmed save appends a row and a trigger rejects UPDATE. `confirmed_name` is typed by the person
+// doing the save (accounts may be shared); user_id + ip + user_agent are the technical evidence.
+//   action = create (first save of that date) | edit (any later save)
+export const safetyStatVersions = pgTable(
+  "safety_stat_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entryId: uuid("entry_id")
+      .notNull()
+      .references(() => safetyStatEntries.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    action: text("action").notNull(),
+    snapshot: jsonb("snapshot").notNull(),
+    contentHash: text("content_hash").notNull(),
+    confirmedName: text("confirmed_name"),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("safety_stat_versions_entry_version_unique").on(t.entryId, t.version),
+    index("safety_stat_versions_entry_idx").on(t.entryId),
+    check("safety_stat_versions_action_check", sql`${t.action} IN ('create', 'edit')`),
+  ],
+);
+
+export type SafetyStatVersion = typeof safetyStatVersions.$inferSelect;
+
+// Year totals of the STATISTIC table ("Year 2026" column), written by EPS as on the paper form.
+// One row per project × year × category; when a row exists the stats show this value instead of the
+// computed year count (contractor reports + EPS daily entries). Untouched categories keep computing.
+export const safetyStatYearOverrides = pgTable(
+  "safety_stat_year_overrides",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    year: integer("year").notNull(),
+    code: text("code").notNull(),
+    value: integer("value").notNull(),
+    confirmedName: text("confirmed_name"),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.year, t.code] }),
+    check("safety_stat_year_overrides_code_check", sql`${t.code} IN ('lti', 'non_lti', 'property_damage', 'near_miss', 'emergency')`),
+    check("safety_stat_year_overrides_value_check", sql`${t.value} >= 0`),
+  ],
+);
+
+// The project's safety history from before the app was used (construction began earlier): one row per project,
+// written by EPS. Man-hours worked before → added to "Total acc. (Start – date)"; the last Loss Time Injury before →
+// "Last Accident LTI" shows the later of this and any LTI reported in the app; the project start date (optional,
+// EPS may not know it) is where the safety clock and the "Start –" label begin.
+export const safetyBaselines = pgTable("safety_baselines", {
+  projectId: uuid("project_id")
+    .primaryKey()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  manHoursBefore: numeric("man_hours_before", { precision: 14, scale: 1, mode: "number" }).notNull().default(0),
+  lastLtiDate: date("last_lti_date"),
+  projectStartDate: date("project_start_date"),
+  confirmedName: text("confirmed_name"),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [check("safety_baselines_man_hours_check", sql`${t.manHoursBefore} >= 0`)]);
+
+// Append-only edit history of the baseline above (same rule as safety_stat_versions): every save keeps the whole
+// record, the typed name of the person who confirmed it, the account, IP and browser.
+export const safetyBaselineVersions = pgTable(
+  "safety_baseline_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    snapshot: jsonb("snapshot").notNull(),
+    contentHash: text("content_hash").notNull(),
+    confirmedName: text("confirmed_name"),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("safety_baseline_versions_project_version_unique").on(t.projectId, t.version)],
+);
 
 // Rain & Delay Log (EPS): when rain actually stopped work on site — the "actual" beside recorded weather.
 export const rainLogs = pgTable(

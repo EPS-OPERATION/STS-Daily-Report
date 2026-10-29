@@ -21,9 +21,9 @@ export function periodLabel(from: string, to: string) {
 }
 
 // Status face by severity, on the year count. Serious rows (LTI, Emergency): any case = ☹️.
-// Other rows: 0 = 😊, 1–2 = 😐, 3+ = ☹️.
+// Other rows: 0 = 😊, 1–2 = 😐, 3+ = ☹️. (Shared with the stat dialog.)
 const SERIOUS = new Set<string>(["lti", "emergency"]);
-function statusOf(code: string, yearCount: number) {
+export function statusOf(code: string, yearCount: number) {
   if (yearCount === 0) return { emoji: "😊", label: "good" };
   if (SERIOUS.has(code) || yearCount >= 3) return { emoji: "☹️", label: "attention" };
   return { emoji: "😐", label: "watch" };
@@ -89,7 +89,7 @@ export function StatisticTable({ stats, compact }: { stats: SafetyStats; compact
         </tr>
         <tr>
           <td colSpan={4} style={{ background: BLUE, color: INK }}>
-            Total acc. (Start – {shortDate(stats.to)}) : {formatNumber(stats.manHoursTotal)} Hrs.
+            Total acc. (Start{stats.baseline?.projectStartDate ? ` ${shortDate(stats.baseline.projectStartDate)}` : ""} – {shortDate(stats.to)}) : {formatNumber(stats.manHoursTotal)} Hrs.
           </td>
         </tr>
       </tbody>

@@ -17,6 +17,7 @@ import {
   updateFinding,
   type FindingRow,
 } from "./safety.repository.js";
+import { firstSafetyStatDate, getSafetyBaseline, listSafetyStatEntries, listSafetyStatYearOverrides } from "./safety-stat.repository.js";
 
 export interface FindingInput {
   observation: string;
@@ -182,38 +183,96 @@ export async function safetyStatsService(projectId: string, from: string, to: st
   await assertProject(projectId);
   assertRange(from, to);
   const yearStart = `${to.slice(0, 4)}-01-01`;
-  const start = (await firstReportDate(db, projectId)) ?? from;
-  const [allAccidents, findingsInRange, findingsYear, manHoursPeriod, manHoursTotal] = await Promise.all([
+  // The safety clock starts at the first contractor report or the first EPS manual entry.
+  const [reportStart, manualStart] = await Promise.all([
+    firstReportDate(db, projectId),
+    firstSafetyStatDate(db, projectId),
+  ]);
+  const baselineStart = (await getSafetyBaseline(db, projectId))?.projectStartDate ?? null;
+  const startCandidate = [reportStart, manualStart, baselineStart].filter((d): d is string => Boolean(d)).sort()[0] ?? from;
+  // A historical range may end before the project's first report/manual entry.
+  const start = startCandidate <= to ? startCandidate : from;
+
+  const [allAccidents, findingsInRange, findingsYear, manHoursPeriod, manHoursTotal, manualEntries, yearOverrides, baseline] = await Promise.all([
     listAccidents(db, projectId, start < yearStart ? start : yearStart, to),
     listFindings(db, projectId, from, to),
     listFindings(db, projectId, yearStart, to),
     sumReportManHours(db, projectId, from, to),
     sumReportManHours(db, projectId, start, to),
+    listSafetyStatEntries(db, projectId, start, to),
+    listSafetyStatYearOverrides(db, projectId, Number(to.slice(0, 4))),
+    getSafetyBaseline(db, projectId),
   ]);
+  const manualPeriod = manualEntries.filter((e) => e.entryDate >= from && e.entryDate <= to);
+  const manualYear = manualEntries.filter((e) => e.entryDate >= yearStart);
+  const manualField = {
+    lti: "lti",
+    non_lti: "nonLti",
+    property_damage: "propertyDamage",
+    near_miss: "nearMiss",
+    emergency: "emergency",
+  } as const;
+  const manualCount = (rows: typeof manualEntries, code: AccidentCategory) =>
+    rows.reduce((s, e) => s + e[manualField[code]], 0);
+  const manualSum = (rows: typeof manualEntries, key: "inspections" | "manHours") =>
+    rows.reduce((s, e) => s + e[key], 0);
 
   const inRange = (d: string, a: string, b: string) => d >= a && d <= b;
   const count = (cat: AccidentCategory, a: string, b: string) =>
     allAccidents.filter((x) => x.category === cat && inRange(x.reportDate, a, b)).length;
   const categories = ACCIDENT_CATEGORY_CODES.map((code) => ({
     code,
-    period: count(code, from, to),
-    year: count(code, yearStart, to),
+    period: count(code, from, to) + manualCount(manualPeriod, code),
+    // EPS can write the paper form's "Year YYYY" column by hand; an override wins over the computed count.
+    year: yearOverrides.get(code) ?? (count(code, yearStart, to) + manualCount(manualYear, code)),
   }));
 
-  // Safety clock from injuries only.
-  const injuries = [...new Set(allAccidents.filter((a) => INJURY_CATEGORIES.includes(a.category as AccidentCategory)).map((a) => a.reportDate))].sort();
-  const lastInjury = injuries.at(-1) ?? null;
-  const daysWithoutAccident = days(lastInjury ?? start, to);
+  // Safety clock from injuries only (contractor reports + EPS manual entries). EPS can also write the
+  // two STATISTIC rows by hand (daysWithoutAccident = the running clock as of that date, Excel-like);
+  // a hand-written value anchors the clock from that day on, until the next injury resets it to 0.
+  const injuryDates = [
+    ...allAccidents.filter((a) => INJURY_CATEGORIES.includes(a.category as AccidentCategory)).map((a) => a.reportDate),
+    ...manualEntries.filter((e) => e.lti > 0 || e.nonLti > 0).map((e) => e.entryDate),
+    // The last LTI from before the app (EPS baseline) restarts the clock too, unless a later entry says otherwise.
+    ...(baseline?.lastLtiDate && baseline.lastLtiDate <= to ? [baseline.lastLtiDate] : []),
+  ];
+  const injuries = [...new Set(injuryDates)].sort();
+  type ClockEvent = { d: string; injury: boolean; value: number };
+  const events: ClockEvent[] = [
+    ...injuries.map((d) => ({ d, injury: true, value: 0 })),
+    ...manualEntries
+      .filter((e) => e.daysWithoutAccident != null)
+      .map((e) => ({ d: e.entryDate, injury: false, value: e.daysWithoutAccident! })),
+  ].sort((a, b) => a.d.localeCompare(b.d) || (a.injury ? -1 : 1));
+  let run = 0;
+  let runDate = start;
   let highest = 0;
-  let prev = start;
-  for (const d of injuries) {
-    highest = Math.max(highest, days(prev, d));
-    prev = d;
+  for (const ev of events) {
+    highest = Math.max(highest, run + days(runDate, ev.d));
+    if (ev.injury) run = 0;
+    else {
+      run = ev.value;
+      highest = Math.max(highest, ev.value);
+    }
+    runDate = ev.d;
   }
+  const daysWithoutAccident = run + days(runDate, to);
   highest = Math.max(highest, daysWithoutAccident);
-  const lastLti = allAccidents.filter((a) => a.category === "lti").at(-1)?.reportDate ?? null;
+  // Hand-written project record ("Highest Days Without Accident") never goes below the computed one.
+  for (const e of manualEntries) {
+    if (e.highestDaysWithoutAccident != null) highest = Math.max(highest, e.highestDaysWithoutAccident);
+  }
+  // The last LTI may be from before the app (EPS baseline); a later one reported here wins.
+  const lastLti = [
+    ...allAccidents.filter((a) => a.category === "lti").map((a) => a.reportDate),
+    ...manualEntries.filter((e) => e.lti > 0).map((e) => e.entryDate),
+    ...(baseline?.lastLtiDate && baseline.lastLtiDate <= to ? [baseline.lastLtiDate] : []),
+  ].sort().at(-1) ?? null;
 
   const done = findingsInRange.filter((f) => f.status === "done").length;
+  // EPS manual inspections are historical records; count them as completed line walks.
+  const inspectionDone = done + manualSum(manualPeriod, "inspections");
+  const inspectionTotal = findingsInRange.length + manualSum(manualPeriod, "inspections");
   const byContractor = (type: FindingType) => {
     const m = new Map<string, number>();
     for (const f of findingsInRange.filter((x) => x.findingType === type)) {
@@ -230,9 +289,31 @@ export async function safetyStatsService(projectId: string, from: string, to: st
   const months = Array.from({ length: Number(to.slice(5, 7)) }, (_, i) => `${to.slice(0, 4)}-${String(i + 1).padStart(2, "0")}`);
   const monthly = months.map((m) => ({
     month: m,
-    nearMiss: allAccidents.filter((a) => a.category === "near_miss" && a.reportDate.startsWith(m)).length,
-    inspections: findingsYear.filter((f) => f.inspectionDate.startsWith(m)).length,
+    nearMiss:
+      allAccidents.filter((a) => a.category === "near_miss" && a.reportDate.startsWith(m)).length +
+      manualYear.filter((e) => e.entryDate.startsWith(m)).reduce((s, e) => s + e.nearMiss, 0),
+    inspections:
+      findingsYear.filter((f) => f.inspectionDate.startsWith(m)).length +
+      manualYear.filter((e) => e.entryDate.startsWith(m)).reduce((s, e) => s + e.inspections, 0),
   }));
+
+  // Sparse daily series for the trend chart (daily / weekly views); the month view uses `monthly`.
+  const dailyMap = new Map<string, { date: string; nearMiss: number; inspections: number }>();
+  const dayRow = (date: string) => {
+    let row = dailyMap.get(date);
+    if (!row) {
+      row = { date, nearMiss: 0, inspections: 0 };
+      dailyMap.set(date, row);
+    }
+    return row;
+  };
+  for (const a of allAccidents) if (a.category === "near_miss" && a.reportDate >= yearStart) dayRow(a.reportDate).nearMiss += 1;
+  for (const f of findingsYear) dayRow(f.inspectionDate).inspections += 1;
+  for (const e of manualYear) {
+    if (e.nearMiss) dayRow(e.entryDate).nearMiss += e.nearMiss;
+    if (e.inspections) dayRow(e.entryDate).inspections += e.inspections;
+  }
+  const daily = [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date));
 
   return {
     from,
@@ -243,18 +324,21 @@ export async function safetyStatsService(projectId: string, from: string, to: st
       accidents: categories.filter((c) => INJURY_CATEGORIES.includes(c.code)).reduce((s, c) => s + c.period, 0),
       lti: categories.find((c) => c.code === "lti")!.period,
       nearMiss: categories.find((c) => c.code === "near_miss")!.period,
-      inspections: findingsInRange.length,
-      closed: done,
-      closedPct: findingsInRange.length ? Math.round((done / findingsInRange.length) * 100) : null,
+      inspections: inspectionTotal,
+      closed: inspectionDone,
+      closedPct: inspectionTotal ? Math.round((inspectionDone / inspectionTotal) * 100) : null,
     },
     categories,
     daysWithoutAccident,
     highestDaysWithoutAccident: highest,
     lastLti,
-    manHoursPeriod,
-    manHoursTotal,
+    manHoursPeriod: manHoursPeriod + manualSum(manualPeriod, "manHours"),
+    // Total since the start of construction = hours worked before the app (EPS baseline) + everything since.
+    manHoursTotal: manHoursTotal + manualSum(manualEntries, "manHours") + (baseline?.manHoursBefore ?? 0),
+    baseline: { manHoursBefore: baseline?.manHoursBefore ?? 0, lastLtiDate: baseline?.lastLtiDate ?? null, projectStartDate: baseline?.projectStartDate ?? null },
     unsafeAct: typeSummary("unsafe_act"),
     unsafeCondition: typeSummary("unsafe_condition"),
     monthly,
+    daily,
   };
 }
