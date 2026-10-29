@@ -19,6 +19,22 @@ export function mondayOf(isoDate: string): string {
   return addDays(isoDate, -dow);
 }
 
+// ISO 8601 week of isoDate (Mon–Sun; week 1 holds the year's first Thursday). `year` can differ from the
+// calendar year around New Year, e.g. 2026-12-31 → 2026-W53, 2027-01-01 → 2026-W53.
+export function isoWeekOf(isoDate: string): { year: number; week: number } {
+  const thursday = new Date(`${addDays(mondayOf(isoDate), 3)}T00:00:00Z`);
+  const year = thursday.getUTCFullYear();
+  const jan1 = Date.UTC(year, 0, 1);
+  const dayOfYear = Math.floor((thursday.getTime() - jan1) / 86_400_000);
+  return { year, week: Math.floor(dayOfYear / 7) + 1 };
+}
+
+// "2026-W43" — label for the ISO week containing isoDate.
+export function isoWeekLabel(isoDate: string): string {
+  const { year, week } = isoWeekOf(isoDate);
+  return `${year}-W${String(week).padStart(2, "0")}`;
+}
+
 // Man-day / NMH of one contractor-day from whichever halves were sent (rule in dayManpower).
 export function attendanceOf(r: {
   morningStatus: string;

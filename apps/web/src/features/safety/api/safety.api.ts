@@ -12,6 +12,9 @@ export const safetyKeys = {
 const base = (projectId: string) => `/projects/${projectId}/safety`;
 
 export const safetyApi = {
+  renumberWeek(projectId: string, date: string): Promise<{ data: { weekStart: string; count: number } }> {
+    return http.post(`${base(projectId)}/findings/renumber-week`, { date });
+  },
   rainLogs(projectId: string, from: string, to: string): Promise<{ data: RainLogEntry[] }> {
     return http.get(`${base(projectId)}/rain-logs?from=${from}&to=${to}`);
   },

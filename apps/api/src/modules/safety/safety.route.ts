@@ -5,11 +5,12 @@ import {
   createFindingService,
   deleteFindingService,
   listFindingsService,
+  renumberWeekService,
   safetyStatsService,
   updateFindingService,
   uploadFindingPhotoService,
 } from "./safety.service.js";
-import { findingBody, findingParams, photoBody, photoParams, projectIdParams, rainLogBody, rainLogParams, rangeQuery } from "./safety.schema.js";
+import { findingBody, findingParams, photoBody, photoParams, projectIdParams, rainLogBody, rainLogParams, rangeQuery, renumberWeekBody } from "./safety.schema.js";
 import { createRainLogService, deleteRainLogService, listRainLogsService, updateRainLogService } from "./rain-log.service.js";
 
 // Safety line walk (EPS-only writes, checked in the service) + statistics.
@@ -61,6 +62,11 @@ export const safetyRoutes = new Elysia()
       return ok(res);
     },
     { params: projectIdParams, body: findingBody },
+  )
+  .post(
+    "/projects/:projectId/safety/findings/renumber-week",
+    async ({ params, body, auth }) => ok(await renumberWeekService(auth, params.projectId, body.date)),
+    { params: projectIdParams, body: renumberWeekBody },
   )
   .put(
     "/projects/:projectId/safety/findings/:findingId",

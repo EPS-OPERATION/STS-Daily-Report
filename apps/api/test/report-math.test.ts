@@ -1,5 +1,16 @@
 import { expect, test } from "bun:test";
-import { addDays, attendanceOf, mondayOf, round1 } from "@sts/shared";
+import { addDays, attendanceOf, isoWeekLabel, isoWeekOf, mondayOf, round1 } from "@sts/shared";
+
+test("isoWeekOf follows ISO 8601 (Mon–Sun, week 1 holds the first Thursday)", () => {
+  expect(isoWeekLabel("2026-10-19")).toBe("2026-W43");
+  expect(isoWeekLabel("2026-10-25")).toBe("2026-W43"); // Sunday stays in the week
+  expect(isoWeekLabel("2026-10-26")).toBe("2026-W44");
+  // year boundaries: the ISO year can differ from the calendar year
+  expect(isoWeekOf("2026-12-31")).toEqual({ year: 2026, week: 53 });
+  expect(isoWeekOf("2027-01-01")).toEqual({ year: 2026, week: 53 });
+  expect(isoWeekOf("2024-12-30")).toEqual({ year: 2025, week: 1 });
+  expect(isoWeekOf("2026-01-01")).toEqual({ year: 2026, week: 1 });
+});
 
 test("addDays crosses month and year ends in UTC", () => {
   expect(addDays("2026-01-31", 1)).toBe("2026-02-01");

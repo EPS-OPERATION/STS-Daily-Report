@@ -19,6 +19,7 @@ import { useProjectContractors } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 import { useSaveFinding } from "../hooks/use-safety.js";
 import type { FindingInput, SafetyFinding } from "../types/safety.types.js";
+import { findingTitle } from "../utils/finding-no.js";
 import { FormDialog } from "@/components/ui/form-dialog.js";
 import { toIsoDate } from "@/lib/dates.js";
 
@@ -98,7 +99,7 @@ export function FindingDialog({
 
   return (
     <FormDialog
-      title={finding ? `Line walk · item ${finding.itemNo}` : "Add line walk"}
+      title={finding ? `Line walk · ${findingTitle(finding)}` : "Add line walk"}
       onClose={onClose}
       maxWidth="md"
       mobileFullScreen

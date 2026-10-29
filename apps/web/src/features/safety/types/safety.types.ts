@@ -2,7 +2,12 @@ import type { AccidentCategory, FindingStatus, FindingType } from "@sts/shared";
 
 export interface SafetyFinding {
   id: string;
+  /** Permanent running number of the project (internal ID). */
   itemNo: number;
+  /** Monday of the ISO week of the inspection date. */
+  weekStart: string;
+  /** Number shown on the weekly report: restarts at 1 every ISO week. */
+  weekNo: number;
   observation: string;
   buildingId: string | null;
   buildingCode: string | null;

@@ -25,6 +25,9 @@ export const findingBody = t.Object({
   findingType: t.Union(FINDING_TYPE_CODES.map((c) => t.Literal(c))),
 });
 
+// Any date inside the ISO week to renumber (the server uses that week's Monday).
+export const renumberWeekBody = t.Object({ date: isoDate }, { additionalProperties: false });
+
 export const photoBody = t.Object({ file: t.File({ type: "image", maxSize: "10m" }) });
 
 // Rain & Delay Log (EPS).
