@@ -30,21 +30,35 @@ type ForecastRow = DailyRequests["forecasts"][number];
 // in its afternoon report, it would work on the next day — filtered by target date range.
 export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastRow[]; rangeLabel: string; fileTag: string }) {
   const [contractor, setContractor] = useState("all");
+  const [area, setArea] = useState("all");
   const [search, setSearch] = useState("");
-
-  const contractors = useMemo(() => [...new Set(rows.map((r) => r.contractorCode))].sort(), [rows]);
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return rows.filter(
-      (r) =>
-        (contractor === "all" || r.contractorCode === contractor) &&
-        (!q || `${r.description} ${r.buildingCode} ${r.buildingName} ${r.contractorCode} ${r.contractorName}`.toLowerCase().includes(q)),
-    );
-  }, [rows, contractor, search]);
-  const filtered = contractor !== "all" || search.trim() !== "";
-  // Long plans page through the rows; the filters above still apply to all of them.
   const [page, setPage] = useState(0);
   const [perPage, setPerPage] = useState(25);
+
+  const contractors = useMemo(() => [...new Set(rows.map((r) => r.contractorCode))].sort(), [rows]);
+  // Distinct work areas (building code + name) so the area can be picked from a dropdown.
+  const areas = useMemo(() => {
+    const map = new Map<string, { id: string; code: string; name: string }>();
+    for (const r of rows) {
+      const id = r.buildingId || r.buildingCode || "";
+      if (!id || map.has(id)) continue;
+      map.set(id, { id, code: r.buildingCode, name: r.buildingName });
+    }
+    return [...map.values()].sort((a, b) => a.code.localeCompare(b.code) || a.name.localeCompare(b.name));
+  }, [rows]);
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      const areaId = r.buildingId || r.buildingCode || "";
+      return (
+        (contractor === "all" || r.contractorCode === contractor) &&
+        (area === "all" || areaId === area) &&
+        (!q || `${r.description} ${r.buildingCode} ${r.buildingName} ${r.contractorCode} ${r.contractorName}`.toLowerCase().includes(q))
+      );
+    });
+  }, [rows, contractor, area, search]);
+  const filtered = contractor !== "all" || area !== "all" || search.trim() !== "";
+  // Long plans page through the rows; the filters above still apply to all of them.
   const current = Math.min(page, Math.max(0, Math.ceil(visible.length / perPage) - 1));
   const pageRows = visible.slice(current * perPage, (current + 1) * perPage);
 
@@ -82,12 +96,20 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
               </MenuItem>
             ))}
           </TextField>
+          <TextField select size="small" label="พื้นที่ (Area)" value={area} onChange={(e) => { setArea(e.target.value); setPage(0); }} sx={{ minWidth: 220 }}>
+            <MenuItem value="all">ทุกพื้นที่</MenuItem>
+            {areas.map((a) => (
+              <MenuItem key={a.id} value={a.id}>
+                {a.code} {a.name ? `— ${a.name}` : ""}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             size="small"
             fullWidth
             placeholder="ค้นหาตามรายละเอียดงาน พื้นที่ หรือผู้รับเหมา"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             slotProps={{
               input: {
                 startAdornment: (
@@ -110,7 +132,7 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
             description={
               rows.length === 0
                 ? "รายการจะปรากฏเมื่อผู้รับเหมากรอก Tomorrow Forecast Activities ในรายงานบ่าย — ลองเลือกช่วงวันที่อื่น"
-                : "ลองเปลี่ยนผู้รับเหมาหรือล้างคำค้นหา"
+                : "ลองเปลี่ยนผู้รับเหมา/พื้นที่ หรือล้างคำค้นหา"
             }
             action={
               rows.length > 0 ? (
@@ -118,7 +140,9 @@ export function ForecastHistory({ rows, rangeLabel, fileTag }: { rows: ForecastR
                   variant="outlined"
                   onClick={() => {
                     setContractor("all");
+                    setArea("all");
                     setSearch("");
+                    setPage(0);
                   }}
                 >
                   Clear filters
