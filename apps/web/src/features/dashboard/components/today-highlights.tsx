@@ -13,6 +13,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink } from "react-router-dom";
 import { BlockSkeleton } from "@/components/ui/skeletons.js";
+import { PermitNoticeThumbs } from "@/features/daily-requests/index.js";
 import type { UseDashboardState } from "../hooks/use-dashboard.js";
 import { HIGHLIGHT_TONE } from "../hooks/use-dashboard.js";
 
@@ -81,9 +82,12 @@ export function TodayHighlights({ ed }: { ed: UseDashboardState }) {
                     </ListItemAvatar>
                     <ListItemText
                       primary={h.title}
-                      secondary={h.lines.join(" · ")}
+                      secondary={<>
+                        {h.lines.join(" · ")}
+                        {h.photos?.length ? <Box component="span" sx={{ display: "block", mt: 0.75 }}><PermitNoticeThumbs photos={h.photos} size={56} /></Box> : null}
+                      </>}
                       primaryTypographyProps={{ fontSize: 14, fontWeight: 600 }}
-                      secondaryTypographyProps={{ fontSize: 13 }}
+                      secondaryTypographyProps={{ fontSize: 13, component: "div" }}
                     />
                   </ListItem>
                 );

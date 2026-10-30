@@ -148,3 +148,20 @@ export interface UpdatePermitPayload {
   taskName?: string | null;
   supervisorName?: string | null;
 }
+
+/** A work permit of the day for the Today feed, with the location photos its contractor attached (floor cut open,
+ *  guardrail removed...); `photos` is empty when none. */
+export interface PermitNotice {
+  id: string;
+  targetDate: string;
+  permitType: string;
+  otherLabel: string | null;
+  highRisk: boolean;
+  taskName: string | null;
+  contractorCode: string;
+  contractorName: string;
+  buildingCode: string;
+  buildingName: string;
+  buildingNameTh: string | null;
+  photos: { id: string; fileName: string; url: string | null }[];
+}

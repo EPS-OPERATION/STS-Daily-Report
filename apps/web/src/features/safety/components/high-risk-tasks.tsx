@@ -20,7 +20,7 @@ import { EmptySection } from "@/components/ui/empty-state.js";
 import { BlockSkeleton } from "@/components/ui/skeletons.js";
 import { ContractorBadge } from "@/features/contractors/index.js";
 import { PERMIT_ICONS, permitLabel } from "@/features/daily-requests/index.js";
-import { useDailyRequests } from "@/features/daily-requests/index.js";
+import { PermitNoticeThumbs, useDailyRequests, usePermitNotices } from "@/features/daily-requests/index.js";
 import type { PermitEditItem } from "./permit-edit-dialog.js";
 
 export interface HighRiskTask {
@@ -58,6 +58,9 @@ export function HighRiskTasks({
   onAdd?: (date: string) => void;
 }) {
   const query = useDailyRequests(projectId, from, to);
+  // Location photos of the permits (floor cut open, guardrail removed...), shown on the job's card.
+  const notices = usePermitNotices(projectId, from, to);
+  const photosByPermit = useMemo(() => new Map((notices.data?.data ?? []).map((n) => [n.id, n.photos])), [notices.data]);
 
   const realTasksByDate = useMemo(() => {
     const tasks = new Map<string, HighRiskTask>();
@@ -120,7 +123,7 @@ export function HighRiskTasks({
           <Grid container spacing={1.25}>
             {tasks.map((t) => (
               <Grid key={t.key} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                <TaskCard task={t} onEdit={onEdit} />
+                <TaskCard task={t} onEdit={onEdit} photos={t.permits.flatMap((p) => photosByPermit.get(p.id) ?? [])} />
               </Grid>
             ))}
             {onAdd ? (
@@ -165,7 +168,7 @@ function AddCard({ onClick }: { onClick: () => void }) {
   );
 }
 
-function TaskCard({ task, onEdit }: { task: HighRiskTask; onEdit?: (permit: PermitEditItem) => void }) {
+function TaskCard({ task, onEdit, photos }: { task: HighRiskTask; onEdit?: (permit: PermitEditItem) => void; photos: { id: string; fileName: string; url: string | null }[] }) {
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   return (
     <Box
@@ -238,6 +241,11 @@ function TaskCard({ task, onEdit }: { task: HighRiskTask; onEdit?: (permit: Perm
           <Chip key={p} size="small" label={permitLabel(p)} variant="outlined" sx={{ height: 22, fontSize: 11, borderColor: "#E7B67A", bgcolor: "#fff" }} />
         ))}
       </Stack>
+      {photos.length ? (
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <PermitNoticeThumbs photos={photos} size={56} />
+        </Box>
+      ) : null}
       <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="center" sx={{ mt: "auto", pt: 0.25 }}>
         <ContractorBadge code={task.contractorCode} />
         <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: "0.8rem" }}>

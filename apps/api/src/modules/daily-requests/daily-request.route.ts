@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { requireAuth } from "@/middleware/require-auth.js";
 import { ok } from "@/shared/http/response.js";
 import { dateRangeQuery, projectIdParams } from "@/shared/http/params.js";
-import { adjustRoadUsageService, createPermitService, dailyRequestsService, updatePermitService } from "./daily-request.service.js";
+import { adjustRoadUsageService, createPermitService, dailyRequestsService, permitNoticesService, updatePermitService } from "./daily-request.service.js";
 import { permitCreateBody, permitParams, permitUpdateBody, roadAdjustBody, roadUsageParams } from "./daily-request.schema.js";
 
 export const dailyRequestRoutes = new Elysia()
@@ -12,6 +12,12 @@ export const dailyRequestRoutes = new Elysia()
     { params: projectIdParams, query: dateRangeQuery },
   )
   .use(requireAuth)
+  // Today feed: permits with location photos (everyone in the project; contractors get today only).
+  .get(
+    "/projects/:projectId/permit-notices",
+    async ({ params, query, auth }) => ok(await permitNoticesService(auth, params.projectId, query.from, query.to)),
+    { params: projectIdParams, query: dateRangeQuery },
+  )
   .patch(
     "/projects/:projectId/daily-reports/road-usage/:id",
     async ({ params, body, auth }) => ok(await adjustRoadUsageService(auth, params.projectId, params.id, body)),

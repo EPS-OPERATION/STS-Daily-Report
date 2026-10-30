@@ -15,6 +15,8 @@ export const PERMIT_LABEL: Record<string, string> = {
 
 export interface Highlight {
   id: string;
+  /** Location photos of the work (floor cut open, guardrail removed...), from the permit card. */
+  photos?: { id: string; fileName: string; url: string | null }[];
   title: string;
   lines: string[];
   tone: "error" | "warning" | "info" | "success";
@@ -26,7 +28,10 @@ export function buildHighlights({
   inspections,
   today,
   selectedCodes,
+  photosByPermit,
 }: {
+  /** Permit id → its location photos. */
+  photosByPermit?: Map<string, { id: string; fileName: string; url: string | null }[]>;
   requests: DailyRequests | undefined;
   inspections: InspectionRequest[];
   today: string;
@@ -56,7 +61,8 @@ export function buildHighlights({
       items.push({
         id: `permit-${p.id}`,
         title: `Work Permit: ${PERMIT_LABEL[p.permitType] ?? p.permitType} · ${p.buildingName || p.buildingCode}`,
-        lines: [`ผู้รับเหมา ${p.contractorCode}`, `จำนวน ${p.workers} คน`],
+        lines: [`ผู้รับเหมา ${p.contractorCode}`, `จำนวน ${p.workers} คน`, ...(photosByPermit?.get(p.id)?.length ? ["มีรูปตำแหน่งงาน — ระวังช่องเปิดบริเวณใกล้เคียง"] : [])],
+        photos: photosByPermit?.get(p.id),
         tone: "warning",
       });
     });
