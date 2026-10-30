@@ -66,13 +66,13 @@ export async function reportDetail(reportId: string) {
       url: await storage.getPresignedUrl(p.objectKey, 3600).catch(() => null),
     })),
   );
-  const { signatureData, ...header } = report;
+  // signature_data is retired (PDPA) and never sent to the browser.
+  const { signatureData: _retired, ...header } = report;
   const totalHeadcount = report.thaiMale + report.thaiFemale + report.foreignMale + report.foreignFemale;
   return {
     ...header,
     totalHeadcount,
     ...attendanceOf(report),
-    hasSignature: Boolean(signatureData),
     positions,
     eveningPositions,
     // Per-discipline breakdown (CE / ME / EE) of both shifts; positions/totals above are their sum.

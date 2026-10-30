@@ -130,7 +130,6 @@ export interface EveningInput {
   /** Additional / unplanned work done beyond the morning plan */
   additionalAllocations?: AdditionalAllocationInput[];
   signatureName: string;
-  signatureData?: string;
   machinery: MachineryInput[];
   equipmentRequests: EquipmentRequestInput[];
   permits?: PermitInput[];

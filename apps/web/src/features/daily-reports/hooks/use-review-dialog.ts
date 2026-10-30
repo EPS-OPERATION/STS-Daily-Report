@@ -6,7 +6,7 @@ import type { PrintReport, ReviewQueueRow } from "../types/daily-report.types.js
 export type ReviewPart = "morning" | "evening";
 
 export function useReviewDialog({ report, onClose }: { report: ReviewQueueRow | null; onClose: () => void }) {
-  // The print payload is the whole filled form (+ signature image, RFIs raised, safety record).
+  // The print payload is the whole filled form (+ RFIs raised, safety record).
   const reportQuery = usePrintReport(report?.id ?? null);
   const data: PrintReport | null = reportQuery.data?.data ?? null;
   const dataLoading = reportQuery.isPending && report?.id != null;

@@ -195,9 +195,6 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
   }
   const report = await getReportByKey(db, projectId, input.contractorId, input.date);
   if (report?.eveningStatus === "submitted") assertEditable(input.date, "The evening report", report.id);
-  if (!report?.signatureData && !input.signatureData) {
-    throw new ValidationError("กรุณาลงนามยืนยันก่อนส่งรายงาน");
-  }
 
   if (input.accidentOccurred && !input.accidentNote?.trim()) {
     throw new ValidationError("Describe the accident when one occurred");

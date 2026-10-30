@@ -188,7 +188,6 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
     const now = new Date();
     const existing = await getReportByKey(tx, projectId, input.contractorId, input.date);
     const isEdit = existing?.eveningStatus === "submitted";
-    const signatureData = input.signatureData || existing?.signatureData || null;
     const tomorrow = addDays(input.date, 1);
     const split = sumSplit(input.crews);
     // Itemised OT sets both the per-person hours shown on the report and the man-hours NMH uses.
@@ -203,9 +202,11 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
       accidentOccurred: input.accidentOccurred,
       accidentNote: input.accidentOccurred ? input.accidentNote?.trim() || null : null,
       accidentCategory: input.accidentOccurred ? (input.accidentCategory ?? null) : null,
+      // Electronic confirmation (PDPA): the typed name, when, and who sent it (eveningSubmittedBy). No signature image
+      // is stored any more, and saving clears one an older version of the app left behind.
       signatureName: input.signatureName.trim(),
-      ...(signatureData ? { signatureData } : {}),
-      signedAt: input.signatureData ? now : (existing?.signedAt ?? now),
+      signatureData: null,
+      signedAt: now,
       eveningStatus: "submitted",
       eveningSubmittedAt: isEdit ? (existing.eveningSubmittedAt ?? now) : now,
       eveningSubmittedBy: userId,

@@ -109,12 +109,12 @@ export function useEveningForm({
         endTime: a.endTime ?? "",
       })),
       signatureName: report?.signatureName ?? "",
-      signatureData: report?.hasSignature ? "existing" : "",
+      // Ticked afresh on every save (never restored from a draft or a previous send).
+      confirmed: false,
     },
     mode: "onTouched",
   });
   const [validationError, setValidationError] = useState<string | null>(null);
-  const hasExistingSignature = Boolean(report?.hasSignature);
   const { control, handleSubmit, setValue, formState, watch } = form;
   const draft = useFormDraft(form, draftKey("evening", projectId, contractor.id, date));
   // Yes/No gates: open while the contractor says "มี" or rows already exist (saved report, restored draft).
@@ -190,7 +190,6 @@ export function useEveningForm({
             endTime: a.timed && a.endTime ? a.endTime : undefined,
           })),
           signatureName: v.signatureName.trim(),
-          signatureData: v.signatureData === "existing" ? undefined : v.signatureData,
         machinery: v.machinery.map((m) => ({
           buildingId: m.buildingId,
           machineType: m.machineType as MachineType,
@@ -256,7 +255,7 @@ export function useEveningForm({
   const progressRows = useWatch({ control, name: "progress" });
   const additionalRows = useWatch({ control, name: "additionalAllocations" }) ?? [];
   const signatureName = useWatch({ control, name: "signatureName" });
-  const signatureData = useWatch({ control, name: "signatureData" });
+  const confirmed = useWatch({ control, name: "confirmed" });
   const forecastRows = useWatch({ control, name: "forecasts" }) ?? [];
   const forecastsOk =
     forecastRows.length > 0 &&
@@ -283,7 +282,7 @@ export function useEveningForm({
       ),
     },
     { id: "sec-tomorrow", label: "คำขอวันพรุ่งนี้", state: state("sec-tomorrow", forecastsOk, false) },
-    { id: "sec-sign", label: "ลงนามยืนยัน", state: state("sec-sign", Boolean(signatureName.trim()) && Boolean(signatureData)) },
+    { id: "sec-sign", label: "ยืนยันรายงาน", state: state("sec-sign", Boolean(signatureName.trim()) && Boolean(confirmed)) },
   ];
   return {
     submit,
@@ -298,7 +297,6 @@ export function useEveningForm({
     form,
     validationError,
     setValidationError,
-    hasExistingSignature,
     control,
     handleSubmit,
     setValue,
@@ -334,7 +332,7 @@ export function useEveningForm({
     accidentCategory,
     progressRows,
     signatureName,
-    signatureData,
+    confirmed,
     forecastRows,
     forecastsOk,
     state,

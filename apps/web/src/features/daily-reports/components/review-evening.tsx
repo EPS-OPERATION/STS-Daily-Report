@@ -217,18 +217,13 @@ export function ReviewEvening({ ed }: { ed: UseReviewDialogState }) {
         </Stack>
       </ReviewSection>
 
-      <ReviewSection index={6} title="ลงนามยืนยัน (Digital Signature)">
-        {data.signatureName || data.signatureData ? (
+      <ReviewSection index={6} title="ยืนยันรายงาน (Confirmation)">
+        {data.signatureName ? (
           <FieldRow>
-            <Field label="ผู้จัดทำรายงาน">{data.signatureName || "—"}</Field>
-            <Field label="ลงนามเมื่อ">{data.signedAt ? dayjs(data.signedAt).format("DD/MM/YYYY HH:mm น.") : "—"}</Field>
-            {data.signatureData ? (
-              <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "common.white", p: 0.5 }}>
-                <Box component="img" src={data.signatureData} alt={`ลายเซ็น ${data.signatureName ?? ""}`} sx={{ display: "block", height: 72, maxWidth: 240 }} />
-              </Box>
-            ) : null}
+            <Field label="ผู้ยืนยันรายงาน">{data.signatureName}</Field>
+            <Field label="ยืนยันเมื่อ">{data.signedAt ? dayjs(data.signedAt).format("DD/MM/YYYY HH:mm น.") : "—"}</Field>
           </FieldRow>
-        ) : <Nothing>ไม่ได้ลงนาม</Nothing>}
+        ) : <Nothing>ไม่ได้ยืนยัน</Nothing>}
       </ReviewSection>
 
       {data.photos.some((p) => p.category !== "permit") ? (

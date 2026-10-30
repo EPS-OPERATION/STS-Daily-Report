@@ -272,7 +272,6 @@ export async function printReportService(auth: AuthContext, reportId: string) {
   const since = record.lastAccident ?? record.firstReport ?? report.reportDate;
   return {
     ...detail,
-    signatureData: report.signatureData,
     projectName: project?.name ?? "",
     contractorCode: contractor?.code ?? "",
     contractorName: contractor?.name ?? "",
