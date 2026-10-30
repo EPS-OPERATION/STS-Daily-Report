@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import Box from "@mui/material/Box";
 import { PERMIT_TYPES, POSITIONS, SITE_EQUIPMENT_TYPES, WEATHER_CONDITIONS, type PermitType } from "@sts/shared";
 import { type PrintReport } from "../types/daily-report.types.js";
@@ -310,7 +311,10 @@ export function SignatureBlock({ r }: { r: PrintReport }) {
           <tr>
             <td style={{ width: "50%", height: 96, verticalAlign: "top" }}>
               <div className="b">Prepared by Contractor:</div>
-              {r.signatureData ? <img src={r.signatureData} alt="signature" style={{ height: 44 }} /> : <div style={{ height: 44 }} />}
+              {/* Electronic confirmation (PDPA): name + time from the sender's account, no signature image. */}
+              <div style={{ height: 44, display: "flex", alignItems: "flex-end", fontSize: 11 }}>
+                {r.signatureName && r.signedAt ? `ยืนยันทางอิเล็กทรอนิกส์ ${dayjs(r.signedAt).format("DD/MM/YYYY HH:mm")}` : ""}
+              </div>
               <div>Name {r.signatureName ?? ""}</div>
             </td>
             <td style={{ height: 96, verticalAlign: "top" }}>

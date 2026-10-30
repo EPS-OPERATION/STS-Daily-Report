@@ -55,7 +55,6 @@
         "totalHeadcount": 0,
         "manDays": 0,
         "manHours": 0,
-        "hasSignature": false,
         "positions": [],
         "eveningPositions": [],
         "crews": [],
@@ -137,7 +136,6 @@
         "totalHeadcount": 8,
         "manDays": 8,
         "manHours": 64,
-        "hasSignature": false,
         "positions": [
           {
             "position": "foreman",
@@ -294,7 +292,6 @@
           "totalHeadcount": 8,
           "manDays": 8,
           "manHours": 64,
-          "hasSignature": false,
           "positions": [
             {
               "position": "foreman",
@@ -417,7 +414,7 @@
     "body": {
       "error": {
         "code": "VALIDATION_ERROR",
-        "message": "{\n  \"type\": \"validation\",\n  \"on\": \"body\",\n  \"property\": \"/forecasts\",\n  \"message\": \"Expected array length to be greater or equal to 1\",\n  \"summary\": \"Expected array length to be greater or equal to 1\",\n  \"expected\": {\n    \"type\": \"Could not create expected value\",\n    \"message\": \"String types with patterns must specify a default value\",\n    \"error\": {\n      \"schema\": {\n        \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\",\n        \"type\": \"string\"\n      }\n    }\n  },\n  \"found\": {\n    \"date\": \"2026-03-10\",\n    \"contractorId\": \"u3\",\n    \"otHours\": 2,\n    \"overtime\": [\n      {\n        \"buildingId\": \"u6\",\n        \"task\": \"Pour prep\",\n        \"workers\": 3,\n        \"hours\": 2\n      }\n    ],\n    \"accidentOccurred\": false,\n    \"crews\": [\n      {\n        \"discipline\": \"CE\",\n        \"positions\": [\n          {\n            \"position\": \"foreman\",\n            \"headcount\": 2\n          },\n          {\n            \"position\": \"worker\",\n            \"headcount\": 6\n          }\n        ],\n        \"thaiMale\": 6,\n        \"thaiFemale\": 1,\n        \"foreignMale\": 1,\n        \"foreignFemale\": 0\n      }\n    ],\n    \"progress\": [\n      {\n        \"allocationId\": \"u5\",\n        \"actualPercent\": 20,\n        \"countermeasure\": \"Add crew tomorrow\"\n      },\n      {\n        \"allocationId\": \"u7\",\n        \"actualPercent\": 70\n      }\n    ],\n    \"signatureName\": \"QA Foreman\",\n    \"signatureData\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\",\n    \"machinery\": [\n      {\n        \"buildingId\": \"u6\",\n        \"machineType\": \"Mobile Crane 25T\",\n        \"unitTag\": \"C-1\",\n        \"startTime\": \"08:00\",\n        \"endTime\": \"12:00\",\n        \"purpose\": \"Lift rebar\"\n      }\n    ],\n    \"equipmentRequests\": [\n      {\n        \"buildingId\": \"u8\",\n        \"equipmentType\": \"Scaffold\",\n        \"qty\": 10,\n        \"purpose\": \"Access\"\n      }\n    ],\n    \"permits\": [\n      {\n        \"buildingId\": \"u8\",\n        \"permitType\": \"height\",\n        \"workers\": 3\n      }\n    ],\n    \"roadUsage\": [\n      {\n        \"buildingId\": \"u6\",\n        \"roadLocation\": \"Main road A\",\n        \"startTime\": \"09:00\",\n        \"endTime\": \"11:00\",\n        \"purpose\": \"Concrete delivery\"\n      }\n    ],\n    \"forecasts\": [],\n    \"materials\": [\n      {\n        \"name\": \"Rebar 12mm\",\n        \"qty\": 120,\n        \"unit\": \"pcs\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"summary\": \"Expected array length to be greater or equal to 1\",\n      \"type\": 4,\n      \"schema\": {\n        \"minItems\": 1,\n        \"maxItems\": 20,\n        \"type\": \"array\",\n        \"items\": {\n          \"type\": \"object\",\n          \"required\": [\n            \"buildingId\",\n            \"description\"\n          ],\n          \"properties\": {\n            \"buildingId\": {\n              \"format\": \"uuid\",\n              \"type\": \"string\"\n            },\n            \"description\": {\n              \"minLength\": 1,\n              \"maxLength\": 300,\n              \"type\": \"string\"\n            }\n          }\n        }\n      },\n      \"path\": \"/forecasts\",\n      \"value\": [],\n      \"message\": \"Expected array length to be greater or equal to 1\",\n      \"errors\": []\n    }\n  ]\n}",
+        "message": "{\n  \"type\": \"validation\",\n  \"on\": \"body\",\n  \"property\": \"/forecasts\",\n  \"message\": \"Expected array length to be greater or equal to 1\",\n  \"summary\": \"Expected array length to be greater or equal to 1\",\n  \"expected\": {\n    \"type\": \"Could not create expected value\",\n    \"message\": \"String types with patterns must specify a default value\",\n    \"error\": {\n      \"schema\": {\n        \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\",\n        \"type\": \"string\"\n      }\n    }\n  },\n  \"found\": {\n    \"date\": \"2026-03-10\",\n    \"contractorId\": \"u3\",\n    \"otHours\": 2,\n    \"overtime\": [\n      {\n        \"buildingId\": \"u6\",\n        \"task\": \"Pour prep\",\n        \"workers\": 3,\n        \"hours\": 2\n      }\n    ],\n    \"accidentOccurred\": false,\n    \"crews\": [\n      {\n        \"discipline\": \"CE\",\n        \"positions\": [\n          {\n            \"position\": \"foreman\",\n            \"headcount\": 2\n          },\n          {\n            \"position\": \"worker\",\n            \"headcount\": 6\n          }\n        ],\n        \"thaiMale\": 6,\n        \"thaiFemale\": 1,\n        \"foreignMale\": 1,\n        \"foreignFemale\": 0\n      }\n    ],\n    \"progress\": [\n      {\n        \"allocationId\": \"u5\",\n        \"actualPercent\": 20,\n        \"countermeasure\": \"Add crew tomorrow\"\n      },\n      {\n        \"allocationId\": \"u7\",\n        \"actualPercent\": 70\n      }\n    ],\n    \"signatureName\": \"QA Foreman\",\n    \"machinery\": [\n      {\n        \"buildingId\": \"u6\",\n        \"machineType\": \"Mobile Crane 25T\",\n        \"unitTag\": \"C-1\",\n        \"startTime\": \"08:00\",\n        \"endTime\": \"12:00\",\n        \"purpose\": \"Lift rebar\"\n      }\n    ],\n    \"equipmentRequests\": [\n      {\n        \"buildingId\": \"u8\",\n        \"equipmentType\": \"Scaffold\",\n        \"qty\": 10,\n        \"purpose\": \"Access\"\n      }\n    ],\n    \"permits\": [\n      {\n        \"buildingId\": \"u8\",\n        \"permitType\": \"height\",\n        \"workers\": 3\n      }\n    ],\n    \"roadUsage\": [\n      {\n        \"buildingId\": \"u6\",\n        \"roadLocation\": \"Main road A\",\n        \"startTime\": \"09:00\",\n        \"endTime\": \"11:00\",\n        \"purpose\": \"Concrete delivery\"\n      }\n    ],\n    \"forecasts\": [],\n    \"materials\": [\n      {\n        \"name\": \"Rebar 12mm\",\n        \"qty\": 120,\n        \"unit\": \"pcs\"\n      }\n    ]\n  },\n  \"errors\": [\n    {\n      \"summary\": \"Expected array length to be greater or equal to 1\",\n      \"type\": 4,\n      \"schema\": {\n        \"minItems\": 1,\n        \"maxItems\": 20,\n        \"type\": \"array\",\n        \"items\": {\n          \"type\": \"object\",\n          \"required\": [\n            \"buildingId\",\n            \"description\"\n          ],\n          \"properties\": {\n            \"buildingId\": {\n              \"format\": \"uuid\",\n              \"type\": \"string\"\n            },\n            \"description\": {\n              \"minLength\": 1,\n              \"maxLength\": 300,\n              \"type\": \"string\"\n            }\n          }\n        }\n      },\n      \"path\": \"/forecasts\",\n      \"value\": [],\n      \"message\": \"Expected array length to be greater or equal to 1\",\n      \"errors\": []\n    }\n  ]\n}",
         "details": {
           "date": "2026-03-10",
           "contractorId": "u3",
@@ -462,7 +459,6 @@
             }
           ],
           "signatureName": "QA Foreman",
-          "signatureData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
           "machinery": [
             {
               "buildingId": "u6",
@@ -558,7 +554,6 @@
         "totalHeadcount": 8,
         "manDays": 8,
         "manHours": 70,
-        "hasSignature": true,
         "positions": [
           {
             "position": "foreman",
@@ -815,7 +810,6 @@
           "totalHeadcount": 8,
           "manDays": 8,
           "manHours": 70,
-          "hasSignature": true,
           "positions": [
             {
               "position": "foreman",
@@ -1090,7 +1084,6 @@
           "totalHeadcount": 8,
           "manDays": 8,
           "manHours": 70,
-          "hasSignature": true,
           "positions": [
             {
               "position": "foreman",
@@ -1425,7 +1418,6 @@
         "totalHeadcount": 8,
         "manDays": 8,
         "manHours": 70,
-        "hasSignature": true,
         "positions": [
           {
             "position": "foreman",
@@ -1623,7 +1615,6 @@
         "photos": [],
         "roadConflicts": [],
         "machineryConflicts": [],
-        "signatureData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
         "projectName": "Snapshot QA <qa>",
         "contractorCode": "<qa>",
         "contractorName": "Snapshot QA contractor <qa>",
@@ -1695,7 +1686,6 @@
         "totalHeadcount": 8,
         "manDays": 8,
         "manHours": 70,
-        "hasSignature": true,
         "positions": [
           {
             "position": "foreman",
@@ -1893,7 +1883,6 @@
         "photos": [],
         "roadConflicts": [],
         "machineryConflicts": [],
-        "signatureData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
         "projectName": "Snapshot QA <qa>",
         "contractorCode": "<qa>",
         "contractorName": "Snapshot QA contractor <qa>",
@@ -2009,7 +1998,6 @@
         "totalHeadcount": 8,
         "manDays": 8,
         "manHours": 70,
-        "hasSignature": true,
         "positions": [
           {
             "position": "foreman",

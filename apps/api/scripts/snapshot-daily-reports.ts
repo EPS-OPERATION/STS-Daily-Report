@@ -95,14 +95,13 @@ try {
   const current = await call("current-after-morning", "GET", `${base}/daily-reports/current?date=${DATE}&contractorId=${contractorId}`, "contractor");
   const allocations: { id: string }[] = current.data?.allocations ?? current.data?.report?.allocations ?? [];
   assert(allocations.length > 0, "could not find allocation ids in /current response — adjust script to the response shape");
-  const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
   const evening = {
     date: DATE, contractorId, otHours: 2,
     overtime: [{ buildingId: buildingIds[0], task: "Pour prep", workers: 3, hours: 2 }],
     accidentOccurred: false,
     crews: [crew()],
     progress: allocations.map((a, i) => ({ allocationId: a.id, actualPercent: i === 0 ? 20 : 70, ...(i === 0 ? { countermeasure: "Add crew tomorrow" } : {}) })),
-    signatureName: "QA Foreman", signatureData: png,
+    signatureName: "QA Foreman",
     machinery: [{ buildingId: buildingIds[0], machineType: "Mobile Crane 25T", unitTag: "C-1", startTime: "08:00", endTime: "12:00", purpose: "Lift rebar" }],
     equipmentRequests: [{ buildingId: buildingIds[1], equipmentType: "Scaffold", qty: 10, purpose: "Access" }],
     permits: [{ buildingId: buildingIds[1], permitType: "height", workers: 3 }],

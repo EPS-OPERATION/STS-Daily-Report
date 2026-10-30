@@ -153,7 +153,6 @@ export interface DailyReport {
   signedAt: string | null;
   createdAt?: string;
   updatedAt?: string;
-  hasSignature: boolean;
   allocations: ReportAllocation[];
   /** Requests this report raised for `requestsForDate` (= reportDate + 1). */
   machinery: ReportMachinery[];
@@ -252,7 +251,6 @@ export interface EveningPayload {
     endTime?: string;
   }[];
   signatureName: string;
-  signatureData?: string;
   machinery: { buildingId: string; machineType: MachineType; unitTag?: string; startTime?: string; endTime?: string; purpose?: string }[];
   equipmentRequests: { buildingId: string; equipmentType: string; qty: number; purpose?: string }[];
   permits?: PermitPayload[];
@@ -265,7 +263,6 @@ export interface EveningPayload {
 
 // Everything the printed "Daily Request & Report" sheet needs (GET /daily-reports/:id/print).
 export interface PrintReport extends DailyReport {
-  signatureData: string | null;
   projectName: string;
   contractorCode: string;
   contractorName: string;

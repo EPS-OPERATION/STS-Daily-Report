@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import type { FieldValues, UseFormReturn } from "react-hook-form";
 
 // Unsent report drafts live on this device only (localStorage), one per shift × project × contractor × date.
-// Typing is saved ~1 s after the last change; a successful submit clears it. Signature images are
-// never kept (large, and the contractor should sign the final version anyway).
+// Typing is saved ~1 s after the last change; a successful submit clears it. The confirmation tick is never kept:
+// the contractor confirms the final version each time.
 const PREFIX = "sts_report_draft_v1";
 const SAVE_DELAY = 1000;
-const OMIT = ["signatureData"];
+const OMIT = ["confirmed"];
 
 export interface StoredDraft<T> { savedAt: string; values: T }
 
@@ -71,7 +71,7 @@ export function useFormDraft<T extends FieldValues>(form: UseFormReturn<T>, key:
   return {
     pending,
     savedAt,
-    /** Put the draft back into the form (keeps the current signature). */
+    /** Put the draft back into the form (the confirmation tick stays as it is). */
     restore() {
       if (!pending) return;
       const current = form.getValues() as Record<string, unknown>;

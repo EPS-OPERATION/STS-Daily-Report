@@ -269,7 +269,8 @@ export const eveningSchema = z
     ),
     additionalAllocations: z.array(additionalAllocationSchema).default([]),
     signatureName: z.string().trim().min(1, "ระบุชื่อผู้รายงาน").max(120),
-    signatureData: z.string().min(1, "แตะเพื่อเซ็นชื่อก่อนส่ง"),
+    // Not sent: it only has to be ticked each time (the typed name + time + account are the record).
+    confirmed: z.boolean().refine((v) => v, "ติ๊กยืนยันว่าข้อมูลถูกต้องก่อนส่ง"),
     // Requests for tomorrow.
     machinery: z.array(machinerySchema),
     equipmentRequests: z.array(equipmentRequestSchema),

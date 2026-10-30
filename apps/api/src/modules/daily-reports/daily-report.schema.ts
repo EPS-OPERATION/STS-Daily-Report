@@ -145,8 +145,8 @@ export const eveningBody = t.Object({
     ),
   ),
   signatureName: t.String({ minLength: 1, maxLength: 120 }),
-  // PNG data URL from the signature pad; ~200 KB ceiling. Optional when re-saving an already-signed report.
-  signatureData: t.Optional(t.String({ pattern: "^data:image/png;base64,", maxLength: 200_000 })),
+  // Retired (PDPA): older versions of the app still send a drawn signature. It is ignored and never stored.
+  signatureData: t.Optional(t.String({ maxLength: 200_000 })),
   // Requests for tomorrow (reviewed at the 17:00 coordination meeting).
   machinery: t.Array(
     t.Object({
