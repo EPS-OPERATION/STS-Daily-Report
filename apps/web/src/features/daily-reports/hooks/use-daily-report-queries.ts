@@ -1,3 +1,6 @@
+import type { CoordinationSectionCatalog } from "@sts/shared";
+import { useMemo } from "react";
+import { sectionsAsPlaces } from "../utils/location.js";
 import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { dailyReportApi } from "../api/daily-report.api.js";
 import { dailyReportKeys } from "../api/daily-report.keys.js";
@@ -40,4 +43,23 @@ export function useReviewQueue(
     enabled: Boolean(projectId),
     placeholderData: keepPreviousData,
   });
+}
+
+// Route sections of the project's Map areas (with each area's picture for the form's mini map).
+export function useRouteSections(projectId: string | null) {
+  const query = useQuery({
+    queryKey: dailyReportKeys.routeSections(projectId ?? ""),
+    queryFn: () => dailyReportApi.routeSections(projectId!),
+    enabled: Boolean(projectId),
+    staleTime: 5 * 60_000,
+    select: (res) => res.data,
+  });
+  return query.data ?? NO_SECTIONS;
+}
+const NO_SECTIONS: CoordinationSectionCatalog = { maps: [], sections: [] };
+
+// The same sections as extra places in the "where" pickers of extra work and tomorrow's plan (after the buildings).
+export function useRouteSectionPlaces(projectId: string | null) {
+  const catalog = useRouteSections(projectId);
+  return useMemo(() => sectionsAsPlaces(catalog), [catalog]);
 }

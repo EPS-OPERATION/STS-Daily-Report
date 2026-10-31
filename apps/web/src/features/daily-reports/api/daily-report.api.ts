@@ -1,4 +1,4 @@
-import type { PhotoCategory } from "@sts/shared";
+import type { CoordinationSectionCatalog, PhotoCategory } from "@sts/shared";
 import { http } from "@/services/http/client.js";
 import type {
   CurrentReportResponse,
@@ -11,6 +11,10 @@ import type {
 } from "../types/daily-report.types.js";
 
 export const dailyReportApi = {
+  // Route sections offered as places in the form (Map → Route sections).
+  routeSections(projectId: string): Promise<{ data: CoordinationSectionCatalog }> {
+    return http.get(`/projects/${projectId}/coordination/sections`);
+  },
   printReport(reportId: string): Promise<{ data: PrintReport }> {
     return http.get(`/daily-reports/${reportId}/print`);
   },

@@ -35,7 +35,8 @@ async function loadEntry(projectId: string, contractorId: string, date: string):
     foreignMale: report.foreignMale,
     foreignFemale: report.foreignFemale,
     allocations: allocations
-      .filter((a) => !a.isAdditional)
+      // The owner's manpower is always per building (route sections are contractor work).
+      .flatMap((a) => (!a.isAdditional && a.buildingId ? [{ ...a, buildingId: a.buildingId }] : []))
       .map((a) => ({
         buildingId: a.buildingId,
         buildingCode: a.buildingCode,

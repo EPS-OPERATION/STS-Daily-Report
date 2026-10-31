@@ -1,6 +1,6 @@
 import Slider from "@mui/material/Slider";
 import { COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN } from "@sts/shared";
-import type { CoordinationContractor, CoordinationInput, CoordinationItem, CoordinationItemType } from "@sts/shared";
+import type { CoordinationContractor, CoordinationInput, CoordinationItem, CoordinationItemType, CoordinationSection } from "@sts/shared";
 import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
 import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
 import SwapHorizOutlined from "@mui/icons-material/SwapHorizOutlined";
@@ -53,6 +53,8 @@ interface Props {
   onDrawRoute: () => void;
   /** Contractor codes whose route collides with this one today. */
   clashWith: string[];
+  /** Route sections drawn on this job's map (empty = the field is hidden). */
+  sections?: CoordinationSection[];
   onMakeRectangle: () => void;
   onResetArea: () => void;
   onDelete: () => void;
@@ -94,6 +96,7 @@ export function CoordinationInspector({
   onDrawFree,
   onDrawRoute,
   clashWith,
+  sections = [],
   onMakeRectangle,
   onResetArea,
   onDelete,
@@ -196,6 +199,22 @@ export function CoordinationInspector({
               ) : null}
               </Stack>
             </Field>
+            {sections.length ? (
+              <Field label="Route section">
+                <TextField select size="small" fullWidth value={draft.sectionId ?? ""} onChange={(e) => onPatch({ sectionId: e.target.value || null })}
+                  slotProps={{ select: { displayEmpty: true } }}>
+                  <MenuItem value=""><Typography variant="body2" color="text.secondary">ไม่ระบุช่วง</Typography></MenuItem>
+                  {sections.map((s) => (
+                    <MenuItem key={s.id} value={s.id}>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                        <Box component="span" sx={{ width: 18, height: 6, borderRadius: 3, bgcolor: s.color, flexShrink: 0 }} />
+                        <Typography variant="body2" noWrap><b>{s.code}</b> · {s.work}</Typography>
+                      </Stack>
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Field>
+            ) : null}
             {clashWith.length ? (
               <Alert severity="error" sx={{ py: 0.25 }}>
                 เส้นทางนี้ทับหรือชิดกับเส้นทางของ {clashWith.join(", ")} ในวันเดียวกัน — ประสานกันก่อนใช้ถนน
@@ -307,6 +326,10 @@ export function CoordinationInspector({
             <Field label="Work area">
               <Typography variant="body2">{areaLabel(item, true)}</Typography>
             </Field>
+            {item.sectionId && sections.some((s) => s.id === item.sectionId) ? (() => {
+              const s = sections.find((v) => v.id === item.sectionId)!;
+              return <Field label="Route section"><Typography variant="body2"><b>{s.code}</b> · {s.work}</Typography></Field>;
+            })() : null}
             <Typography variant="caption" color="text.secondary">
               {isLocked
                 ? "ดูได้อย่างเดียว — ผังวันนี้ถูกล็อกไว้"

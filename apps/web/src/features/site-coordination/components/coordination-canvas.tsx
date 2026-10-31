@@ -1,9 +1,10 @@
 import { alpha, keyframes, useTheme } from "@mui/material/styles";
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Group, Image as CanvasImage, Layer, Rect, Stage, Text } from "react-konva";
-import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationItemType, CoordinationPoint } from "@sts/shared";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Circle, Group, Image as CanvasImage, Layer, Line, Rect, Stage, Text } from "react-konva";
+import type { CoordinationContractor, CoordinationData, CoordinationInput, CoordinationItem, CoordinationItemType, CoordinationPoint, CoordinationSection, CoordinationSectionActivity, CoordinationSectionPlan, CoordinationSectionWork } from "@sts/shared";
 import { COORDINATION_ICON_SCALE_MAX, COORDINATION_ICON_SCALE_MIN, COORDINATION_MAX, COORDINATION_MIN, coordinationGeometryError } from "@sts/shared";
 import { CanvasItem, REDUCED_MOTION, TapRipple, type AreaDrag, type CanvasItemActions, type IconDrag } from "./canvas-item.js";
+import { CoordinationIconShape } from "./coordination-icon.js";
 import type { MapDisplay } from "./map-filters.js";
 import AddOutlined from "@mui/icons-material/AddOutlined";
 import AddRoadOutlined from "@mui/icons-material/AddRoadOutlined";
@@ -27,9 +28,10 @@ import Konva from "konva";
 import { clamp } from "../utils/canvas-geometry.js";
 import { previewImagePath, scanContent } from "../utils/canvas-geometry.js";
 import { routeMidpoint } from "../utils/canvas-geometry.js";
+import { placeCallouts, placeSectionLabels, sectionEnds, sectionMarkers, summariseSectionWork } from "../utils/sections.js";
 import { REPORT_ROOM } from "../utils/canvas-report.js";
 import { reportBounds } from "../utils/canvas-report.js";
-import { TEXT_LINE_HEIGHT } from "../utils/canvas-text.js";
+import { measureText, TEXT_LINE_HEIGHT } from "../utils/canvas-text.js";
 import { CAPTION_FONT } from "../utils/canvas-text.js";
 import { CAPTION_MAX_WIDTH } from "../utils/canvas-text.js";
 import { CAPTION_LINE_HEIGHT } from "../utils/canvas-text.js";
@@ -46,7 +48,7 @@ interface Props {
   onSelect: (id: string) => void; onChange: (patch: Partial<CoordinationInput>) => void; onFinish: () => void;
   onDeselect: () => void; textEditing: boolean; onEditText: () => void;
   /** Layers the viewer switched off; the selected/edited job always shows everything. */
-  display?: Pick<MapDisplay, "areas" | "labels" | "notes" | "links" | "chips" | "markSize">;
+  display?: Pick<MapDisplay, "areas" | "labels" | "notes" | "links" | "chips" | "markSize" | "sections">;
   /** Printed report: no grey margin, hints, zoom buttons or dragging; the view frames every job. */
   readOnly?: boolean;
   /** Stage height in px (the report sheet); default follows compact/width. */
@@ -63,6 +65,13 @@ interface Props {
   clashes?: ReadonlyMap<string, string[]>;
   /** Register road names (no lines): one label per road, on its longest piece. */
   roadNames?: { name: string; pieces: CoordinationPoint[][] }[];
+  /** Route sections of this map (coloured lines with lettered end points); `highlightSectionId` fades the others. */
+  sections?: CoordinationSection[];
+  highlightSectionId?: string | null;
+  onHighlightSection?: (id: string | null) => void;
+  /** EPS staff only: may drag the route letters (A, B, …). Everyone else sees them where EPS left them. */
+  labelsEditable?: boolean;
+  sectionWork?: CoordinationSectionWork;
 }
 
 const NO_CLASHES: ReadonlyMap<string, string[]> = new Map();
@@ -105,9 +114,27 @@ const GESTURE_SETTLE_MS = 140;
 
 const isCoarsePointer = () => typeof window !== "undefined" && Boolean(window.matchMedia?.("(pointer: coarse)").matches);
 
-const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true, markSize: MARK_SCALE };
+const SHOW_ALL = { areas: true, labels: true, notes: true, links: true, chips: true, sections: true, markSize: MARK_SCALE };
+const NO_SECTIONS: CoordinationSection[] = [];
 
-export function CoordinationCanvas({ map, contractors, items, itemTypes = [], selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roadNames = [] }: Props) {
+// Where the user dragged a route letter (A, B, …) on this browser: map fractions per map, kept in localStorage.
+const LABELS_KEY = "sts_map_labels_v1:";
+function readLabels(mapId: string): Record<string, CoordinationPoint> {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(LABELS_KEY + mapId) ?? "{}");
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: Record<string, CoordinationPoint> = {};
+    for (const [label, p] of Object.entries(parsed as Record<string, Partial<CoordinationPoint>>)) {
+      if (typeof p?.x === "number" && typeof p?.y === "number" && Number.isFinite(p.x) && Number.isFinite(p.y)) out[label] = { x: p.x, y: p.y };
+    }
+    return out;
+  } catch { return {}; }
+}
+function writeLabels(mapId: string, labels: Record<string, CoordinationPoint>) {
+  try { localStorage.setItem(LABELS_KEY + mapId, JSON.stringify(labels)); } catch { /* storage full or blocked: the move still works until reload */ }
+}
+
+export function CoordinationCanvas({ map, contractors, items, itemTypes = [], selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roadNames = [], sections = NO_SECTIONS, highlightSectionId = null, onHighlightSection, labelsEditable = false, sectionWork }: Props) {
   const theme = useTheme();
   // Point-by-point drawing: a free-shape area (closed) or a road route (open line).
   const drawingTool = tool === "polygon" || tool === "route";
@@ -121,6 +148,9 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
   const [width, setWidth] = useState(800);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  // Route letters the user moved (saved) and the one being dragged right now (live, not saved yet).
+  const [labelPos, setLabelPos] = useState<Record<string, CoordinationPoint>>(() => readLabels(map.id));
+  const [labelDrag, setLabelDrag] = useState<{ label: string; x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   // Live drag offsets live in JobsLayer (below the Stage); jobs reach them through this ref.
   const dragApi = useRef<DragApi>({ area: () => {}, icon: () => {} });
@@ -131,6 +161,24 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
   const textDrag = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
   const coarse = useMemo(isCoarsePointer, []);
   const companyById = useMemo(() => new Map(contractors.map((c) => [c.id, c])), [contractors]);
+  const sectionActivities = useMemo(() => {
+    const m = new Map<string, CoordinationSectionActivity[]>();
+    for (const a of sectionWork?.activities ?? []) {
+      const list = m.get(a.sectionId) ?? [];
+      list.push(a);
+      m.set(a.sectionId, list);
+    }
+    return m;
+  }, [sectionWork?.activities]);
+  const sectionPlans = useMemo(() => {
+    const m = new Map<string, CoordinationSectionPlan[]>();
+    for (const p of sectionWork?.planned ?? []) {
+      const list = m.get(p.sectionId) ?? [];
+      list.push(p);
+      m.set(p.sectionId, list);
+    }
+    return m;
+  }, [sectionWork?.planned]);
   const [hover, setHover] = useState<CoordinationPoint | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [imageError, setImageError] = useState(false);
@@ -192,9 +240,12 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
     let cancelled = false;
     setImage(null); setImageError(false); setPan({ x: 0, y: 0 }); setZoom(1);
     fullImageRequested.current = false;
-    const load = (src: string, onFail: () => void) => {
+    const load = (src: string, onFail: () => void, cors = /^https?:\/\//i.test(src)) => {
       const source = new window.Image();
       source.decoding = "async";
+      // Pictures from the storage are another origin: CORS lets the content scan and the PDF snapshot read them.
+      // A storage without CORS still shows the picture (retry below), only the framing/snapshot fall back.
+      if (cors) source.crossOrigin = "anonymous";
       source.onload = () => {
         if (cancelled) return;
         // The scan runs in the file's own pixels; geometry lives in the full drawing's pixels.
@@ -204,7 +255,7 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
         setImage(source);
         frameContent();
       };
-      source.onerror = () => { if (!cancelled) onFail(); };
+      source.onerror = () => { if (cancelled) return; if (cors) load(src, onFail, false); else onFail(); };
       source.src = src;
     };
     const loadFull = () => { fullImageRequested.current = true; load(map.imagePath, () => setImageError(true)); };
@@ -281,7 +332,10 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
       onChange({ areaKind: "route", geometry: { type: "polyline", points: [...draft.geometry.points, p] } });
       return;
     }
-    if (tool === "move") onDeselect();
+    if (tool === "move") {
+      onDeselect();
+      onHighlightSection?.(null);
+    }
   };
   const rectangleChange = () => {
     const node = rectangle.current; if (!node || !draft) return;
@@ -499,6 +553,254 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
             </>;
           })()}
         </Layer>}
+        {sections.length > 0 && display.sections && <Layer listening={Boolean(onHighlightSection)}>
+          {sections.map((section) => {
+            const pts = section.points.flatMap((p) => [p.x * map.width, p.y * map.height]);
+            const on = highlightSectionId === section.id, dim = Boolean(highlightSectionId) && !on;
+            const k = display.markSize / unit;
+            const isClickable = Boolean(onHighlightSection);
+            const toggle = () => onHighlightSection?.(on ? null : section.id);
+
+            return <Fragment key={section.id}>
+              {/* White casing behind line */}
+              <Line points={pts} stroke="#FFFFFF" strokeWidth={((on ? 9 : 6) + 4) * k} lineCap="round" lineJoin="round" opacity={dim ? 0.25 : 0.85} perfectDrawEnabled={false} listening={false} />
+              {/* Coloured section line */}
+              <Line points={pts} stroke={section.color} strokeWidth={(on ? 9 : 6) * k} lineCap="round" lineJoin="round" opacity={dim ? 0.3 : 1} perfectDrawEnabled={false} listening={false} />
+              {/* Wider transparent hit line for easy clicking/tapping directly on map canvas */}
+              {isClickable && (
+                <Line
+                  points={pts}
+                  stroke="transparent"
+                  strokeWidth={28 * k}
+                  lineCap="round"
+                  lineJoin="round"
+                  perfectDrawEnabled={false}
+                  onClick={(e) => { e.cancelBubble = true; toggle(); }}
+                  onTap={(e) => { e.cancelBubble = true; toggle(); }}
+                  onMouseEnter={(e) => {
+                    const st = e.target.getStage();
+                    if (st) st.container().style.cursor = "pointer";
+                  }}
+                  onMouseLeave={(e) => {
+                    const st = e.target.getStage();
+                    if (st) st.container().style.cursor = "";
+                  }}
+                />
+              )}
+              {/* Section code pill (sections whose code is not a letter pair, or while highlighted) */}
+              {section.points.length >= 2 && (() => {
+                const mid = routeMidpoint(section.points, map.width, map.height);
+                if (!sectionEnds(section.code) || on) {
+                  const w = section.code.length * 7 + 14;
+                  return (
+                    <Group
+                      x={mid.x}
+                      y={mid.y}
+                      scaleX={k}
+                      scaleY={k}
+                      opacity={dim ? 0.4 : 1}
+                      onClick={(e) => { e.cancelBubble = true; toggle(); }}
+                      onTap={(e) => { e.cancelBubble = true; toggle(); }}
+                      onMouseEnter={(e) => {
+                        const st = e.target.getStage();
+                        if (st) st.container().style.cursor = "pointer";
+                      }}
+                      onMouseLeave={(e) => {
+                        const st = e.target.getStage();
+                        if (st) st.container().style.cursor = "";
+                      }}
+                    >
+                      <Rect x={-w / 2} y={-9} width={w} height={18} cornerRadius={9} fill={section.color} stroke="#FFFFFF" strokeWidth={2} />
+                      <Text text={section.code} width={w} offsetX={w / 2} offsetY={6} align="center" fontSize={11} fontStyle="bold" fill="#FFFFFF" />
+                    </Group>
+                  );
+                }
+
+                return null;
+              })()}
+            </Fragment>;
+          })}
+          {/* As on the project deck: each lettered circle sits beside its route end on a white leader line (to the right,
+              or another side when a neighbouring letter is in the way), 30% larger than the job tags. Next to each
+              section that has reports: a small card with who is working there and how many people. */}
+          {(() => {
+            const k = display.markSize / unit;
+            // A letter or card dragged right now follows the pointer; a moved one keeps its saved spot.
+            const pinned = labelDrag ? { ...labelPos, [labelDrag.label]: { x: labelDrag.x, y: labelDrag.y } } : labelPos;
+            const canMove = labelsEditable && !readOnly && tool === "move" && !placing;
+            const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+            const letters = placeSectionLabels(sectionMarkers(sections), map, 64 * k, 19 * k, sections.map((s) => s.points), pinned);
+
+            // ---- route section callouts: pin marker + 2-tier typography, matching site coordination design
+            const FONT_TITLE = "bold 13px Prompt, Inter, sans-serif", FONT_SUB = "600 11px Prompt, Inter, sans-serif";
+            const cards = sections.flatMap((section) => {
+              if (section.points.length < 2) return [];
+              const summary = summariseSectionWork(sectionActivities.get(section.id) ?? [], sectionPlans.get(section.id) ?? [], (id) => companyById.get(id)?.color, section.color, 2);
+              if (!summary) return [];
+              const primaryRow = summary.rows[0];
+              const workSnippet = primaryRow?.work
+                ? (primaryRow.work.length > 20 ? primaryRow.work.slice(0, 19) + "…" : primaryRow.work)
+                : "";
+              const title = primaryRow
+                ? `${primaryRow.code} · ${workSnippet || "เข้าทำงาน"}`
+                : (section.work || section.code);
+              const subtitleParts: string[] = [];
+              if (summary.plan) subtitleParts.push("(แผน)");
+              if (section.work) subtitleParts.push(section.work);
+              else subtitleParts.push(`ช่วง ${section.code}`);
+              if (summary.more > 0) subtitleParts.push(`(+${summary.more} บ.)`);
+              const subtitle = subtitleParts.join(" · ");
+
+              const titleW = measureText(title, FONT_TITLE);
+              const subtitleW = measureText(subtitle, FONT_SUB);
+              const textW = Math.max(titleW, subtitleW);
+              const w = Math.max(48, textW + 16);
+              const h = 72;
+              const pinColor = primaryRow?.color ?? section.color;
+              return [{ section, summary, primaryRow, title, subtitle, titleW, subtitleW, pinColor, w, h, anchor: routeMidpoint(section.points, map.width, map.height) }];
+            });
+            const obstacles = letters.map((l) => ({ x: l.point.x * map.width + l.dx, y: l.point.y * map.height + l.dy, r: 19 * k }));
+            const spots = placeCallouts(
+              cards.map((c) => ({ id: `card:${c.section.id}`, anchor: { x: c.anchor.x / map.width, y: c.anchor.y / map.height }, w: c.w * k, h: c.h * k })),
+              map, 26 * k, sections.map((s) => s.points), obstacles, pinned,
+            );
+
+            return <>
+              {letters.map((marker) => (
+              <Group key={marker.label} x={marker.point.x * map.width} y={marker.point.y * map.height}>
+                <Line points={[0, 0, marker.dx, marker.dy]} stroke="#FFFFFF" strokeWidth={2 * k} lineCap="round" opacity={0.95} />
+                <Circle radius={2.5 * k} fill="#FFFFFF" />
+                <Group x={marker.dx} y={marker.dy} scaleX={k} scaleY={k}
+                  draggable={canMove}
+                  onClick={(e) => { e.cancelBubble = true; }} onTap={(e) => { e.cancelBubble = true; }}
+                  onMouseEnter={(e) => { if (canMove) { const st = e.target.getStage(); if (st) st.container().style.cursor = "grab"; } }}
+                  onMouseLeave={(e) => { const st = e.target.getStage(); if (st) st.container().style.cursor = ""; }}
+                  onDragMove={(e) => {
+                    // The group sits inside the route end's group, so its position is the offset in drawing px.
+                    setLabelDrag({ label: marker.label, x: clamp01((marker.point.x * map.width + e.target.x()) / map.width), y: clamp01((marker.point.y * map.height + e.target.y()) / map.height) });
+                  }}
+                  onDragEnd={(e) => {
+                    const next = { x: clamp01((marker.point.x * map.width + e.target.x()) / map.width), y: clamp01((marker.point.y * map.height + e.target.y()) / map.height) };
+                    const saved = { ...labelPos, [marker.label]: next };
+                    setLabelPos(saved); writeLabels(map.id, saved); setLabelDrag(null);
+                  }}>
+                  <Circle radius={19} fill={theme.palette.primary.dark} stroke="#FFFFFF" strokeWidth={3} />
+                  <Text text={marker.label} width={52} offsetX={26} offsetY={9} align="center" fontSize={18} fontStyle="bold" fill="#FFFFFF" />
+                </Group>
+              </Group>
+              ))}
+              {cards.map((card) => {
+                const id = `card:${card.section.id}`;
+                const spot = spots.find((sp) => sp.id === id)!;
+                const on = highlightSectionId === card.section.id, dim = Boolean(highlightSectionId) && !on;
+                const markerScale = k;
+                return <Fragment key={id}>
+                  {/* Dashed leader line in section color connecting anchor to pin marker, exactly matching the reference layout */}
+                  <Group opacity={dim ? 0.35 : 1} listening={false}>
+                    {/* Soft dark shadow behind dashed line for high contrast */}
+                    <Line
+                      points={[card.anchor.x, card.anchor.y, spot.cx, spot.cy]}
+                      stroke="#101828"
+                      opacity={0.25}
+                      strokeWidth={3.5 * k}
+                      dash={[6 * k, 5 * k]}
+                      lineCap="round"
+                    />
+                    <Line
+                      points={[card.anchor.x, card.anchor.y, spot.cx, spot.cy]}
+                      stroke={card.section.color}
+                      strokeWidth={2 * k}
+                      dash={[6 * k, 5 * k]}
+                      lineCap="round"
+                    />
+                    {/* Anchor dot on the route */}
+                    <Circle
+                      x={card.anchor.x}
+                      y={card.anchor.y}
+                      radius={3.5 * k}
+                      fill={card.section.color}
+                      stroke="#FFFFFF"
+                      strokeWidth={1.5 * k}
+                    />
+                  </Group>
+
+                  {/* Marker Pin + 2-Tier Typography with white halo */}
+                  <Group
+                    x={spot.cx}
+                    y={spot.cy}
+                    opacity={dim ? 0.35 : 1}
+                    draggable={canMove}
+                    onClick={(e) => { e.cancelBubble = true; onHighlightSection?.(on ? null : card.section.id); }}
+                    onTap={(e) => { e.cancelBubble = true; onHighlightSection?.(on ? null : card.section.id); }}
+                    onMouseEnter={(e) => { const st = e.target.getStage(); if (st) st.container().style.cursor = canMove ? "grab" : onHighlightSection ? "pointer" : ""; }}
+                    onMouseLeave={(e) => { const st = e.target.getStage(); if (st) st.container().style.cursor = ""; }}
+                    onDragMove={(e) => setLabelDrag({ label: id, x: clamp01(e.target.x() / map.width), y: clamp01(e.target.y() / map.height) })}
+                    onDragEnd={(e) => {
+                      const saved = { ...labelPos, [id]: { x: clamp01(e.target.x() / map.width), y: clamp01(e.target.y() / map.height) } };
+                      setLabelPos(saved); writeLabels(map.id, saved); setLabelDrag(null);
+                    }}
+                  >
+                    <Group scaleX={markerScale} scaleY={markerScale}>
+                      {/* Selection pulse ring */}
+                      {on && (
+                        <Circle radius={28} stroke={card.section.color} strokeWidth={2} opacity={0.6} listening={false} perfectDrawEnabled={false} />
+                      )}
+                      {/* Subtle drop lift */}
+                      <Circle y={2} radius={21} fill="#101828" opacity={0.16} listening={false} perfectDrawEnabled={false} />
+                      {/* Circular pin disc */}
+                      <Circle
+                        radius={20}
+                        fill="#FFFFFF"
+                        stroke={on ? theme.palette.primary.main : card.section.color}
+                        strokeWidth={on ? 3.5 : 2.5}
+                        dash={card.summary.plan ? [5, 4] : undefined}
+                        listening={false}
+                        perfectDrawEnabled={false}
+                      />
+                      {/* Map-pin icon inside circular disc */}
+                      <CoordinationIconShape iconKey="map-pin" color={card.pinColor} size={22} />
+
+                      {/* 2-Tier Typography: Title (Bold) + Subtitle (Muted), both with crisp white halo */}
+                      <Group y={26} listening={false}>
+                        <Text
+                          x={-(card.titleW + 8) / 2}
+                          width={card.titleW + 8}
+                          text={card.title}
+                          fontFamily="Prompt, Inter, sans-serif"
+                          fontSize={13}
+                          fontStyle="bold"
+                          align="center"
+                          wrap="none"
+                          fill="#0F172A"
+                          stroke="#FFFFFF"
+                          strokeWidth={3.5}
+                          fillAfterStrokeEnabled
+                          perfectDrawEnabled={false}
+                        />
+                        <Text
+                          x={-(card.subtitleW + 8) / 2}
+                          y={17}
+                          width={card.subtitleW + 8}
+                          text={card.subtitle}
+                          fontFamily="Prompt, Inter, sans-serif"
+                          fontSize={11}
+                          fontStyle="600"
+                          align="center"
+                          wrap="none"
+                          fill="#64748B"
+                          stroke="#FFFFFF"
+                          strokeWidth={3}
+                          fillAfterStrokeEnabled
+                          perfectDrawEnabled={false}
+                        />
+                      </Group>
+                    </Group>
+                  </Group>
+                </Fragment>;
+              })}
+            </>;
+          })()}
+        </Layer>}
         {roadNames.length > 0 && <Layer listening={false}>
           {roadNames.map((road) => {
             const pieceLength = (pts: CoordinationPoint[]) =>
@@ -520,7 +822,7 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
             const company = companyById.get(item.contractorId);
             return <CanvasItem key={id} item={item} iconKey={iconKeyByCode.get(item.icon) ?? "map-pin"} id={id} editing={editing} selected={id === selectedId || editing} hasDraft={Boolean(draft)} focus={Boolean(selectedId || draft)}
               color={company?.color ?? theme.palette.primary.main} code={company?.code} clash={item.areaKind === "route" && Boolean(clashes.get(id))}
-              scale={unit} tool={tool} drawingTool={drawingTool} textEditing={textEditing} dragging={editing && dragging} display={detail ? detailDisplay[detail.get(id) ?? "full"] : display}
+              scale={unit} zoom={markZoom} tool={tool} drawingTool={drawingTool} textEditing={textEditing} dragging={editing && dragging} display={detail ? detailDisplay[detail.get(id) ?? "full"] : display}
               dragOffset={areaDrag?.id === id ? areaDrag : null} iconDrag={iconDrag?.id === id ? iconDrag : null} mapWidth={map.width} mapHeight={map.height} coarse={coarse}
               actions={actions} rectangleRef={rectangle} transformerRef={transformer} />;
           })}

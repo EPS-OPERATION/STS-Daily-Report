@@ -35,7 +35,10 @@ interface Props {
   color: string; code: string | undefined; clash: boolean;
   /** Phosphor key resolved from the project's item-type catalog. */
   iconKey: string;
-  scale: number; tool: MapTool; drawingTool: boolean; textEditing: boolean; dragging: boolean;
+  scale: number;
+  /** On-screen size of one marker unit relative to the default (the map's zoom, 1 = fitted). */
+  zoom?: number;
+  tool: MapTool; drawingTool: boolean; textEditing: boolean; dragging: boolean;
   display: Pick<MapDisplay, "areas" | "labels" | "notes" | "links" | "chips" | "markSize">;
   dragOffset: AreaDrag | null; iconDrag: IconDrag | null; mapWidth: number; mapHeight: number;
   /** Touch screens: bigger invisible hit areas and handles (a finger needs ~44px). */
@@ -45,6 +48,8 @@ interface Props {
 }
 
 // Motion: feedback only (place, select, hover), never looping. Reduced motion = instant states.
+/** The company tag stops growing with the map zoom at this many times its normal on-screen size. */
+const CHIP_MAX_ZOOM = 1.5;
 export const REDUCED_MOTION = typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 // Markers float above the drawing: a soft offset "lift" drawn as a plain shape (canvas blur shadows
 // would redraw on every pan frame on phones). Map artwork, so a literal colour is allowed here.
@@ -101,7 +106,7 @@ export function TapRipple({ x, y, scale, color, onDone }: { x: number; y: number
 const CAPTION_OPTIONS ={ font: CAPTION_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: CAPTION_LINE_HEIGHT, maxLines: CAPTION_MAX_LINES, minWidth: 64 };
 const NOTE_OPTIONS = { font: NOTE_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: NOTE_LINE_HEIGHT, maxLines: 2, minWidth: 64 };
 
-export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected, hasDraft, focus, color, code, clash, iconKey, scale, tool, drawingTool, textEditing, dragging, display, dragOffset, iconDrag, mapWidth, mapHeight, coarse, actions, rectangleRef, transformerRef }: Props) {
+export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected, hasDraft, focus, color, code, clash, iconKey, scale, zoom = 1, tool, drawingTool, textEditing, dragging, display, dragOffset, iconDrag, mapWidth, mapHeight, coarse, actions, rectangleRef, transformerRef }: Props) {
   const theme = useTheme();
   const paper = theme.palette.background.paper;
   const editable = editing && tool === "move";
@@ -139,7 +144,10 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
   const markScale = display.markSize / scale;
   // This job's own icon size (saved per job); captions under it are counter-scaled to stay readable.
   const size = route ? 1 : item.iconScale ?? 1;
-  const markerScale = markScale * size;
+  // The company tag grows with the map when zoomed in, but only up to CHIP_MAX_ZOOM times its normal size, so a
+  // deep zoom does not turn it into a banner; it also follows this job's own icon size (the − % + control).
+  const chipScale = markScale * size * Math.min(1, CHIP_MAX_ZOOM / Math.max(zoom, 0.01));
+  const markerScale = route ? chipScale : markScale * size;
   const rectStart = useRef<{ x: number; y: number } | null>(null);
   // Stable per (touch, ink) so the Transformer is not re-styled on every render.
   const inkSecondary = theme.palette.text.secondary;
@@ -170,7 +178,7 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
     const node = e.currentTarget;
     // Not on the job being edited: a lift tween started mid-resize would land on the old size.
     if (editing) return;
-    const base = !route && node === markerRef.current ? markerScale : markScale;
+    const base = node === markerRef.current ? markerScale : chipScale;
     node.to({ scaleX: base * (on ? 1.08 : 1), scaleY: base * (on ? 1.08 : 1), duration: on ? 0.15 : 0.12, easing: Konva.Easings.EaseOut });
     const box = node.getStage()?.container();
     if (box && tool === "move") box.style.cursor = on ? "pointer" : "";
@@ -231,7 +239,7 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
         draggable onDragMove={(e) => actions.change({ geometry: { type: item.geometry.type, points: area.map((v, i) => i === index ? { x: clamp(e.target.x() / mapWidth), y: clamp(e.target.y() / mapHeight) } : v) } })}
         onClick={tap} onTap={tap} />;
     })}
-    {(display.chips || selected) && <Group ref={route ? markerRef : undefined} x={center.x + (dragOffset?.x ?? 0)} y={center.y + (dragOffset?.y ?? 0)} scaleX={markScale} scaleY={markScale} draggable={editable}
+    {(display.chips || selected) && <Group ref={route ? markerRef : undefined} x={center.x + (dragOffset?.x ?? 0)} y={center.y + (dragOffset?.y ?? 0)} scaleX={chipScale} scaleY={chipScale} draggable={editable}
       onClick={select} onTap={select} onMouseEnter={hover?.(true)} onMouseLeave={hover?.(false)}
       onDragStart={startAreaDrag}
       onDragMove={(e) => {

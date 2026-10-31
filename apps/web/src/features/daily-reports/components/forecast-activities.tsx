@@ -1,5 +1,7 @@
 import { Controller, useController, useFieldArray, type Control } from "react-hook-form";
 import type { EveningFormValues } from "../schemas/daily-report.schema.js";
+import { isSectionValue } from "../utils/location.js";
+import { SectionForecasts } from "./section-forecasts.js";
 import type { Building } from "@/features/buildings/index.js";
 import { BuildingSelect } from "@/features/buildings/index.js";
 import AddIcon from "@mui/icons-material/AddOutlined";
@@ -15,7 +17,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 
 // Tomorrow Forecast Activities (paper form R003 table): what the crew will work on tomorrow and where.
-export function ForecastActivities({ control, buildings }: { control: Control<EveningFormValues>; buildings: Building[] }) {
+export function ForecastActivities({ control, buildings, projectId }: { control: Control<EveningFormValues>; buildings: Building[]; projectId: string }) {
   const rows = useFieldArray({ control, name: "forecasts" });
   const { fieldState } = useController({ control, name: "forecasts" });
   const errorMsg = fieldState.error?.message;
@@ -27,7 +29,8 @@ export function ForecastActivities({ control, buildings }: { control: Control<Ev
         </Typography>
       ) : null}
       <Stack spacing={1.5}>
-        {rows.fields.map((row, i) => (
+        {/* Route-section plans (33 kV …) have their own question block under the list. */}
+        {rows.fields.map((row, i) => isSectionValue(row.buildingId) ? null : (
           <Card key={row.id} variant="outlined">
             <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Grid container spacing={1.5} alignItems="flex-start">
@@ -77,6 +80,7 @@ export function ForecastActivities({ control, buildings }: { control: Control<Ev
       >
         Add tomorrow's plan
       </Button>
+      <SectionForecasts control={control} rows={rows} projectId={projectId} />
     </Box>
   );
 }

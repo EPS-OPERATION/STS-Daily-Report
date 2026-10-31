@@ -74,6 +74,7 @@ export async function weeklySummaryService(projectId: string, weekStartInput: st
 
   // Man-days: people × share of the day they spent in that building (crews that move count once).
   for (const a of allocations) {
+    if (!a.buildingId) continue; // route-section rows (no building) are not part of the building view
     const c = cellOf(a.buildingId, a.reportDate);
     const manDays = a.headcount * a.dayShare;
     c.headcount = round1(c.headcount + manDays);
@@ -252,6 +253,7 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   // Man-days per building (site order), split by contractor — from the morning allocation.
   const perBuilding = new Map<string, Map<string, number>>();
   for (const a of allocations) {
+    if (!a.buildingId) continue; // route-section rows have no building
     const m = perBuilding.get(a.buildingId) ?? new Map<string, number>();
     m.set(a.contractorCode, round1((m.get(a.contractorCode) ?? 0) + a.headcount * a.dayShare));
     perBuilding.set(a.buildingId, m);

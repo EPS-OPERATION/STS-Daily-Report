@@ -6,6 +6,8 @@ export const coordinationFormSchema = z.object({
   icon: z.string().min(1).max(50).regex(/^[a-z0-9_]+$/), x: z.number().min(COORDINATION_MIN).max(COORDINATION_MAX), y: z.number().min(COORDINATION_MIN).max(COORDINATION_MAX),
   rotation: z.number().min(-360).max(360), areaKind: z.enum(["rectangle", "polygon", "route"]),
   geometry: z.object({ type: z.enum(["polygon", "polyline"]), points: z.array(z.object({ x: z.number(), y: z.number() })) }),
+  mapId: z.string().uuid().optional(),
+  sectionId: z.string().uuid().nullable().optional(),
   linkArea: z.boolean().optional(),
   twoWay: z.boolean().optional(),
   iconScale: z.number().min(COORDINATION_ICON_SCALE_MIN).max(COORDINATION_ICON_SCALE_MAX).optional(),

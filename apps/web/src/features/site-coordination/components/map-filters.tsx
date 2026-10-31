@@ -20,6 +20,8 @@ export interface MapDisplay {
   roads: boolean;
   /** Names of the register roads (Map page only). */
   roadNames: boolean;
+  /** Route sections (coloured stretches with lettered ends) of the area on screen. */
+  sections: boolean;
   areas: boolean;
   labels: boolean;
   notes: boolean;
@@ -33,7 +35,7 @@ export interface MapDisplay {
 
 type DisplaySwitch = Exclude<keyof MapDisplay, "markSize">;
 
-export const DEFAULT_MAP_DISPLAY: MapDisplay = { roads: true, roadNames: true, areas: true, labels: true, notes: true, links: true, chips: true, detailCard: true, jobList: true, markSize: MARK_SCALE };
+export const DEFAULT_MAP_DISPLAY: MapDisplay = { roads: true, roadNames: true, sections: true, areas: true, labels: true, notes: true, links: true, chips: true, detailCard: true, jobList: true, markSize: MARK_SCALE };
 
 // Per signed-in user (a shared meeting-room PC keeps each person's own view). Before that it was one key per
 // browser: a user without their own settings yet starts from it.
@@ -62,6 +64,7 @@ export function saveMapDisplay(display: MapDisplay, userId?: string) {
 
 const DISPLAY_OPTIONS: { key: DisplaySwitch; label: string; hint: string; group: "map" | "detail" }[] = [
   { key: "roadNames", label: "Road names", hint: "ชื่อถนนจากทะเบียนถนน (ไม่มีเส้น)", group: "map" },
+  { key: "sections", label: "Route sections", hint: "ช่วงสีของแนวสาย เช่น A-B … G-H (เมื่อพื้นที่นี้มี)", group: "map" },
   { key: "roads", label: "Road routes", hint: "เส้นและลูกศรทิศทางที่ผู้รับเหมาใช้ถนน", group: "map" },
   { key: "areas", label: "Work areas", hint: "กรอบสีขอบเขตที่ใช้", group: "map" },
   { key: "labels", label: "Item labels", hint: "ข้อความสั้นบนผัง", group: "map" },
