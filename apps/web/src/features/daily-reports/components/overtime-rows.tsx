@@ -106,7 +106,7 @@ export function OvertimeRows({
                 variant="outlined"
                 icon={<AddIcon />}
                 label={`${a.buildingCode} · ${a.workDescription}`}
-                onClick={() => add(a.buildingId, a.workDescription)}
+                onClick={() => add(a.buildingId ?? undefined, a.workDescription)} // OT stays per building: a route-section row leaves the building to pick
                 sx={{ maxWidth: "100%" }}
               />
             ))}

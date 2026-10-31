@@ -282,7 +282,9 @@ await db
   .onConflictDoNothing({ target: [coordinationItemTypes.projectId, coordinationItemTypes.code] });
 
 // Dedicated coordination image; does not change WBS or facility marker backgrounds.
-await db.insert(coordinationMaps).values({ projectId: PROJECT_ID, imagePath: "/site-plan/STS_KY_Layout_Plan.png", width: 6542, height: 4951 }).onConflictDoNothing();
+// One row per working-area map; extra areas are added with scripts/add-coordination-map.ts.
+await db.insert(coordinationMaps).values({ projectId: PROJECT_ID, name: "Main plant layout", nameTh: "ผังโรงไฟฟ้า", sortOrder: 0, imagePath: "/site-plan/STS_KY_Layout_Plan.png", width: 6542, height: 4951 })
+  .onConflictDoNothing({ target: [coordinationMaps.projectId, coordinationMaps.name] });
 
 // --- Demo drone photo logs (dev/staging only) ---
 // Skipped when NODE_ENV=production or SEED_DEMO=false. Real site photos committed at apps/api/seed-assets/drone

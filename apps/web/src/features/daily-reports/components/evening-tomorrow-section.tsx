@@ -22,7 +22,7 @@ export function EveningTomorrowSection({ ed }: { ed: UseEveningFormState }) {
       subtitle={`สำหรับ ${formatThaiDate(tomorrow)} — ใช้ในประชุมประสานงาน 17:00 ส่งพร้อมรายงานบ่าย`}
     >
       <SubHeading>แผนงานพรุ่งนี้ (Tomorrow Forecast Activities)</SubHeading>
-      <ForecastActivities control={control} buildings={buildings} />
+      <ForecastActivities control={control} buildings={buildings} projectId={projectId} />
       <Divider sx={{ my: 2.5 }} />
       <YesNoGate
         icon={<FactCheckOutlinedIcon color="primary" fontSize="small" />}

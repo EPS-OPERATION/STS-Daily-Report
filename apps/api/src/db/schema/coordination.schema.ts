@@ -5,12 +5,45 @@ import { projects } from "./project.schema.js";
 import { projectContractors } from "./project-contractor.schema.js";
 import { users } from "./user.schema.js";
 
+// Working-area drawings of a project (plant layout, a 33 kV line corridor, …). The lowest sort_order is the
+// main map: the default area, and the one the road register is drawn on. Jobs point at their map with map_id.
 export const coordinationMaps = pgTable("coordination_maps", {
   id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id").notNull().unique().references(() => projects.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull().default("Main plant layout"),
+  nameTh: text("name_th").notNull().default("ผังโรงไฟฟ้า"),
+  sortOrder: integer("sort_order").notNull().default(0),
   imagePath: text("image_path").notNull(), width: integer("width").notNull(), height: integer("height").notNull(),
+  // Uploaded maps live in object storage (image_path then just repeats the key); built-in ones are static files.
+  objectKey: text("object_key"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [check("coordination_maps_dimensions_check", sql`${t.width} > 0 AND ${t.height} > 0`)]);
+}, (t) => [
+  check("coordination_maps_dimensions_check", sql`${t.width} > 0 AND ${t.height} > 0`),
+  unique("coordination_maps_project_name_unique").on(t.projectId, t.name),
+  index("coordination_maps_project_idx").on(t.projectId, t.sortOrder),
+]);
+
+// Named stretches drawn on a map by EPS (e.g. sections A-B … G-H of the 33 kV line): a colour, the work that
+// belongs to the stretch, and the line itself (open polyline, 0..1 map coordinates). Contractors link a job to one.
+export const coordinationSections = pgTable("coordination_sections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  mapId: uuid("map_id").notNull().references(() => coordinationMaps.id, { onDelete: "cascade" }),
+  code: text("code").notNull(),
+  work: text("work").notNull(),
+  color: text("color").notNull(),
+  points: jsonb("points").$type<CoordinationPoint[]>().notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique("coordination_sections_map_code_unique").on(t.mapId, t.code),
+  index("coordination_sections_project_idx").on(t.projectId),
+  check("coordination_sections_code_check", sql`char_length(${t.code}) between 1 and 20`),
+  check("coordination_sections_work_check", sql`char_length(${t.work}) between 1 and 300`),
+  check("coordination_sections_color_check", sql`${t.color} ~ '^#[0-9A-Fa-f]{6}$'`),
+]);
 
 export const coordinationColors = pgTable("coordination_colors", {
   projectId: uuid("project_id").notNull(), contractorId: uuid("contractor_id").notNull(),
@@ -52,6 +85,8 @@ export const coordinationItems = pgTable("coordination_items", {
   y: numeric("y", { precision: 9, scale: 8, mode: "number" }).notNull(),
   rotation: numeric("rotation", { precision: 7, scale: 3, mode: "number" }).notNull().default(0),
   areaKind: text("area_kind").$type<CoordinationAreaKind>().notNull(), geometry: jsonb("geometry").$type<CoordinationGeometry>().notNull(),
+  // Optional stretch of the map's route (coordination_sections) this job belongs to; the section can be deleted later.
+  sectionId: uuid("section_id").references(() => coordinationSections.id, { onDelete: "set null" }),
   linkArea: boolean("link_area").notNull().default(true),
   // Road routes only: used in both directions.
   twoWay: boolean("two_way").notNull().default(false),

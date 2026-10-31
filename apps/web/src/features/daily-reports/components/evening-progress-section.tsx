@@ -18,7 +18,7 @@ export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
     onAddAdditional,
     date,
     contractor,
-    buildings,
+    places,
     picked,
   } = ed;
 
@@ -94,7 +94,7 @@ export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
                 key={row.id}
                 index={i}
                 control={control}
-                buildings={buildings}
+                buildings={places}
                 onRemove={() => additional.remove(i)}
                 activeDisciplines={picked}
               />

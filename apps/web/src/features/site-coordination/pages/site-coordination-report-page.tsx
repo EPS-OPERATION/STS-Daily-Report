@@ -23,7 +23,8 @@ export function SiteCoordinationReportPage() {
   const projectId = params.get("projectId") || currentProjectId;
   const date = ISO_DATE.test(params.get("date") ?? "") ? params.get("date")! : coordinationToday();
   const autoPrint = params.get("print") === "1";
-  const report = useCoordinationReport(projectId, date);
+  const mapId = params.get("mapId") || undefined;
+  const report = useCoordinationReport(projectId, date, mapId);
   const [fontsReady, setFontsReady] = useState(false);
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const printed = useRef(false);

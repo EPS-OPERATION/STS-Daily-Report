@@ -344,6 +344,13 @@
       "when": 1793241689825,
       "tag": "0048_safety_statistics",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793406510180,
+      "tag": "0049_coordination_maps_sections",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,8 @@
 import { and, asc, between, eq, isNotNull, ne, or, sql } from "drizzle-orm";
+import { locationCode, locationName } from "@/db/report-location.js";
 import type { Db, QueryDb } from "@/db/client.js";
 import { reportSent } from "@/db/report-filters.js";
-import { buildings, contractors, dailyReportEquipmentRequests, dailyReportForecasts, dailyReportMachinery, dailyReportPhotos, dailyReportPermits, dailyReportRoadUsage, dailyReports, users } from "@/db/schema/index.js";
+import { buildings, contractors, coordinationMaps, coordinationSections, dailyReportEquipmentRequests, dailyReportForecasts, dailyReportMachinery, dailyReportPhotos, dailyReportPermits, dailyReportRoadUsage, dailyReports, users } from "@/db/schema/index.js";
 import type { AdjustedRoadRequest } from "./daily-request.road.js";
 import type { BookingRow, RoadRow } from "./daily-request.type.js";
 
@@ -260,12 +261,15 @@ export async function listForecasts(db: Db, reportId: string) {
       id: dailyReportForecasts.id,
       targetDate: dailyReportForecasts.targetDate,
       buildingId: dailyReportForecasts.buildingId,
-      buildingCode: buildings.code,
-      buildingName: buildings.name,
+      sectionId: dailyReportForecasts.sectionId,
+      buildingCode: locationCode,
+      buildingName: locationName,
       description: dailyReportForecasts.description,
     })
     .from(dailyReportForecasts)
-    .innerJoin(buildings, eq(dailyReportForecasts.buildingId, buildings.id))
+    .leftJoin(buildings, eq(dailyReportForecasts.buildingId, buildings.id))
+    .leftJoin(coordinationSections, eq(dailyReportForecasts.sectionId, coordinationSections.id))
+    .leftJoin(coordinationMaps, eq(coordinationSections.mapId, coordinationMaps.id))
     .where(eq(dailyReportForecasts.reportId, reportId))
     .orderBy(asc(dailyReportForecasts.sortOrder));
 }
@@ -277,8 +281,9 @@ export async function listForecastsInRange(db: Db, projectId: string, from: stri
       id: dailyReportForecasts.id,
       targetDate: dailyReportForecasts.targetDate,
       buildingId: dailyReportForecasts.buildingId,
-      buildingCode: buildings.code,
-      buildingName: buildings.name,
+      sectionId: dailyReportForecasts.sectionId,
+      buildingCode: locationCode,
+      buildingName: locationName,
       description: dailyReportForecasts.description,
       contractorId: dailyReports.contractorId,
       contractorCode: contractors.code,
@@ -287,7 +292,9 @@ export async function listForecastsInRange(db: Db, projectId: string, from: stri
     .from(dailyReportForecasts)
     .innerJoin(dailyReports, eq(dailyReportForecasts.reportId, dailyReports.id))
     .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
-    .innerJoin(buildings, eq(dailyReportForecasts.buildingId, buildings.id))
+    .leftJoin(buildings, eq(dailyReportForecasts.buildingId, buildings.id))
+    .leftJoin(coordinationSections, eq(dailyReportForecasts.sectionId, coordinationSections.id))
+    .leftJoin(coordinationMaps, eq(coordinationSections.mapId, coordinationMaps.id))
     .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReportForecasts.targetDate, from, to)))
     .orderBy(asc(dailyReportForecasts.targetDate), asc(contractors.code), asc(dailyReportForecasts.sortOrder));
 }

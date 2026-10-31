@@ -7,8 +7,10 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@
 import { coordinationVersion } from "./coordination.repository.js";
 import { deleteRoadSegment, findRoadSegmentByName, getRoadSegment, insertRoadSegment, listRoadSegments, updateRoadSegment, type RoadSegmentInput } from "./coordination.repository.js";
 import { findItemTypeByCode, listItemTypesWithDefaults } from "./coordination-item-type.repository.js";
-import { deleteDayLock, deleteDayNote, deleteItem, getDayLock, getDayNote, getItem, getMap, insertDayLock, insertColor, insertItem, listCoordinationContractors, listCoordinationContractorsByIds, listItems, updateColor, updateItem, upsertDayNote } from "./coordination.repository.js";
+import { deleteDayLock, deleteDayNote, deleteItem, getDayLock, getDayNote, getItem, getMap, getMapById, insertDayLock, insertColor, insertItem, listCoordinationContractors, listCoordinationContractorsByIds, listItems, listMaps, updateColor, updateItem, upsertDayNote } from "./coordination.repository.js";
 import { getContractorById } from "@/modules/contractors/contractor.repository.js";
+import { toMapDto } from "./coordination-map.service.js";
+import { getSection, listSections } from "./coordination-section.repository.js";
 
 async function access(auth: AuthContext, projectId: string, contractorId?: string) {
   // Independent reads: one round trip instead of two.
@@ -48,9 +50,10 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
   const memberships = await access(auth, projectId);
   if (!coordinationDateValid(date)) throw new ValidationError("Invalid work date");
   const db = getDb();
-  const map = await getMap(db, projectId);
+  const maps = await listMaps(db, projectId);
+  const map = maps[0];
   if (!map) throw new NotFoundError("This project has no coordination drawing configured");
-  const [initialProjectCompanies, items, itemTypes, dayNote, lock, version] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), listItemTypesWithDefaults(db, projectId, true), getDayNote(db, projectId, date), getDayLock(db, projectId, date), coordinationVersion(db, projectId, date)]);
+  const [initialProjectCompanies, items, itemTypes, dayNote, lock, version, sections, mapDtos] = await Promise.all([listCoordinationContractors(db, projectId), listItems(db, projectId, date), listItemTypesWithDefaults(db, projectId, true), getDayNote(db, projectId, date), getDayLock(db, projectId, date), coordinationVersion(db, projectId, date), listSections(db, projectId), Promise.all(maps.map(toMapDto))]);
   const missingContractorIds = [...new Set(items.map((i) => i.contractorId))].filter((id) => !initialProjectCompanies.some((c) => c.id === id));
   const extraCompanies = missingContractorIds.length > 0 ? await listCoordinationContractorsByIds(db, projectId, missingContractorIds) : [];
   const initialCompanies = [...initialProjectCompanies, ...extraCompanies];
@@ -73,7 +76,7 @@ export async function coordinationService(auth: AuthContext, projectId: string, 
     ? [...(await listCoordinationContractors(db, projectId)), ...(missingContractorIds.length > 0 ? await listCoordinationContractorsByIds(db, projectId, missingContractorIds) : [])]
     : initialCompanies;
   return {
-    map: { id: map.id, projectId, imagePath: map.imagePath, width: map.width, height: map.height },
+    map: mapDtos[0]!, maps: mapDtos, sections,
     contractors: companies.map((c) => ({ ...c, color: c.color!, revision: c.revision! })),
     items: items.map(dto), itemTypes, editableContractorIds: lock ? [] : isEpsStaff(auth.user.role) ? companies.filter((c) => c.isContractor).map((c) => c.id) : memberships.map((m) => m.id),
     canManageColors: isEpsStaff(auth.user.role),
@@ -112,15 +115,21 @@ export async function saveCoordinationService(auth: AuthContext, projectId: stri
   const itemType = await findItemTypeByCode(db, projectId, input.icon);
   if (!itemType) throw new ValidationError("Choose a valid item type");
   if (!id && !itemType.isActive) throw new ValidationError("This item type is hidden; choose another one");
-  const map = await getMap(db, projectId);
-  if (!map) throw new NotFoundError("Coordination drawing not configured");
+  // A new job goes on the chosen working-area map (default: the main one); an existing job stays where it is.
+  const current = id ? await getItem(db, projectId, id) : null;
+  if (id && !current) throw new NotFoundError("Work item not found");
+  const map = current ? await getMapById(db, projectId, current.mapId) : input.mapId ? await getMapById(db, projectId, input.mapId) : await getMap(db, projectId);
+  if (!map) throw new NotFoundError(input.mapId && !current ? "This map does not belong to the project" : "Coordination drawing not configured");
   if (input.areaKind === "rectangle" && !coordinationRectangleValid(input.geometry.points, map.width, map.height)) throw new ValidationError("Rectangle corners must form a rectangle");
+  // A job can belong to a stretch (section) drawn on its own map.
+  if (input.sectionId) {
+    const section = await getSection(db, projectId, input.sectionId);
+    if (!section || section.mapId !== map.id) throw new ValidationError("Choose a section of this map");
+  }
   const companies = await listCoordinationContractors(db, projectId);
   const isValidContractor = companies.some((c) => c.id === input.contractorId) || (isEpsStaff(auth.user.role) && Boolean(await getContractorById(db, input.contractorId)));
   if (!isValidContractor) throw new ValidationError("Contractor is not assigned to this project");
-  if (!id) { await assertUnlocked(projectId, input.workDate); return dto(await insertItem(db, projectId, map.id, input, auth.user.id)); }
-  const current = await getItem(db, projectId, id);
-  if (!current) throw new NotFoundError("Work item not found");
+  if (!id || !current) { await assertUnlocked(projectId, input.workDate); return dto(await insertItem(db, projectId, map.id, input, auth.user.id)); }
   await assertUnlocked(projectId, current.workDate);
   await access(auth, projectId, current.contractorId);
   if (input.workDate !== current.workDate) throw new ValidationError("Edit the work on its original date");
@@ -154,17 +163,21 @@ export async function setDayLockService(auth: AuthContext, projectId: string, da
   return row ? lockDto(row) : null;
 }
 // Printable day report (EPS only): the drawing with every job and the day note.
-export async function coordinationReportService(auth: AuthContext, projectId: string, date: string): Promise<CoordinationReport> {
+// One map per report (`mapId`, default the main map): the drawing and only the jobs placed on it.
+export async function coordinationReportService(auth: AuthContext, projectId: string, date: string, mapId?: string): Promise<CoordinationReport> {
   if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can export the day's map report");
   const [data, project] = await Promise.all([coordinationService(auth, projectId, date), getProjectById(getDb(), projectId)]);
+  const map = mapId ? data.maps.find((m) => m.id === mapId) : data.map;
+  if (!map) throw new NotFoundError("Map not found");
   return {
     projectName: project?.name ?? "",
     date,
     generatedAt: new Date().toISOString(),
     generatedByName: auth.user.displayName ?? auth.user.email,
-    map: data.map,
+    map,
     contractors: data.contractors,
-    items: data.items,
+    items: data.items.filter((item) => item.mapId === map.id),
+    sections: data.sections.filter((section) => section.mapId === map.id),
     itemTypes: data.itemTypes,
     dayNote: data.dayNote,
   };

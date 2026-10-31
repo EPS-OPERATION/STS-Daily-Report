@@ -1,3 +1,4 @@
+import { SectionActivities } from "./section-activities.js";
 import { type Discipline } from "@sts/shared";
 import { useEffect } from "react";
 import { useFieldArray, useWatch, type UseFormReturn } from "react-hook-form";
@@ -73,6 +74,7 @@ export function MorningCrewSection({
       </Typography>
 
       <ActivityTable discipline={discipline} form={form} buildings={buildings} activities={activities} />
+      <SectionActivities discipline={discipline} form={form} activities={activities} projectId={projectId} />
 
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
         <Typography

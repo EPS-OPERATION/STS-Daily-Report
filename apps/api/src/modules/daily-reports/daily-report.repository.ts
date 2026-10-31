@@ -1,6 +1,7 @@
 import { and, asc, between, count, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db, QueryDb } from "@/db/client.js";
-import { buildings, contractors, dailyReportAllocations, dailyReportCrews, dailyReportEquipment, dailyReportMaterials, dailyReportOvertime, dailyReportPhotos, dailyReportPositions, dailyReports } from "@/db/schema/index.js";
+import { locationCode, locationName } from "@/db/report-location.js";
+import { buildings, contractors, coordinationMaps, coordinationSections, dailyReportAllocations, dailyReportCrews, dailyReportEquipment, dailyReportMaterials, dailyReportOvertime, dailyReportPhotos, dailyReportPositions, dailyReports } from "@/db/schema/index.js";
 
 export async function getReportById(db: QueryDb, id: string) {
   const rows = await db.select().from(dailyReports).where(eq(dailyReports.id, id)).limit(1);
@@ -27,8 +28,9 @@ export async function listAllocations(db: Db, reportId: string) {
     .select({
       id: dailyReportAllocations.id,
       buildingId: dailyReportAllocations.buildingId,
-      buildingCode: buildings.code,
-      buildingName: buildings.name,
+      sectionId: dailyReportAllocations.sectionId,
+      buildingCode: locationCode,
+      buildingName: locationName,
       discipline: dailyReportAllocations.discipline,
       headcount: dailyReportAllocations.headcount,
       workDescription: dailyReportAllocations.workDescription,
@@ -41,7 +43,9 @@ export async function listAllocations(db: Db, reportId: string) {
       isAdditional: dailyReportAllocations.isAdditional,
     })
     .from(dailyReportAllocations)
-    .innerJoin(buildings, eq(dailyReportAllocations.buildingId, buildings.id))
+    .leftJoin(buildings, eq(dailyReportAllocations.buildingId, buildings.id))
+    .leftJoin(coordinationSections, eq(dailyReportAllocations.sectionId, coordinationSections.id))
+    .leftJoin(coordinationMaps, eq(coordinationSections.mapId, coordinationMaps.id))
     .where(eq(dailyReportAllocations.reportId, reportId))
     .orderBy(asc(dailyReportAllocations.sortOrder));
 }
