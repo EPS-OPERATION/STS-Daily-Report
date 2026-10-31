@@ -4,6 +4,8 @@ import Button from "@mui/material/Button";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import InputAdornment from "@mui/material/InputAdornment";
+import MenuItem from "@mui/material/MenuItem";
+import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -18,7 +20,7 @@ import { useMe } from "@/features/auth/index.js";
 import { ContractorFilterPopover } from "@/features/contractors/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
-import { useCoordination, useCoordinationColor, useDayLock, useDeleteCoordination, useRoadSegments, useSaveCoordination, useSaveDayNote } from "./use-coordination.js";
+import { useCoordination, useSectionWork, useCoordinationColor, useDayLock, useDeleteCoordination, useRoadSegments, useSaveCoordination, useSaveDayNote } from "./use-coordination.js";
 import { coordinationFormSchema } from "../schemas/coordination.schema.js";
 import type { MapTool } from "../components/coordination-canvas.js";
 import { CoordinationInspector } from "../components/coordination-inspector.js";
@@ -28,7 +30,7 @@ import { TypeFilter, loadMapDisplay, saveMapDisplay, type MapDisplay } from "../
 export const inputOf = (item: CoordinationItem): CoordinationInput => ({
   contractorId: item.contractorId, workDate: item.workDate, title: item.title, icon: item.icon,
   x: item.x, y: item.y, rotation: item.rotation, areaKind: item.areaKind, geometry: structuredClone(item.geometry),
-  linkArea: item.linkArea, twoWay: item.twoWay, iconScale: item.iconScale ?? 1, note: item.note ?? null,
+  sectionId: item.sectionId ?? null, linkArea: item.linkArea, twoWay: item.twoWay, iconScale: item.iconScale ?? 1, note: item.note ?? null,
 });
 // Auto-save editing: `working` is the item currently on the map (selected + editable).
 // `base` keeps the last persisted state so an invalid in-progress drawing can be reverted.
@@ -43,7 +45,8 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   const date = params.get("mapDate") ?? (compact ? coordinationToday() : dayjs(coordinationToday()).add(1, "day").format("YYYY-MM-DD"));
   // EPS only (the API refuses others too); the report opens in a new tab and prints at once.
   const canExport = !readOnly && !compact && Boolean(projectId) && isEpsStaff(me.data?.data.user.role);
-  const reportHref = `/site-coordination/report?${new URLSearchParams({ projectId: projectId ?? "", date, print: "1" })}`;
+  // Working-area map on screen (`?mapId=`; the project's main map when absent or unknown).
+  const mapParam = params.get("mapId");
   // Filters: contractors (null = all), work types, free-text search (title / note / code).
   const [contractorIds, setContractorIds] = useState<Set<string> | null>(null);
   const [types, setTypes] = useState<Set<string>>(() => new Set());
@@ -90,6 +93,23 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   };
   const isEps = isEpsStaff(me.data?.data.user.role);
   const data = query.data?.data;
+  const maps = data?.maps ?? [];
+  const activeMap = (mapParam ? maps.find((m) => m.id === mapParam) : null) ?? data?.map;
+  // The main map is the first one: the road register is drawn on it, so road names show there only.
+  const isMainMap = !data || activeMap?.id === data.map.id;
+  // The day's jobs on the map on screen; the other maps' jobs are only counted in the Area dropdown.
+  const mapItems = useMemo(() => data?.items.filter((item) => item.mapId === activeMap?.id) ?? [], [data, activeMap?.id]);
+  // Route sections drawn on the area on screen (EPS keeps them in Route sections) and the one picked in the legend.
+  const activeSections = useMemo(() => data?.sections.filter((s) => s.mapId === activeMap?.id) ?? [], [data, activeMap?.id]);
+  const [highlightSectionId, setHighlightSectionId] = useState<string | null>(null);
+  // Daily-report rows on these sections (contractor forms), loaded only when the area has sections.
+  const sectionWork = useSectionWork(activeProject, date, activeMap?.id, activeSections.length > 0);
+  const sectionJobCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of mapItems) if (item.sectionId) counts.set(item.sectionId, (counts.get(item.sectionId) ?? 0) + 1);
+    return counts;
+  }, [mapItems]);
+  const reportHref = `/site-coordination/report?${new URLSearchParams({ projectId: projectId ?? "", date, print: "1", ...(activeMap ? { mapId: activeMap.id } : {}) })}`;
   const itemTypes = data?.itemTypes ?? [];
   // First load selects every type. Later refetches keep the user's choices and add types an admin just created.
   useEffect(() => {
@@ -156,29 +176,29 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   // Memoised: the pairwise route check is O(routes²) and used to rerun on every drag frame of any job.
   // Only road routes take part, so moving an icon or an area keeps the previous result.
   const workingRoute = working && (working.input.areaKind === "route" || working.base.areaKind === "route") ? working : null;
-  const clashes = useMemo(() => data
-    ? coordinationRouteClashes(data.items.map((i) => (workingRoute && i.id === workingRoute.id ? { ...i, ...workingRoute.input } : i)), data.map.width, data.map.height)
+  const clashes = useMemo(() => activeMap
+    ? coordinationRouteClashes(mapItems.map((i) => (workingRoute && i.id === workingRoute.id ? { ...i, ...workingRoute.input } : i)), activeMap.width, activeMap.height)
     : new Map<string, string[]>(),
-  [data, workingRoute?.id, workingRoute?.input.areaKind, workingRoute?.input.geometry, workingRoute?.input.contractorId]);
+  [mapItems, activeMap?.width, activeMap?.height, workingRoute?.id, workingRoute?.input.areaKind, workingRoute?.input.geometry, workingRoute?.input.contractorId]);
   const clashCodes = (id: string) => (clashes.get(id) ?? []).map(codeOf).filter(Boolean);
   // Stable arrays (memoised) so the canvas can skip redrawing layers whose data did not change.
   const registerSegments = register.data?.data;
-  const roadNameGroups = useMemo(() => roadNames && display.roadNames
+  const roadNameGroups = useMemo(() => roadNames && display.roadNames && isMainMap
     ? [...(registerSegments ?? []).reduce((m, s) => {
         const key = s.name.trim().toLowerCase();
         const g = m.get(key) ?? { name: s.name, pieces: [] as CoordinationPoint[][] };
         g.pieces.push(s.points);
         return m.set(key, g);
       }, new Map<string, { name: string; pieces: CoordinationPoint[][] }>()).values()]
-    : [], [roadNames, display.roadNames, registerSegments]);
+    : [], [roadNames, display.roadNames, isMainMap, registerSegments]);
   const q = search.trim().toLowerCase();
-  const items = useMemo(() => data?.items.filter((item) =>
+  const items = useMemo(() => mapItems.filter((item) =>
     (!contractorIds || contractorIds.has(item.contractorId))
     && types.has(item.icon)
     // Roads layer off: routes leave the map and the list (the selected one stays while it is open).
     && (display.roads || item.areaKind !== "route" || item.id === selectedId)
-    && (!q || `${item.title} ${item.note ?? ""} ${data.contractors.find((c) => c.id === item.contractorId)?.code ?? ""}`.toLowerCase().includes(q))) ?? [],
-  [data, contractorIds, types, display.roads, selectedId, q]);
+    && (!q || `${item.title} ${item.note ?? ""} ${data?.contractors.find((c) => c.id === item.contractorId)?.code ?? ""}`.toLowerCase().includes(q))),
+  [data, mapItems, contractorIds, types, display.roads, selectedId, q]);
   const typeFiltered = types.size < itemTypes.length;
   const isFiltered = Boolean(contractorIds) || typeFiltered || Boolean(q);
   const clearFilters = () => guard(() => { openItem(null); setContractorIds(null); setTypes(new Set(itemTypes.map((t) => t.code))); setSearch(""); });
@@ -288,10 +308,10 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
       const road = icon === "road";
       const result = await save.mutateAsync({ input: road
         // A road route starts as a short line, then the user taps the real route along the road.
-        ? { contractorId, workDate: date, title: "ใช้ถนน", icon, x: 0.5, y: 0.44, rotation: 0, areaKind: "route", linkArea: true,
+        ? { contractorId, workDate: date, mapId: activeMap?.id, title: "ใช้ถนน", icon, x: 0.5, y: 0.44, rotation: 0, areaKind: "route", linkArea: true,
             geometry: { type: "polyline", points: [{ x: 0.44, y: 0.5 }, { x: 0.56, y: 0.5 }] } }
         // The icon sits just above its area (joined by the link line) so it never hides the company tag.
-        : { contractorId, workDate: date, title: icon === "text" ? "ข้อความใหม่" : "งานใหม่", icon, x: at.x, y: icon === "text" ? at.y : lim(y0 - 0.05), rotation: 0, areaKind: "rectangle", linkArea: true,
+        : { contractorId, workDate: date, mapId: activeMap?.id, title: icon === "text" ? "ข้อความใหม่" : "งานใหม่", icon, x: at.x, y: icon === "text" ? at.y : lim(y0 - 0.05), rotation: 0, areaKind: "rectangle", linkArea: true,
             geometry: { type: "polygon", points: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }] } } });
       const fresh = inputOf(result.data);
       updateWorking({ id: result.data.id, revision: result.data.revision, base: fresh, input: road ? { ...fresh, geometry: { type: "polyline", points: [] } } : fresh });
@@ -349,10 +369,10 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
   const dateControl = datePicker;
   // Same multi-select popover as Manpower / Daily Request (colour, search, select all, job count).
   // Only companies with a job on this day are listed (an empty row is just noise in a meeting).
-  const filterCompanies = data?.contractors.filter((c) => c.isContractor && data.items.some((v) => v.contractorId === c.id)) ?? [];
+  const filterCompanies = data?.contractors.filter((c) => c.isContractor && mapItems.some((v) => v.contractorId === c.id)) ?? [];
   const allContractorCodes = filterCompanies.map((c) => c.code);
   const contractorControl = data ? <ContractorFilterPopover
-      items={filterCompanies.map((c) => ({ code: c.code, name: c.name, color: c.color, countLabel: `${data.items.filter((v) => v.contractorId === c.id).length} งาน` }))}
+      items={filterCompanies.map((c) => ({ code: c.code, name: c.name, color: c.color, countLabel: `${mapItems.filter((v) => v.contractorId === c.id).length} งาน` }))}
       selectedCodes={new Set(contractorIds ? filterCompanies.filter((c) => contractorIds.has(c.id)).map((c) => c.code) : allContractorCodes)}
       onChange={(codes) => guard(() => {
         updateWorking(null); setSelectedId(null);
@@ -375,11 +395,28 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
       เฉพาะงานของฉัน{myCodes.length > 3 ? ` · ${myCodes.length} บริษัท` : myCodes.length ? ` · ${myCodes.join(", ")}` : ""}
     </Button> : null;
   const typeCounts = new Map<string, number>();
-  for (const item of data?.items ?? []) typeCounts.set(item.icon, (typeCounts.get(item.icon) ?? 0) + 1);
+  for (const item of mapItems) typeCounts.set(item.icon, (typeCounts.get(item.icon) ?? 0) + 1);
   const typeControl = <TypeFilter types={itemTypes} selected={types} counts={typeCounts} onChange={(next) => guard(() => { openItem(null); setTypes(next); })} />;
   const searchControl = <TextField size="small" placeholder="ค้นหางาน / หมายเหตุ" value={search} onChange={(e) => setSearch(e.target.value)} sx={{ width: { xs: "100%", sm: 220 } }}
     slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchOutlined fontSize="small" /></InputAdornment> } }} />;
-  const filterControls = <>{dateControl}{contractorControl}</>;
+  // Switch the working-area map (only when the project has more than one).
+  const goToMap = (id: string) => guard(() => {
+    updateWorking(null); setSelectedId(null); setPlacing(null); setTool("move"); setHighlightSectionId(null);
+    const next = new URLSearchParams(params);
+    if (id === data?.map.id) next.delete("mapId"); else next.set("mapId", id);
+    setParams(next);
+  });
+  const mapControl = data && maps.length > 1 ? <TextField select size="small" label="Area" value={activeMap?.id ?? ""} onChange={(e) => goToMap(e.target.value)} disabled={busy}
+      sx={{ width: { xs: "100%", sm: 240 }, flex: "none" }}
+      slotProps={{ select: { renderValue: (id) => maps.find((m) => m.id === id)?.name ?? "" } }}>
+    {maps.map((m) => <MenuItem key={m.id} value={m.id}>
+      <Stack sx={{ minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>{m.name}</Typography>
+        <Typography variant="caption" color="text.secondary">{m.nameTh} · {data.items.filter((item) => item.mapId === m.id).length} งาน</Typography>
+      </Stack>
+    </MenuItem>)}
+  </TextField> : null;
+  const filterControls = <>{dateControl}{mapControl}{contractorControl}</>;
   const inspector = selected ? <CoordinationInspector
     item={selected}
     draft={draft}
@@ -388,6 +425,7 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     itemTypes={itemTypes}
     drawing={tool === "polygon" || tool === "route"}
     clashWith={clashCodes(selected.id)}
+    sections={data?.sections.filter((s) => s.mapId === selected.mapId) ?? []}
     onDrawRoute={drawRoute}
     areaDirty={areaDirty}
     geometryError={geometryError}
@@ -415,6 +453,18 @@ export function useCoordinationWorkspace({ readOnly = false, compact = false, ro
     params,
     setParams,
     date,
+    maps,
+    activeMap,
+    isMainMap,
+    mapItems,
+    activeSections,
+    highlightSectionId,
+    setHighlightSectionId,
+    isEps,
+    sectionJobCounts,
+    sectionWork,
+    mapControl,
+    goToMap,
     canExport,
     reportHref,
     contractorIds,

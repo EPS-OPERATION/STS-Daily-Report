@@ -60,6 +60,7 @@ export function RoadMapStage({
   onTapMap,
   onTapLine,
   onMovePoint,
+  onInsertPoint,
   onDragLine,
   snapPreview,
   focus,
@@ -83,6 +84,8 @@ export function RoadMapStage({
   onTapMap?: (p: CoordinationPoint) => void;
   onTapLine?: (id: string) => void;
   onMovePoint?: (index: number, p: CoordinationPoint) => void;
+  /** Tap a dot between two points to insert a new point there (index = the point it follows). */
+  onInsertPoint?: (index: number, p: CoordinationPoint) => void;
   /** The selected line can be dragged whole: `move` gets the offset (0..1 map units) since the drag began. */
   onDragLine?: (phase: "start" | "move" | "end", delta: CoordinationPoint) => void;
   /** While drawing (mouse): where a tap here would land (e.g. snapped onto another road). */
@@ -267,7 +270,7 @@ export function RoadMapStage({
           })}
           {draft && draft.length > 0 && <>
             {draftLine && <Line points={draft.flatMap(px)} stroke={theme.palette.primary.main} strokeWidth={7 / scale} lineCap="round" lineJoin="round" dash={[12 / scale, 8 / scale]} listening={false} />}
-            {draft.map((p, i) => <Circle key={i} x={p.x * map.width} y={p.y * map.height} radius={6 / scale} fill={paper} stroke={theme.palette.primary.main} strokeWidth={2 / scale} listening={false} />)}
+            {draft.map((p, i) => <Circle key={i} x={p.x * map.width} y={p.y * map.height} radius={8 / scale} fill={paper} stroke={theme.palette.primary.main} strokeWidth={2.5 / scale} listening={false} />)}
           </>}
           {/* Drawing preview (mouse): a thin line to the pointer; the ring turns green when it would snap. */}
           {hover && draft && <>
@@ -277,20 +280,44 @@ export function RoadMapStage({
           </>}
           {dots?.map((d) => (
             <Fragment key={d.id}>
-              <Circle id={d.id} name="map-dot" x={d.point.x * map.width} y={d.point.y * map.height} radius={(d.active ? 9 : 8) / scale}
-                fill={d.active ? theme.palette.success.main : paper} stroke={d.active ? paper : theme.palette.success.main} strokeWidth={(d.active ? 3 : 2.5) / scale}
-                opacity={d.active ? 1 : 0.85} hitStrokeWidth={22 / scale} shadowColor="#000" shadowOpacity={d.active ? 0.25 : 0} shadowBlur={4 / scale} />
+              <Circle id={d.id} name="map-dot" x={d.point.x * map.width} y={d.point.y * map.height} radius={(d.active ? 16 : 14) / scale}
+                fill={d.active ? theme.palette.primary.dark : paper} stroke={d.active ? paper : theme.palette.primary.main} strokeWidth={(d.active ? 3.5 : 2.5) / scale}
+                opacity={d.active ? 1 : 0.85} hitStrokeWidth={44 / scale} shadowColor="#000" shadowOpacity={d.active ? 0.3 : 0} shadowBlur={5 / scale}
+                  onMouseEnter={onTapDot ? (e) => { const c = e.target.getStage()?.container(); if (c) c.style.cursor = "pointer"; } : undefined}
+                  onMouseLeave={onTapDot ? (e) => { const c = e.target.getStage()?.container(); if (c) c.style.cursor = ""; } : undefined} />
               {d.active && d.label ? (
-                <Text x={d.point.x * map.width + 12 / scale} y={d.point.y * map.height - 22 / scale} text={d.label} fontSize={12 / scale} fontStyle="700"
-                  fontFamily="Inter, Sarabun, sans-serif" fill={theme.palette.success.dark} stroke={paper} strokeWidth={3 / scale} fillAfterStrokeEnabled listening={false} />
+                <Text x={d.point.x * map.width + 20 / scale} y={d.point.y * map.height - 29 / scale} text={d.label} fontSize={18 / scale} fontStyle="700"
+                  fontFamily="Inter, Sarabun, sans-serif" fill={theme.palette.primary.dark} stroke={paper} strokeWidth={4 / scale} fillAfterStrokeEnabled listening={false} />
               ) : null}
             </Fragment>
           ))}
           {editPoints && onMovePoint && editPoints.map((p, i) => (
-            <Circle key={i} x={p.x * map.width} y={p.y * map.height} radius={8 / scale} fill={paper} stroke={theme.palette.primary.main} strokeWidth={2.5 / scale} draggable hitStrokeWidth={14 / scale}
+            <Circle key={i} x={p.x * map.width} y={p.y * map.height} radius={12 / scale} fill={paper} stroke={theme.palette.primary.main} strokeWidth={3 / scale}
+              draggable hitStrokeWidth={44 / scale} shadowColor="#000" shadowOpacity={0.2} shadowBlur={3 / scale} perfectDrawEnabled={false}
+              onMouseEnter={(e) => { const c = e.target.getStage()?.container(); if (c) c.style.cursor = "grab"; }}
+              onMouseLeave={(e) => { const c = e.target.getStage()?.container(); if (c) c.style.cursor = ""; }}
+              onDragStart={(e) => { e.cancelBubble = true; moved.current = true; const c = e.target.getStage()?.container(); if (c) c.style.cursor = "grabbing"; }}
+              onDragEnd={(e) => { e.cancelBubble = true; window.setTimeout(() => { moved.current = false; }, 0); const c = e.target.getStage()?.container(); if (c) c.style.cursor = "grab"; }}
               onDragMove={(e) => onMovePoint(i, { x: clamp(e.target.x() / map.width), y: clamp(e.target.y() / map.height) })}
               onClick={(e) => { e.cancelBubble = true; }} onTap={(e) => { e.cancelBubble = true; }} />
           ))}
+          {/* Dot between two points: tap it to add a point there, then drag the point to fine-tune. */}
+          {editPoints && onInsertPoint && editPoints.slice(1).map((p, i) => {
+            const a = editPoints[i]!;
+            const mid = { x: (a.x + p.x) / 2, y: (a.y + p.y) / 2 };
+            return (
+              <Fragment key={`insert-${i}`}>
+                <Circle x={mid.x * map.width} y={mid.y * map.height} radius={8 / scale} fill={paper} stroke={theme.palette.primary.main} strokeWidth={2 / scale}
+                  opacity={0.9} hitStrokeWidth={40 / scale}
+                  onMouseEnter={(e) => { const c = e.target.getStage()?.container(); if (c) c.style.cursor = "pointer"; }}
+                  onMouseLeave={(e) => { const c = e.target.getStage()?.container(); if (c) c.style.cursor = ""; }}
+                  onClick={(e) => { e.cancelBubble = true; onInsertPoint(i, mid); }}
+                  onTap={(e) => { e.cancelBubble = true; onInsertPoint(i, mid); }} />
+                <Text x={mid.x * map.width} y={mid.y * map.height} text="+" fontSize={11 / scale} fontStyle="700" fill={theme.palette.primary.main}
+                  width={16 / scale} offsetX={8 / scale} offsetY={5.5 / scale} align="center" listening={false} />
+              </Fragment>
+            );
+          })}
         </Layer>
       </Stage>
       {children}

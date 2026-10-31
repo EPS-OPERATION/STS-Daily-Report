@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CoordinationInput, CoordinationItemType, RoadSegment } from "@sts/shared";
+import type { CoordinationInput, CoordinationItemType, CoordinationSection, RoadSegment } from "@sts/shared";
 import type { CreateItemTypeInput, UpdateItemTypeInput } from "../types/item-type.types.js";
-import { coordinationApi } from "../api/coordination.api.js";
+import { coordinationApi, type SectionInput } from "../api/coordination.api.js";
 export const coordinationKeys = {
   all: ["coordination"] as const,
   project: (projectId: string) => ["coordination", projectId] as const,
   day: (projectId: string, date: string) => ["coordination", projectId, date] as const,
-  report: (projectId: string, date: string) => ["coordination", "report", projectId, date] as const,
+  report: (projectId: string, date: string, mapId?: string) => ["coordination", "report", projectId, date, mapId ?? ""] as const,
+  maps: (projectId: string) => ["coordination", "maps", projectId] as const,
   roads: (projectId: string) => ["coordination", "roads", projectId] as const,
   itemTypes: (projectId: string) => ["coordination", "item-types", projectId] as const,
 };
@@ -140,7 +141,55 @@ export function useDayLock(projectId: string | null, date: string) {
   const client = useQueryClient();
   return useMutation({ mutationFn: (locked: boolean) => coordinationApi.lock(projectId!, date, locked), onSuccess: () => client.invalidateQueries({ queryKey: coordinationKeys.day(projectId!, date) }) });
 }
+// What contractors reported on the area's route sections (from the daily report forms). Not part of the 20 s map
+// polling: it follows the reports, which change a few times a day — refreshed on focus and every few minutes.
+export function useSectionWork(projectId: string | null, date: string, mapId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: [...coordinationKeys.day(projectId ?? "", date), "section-work", mapId ?? ""],
+    queryFn: () => coordinationApi.sectionWork(projectId!, date, mapId!),
+    enabled: Boolean(projectId && mapId) && enabled,
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+    select: (res) => res.data,
+  });
+}
 // Printable day report (EPS): fetched once per print tab, no polling and no retry on 403.
-export function useCoordinationReport(projectId: string | null, date: string) {
-  return useQuery({ queryKey: coordinationKeys.report(projectId ?? "", date), queryFn: () => coordinationApi.report(projectId!, date), enabled: Boolean(projectId), retry: false, refetchOnWindowFocus: false });
+export function useCoordinationReport(projectId: string | null, date: string, mapId?: string) {
+  return useQuery({ queryKey: coordinationKeys.report(projectId ?? "", date, mapId), queryFn: () => coordinationApi.report(projectId!, date, mapId), enabled: Boolean(projectId), retry: false, refetchOnWindowFocus: false });
+}
+
+// ---- working-area maps (EPS admin) and route sections (EPS staff) ----
+export function useMapsAdmin(projectId: string | null) {
+  return useQuery({ queryKey: coordinationKeys.maps(projectId ?? ""), queryFn: () => coordinationApi.maps(projectId!), enabled: Boolean(projectId), select: (res) => res.data });
+}
+// Every map/section change reaches the Map page's day payload (areas dropdown, route layer) as well as the admin list.
+function useMapMutation<T, R = unknown>(projectId: string | null, mutationFn: (value: T) => Promise<R>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: coordinationKeys.maps(projectId ?? "") }),
+      client.invalidateQueries({ queryKey: coordinationKeys.project(projectId ?? "") }),
+    ]),
+  });
+}
+export function useCreateMap(projectId: string | null) {
+  return useMapMutation<FormData>(projectId, (form) => coordinationApi.createMap(projectId!, form));
+}
+export function useUpdateMap(projectId: string | null) {
+  return useMapMutation<{ id: string; form: FormData }>(projectId, ({ id, form }) => coordinationApi.updateMap(projectId!, id, form));
+}
+export function useReorderMaps(projectId: string | null) {
+  return useMapMutation<string[]>(projectId, (ids) => coordinationApi.reorderMaps(projectId!, ids));
+}
+export function useDeleteMap(projectId: string | null) {
+  return useMapMutation<string>(projectId, (id) => coordinationApi.removeMap(projectId!, id));
+}
+export function useSaveSection(projectId: string | null) {
+  return useMapMutation<{ input: SectionInput & { mapId: string }; id?: string }, { data: CoordinationSection }>(projectId, ({ input, id }) => id
+    ? coordinationApi.updateSection(projectId!, id, { code: input.code, work: input.work, color: input.color, points: input.points })
+    : coordinationApi.createSection(projectId!, input));
+}
+export function useDeleteSection(projectId: string | null) {
+  return useMapMutation<string>(projectId, (id) => coordinationApi.removeSection(projectId!, id));
 }
