@@ -148,3 +148,35 @@ export interface UpdatePermitPayload {
   taskName?: string | null;
   supervisorName?: string | null;
 }
+
+/** A machine type a contractor reported on site in the morning report (no area is collected for these). */
+export interface OnSiteMachine {
+  reportDate: string;
+  contractorCode: string;
+  contractorName: string;
+  equipmentType: string;
+  qty: number;
+}
+
+/** A machine booked in the afternoon Daily Request for `targetDate`, with the building it is needed in. */
+export interface MachineBooking {
+  id: string;
+  targetDate: string;
+  machineType: string;
+  unitTag: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  purpose: string | null;
+  contractorCode: string;
+  contractorName: string;
+  buildingCode: string;
+  buildingName: string;
+  buildingNameTh: string | null;
+}
+
+export interface MachineSummary {
+  from: string;
+  to: string;
+  onSite: OnSiteMachine[];
+  bookings: MachineBooking[];
+}
