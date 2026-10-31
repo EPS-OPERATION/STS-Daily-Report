@@ -1,3 +1,4 @@
+import { fromLocationValue } from "../utils/location.js";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { DISCIPLINE_CODES, SITE_EQUIPMENT_TYPES, type Discipline, type PermitType, type PositionCode, weatherCodeLabel, weatherConditionOf } from "@sts/shared";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -234,7 +235,7 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
               foreignMale: c.foreignMale,
               foreignFemale: c.foreignFemale,
               allocations: c.allocations.filter((a) => !isBlankActivity(a)).map((a) => ({
-                buildingId: a.buildingId,
+                ...fromLocationValue(a.buildingId),
                 headcount: a.headcount,
                 workDescription: a.workDescription.trim(),
                 ...(a.timed ? { startTime: a.startTime, endTime: a.endTime } : {}),

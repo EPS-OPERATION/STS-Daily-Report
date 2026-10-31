@@ -45,7 +45,9 @@ export function scanContent(image: HTMLImageElement) {
   const context = canvas.getContext("2d");
   if (!context) return null;
   context.drawImage(image, 0, 0, w, h);
-  const data = context.getImageData(0, 0, w, h).data;
+  // A picture from another origin without CORS headers taints the canvas: then the whole picture is the content.
+  let data: Uint8ClampedArray;
+  try { data = context.getImageData(0, 0, w, h).data; } catch { return null; }
   let minX = w, minY = h, maxX = -1, maxY = -1;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {

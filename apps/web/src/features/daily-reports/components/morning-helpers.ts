@@ -1,3 +1,4 @@
+import { toLocationValue } from "../utils/location.js";
 import { DISCIPLINES, DISCIPLINE_CODES, SITE_EQUIPMENT_TYPES, type Discipline, type WeatherCondition } from "@sts/shared";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
 import { type ComponentType } from "react";
@@ -53,7 +54,7 @@ export function crewDefaults(report: DailyReport | null, d: Discipline, copied =
     allocations: (report?.allocations ?? [])
       .filter((a) => a.discipline === d)
       .map((a) => ({
-        buildingId: a.buildingId,
+        buildingId: toLocationValue(a),
         headcount: a.headcount,
         workDescription: a.workDescription,
         // A copy keeps who works where; times and plan % are set again for today.

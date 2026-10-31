@@ -3,6 +3,7 @@ import type { AuthContext } from "@/auth/auth.types.js";
 import { getEnv } from "@/config/env.js";
 import { getDb } from "@/db/client.js";
 import { listBuildings } from "@/modules/buildings/building.repository.js";
+import { listSections } from "@/modules/site-coordination/coordination-section.repository.js";
 import { assertProject } from "@/modules/projects/project.guard.js";
 import { isContractorInProject } from "@/modules/site-activities/site-activity.repository.js";
 import { listRoadSegments } from "@/modules/site-coordination/coordination.repository.js";
@@ -11,6 +12,7 @@ import { saveEvening, saveMorning } from "./daily-report-save.repository.js";
 import { assertContractorAccess, reportDetail } from "./daily-report.detail.js";
 import { getReportByKey, listAllocations } from "./daily-report.repository.js";
 import type { CrewInput, EquipmentRequestInput, EveningInput, MachineryInput, MorningInput, PermitInput, RoadUsageInput } from "./daily-report.type.js";
+import type { ReportLocation } from "./daily-report.type.js";
 
 // A sent shift can be edited until 12:00 site time the next day; trial mode lifts the limit.
 // First-time (late) submissions are not affected — only changes to what was already sent.
@@ -84,6 +86,7 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
   }
 
   const buildingIds = new Set((await listBuildings(db, projectId)).map((b) => b.id));
+  const checkLocation = await locationChecker(db, projectId, buildingIds);
   if (input.permits) {
     for (const p of input.permits) {
       if (!buildingIds.has(p.buildingId)) throw new ValidationError("Unknown building", { buildingId: p.buildingId });
@@ -97,7 +100,7 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
     // Position headcount is the primary total; the nationality/sex split must describe the same people.
     const total = validateCrew(crew);
     for (const a of crew.allocations) {
-      if (!buildingIds.has(a.buildingId)) throw new ValidationError("Unknown building", { buildingId: a.buildingId });
+      checkLocation(a);
       if (Boolean(a.startTime) !== Boolean(a.endTime)) {
         throw new ValidationError("Give both start and end time for an activity, or neither (= all day)", { buildingId: a.buildingId });
       }
@@ -108,7 +111,7 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
     // The same building may repeat in a discipline only for windows that do not overlap.
     crew.allocations.forEach((a, i) => {
       for (const b of crew.allocations.slice(i + 1)) {
-        if (a.buildingId !== b.buildingId) continue;
+        if (locationKey(a) !== locationKey(b)) continue;
         const overlap = timeWindowsOverlap(
           a.startTime ?? input.startTime,
           a.endTime ?? input.endTime,
@@ -141,6 +144,17 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
   return reportDetail(reportId);
 }
 
+// A row's place: a building or a route section (Map area stretch such as 33 kV A-B), never both or neither.
+const locationKey = (row: ReportLocation) => (row.sectionId ? `s:${row.sectionId}` : `b:${row.buildingId ?? ""}`);
+async function locationChecker(db: ReturnType<typeof getDb>, projectId: string, buildingIds: Set<string>) {
+  const sectionIds = new Set((await listSections(db, projectId)).map((s) => s.id));
+  return (row: ReportLocation) => {
+    if (Boolean(row.buildingId) === Boolean(row.sectionId)) throw new ValidationError("Choose a building or a route section for each row");
+    if (row.buildingId && !buildingIds.has(row.buildingId)) throw new ValidationError("Unknown building", { buildingId: row.buildingId });
+    if (row.sectionId && !sectionIds.has(row.sectionId)) throw new ValidationError("Unknown route section", { sectionId: row.sectionId });
+  };
+}
+
 // ---- evening ---------------------------------------------------------------
 
 function validateTomorrow(
@@ -149,13 +163,15 @@ function validateTomorrow(
   equipment: EquipmentRequestInput[],
   permits: PermitInput[] = [],
   roads: RoadUsageInput[],
-  forecasts: { buildingId: string; description: string }[],
+  forecasts: (ReportLocation & { description: string })[],
+  checkLocation: (row: ReportLocation) => void,
 ) {
   if (forecasts.length === 0) throw new ValidationError("เพิ่มแผนงานพรุ่งนี้อย่างน้อย 1 รายการ");
   for (const f of forecasts) {
     if (!f.description.trim()) throw new ValidationError("Describe each forecast activity");
+    checkLocation(f);
   }
-  for (const b of [...machinery, ...equipment, ...permits, ...forecasts]) {
+  for (const b of [...machinery, ...equipment, ...permits]) {
     if (!buildingIds.has(b.buildingId)) throw new ValidationError("Unknown building", { buildingId: b.buildingId });
   }
   for (const r of roads) {
@@ -212,6 +228,8 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
     validateCrew(crew);
   }
   const buildingIds = new Set((await listBuildings(db, projectId)).map((b) => b.id));
+  const checkLocation = await locationChecker(db, projectId, buildingIds);
+  for (const a of input.additionalAllocations ?? []) checkLocation(a);
   // OT rows: a known building, a task, and never more people on one row than worked the afternoon.
   const afternoonCrew = input.crews.reduce((s, c) => s + c.thaiMale + c.thaiFemale + c.foreignMale + c.foreignFemale, 0);
   for (const o of input.overtime ?? []) {
@@ -226,6 +244,7 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
     input.permits ?? [],
     input.roadUsage,
     input.forecasts ?? [],
+    checkLocation,
   );
   // Road routes: picked segments must be in this project's register; any line must be a valid route.
   if (input.roadUsage.some((r) => r.segmentIds?.length || r.route)) {

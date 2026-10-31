@@ -1,15 +1,44 @@
-import type { CoordinationData, CoordinationDayLock, CoordinationDayNote, CoordinationInput, CoordinationItem, CoordinationItemType, CoordinationReport, RoadSegment } from "@sts/shared";
+import type { CoordinationData, CoordinationDayLock, CoordinationDayNote, CoordinationInput, CoordinationItem, CoordinationItemType, CoordinationMap, CoordinationMapAdmin, CoordinationReport, CoordinationSection, CoordinationSectionWork, RoadSegment } from "@sts/shared";
 import type { CreateItemTypeInput, UpdateItemTypeInput } from "../types/item-type.types.js";
-import { http } from "@/services/http/client.js";
+import { http, request } from "@/services/http/client.js";
+export type SectionInput = Pick<CoordinationSection, "code" | "work" | "color" | "points">;
 export const coordinationApi = {
+  maps(projectId: string): Promise<{ data: CoordinationMapAdmin[] }> {
+    return http.get(`/projects/${projectId}/coordination/maps`);
+  },
+  createMap(projectId: string, form: FormData): Promise<{ data: CoordinationMap }> {
+    return http.upload(`/projects/${projectId}/coordination/maps`, form);
+  },
+  updateMap(projectId: string, id: string, form: FormData): Promise<{ data: CoordinationMap }> {
+    return request(`/projects/${projectId}/coordination/maps/${id}`, { method: "PATCH", body: form });
+  },
+  reorderMaps(projectId: string, ids: string[]): Promise<void> {
+    return http.put(`/projects/${projectId}/coordination/maps/order`, { ids });
+  },
+  removeMap(projectId: string, id: string): Promise<void> {
+    return http.delete(`/projects/${projectId}/coordination/maps/${id}`);
+  },
+  createSection(projectId: string, input: SectionInput & { mapId: string }): Promise<{ data: CoordinationSection }> {
+    return http.post(`/projects/${projectId}/coordination/sections`, input);
+  },
+  updateSection(projectId: string, id: string, input: SectionInput): Promise<{ data: CoordinationSection }> {
+    return http.patch(`/projects/${projectId}/coordination/sections/${id}`, input);
+  },
+  removeSection(projectId: string, id: string): Promise<void> {
+    return http.delete(`/projects/${projectId}/coordination/sections/${id}`);
+  },
   get(projectId: string, date: string): Promise<{ data: CoordinationData }> {
     return http.get(`/projects/${projectId}/coordination?${new URLSearchParams({ date })}`);
   },
   version(projectId: string, date: string): Promise<{ data: { version: string } }> {
     return http.get(`/projects/${projectId}/coordination/version?${new URLSearchParams({ date })}`);
   },
-  report(projectId: string, date: string): Promise<{ data: CoordinationReport }> {
-    return http.get(`/projects/${projectId}/coordination/report?${new URLSearchParams({ date })}`);
+  // Daily-report rows contractors placed on this map's route sections (read-only card on the Map).
+  sectionWork(projectId: string, date: string, mapId: string): Promise<{ data: CoordinationSectionWork }> {
+    return http.get(`/projects/${projectId}/coordination/section-work?${new URLSearchParams({ date, mapId })}`);
+  },
+  report(projectId: string, date: string, mapId?: string): Promise<{ data: CoordinationReport }> {
+    return http.get(`/projects/${projectId}/coordination/report?${new URLSearchParams({ date, ...(mapId ? { mapId } : {}) })}`);
   },
   create(projectId: string, input: CoordinationInput): Promise<{ data: CoordinationItem }> {
     return http.post(`/projects/${projectId}/coordination/items`, input);

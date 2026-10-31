@@ -78,6 +78,7 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
         await tx
           .select({
             buildingId: dailyReportAllocations.buildingId,
+            sectionId: dailyReportAllocations.sectionId,
             discipline: dailyReportAllocations.discipline,
             startTime: dailyReportAllocations.startTime,
             endTime: dailyReportAllocations.endTime,
@@ -86,7 +87,7 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
           })
           .from(dailyReportAllocations)
           .where(eq(dailyReportAllocations.reportId, reportId))
-      ).map((a) => [`${a.discipline}|${a.buildingId}|${a.startTime ?? ""}|${a.endTime ?? ""}`, a]),
+      ).map((a) => [`${a.discipline}|${a.buildingId ?? ""}|${a.sectionId ?? ""}|${a.startTime ?? ""}|${a.endTime ?? ""}`, a]),
     );
     await tx
       .delete(dailyReportAllocations)
@@ -157,11 +158,12 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
     const allocationRows = input.crews.flatMap((c) => {
       const shares = allocationDayShares(c.allocations, input.startTime, input.endTime);
       return c.allocations.map((a, i) => {
-        const key = `${c.discipline}|${a.buildingId}|${a.startTime ?? ""}|${a.endTime ?? ""}`;
+        const key = `${c.discipline}|${a.buildingId ?? ""}|${a.sectionId ?? ""}|${a.startTime ?? ""}|${a.endTime ?? ""}`;
         return {
           reportId,
           discipline: c.discipline,
-          buildingId: a.buildingId,
+          buildingId: a.buildingId ?? null,
+          sectionId: a.sectionId ?? null,
           headcount: a.headcount,
           workDescription: a.workDescription.trim(),
           startTime: a.startTime ?? null,
@@ -246,7 +248,8 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
       await tx.insert(dailyReportAllocations).values(
         input.additionalAllocations.map((a, i) => ({
           reportId,
-          buildingId: a.buildingId,
+          buildingId: a.buildingId ?? null,
+          sectionId: a.sectionId ?? null,
           discipline: a.discipline,
           headcount: a.headcount,
           workDescription: a.workDescription.trim(),
@@ -338,7 +341,8 @@ export async function saveEvening(db: Db, projectId: string, input: EveningInput
         forecasts.map((f, i) => ({
           reportId,
           targetDate: tomorrow,
-          buildingId: f.buildingId,
+          buildingId: f.buildingId ?? null,
+          sectionId: f.sectionId ?? null,
           description: f.description.trim(),
           sortOrder: i,
         })),

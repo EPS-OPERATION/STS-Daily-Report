@@ -1,11 +1,19 @@
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { CoordinationInput, CoordinationPoint } from "@sts/shared";
 import type { QueryDb } from "@/db/client.js";
-import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItemTypes, coordinationItems, coordinationMaps, coordinationRoadSegments, projectContractors, users } from "@/db/schema/index.js";
+import { contractors, coordinationColors, coordinationDayLocks, coordinationDayNotes, coordinationItemTypes, coordinationItems, coordinationMaps, coordinationRoadSegments, coordinationSections, projectContractors, users } from "@/db/schema/index.js";
 
+// The project's main map: the first by order. It is the default area and the one the road register is drawn on.
 export async function getMap(db: QueryDb, projectId: string, lock = false) {
-  const query = db.select().from(coordinationMaps).where(eq(coordinationMaps.projectId, projectId)).limit(1);
+  const query = db.select().from(coordinationMaps).where(eq(coordinationMaps.projectId, projectId)).orderBy(asc(coordinationMaps.sortOrder), asc(coordinationMaps.createdAt), asc(coordinationMaps.id)).limit(1);
   const rows = await (lock ? query.for("update") : query);
+  return rows[0] ?? null;
+}
+export function listMaps(db: QueryDb, projectId: string) {
+  return db.select().from(coordinationMaps).where(eq(coordinationMaps.projectId, projectId)).orderBy(asc(coordinationMaps.sortOrder), asc(coordinationMaps.createdAt), asc(coordinationMaps.id));
+}
+export async function getMapById(db: QueryDb, projectId: string, id: string) {
+  const rows = await db.select().from(coordinationMaps).where(and(eq(coordinationMaps.projectId, projectId), eq(coordinationMaps.id, id))).limit(1);
   return rows[0] ?? null;
 }
 export async function listCoordinationContractors(db: QueryDb, projectId: string) {
@@ -39,11 +47,13 @@ export async function getItem(db: QueryDb, projectId: string, id: string) {
   return rows[0] ?? null;
 }
 export async function insertItem(db: QueryDb, projectId: string, mapId: string, input: CoordinationInput, userId: string) {
-  const [row] = await db.insert(coordinationItems).values({ projectId, mapId, ...input, createdBy: userId, updatedBy: userId }).returning();
+  const [row] = await db.insert(coordinationItems).values({ projectId, ...input, mapId, createdBy: userId, updatedBy: userId }).returning();
   return row!;
 }
 export async function updateItem(db: QueryDb, projectId: string, id: string, input: CoordinationInput, revision: number, userId: string) {
-  const rows = await db.update(coordinationItems).set({ ...input, revision: sql`${coordinationItems.revision} + 1`, updatedBy: userId, updatedAt: sql`now()` })
+  // A job never changes map: mapId in the input is only used when creating.
+  const { mapId: _mapId, ...fields } = input;
+  const rows = await db.update(coordinationItems).set({ ...fields, revision: sql`${coordinationItems.revision} + 1`, updatedBy: userId, updatedAt: sql`now()` })
     .where(and(eq(coordinationItems.projectId, projectId), eq(coordinationItems.id, id), eq(coordinationItems.revision, revision))).returning();
   return rows[0] ?? null;
 }
@@ -131,6 +141,10 @@ export async function coordinationVersion(db: QueryDb, projectId: string, date: 
          from ${coordinationColors} where ${coordinationColors.projectId} = ${projectId}),
       (select count(*) || ':' || coalesce(max(${coordinationRoadSegments.updatedAt})::text, '')
          from ${coordinationRoadSegments} where ${coordinationRoadSegments.projectId} = ${projectId}),
+      (select count(*) || ':' || coalesce(string_agg(${coordinationMaps.id}::text || ${coordinationMaps.name} || ${coordinationMaps.nameTh} || ${coordinationMaps.sortOrder} || ${coordinationMaps.imagePath}, ',' order by ${coordinationMaps.id}), '')
+         from ${coordinationMaps} where ${coordinationMaps.projectId} = ${projectId}),
+      (select count(*) || ':' || coalesce(max(${coordinationSections.updatedAt})::text, '')
+         from ${coordinationSections} where ${coordinationSections.projectId} = ${projectId}),
       (select count(*) || ':' || coalesce(max(${coordinationItemTypes.updatedAt})::text, '')
          from ${coordinationItemTypes} where ${coordinationItemTypes.projectId} = ${projectId}),
       (select count(*) || ':' || coalesce(max(${contractors.updatedAt})::text, '')

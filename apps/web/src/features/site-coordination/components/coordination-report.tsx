@@ -72,10 +72,13 @@ export function CoordinationReportDocument({ report, snapshot, onSnapshot }: { r
   const day = formatThaiDate(report.date);
 
   const map = snapshot === null ? (
-    <CoordinationCanvas map={report.map} contractors={report.contractors} items={report.items} itemTypes={report.itemTypes ?? []}
+    <CoordinationCanvas map={report.map} contractors={report.contractors} items={report.items} itemTypes={report.itemTypes ?? []} sections={report.sections ?? []}
       selectedId={null} draft={null} tool="move"
       readOnly fixedHeight={MAP_HEIGHT} onSelect={noop} onChange={noop} onFinish={noop} onDeselect={noop} textEditing={false} onEditText={noop}
-      onReady={(stage) => onSnapshot(stage ? stage.toDataURL({ pixelRatio: SNAPSHOT_RATIO, mimeType: "image/png" }) : "")} />
+      onReady={(stage) => {
+        // A storage picture served without CORS cannot be exported: the job list still prints.
+        try { onSnapshot(stage ? stage.toDataURL({ pixelRatio: SNAPSHOT_RATIO, mimeType: "image/png" }) : ""); } catch { onSnapshot(""); }
+      }} />
   ) : snapshot ? (
     <img src={snapshot} alt="แผนผังงานรายวัน" />
   ) : (
