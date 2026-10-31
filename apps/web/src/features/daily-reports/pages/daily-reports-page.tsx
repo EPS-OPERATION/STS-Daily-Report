@@ -135,6 +135,21 @@ export function DailyReportsPage() {
                     onClick={() => setFilter(value)}
                   />
                 ))}
+                <Box sx={{ flexGrow: 1 }} />
+                {/* Combined R003 export: every sent report in the rows below, one print dialog. */}
+                <Button
+                  variant="outlined"
+                  startIcon={<PictureAsPdfOutlinedIcon />}
+                  disabled={rows.length === 0}
+                  onClick={() => {
+                    const p = new URLSearchParams({ from, to, filter, contractor, q: search });
+                    if (projectId) p.set("projectId", projectId);
+                    if (selectedCodes.size !== allCodes.length) p.set("contractors", [...selectedCodes].sort().join(","));
+                    window.open(`/daily-reports/print?${p.toString()}`, "_blank", "noopener");
+                  }}
+                >
+                  Export PDF (รวมทุกรายงาน)
+                </Button>
               </Stack>
 
               <Card variant="outlined">

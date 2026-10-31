@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { ALL_CONTRACTORS, filterSubmissions, isSubmissionFilter } from "../utils/submission.js";
 import { todayIso } from "@/lib/dates.js";
 import { usePrintReport, usePrintReports, useReviewQueue } from "../hooks/use-daily-report-queries.js";
 import { useCurrentProject } from "@/features/projects/index.js";
+import { ContractorMapPages } from "@/features/site-coordination/index.js";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -22,9 +23,11 @@ export function DailyReportPrintPage() {
   const query = usePrintReport(reportId ?? null);
   const printed = useRef(false);
   const r = query.data?.data;
+  // The map page is drawn after the report data: print only once it is ready (or left out).
+  const [mapsReady, setMapsReady] = useState(false);
 
   useEffect(() => {
-    if (!r || printed.current) return;
+    if (!r || !mapsReady || printed.current) return;
     document.title = `Daily report ${r.contractorCode} ${r.reportDate}`;
     const imgs = Array.from(document.images);
     Promise.all(
@@ -33,7 +36,7 @@ export function DailyReportPrintPage() {
       printed.current = true;
       setTimeout(() => window.print(), 300);
     });
-  }, [r]);
+  }, [r, mapsReady]);
 
   if (query.isError) {
     return (
@@ -63,12 +66,16 @@ export function DailyReportPrintPage() {
       </Stack>
 
       <ReportSheet r={r} />
+      <ContractorMapPages projectId={r.projectId} contractorId={r.contractorId} date={r.reportDate} onReady={() => setMapsReady(true)} />
     </Box>
   );
 }
 
+// JPEG at 2×: many map pictures in one print stay light on memory, still sharp on A4.
+const BATCH_CAPTURE = { ratio: 2, mimeType: "image/jpeg", quality: 0.85 } as const;
+
 // Combined R003 export: every sent report among the Submission History rows (same range + filter
-// chip + contractor + search as the table), two A4 pages each, one print dialog.
+// chip + contractor + search as the table): each report with its contractor map page, one print dialog.
 export function DailyReportsBatchPrintPage() {
   const [params] = useSearchParams();
   const rawFrom = ISO_DATE.test(params.get("from") ?? "") ? params.get("from")! : todayIso();
@@ -82,22 +89,30 @@ export function DailyReportsBatchPrintPage() {
   const current = useCurrentProject();
   const projectId = params.get("projectId") || current.projectId;
 
+  // Contractor codes picked in the page's contractor filter (absent = all of them).
+  const codesParam = params.get("contractors");
+
   const history = useReviewQueue(projectId, { from, to });
-  const ids = useMemo(
-    () =>
-      filterSubmissions(history.data?.data ?? [], { filter, contractor, search })
-        .map((r) => r.id)
-        .filter((id): id is string => Boolean(id)),
-    [history.data, filter, contractor, search],
-  );
+  const ids = useMemo(() => {
+    const codes = codesParam === null ? null : new Set(codesParam.split(",").filter(Boolean));
+    const queue = (history.data?.data ?? []).filter((r) => !codes || codes.has(r.contractorCode));
+    return filterSubmissions(queue, { filter, contractor, search })
+      .map((r) => r.id)
+      .filter((id): id is string => Boolean(id));
+  }, [history.data, filter, contractor, search, codesParam]);
   const reports = usePrintReports(ids);
   const done = reports.filter((q) => q.data).length;
   const failed = reports.filter((q) => q.isError).length;
   const ready = Boolean(history.data) && done + failed === ids.length;
   const printed = useRef(false);
+  // Map pages are drawn one report at a time (one live map canvas, then a picture), in report order.
+  const [mapsDone, setMapsDone] = useState<ReadonlySet<string>>(() => new Set());
+  const loadedIds = reports.flatMap((q) => (q.data ? [q.data.data.id] : []));
+  const drawingId = loadedIds.find((id) => !mapsDone.has(id)) ?? null;
+  const mapsReady = ready && drawingId === null;
 
   useEffect(() => {
-    if (!ready || printed.current || ids.length === 0) return;
+    if (!mapsReady || printed.current || ids.length === 0) return;
     document.title = `Daily reports ${from}${from === to ? "" : `_${to}`}`;
     const imgs = Array.from(document.images);
     Promise.all(
@@ -106,7 +121,7 @@ export function DailyReportsBatchPrintPage() {
       printed.current = true;
       setTimeout(() => window.print(), 300);
     });
-  }, [ready, ids.length, from, to]);
+  }, [mapsReady, ids.length, from, to]);
 
   if (history.isError) {
     return (
@@ -139,13 +154,18 @@ export function DailyReportsBatchPrintPage() {
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
         <Button onClick={() => window.print()}>Print / Save as PDF</Button>
         <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
-          {ids.length} รายงาน{failed > 0 ? ` · โหลดไม่สำเร็จ ${failed} รายงาน` : ""} — ในหน้าต่างพิมพ์ เลือก "Save as PDF"
+          {ids.length} รายงาน{failed > 0 ? ` · โหลดไม่สำเร็จ ${failed} รายงาน` : ""}
+          {mapsReady ? "" : ` · กำลังวาดแผนผัง ${mapsDone.size}/${loadedIds.length}`} — ในหน้าต่างพิมพ์ เลือก "Save as PDF"
         </Typography>
       </Stack>
       {reports.map((q) =>
         q.data ? (
           <Fragment key={q.data.data.id}>
-            <ReportSheet r={q.data.data} />
+            <ReportSheet r={q.data.data}>
+              <ContractorMapPages projectId={q.data.data.projectId} contractorId={q.data.data.contractorId} date={q.data.data.reportDate}
+                active={drawingId === q.data.data.id} capture={BATCH_CAPTURE} compactEmpty
+                onReady={() => { const id = q.data!.data.id; setMapsDone((prev) => (prev.has(id) ? prev : new Set(prev).add(id))); }} />
+            </ReportSheet>
           </Fragment>
         ) : null,
       )}

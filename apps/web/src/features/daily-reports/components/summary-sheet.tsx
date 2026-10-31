@@ -1,6 +1,7 @@
 import Box from "@mui/material/Box";
 import { DISCIPLINES, PERMIT_TYPES, POSITIONS } from "@sts/shared";
 import dayjs from "dayjs";
+import type { ReactNode } from "react";
 import { inspectionTypeLabel } from "@/features/qaqc/index.js";
 import { type PrintReport } from "../types/daily-report.types.js";
 import { overtimeLines, overtimeSummary } from "../utils/overtime.js";
@@ -143,12 +144,14 @@ export function SummarySheet({ r }: { r: PrintReport }) {
 }
 
 // One report = form + summary + signatures, flowing onto a second page only when it does not fit.
-export function ReportSheet({ r }: { r: PrintReport }) {
+// `children` (combined print) follow the signatures inside the same sheet, e.g. the contractor's map page.
+export function ReportSheet({ r, children }: { r: PrintReport; children?: ReactNode }) {
   return (
     <Box className="sheet">
       <FormSheet r={r} />
       <SummarySheet r={r} />
       <SignatureBlock r={r} />
+      {children}
     </Box>
   );
 }
