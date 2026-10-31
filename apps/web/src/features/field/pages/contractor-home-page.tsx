@@ -8,10 +8,13 @@ import { CopySourceButton } from "@/features/daily-reports/index.js";
 import { addDaysIso, formatThaiDate, todayIso, clockTime } from "@/lib/dates.js";
 import { useCurrentReport, useReviewQueue } from "@/features/daily-reports/index.js";
 import { useInspectionRequests } from "@/features/qaqc/index.js";
+import { PermitNoticeCard, usePermitNotices } from "@/features/daily-requests/index.js";
+import { CoordinationWorkspace } from "@/features/site-coordination/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
 import { HttpError } from "@/services/http/client.js";
 import { UnlinkedCompany } from "@/features/auth/components/unlinked-company.js";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
+import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
@@ -62,6 +65,9 @@ export function ContractorHomePage() {
   const current = useCurrentReport(projectId, today, contractorId, Boolean(contractorId));
   const rfi = useInspectionRequests(projectId, { from: tomorrow, to: tomorrow, by: "inspection" });
   const history = useReviewQueue(projectId, { from: addDaysIso(today, -(HISTORY_DAYS - 1)), to: today });
+  // Today feed: every company's work permits of today; the ones with location photos (floor cut open, guardrail
+  // removed...) come first.
+  const notices = usePermitNotices(projectId, today, today, Boolean(contractorId));
 
   const report = current.data?.data.report ?? null;
   const contractor = current.data?.data.contractor;
@@ -146,6 +152,15 @@ export function ContractorHomePage() {
         </Alert>
       ) : null}
 
+      {/* Reporting leads (tasks + send); safety notices and the map support it; history is reference. On wide screens
+          History fills the space under the tasks (the right column is taller); on a phone it comes last. */}
+      <Box sx={{
+        display: "grid", gap: 2, alignItems: "start",
+        gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "repeat(2, minmax(0, 1fr))" },
+        gridTemplateRows: { md: "auto 1fr" },
+        gridTemplateAreas: { xs: '"tasks" "side" "history"', md: '"tasks side" "history side"' },
+      }}>
+      <Box sx={{ gridArea: "tasks" }}>
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ p: 2.5 }}>
           <Typography variant="h5" sx={{ mb: 1.5 }}>
@@ -222,16 +237,49 @@ export function ContractorHomePage() {
       </Card>
 
       {next ? (
-        <Button component={RouterLink} to={next.to} fullWidth sx={{ mb: 2 }}>
+        <Button component={RouterLink} to={next.to} fullWidth>
           {next.label}
         </Button>
       ) : !current.isLoading && report ? (
-        <Alert severity="success" icon={<CheckCircleOutlineIcon />} sx={{ mb: 2 }}>
+        <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
           ส่งครบทั้ง Daily Report และ Daily Request ของวันนี้แล้ว
         </Alert>
       ) : null}
+      </Box>
 
-      <Card>
+      <Stack spacing={2} sx={{ gridArea: "side" }}>
+        <Card>
+          <CardContent sx={{ p: 2.5 }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <CampaignOutlinedIcon sx={{ color: "warning.dark" }} aria-hidden="true" />
+              <Typography variant="h5">Today feed</Typography>
+            </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
+              ใบอนุญาตทำงานของวันนี้ทุกบริษัท — งานที่แนบรูปตำแหน่ง (ช่องเปิด/รื้อราวกันตก) ขึ้นก่อน โปรดระวังเป็นพิเศษ
+            </Typography>
+            {notices.isLoading ? (
+              <Skeleton variant="rounded" height={96} />
+            ) : (notices.data?.data ?? []).length === 0 ? (
+              <EmptySection dense icon={<CampaignOutlinedIcon />} title="วันนี้ยังไม่มีใบอนุญาตทำงาน" />
+            ) : (
+              <Stack spacing={1.25} sx={{ maxHeight: 520, overflowY: "auto" }}>
+                {(notices.data?.data ?? []).map((n) => <PermitNoticeCard key={n.id} notice={n} />)}
+              </Stack>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent sx={{ p: 2.5 }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+              <Typography variant="h5">Map</Typography>
+              <Button component={RouterLink} to="/field/coordination" variant="text" size="small">Open Map</Button>
+            </Stack>
+            <CoordinationWorkspace readOnly compact />
+          </CardContent>
+        </Card>
+      </Stack>
+
+      <Card sx={{ gridArea: "history" }}>
         <CardContent sx={{ p: 2.5, pb: 1 }}>
           <Stack direction="row" spacing={1} alignItems="center">
             <HistoryOutlinedIcon sx={{ color: "text.secondary" }} aria-hidden="true" />
@@ -287,6 +335,7 @@ export function ContractorHomePage() {
           </Stack>
         ) : null}
       </Card>
+      </Box>
 
       <FieldBottomNav />
     </Box>

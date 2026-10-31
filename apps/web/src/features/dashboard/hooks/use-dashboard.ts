@@ -8,7 +8,7 @@ import { useSearchParams } from "react-router-dom";
 import { CHART_OTHER } from "@/app/theme/chart-palette.js";
 import { contractorColorMap } from "@/features/contractors/index.js";
 import { addDaysIso, todayIso } from "@/lib/dates.js";
-import { useDailyRequests } from "@/features/daily-requests/index.js";
+import { useDailyRequests, usePermitNotices } from "@/features/daily-requests/index.js";
 import { useInspectionRequests } from "@/features/qaqc/index.js";
 import { useManpowerSummary } from "@/features/report-summaries/index.js";
 import { useCurrentProject, useProjectContractors } from "@/features/projects/index.js";
@@ -40,6 +40,7 @@ export function useDashboard() {
   const rfi = useInspectionRequests(projectId, { from: today, to: tomorrow, by: "inspection" });
   const rfiRows = (rfi.data?.data ?? []).filter((r) => r.status !== "draft");
   const dailyReqs = useDailyRequests(projectId, today, today);
+  const permitNotices = usePermitNotices(projectId, today, today);
   const reqData = dailyReqs.data?.data;
   // The API may omit empty buckets — normalise so iteration is always safe.
   const reqRoads = reqData?.roads ?? [];
@@ -122,7 +123,7 @@ export function useDashboard() {
   const rfiTomorrow = rfiRows.filter((r) => r.inspectionDate === tomorrow && selectedCodes.has(r.contractorCode)).length;
 
   const dynamicHighlights = useMemo(
-    () => buildHighlights({ requests: reqData, inspections: rfiRows, today, selectedCodes }),
+    () => buildHighlights({ requests: reqData, inspections: rfiRows, today, selectedCodes, photosByPermit: new Map((permitNotices.data?.data ?? []).map((n) => [n.id, n.photos])) }),
     [reqData, rfiRows, today, selectedCodes],
   );
   const rangeLabel = !valid

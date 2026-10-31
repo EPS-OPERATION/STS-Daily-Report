@@ -9,3 +9,15 @@ export function useDailyRequests(projectId: string | null, from: string, to: str
     placeholderData: keepPreviousData,
   });
 }
+
+// Permits with location photos for a date range (the Today feed; dashboard highlights; High-Risk cards).
+export function usePermitNotices(projectId: string | null, from: string, to: string, enabled = true) {
+  return useQuery({
+    queryKey: dailyRequestKeys.permitNotices(projectId ?? "", from, to),
+    queryFn: () => dailyRequestApi.permitNotices(projectId!, from, to),
+    enabled: Boolean(projectId) && enabled,
+    placeholderData: keepPreviousData,
+    // Presigned photo links last an hour: refresh a little before that, and when the tab is revisited.
+    staleTime: 5 * 60_000,
+  });
+}

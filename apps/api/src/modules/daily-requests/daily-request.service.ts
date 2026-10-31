@@ -1,4 +1,6 @@
-import { isEpsStaff, type PermitType } from "@sts/shared";
+import { coordinationToday, isEpsStaff, type PermitType } from "@sts/shared";
+import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
+import { getStorage } from "@/shared/storage/index.js";
 import type { AuthContext } from "@/auth/auth.types.js";
 import { getDb } from "@/db/client.js";
 import { assertProject } from "@/modules/projects/project.guard.js";
@@ -8,7 +10,7 @@ import { getBuilding } from "@/modules/buildings/building.repository.js";
 import { isContractorInProject } from "@/modules/site-activities/site-activity.repository.js";
 import { findMachineryConflicts, findRoadConflicts } from "./daily-request.conflicts.js";
 import { ensureReportRow, getPermitForProject, insertEpsPermitRow, updatePermitRow } from "./daily-request.repository.js";
-import { getRoadUsageForProject, listBookingsInRange, listEquipmentRequestsInRange, listForecastsInRange, listPermitDetailsInRange, listRoadUsageInRange, setRoadAdjustment } from "./daily-request.repository.js";
+import { getRoadUsageForProject, listBookingsInRange, listEquipmentRequestsInRange, listForecastsInRange, listPermitDetailsInRange, listPermitPhotosInRange, listRoadUsageInRange, setRoadAdjustment } from "./daily-request.repository.js";
 
 // Daily Request page: everything requested for target dates in [from, to].
 export async function dailyRequestsService(projectId: string, from: string, to: string) {
@@ -161,4 +163,43 @@ export async function createPermitService(
   const created = await getPermitForProject(db, projectId, id);
   if (!created) throw new NotFoundError("Work permit not found", { id });
   return created;
+}
+
+// "Today feed": every work permit of the day, the ones with location photos (floor cut open, guardrail removed...)
+// first, so people working nearby take extra care. EPS sees any range; a contractor sees today's permits of the whole
+// project (every company, never headcount) as long as they belong to the project.
+export async function permitNoticesService(auth: AuthContext, projectId: string, from: string, to: string) {
+  const db = getDb();
+  await assertProject(projectId);
+  assertRange(from, to);
+  if (!isEpsStaff(auth.user.role)) {
+    const mine = await listActiveContractorsForUser(db, auth.user.id, projectId);
+    if (!mine.length) throw new ForbiddenError("You are not a member of this project");
+    from = to = coordinationToday();
+  }
+  const rows = await listPermitPhotosInRange(db, projectId, from, to);
+  const storage = getStorage();
+  const byPermit = new Map<string, {
+    id: string; targetDate: string; permitType: string; otherLabel: string | null; highRisk: boolean; taskName: string | null;
+    contractorCode: string; contractorName: string; buildingCode: string; buildingName: string; buildingNameTh: string | null;
+    photos: { id: string; fileName: string; url: string | null }[];
+  }>();
+  for (const r of rows) {
+    const notice = byPermit.get(r.id) ?? {
+      id: r.id, targetDate: r.targetDate, permitType: r.permitType, otherLabel: r.otherLabel, highRisk: r.highRisk, taskName: r.taskName,
+      contractorCode: r.contractorCode, contractorName: r.contractorName,
+      buildingCode: r.buildingCode, buildingName: r.buildingName, buildingNameTh: r.buildingNameTh, photos: [],
+    };
+    // A storage outage must not break the feed: the notice still shows, without the picture.
+    if (r.photoId && r.objectKey) {
+      notice.photos.push({ id: r.photoId, fileName: r.fileName ?? "", url: await storage.getPresignedUrl(r.objectKey, 3600).catch(() => null) });
+    }
+    byPermit.set(r.id, notice);
+  }
+  // Day by day: permits with photos first, then high-risk ones, then by company.
+  return [...byPermit.values()].sort((a, b) =>
+    a.targetDate.localeCompare(b.targetDate)
+    || Number(b.photos.length > 0) - Number(a.photos.length > 0)
+    || Number(b.highRisk) - Number(a.highRisk)
+    || a.contractorCode.localeCompare(b.contractorCode));
 }

@@ -2,7 +2,7 @@ import { and, asc, between, eq, isNotNull, ne, or, sql } from "drizzle-orm";
 import { locationCode, locationName } from "@/db/report-location.js";
 import type { Db, QueryDb } from "@/db/client.js";
 import { reportSent } from "@/db/report-filters.js";
-import { buildings, contractors, coordinationMaps, coordinationSections, dailyReportEquipmentRequests, dailyReportForecasts, dailyReportMachinery, dailyReportPermits, dailyReportRoadUsage, dailyReports, users } from "@/db/schema/index.js";
+import { buildings, contractors, coordinationMaps, coordinationSections, dailyReportEquipmentRequests, dailyReportForecasts, dailyReportMachinery, dailyReportPhotos, dailyReportPermits, dailyReportRoadUsage, dailyReports, users } from "@/db/schema/index.js";
 import type { AdjustedRoadRequest } from "./daily-request.road.js";
 import type { BookingRow, RoadRow } from "./daily-request.type.js";
 
@@ -449,4 +449,41 @@ export async function listAdjustedRoads(db: QueryDb, reportId: string): Promise<
       ? [{ ...r, adjustedStartTime: r.adjustedStartTime, adjustedEndTime: r.adjustedEndTime, adjustedAt: r.adjustedAt }]
       : [],
   );
+}
+
+// Every work permit in range, with its site photos when it has any (where a floor will be cut open, a guardrail
+// removed...): one row per photo, joined by the permit card's photo key; a permit without photos is one row with null
+// photo columns. Sent reports only.
+export async function listPermitPhotosInRange(db: Db, projectId: string, from: string, to: string) {
+  return db
+    .select({
+      id: dailyReportPermits.id,
+      targetDate: dailyReportPermits.targetDate,
+      buildingCode: buildings.code,
+      buildingName: buildings.name,
+      buildingNameTh: buildings.nameTh,
+      permitType: dailyReportPermits.permitType,
+      otherLabel: dailyReportPermits.otherLabel,
+      highRisk: dailyReportPermits.highRisk,
+      taskName: dailyReportPermits.taskName,
+      contractorCode: contractors.code,
+      contractorName: contractors.name,
+      photoId: dailyReportPhotos.id,
+      objectKey: dailyReportPhotos.objectKey,
+      fileName: dailyReportPhotos.fileName,
+    })
+    .from(dailyReportPermits)
+    .innerJoin(dailyReports, eq(dailyReportPermits.reportId, dailyReports.id))
+    .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
+    .innerJoin(buildings, eq(dailyReportPermits.buildingId, buildings.id))
+    .leftJoin(
+      dailyReportPhotos,
+      and(
+        eq(dailyReportPhotos.reportId, dailyReportPermits.reportId),
+        eq(dailyReportPhotos.category, "permit"),
+        eq(dailyReportPhotos.permitKey, dailyReportPermits.photoKey),
+      ),
+    )
+    .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReportPermits.targetDate, from, to)))
+    .orderBy(asc(dailyReportPermits.targetDate), asc(contractors.code), asc(dailyReportPermits.createdAt), asc(dailyReportPhotos.createdAt));
 }
