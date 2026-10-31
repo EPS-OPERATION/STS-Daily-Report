@@ -52,8 +52,8 @@ export function FormSheet({ r }: { r: PrintReport }) {
           <tr>
             <td rowSpan={2} style={{ width: "28%" }}>
               {/* logo-eps.png is a 447px square with the mark at x52–388, y184–260: crop the padding. */}
-              <div style={{ width: 200, height: 45, overflow: "hidden", position: "relative", margin: "2px 0" }}>
-                <img src="/brand/logo-eps.png" alt="EPS" style={{ position: "absolute", width: 266, height: 266, left: -31, top: -110 }} />
+              <div style={{ width: 140, height: 32, overflow: "hidden", position: "relative", margin: "2px 0" }}>
+                <img src="/brand/logo-eps.png" alt="EPS" style={{ position: "absolute", width: 186, height: 186, left: -22, top: -77 }} />
               </div>
               <div style={{ fontSize: 10 }}>บริษัทอีโค่ แพลนท์ เซอร์วิสเซส จำกัด</div>
             </td>
