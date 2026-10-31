@@ -19,7 +19,8 @@ import { summarizeDays } from "../utils/day-summary.js";
 
 export function useTodayRequests() {
   const [params, setParams] = useSearchParams();
-  const view: View = params.get("view") === "plan" ? "plan" : "requests";
+  const rawView = params.get("view");
+  const view: View = rawView === "plan" ? "plan" : rawView === "machines" ? "machines" : "requests";
   // Range from the URL; an old ?date= link still works as a one-day range.
   // Forecasts are about tomorrow, so that view opens on tomorrow when no range is given.
   const fallback = view === "plan" ? addDaysIso(todayIso(), 1) : todayIso();
@@ -134,8 +135,8 @@ export function useTodayRequests() {
 
   const setView = (next: View) => {
     const p = new URLSearchParams(params);
-    if (next === "plan") p.set("view", "plan");
-    else p.delete("view");
+    if (next === "requests") p.delete("view");
+    else p.set("view", next);
     setParams(p, { replace: true });
   };
 
