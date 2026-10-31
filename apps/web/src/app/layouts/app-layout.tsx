@@ -99,6 +99,7 @@ const GROUPS: NavGroup[] = [
       { to: "/contractors", label: "Contractors", icon: "contractors", roles: ["eps_admin"] },
       { to: "/buildings", label: "Buildings", icon: "buildings", roles: ["eps_admin"] },
       { to: "/site-coordination/item-types", label: "Map Item Types", icon: "sitePlan", roles: ["eps_admin"] },
+      { to: "/site-coordination/maps", label: "Map Areas", icon: "sitePlan", roles: ["eps_admin"] },
       { to: "/settings", label: "Settings", icon: "settings" },
     ],
   },
@@ -255,7 +256,10 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
 // Same product name as the login screen and the reset email.
 const APP_TITLE = "STS Platform";
 // Pages without a sidebar entry of their own.
-const EXTRA_TITLES: NavItem[] = [{ to: "/site-coordination/roads", label: "Road register", icon: "sitePlan" }];
+const EXTRA_TITLES: NavItem[] = [
+  { to: "/site-coordination/roads", label: "Road register", icon: "sitePlan" },
+  { to: "/site-coordination/sections", label: "Route sections", icon: "sitePlan" },
+];
 
 /** Browser tab title = the page's sidebar name, so several open tabs can be told apart. */
 function useTabTitle() {

@@ -2,6 +2,12 @@ import { ACCIDENT_CATEGORY_CODES, DISCIPLINE_CODES, MACHINE_TYPES, PERMIT_TYPE_C
 import { t } from "elysia";
 import { hhmm, isoDate } from "@/shared/http/params.js";
 
+// Where a row's work is: a building, or a route section of a Map area (the service checks exactly one is given).
+const location = {
+  buildingId: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
+  sectionId: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
+};
+
 export const count = t.Integer({ minimum: 0, maximum: 5000 });
 
 const percent = t.Integer({ minimum: 0, maximum: 100 });
@@ -68,7 +74,7 @@ export const morningBody = t.Object({
       ...crewFields,
       allocations: t.Array(
         t.Object({
-          buildingId: t.String({ format: "uuid" }),
+          ...location,
           headcount: t.Integer({ minimum: 1, maximum: 5000 }),
           workDescription: t.String({ minLength: 1, maxLength: 500 }),
           startTime: t.Optional(hhmm),
@@ -133,7 +139,7 @@ export const eveningBody = t.Object({
   additionalAllocations: t.Optional(
     t.Array(
       t.Object({
-        buildingId: t.String({ format: "uuid" }),
+        ...location,
         discipline: t.Union(DISCIPLINE_CODES.map((d) => t.Literal(d))),
         headcount: t.Integer({ minimum: 1, maximum: 5000 }),
         workDescription: t.String({ minLength: 1, maxLength: 500 }),
@@ -199,7 +205,7 @@ export const eveningBody = t.Object({
   // Tomorrow Forecast Activities (paper form R003) — required, at least 1.
   forecasts: t.Array(
     t.Object({
-      buildingId: t.String({ format: "uuid" }),
+      ...location,
       description: t.String({ minLength: 1, maxLength: 300 }),
     }),
     { minItems: 1, maxItems: 20 },

@@ -1,8 +1,13 @@
 import type { AccidentCategory, CoordinationPoint, Discipline, MachineType, PermitType, PhotoCategory, PositionCode, WeatherCondition } from "@sts/shared";
 
+/** Where a row's work is: a building, or a route section of a Map area (exactly one of the two). */
+export interface ReportLocation {
+  buildingId?: string | null;
+  sectionId?: string | null;
+}
+
 // One Today Activity row: all day, or for an optional HH:mm window when the crew moves building.
-export interface AllocationInput {
-  buildingId: string;
+export interface AllocationInput extends ReportLocation {
   headcount: number;
   workDescription: string;
   startTime?: string;
@@ -104,8 +109,7 @@ export interface OvertimeInput {
   hours: number;
 }
 
-export interface AdditionalAllocationInput {
-  buildingId: string;
+export interface AdditionalAllocationInput extends ReportLocation {
   discipline: Discipline;
   headcount: number;
   workDescription: string;
@@ -136,7 +140,7 @@ export interface EveningInput {
   roadUsage: RoadUsageInput[];
   materials: MaterialInput[];
   // Tomorrow Forecast Activities: planned work for date + 1 (description + area).
-  forecasts: { buildingId: string; description: string }[];
+  forecasts: (ReportLocation & { description: string })[];
 }
 
 export interface PhotoUploadInput {

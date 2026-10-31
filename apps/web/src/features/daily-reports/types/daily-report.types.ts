@@ -48,7 +48,9 @@ export interface ReviewPayload {
 export interface ReportAllocation {
   id: string;
   discipline: Discipline;
-  buildingId: string;
+  /** null when the row is on a route section (`sectionId`); buildingCode/Name then carry the section's label. */
+  buildingId: string | null;
+  sectionId?: string | null;
   buildingCode: string;
   buildingName: string;
   headcount: number;
@@ -212,7 +214,8 @@ export interface MorningPayload {
   permits?: PermitPayload[];
   crews: (CrewPayload & {
     allocations: {
-      buildingId: string;
+      buildingId: string | null;
+      sectionId: string | null;
       headcount: number;
       workDescription: string;
       startTime?: string;
@@ -242,7 +245,8 @@ export interface EveningPayload {
   crews: CrewPayload[];
   progress: { allocationId: string; actualPercent: number; countermeasure?: string }[];
   additionalAllocations?: {
-    buildingId: string;
+    buildingId: string | null;
+    sectionId: string | null;
     discipline: Discipline;
     headcount: number;
     workDescription: string;
@@ -256,7 +260,7 @@ export interface EveningPayload {
   permits?: PermitPayload[];
   roadUsage: { buildingId?: string | null; roadLocation: string; startTime: string; endTime: string; purpose: string; segmentIds?: string[]; route?: CoordinationPoint[] | null }[];
   materials: { name: string; qty: number; unit: string }[];
-  forecasts: { buildingId: string; description: string }[];
+  forecasts: { buildingId: string | null; sectionId: string | null; description: string }[];
 }
 
 // ---- weekly summary ----

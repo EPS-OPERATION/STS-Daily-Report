@@ -1,14 +1,16 @@
+import { fromLocationValue, toLocationValue } from "../utils/location.js";
+import { useRouteSectionPlaces } from "./use-daily-report-queries.js";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { DISCIPLINE_CODES, overtimeTotals, type MachineType, type PositionCode } from "@sts/shared";
 import { type ProgressItem } from "../components/form-aids.js";
 import { draftKey, useFormDraft } from "./use-form-draft.js";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, useMemo } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { HttpError } from "@/services/http/client.js";
 import { useSubmitEvening } from "./use-daily-report-mutations.js";
 import { useInspectionRequests } from "@/features/qaqc/index.js";
 import { useWeeklySummary } from "@/features/report-summaries/index.js";
-import { eveningSchema, type EveningFormValues } from "../schemas/daily-report.schema.js";
+import { eveningSchema, isBlankForecast, type EveningFormValues } from "../schemas/daily-report.schema.js";
 import type { Building } from "@/features/buildings/index.js";
 import type { DailyReport, ReportContractor } from "../types/daily-report.types.js";
 import { addDaysIso, mondayOf } from "@/lib/dates.js";
@@ -35,6 +37,9 @@ export function useEveningForm({
   onSubmitted: () => void;
 }) {
   const submit = useSubmitEvening(projectId);
+  // "Where" of extra work and of tomorrow's plan: a building or a route section (Map → Route sections).
+  const sectionPlaces = useRouteSectionPlaces(projectId);
+  const places = useMemo(() => [...buildings, ...sectionPlaces], [buildings, sectionPlaces]);
   const tomorrow = addDaysIso(date, 1);
   // Other contractors' bookings for tomorrow → live clash hints on each request row.
   const tomorrowWeek = useWeeklySummary(projectId, mondayOf(tomorrow));
@@ -82,7 +87,7 @@ export function useEveningForm({
       })),
       forecasts:
         report?.forecasts && report.forecasts.length > 0
-          ? report.forecasts.map((f) => ({ description: f.description, buildingId: f.buildingId }))
+          ? report.forecasts.map((f) => ({ description: f.description, buildingId: toLocationValue(f) }))
           : [{ description: "", buildingId: "" }],
       // Disciplines that worked this afternoon: saved evening crews, else the morning's.
       disciplines: DISCIPLINE_CODES.filter((d) =>
@@ -99,7 +104,7 @@ export function useEveningForm({
       })),
       additionalAllocations: existingAdditional.map((a) => ({
         id: a.id,
-        buildingId: a.buildingId,
+        buildingId: toLocationValue(a),
         discipline: a.discipline,
         workDescription: a.workDescription,
         headcount: a.headcount,
@@ -181,7 +186,7 @@ export function useEveningForm({
             countermeasure: p.countermeasure?.trim() || undefined,
           })),
           additionalAllocations: v.additionalAllocations.map((a) => ({
-            buildingId: a.buildingId,
+            ...fromLocationValue(a.buildingId),
             discipline: a.discipline,
             workDescription: a.workDescription.trim(),
             headcount: a.headcount,
@@ -219,7 +224,7 @@ export function useEveningForm({
           qty: m.qty,
           unit: m.unit.trim(),
         })),
-        forecasts: v.forecasts.map((f) => ({ buildingId: f.buildingId, description: f.description.trim() })),
+        forecasts: v.forecasts.filter((f) => !isBlankForecast(f)).map((f) => ({ ...fromLocationValue(f.buildingId), description: f.description.trim() })),
       },
       { onSuccess: () => { draft.clear(); onSubmitted(); } },
     );
@@ -258,8 +263,9 @@ export function useEveningForm({
   const confirmed = useWatch({ control, name: "confirmed" });
   const forecastRows = useWatch({ control, name: "forecasts" }) ?? [];
   const forecastsOk =
-    forecastRows.length > 0 &&
-    forecastRows.every((f) => Boolean(f?.description?.trim()) && Boolean(f?.buildingId));
+    // Spare blank lines don't count; a 33 kV row still waiting for its stretch is not done.
+    forecastRows.some((f) => f && !isBlankForecast(f)) &&
+    forecastRows.every((f) => !f || isBlankForecast(f) || (Boolean(f.description?.trim()) && Boolean(f.buildingId) && !f.buildingId.startsWith("s:?")));
   const state = (id: string, done: boolean, optional = false): ProgressItem["state"] =>
     hasError(id) ? "error" : optional ? "optional" : done ? "done" : "todo";
   const checklist: ProgressItem[] = [
@@ -342,6 +348,7 @@ export function useEveningForm({
     contractor,
     report,
     buildings,
+    places,
     onSubmitted,
   };
 }

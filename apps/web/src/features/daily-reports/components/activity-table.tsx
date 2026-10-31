@@ -1,3 +1,4 @@
+import { isSectionValue } from "../utils/location.js";
 import { type Discipline } from "@sts/shared";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { Controller, useWatch, type UseFieldArrayReturn, type UseFormReturn } from "react-hook-form";
@@ -61,9 +62,9 @@ export function ActivityTable({
   const nextRow = (i: number) => {
     if (i < count - 1) return setFocus(`crews.${discipline}.allocations.${i + 1}.workDescription`);
     if (count >= 32) return;
-    const building = getValues(`crews.${discipline}.allocations.${i}.buildingId`);
+    const where = getValues(`crews.${discipline}.allocations.${i}.buildingId`);
     focusRow.current = i + 1;
-    activities.append({ ...newActivity(0), buildingId: building }, { shouldFocus: false });
+    activities.append({ ...newActivity(0), buildingId: isSectionValue(where) ? "" : where }, { shouldFocus: false });
   };
   const onEnter = (i: number) => (e: KeyboardEvent) => {
     if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
@@ -91,14 +92,15 @@ export function ActivityTable({
         <Box sx={{ gridArea: "clk" }}>เวลา</Box>
       </Box>
       <Stack divider={<Box sx={{ borderBottom: 1, borderColor: "divider" }} />}>
-        {activities.fields.map((row, i) => (
+        {/* Route-section rows (33 kV …) live in their own block under the table. */}
+        {activities.fields.map((row, i) => isSectionValue(row.buildingId) ? null : (
           <ActivityLine
             key={row.id}
             index={i}
             discipline={discipline}
             form={form}
             buildings={buildings}
-            canRemove={count > 1}
+            canRemove={activities.fields.filter((f) => !isSectionValue(f.buildingId)).length > 1}
             onRemove={() => activities.remove(i)}
             onEnter={onEnter(i)}
           />

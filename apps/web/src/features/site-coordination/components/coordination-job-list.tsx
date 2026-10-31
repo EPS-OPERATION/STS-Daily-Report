@@ -1,7 +1,7 @@
 import type { CoordinationContractor, CoordinationItem, CoordinationItemType } from "@sts/shared";
 import ChevronRightOutlined from "@mui/icons-material/ChevronRightOutlined";
 import ExpandLessOutlined from "@mui/icons-material/ExpandLessOutlined";
-import InboxOutlined from "@mui/icons-material/InboxOutlined";
+import FilterAltOffOutlined from "@mui/icons-material/FilterAltOffOutlined";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
@@ -24,8 +24,14 @@ export function CoordinationJobList({
   embedded = false,
   onCollapse,
   footer,
+  header,
   clashCodes,
+  filtered = false,
 }: {
+  /** A contractor / type / search filter is on: an empty list then says "nothing matches" (no jobs at all = no card). */
+  filtered?: boolean;
+  /** Pinned above the list (the area's route-section legend). */
+  header?: ReactNode;
   /** Contractor codes whose road route collides with this job's route (empty = no clash). */
   clashCodes?: (id: string) => string[];
   /** Inside the map card: no own border; a right-hand panel the height of the map on wide screens. */
@@ -64,9 +70,13 @@ export function CoordinationJobList({
           </Tooltip>
         ) : null}
       </Stack>
-      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 1.5, py: 1 }}>
-      {!rows.length ? (
-        <EmptySection dense icon={<InboxOutlined />} title="ไม่มีงานที่ตรงกับตัวกรอง" />
+      {header ? (
+        // With no jobs the route sections take the whole panel; with jobs they keep their short, scrollable height.
+        <Box sx={{ flex: rows.length ? "0 0 auto" : 1, minHeight: 0, maxHeight: rows.length ? 320 : undefined, overflowY: "auto" }}>{header}</Box>
+      ) : null}
+      <Box sx={{ flex: rows.length ? 1 : "0 0 auto", minHeight: 0, overflowY: "auto", px: 1.5, py: 1 }}>
+      {!rows.length && filtered ? (
+        <EmptySection dense icon={<FilterAltOffOutlined />} title="ไม่มีงานที่ตรงกับตัวกรอง" description="ลองปรับตัวกรองหรือกด Clear filters เพื่อดูงานทั้งหมด" />
       ) : null}
       {rows.map((item, i) => {
         const c = byId.get(item.contractorId);

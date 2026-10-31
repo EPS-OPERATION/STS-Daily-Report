@@ -51,6 +51,7 @@ function checkCrews(
 
 // A row with neither building nor work is an unused spare line (the table starts with 3): it is
 // skipped by every check and never sent.
+export const isBlankForecast = (f: { buildingId: string; description: string }) => !f.buildingId && !f.description.trim();
 export const isBlankActivity = (a: { buildingId: string; workDescription: string }) => !a.buildingId && !a.workDescription.trim();
 
 // One Today Activity row. Time window and plan % are opt-in (timed / hasPlan) so contractors
@@ -69,6 +70,8 @@ export const allocationSchema = z
   .superRefine((a, ctx) => {
     if (isBlankActivity(a)) return;
     if (!a.buildingId) ctx.addIssue({ code: "custom", path: ["buildingId"], message: "เลือกอาคาร" });
+    // A route-section row waiting for its section ("s:?<map>", see utils/location.ts).
+    if (a.buildingId.startsWith("s:?")) ctx.addIssue({ code: "custom", path: ["buildingId"], message: "แตะเลือกช่วงบนผัง" });
     if (!a.workDescription.trim()) ctx.addIssue({ code: "custom", path: ["workDescription"], message: "ระบุรายละเอียดงาน" });
     if (a.headcount < 1) ctx.addIssue({ code: "custom", path: ["headcount"], message: "ใส่จำนวนคน (อย่างน้อย 1)" });
     if (a.timed && a.startTime >= a.endTime) ctx.addIssue({ code: "custom", path: ["endTime"], message: "เวลาสิ้นสุดต้องหลังเวลาเริ่ม" });
@@ -279,15 +282,21 @@ export const eveningSchema = z
     // Materials on site today.
     materials: z.array(materialSchema).max(30),
     // Tomorrow Forecast Activities (paper form R003): what + where.
+    // A row with neither area nor work is a spare line (skipped, never sent); a route-section row ("s:?<map>") must
+    // have its stretch tapped. At least one real plan item overall.
     forecasts: z
       .array(
-        z.object({
-          description: z.string().trim().min(1, "ระบุรายละเอียดงาน").max(300),
-          buildingId: z.string().min(1, "เลือกพื้นที่ / อาคาร"),
-        }),
+        z
+          .object({ description: z.string().trim().max(300), buildingId: z.string() })
+          .superRefine((f, ctx) => {
+            if (isBlankForecast(f)) return;
+            if (!f.description.trim()) ctx.addIssue({ code: "custom", path: ["description"], message: "ระบุรายละเอียดงาน" });
+            if (!f.buildingId) ctx.addIssue({ code: "custom", path: ["buildingId"], message: "เลือกพื้นที่ / อาคาร" });
+            if (f.buildingId.startsWith("s:?")) ctx.addIssue({ code: "custom", path: ["buildingId"], message: "แตะเลือกช่วงบนผัง" });
+          }),
       )
-      .min(1, "เพิ่มแผนงานพรุ่งนี้อย่างน้อย 1 รายการ")
-      .max(20),
+      .max(20)
+      .refine((rows) => rows.some((f) => !isBlankForecast(f)), "เพิ่มแผนงานพรุ่งนี้อย่างน้อย 1 รายการ"),
   })
   .superRefine((v, ctx) => {
     if (v.accidentOccurred === null) {

@@ -47,6 +47,10 @@ export interface CoordinationGeometry { type: "polygon" | "polyline"; points: Co
 export type CoordinationAreaKind = "rectangle" | "polygon" | "route";
 export interface CoordinationInput {
   contractorId: string; workDate: string; title: string; icon: CoordinationIcon;
+  /** Which working-area map the job is on (new jobs only; defaults to the project's main map). */
+  mapId?: string;
+  /** Stretch of the map's route this job belongs to (a coordination section of the same map), if any. */
+  sectionId?: string | null;
   x: number; y: number; rotation: number; areaKind: CoordinationAreaKind; geometry: CoordinationGeometry;
   /** false = the marker stands alone; no connector line to its area (defaults to true). */
   linkArea?: boolean;
@@ -73,8 +77,61 @@ export interface CoordinationDayNote {
 export interface CoordinationDayLock {
   lockedAt: string; lockedByName: string | null;
 }
+/** One working-area drawing of the project (the plant layout, a 33 kV line corridor, …). */
+export interface CoordinationMap {
+  id: string; projectId: string; imagePath: string; width: number; height: number;
+  name: string; nameTh: string;
+}
+/** A named stretch EPS drew on a map (e.g. "A-B" of the 33 kV line): colour, the work it covers and its line. */
+export interface CoordinationSection {
+  id: string; mapId: string; code: string; work: string; color: string; points: CoordinationPoint[]; sortOrder: number;
+}
+/** One contractor report row placed on a route section (from the daily report form, read-only on the Map). */
+export interface CoordinationSectionActivity {
+  id: string; sectionId: string; contractorId: string; contractorCode: string; contractorName: string;
+  discipline: string; work: string;
+  /** null = hidden from this viewer (only EPS and the contractor's own company see headcount). */
+  headcount: number | null;
+  startTime: string | null; endTime: string | null;
+  planPercent: number | null; actualPercent: number | null;
+  /** Added in the afternoon (not in the morning plan). */
+  isAdditional: boolean;
+}
+/** A Tomorrow Forecast row (sent the evening before) that plans work on a route section for this date. */
+export interface CoordinationSectionPlan {
+  id: string; sectionId: string; contractorId: string; contractorCode: string; contractorName: string; work: string;
+}
+/** Route sections offered as places in the daily report form: the areas that have sections (picture for the
+ *  mini map) and their sections in order. */
+export interface CoordinationSectionCatalog {
+  maps: CoordinationMap[];
+  sections: CoordinationSection[];
+}
+/** What contractors reported on one map's route sections for a date. */
+export interface CoordinationSectionWork {
+  date: string; mapId: string;
+  activities: CoordinationSectionActivity[];
+  planned: CoordinationSectionPlan[];
+}
+/** A map as the EPS Maps page lists it. */
+export interface CoordinationMapAdmin extends CoordinationMap {
+  /** The first map: default area, and where the road register is drawn. Cannot be deleted or moved. */
+  isMain: boolean;
+  /** Uploaded to storage (can be replaced); false = a file shipped with the app. */
+  uploaded: boolean;
+  /** Jobs on it, all dates (a map with jobs cannot be deleted). */
+  jobCount: number;
+  sectionCount: number;
+}
+/** Largest side (px) of an uploaded map: bigger drawings decode to too much memory on phones. */
+export const COORDINATION_MAP_MAX_SIDE = 4096;
 export interface CoordinationData {
-  map: { id: string; projectId: string; imagePath: string; width: number; height: number };
+  /** The project's main map (first by order): the default area, and the one the road register is drawn on. */
+  map: CoordinationMap;
+  /** Every working-area map in order; jobs say which one they are on with `mapId`. */
+  maps: CoordinationMap[];
+  /** Route sections of every map (small); a section's `mapId` says which map it is drawn on. */
+  sections: CoordinationSection[];
   contractors: CoordinationContractor[]; items: CoordinationItem[];
   /** The project's Add-item catalog; inactive entries stay for old jobs but are hidden from the picker. */
   itemTypes: CoordinationItemType[];
@@ -88,6 +145,8 @@ export interface CoordinationData {
 export interface CoordinationReport {
   projectName: string; date: string; generatedAt: string; generatedByName: string | null;
   map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[];
+  /** Route sections of this map. */
+  sections: CoordinationSection[];
   itemTypes: CoordinationItemType[];
   dayNote: CoordinationDayNote | null;
 }

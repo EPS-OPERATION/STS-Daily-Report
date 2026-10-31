@@ -3,6 +3,7 @@ import type { CoordinationPoint } from "@sts/shared";
 import { sql } from "drizzle-orm";
 import { buildings } from "./building.schema.js";
 import { contractors } from "./contractor.schema.js";
+import { coordinationSections } from "./coordination.schema.js";
 import { projects } from "./project.schema.js";
 import { users } from "./user.schema.js";
 
@@ -193,9 +194,10 @@ export const dailyReportAllocations = pgTable(
     reportId: uuid("report_id")
       .notNull()
       .references(() => dailyReports.id, { onDelete: "cascade" }),
-    buildingId: uuid("building_id")
-      .notNull()
-      .references(() => buildings.id, { onDelete: "restrict" }),
+    // Where: a building, or a route section of a Map area (linear work with no building, e.g. the 33 kV line).
+    // Exactly one of the two (check below). Sections in use cannot be deleted (restrict).
+    buildingId: uuid("building_id").references(() => buildings.id, { onDelete: "restrict" }),
+    sectionId: uuid("section_id").references(() => coordinationSections.id, { onDelete: "restrict" }),
     discipline: text("discipline").notNull().default("CE"),
     headcount: integer("headcount").notNull(),
     workDescription: text("work_description").notNull(),
@@ -223,8 +225,10 @@ export const dailyReportAllocations = pgTable(
       "daily_report_allocations_actual_check",
       sql`${t.actualPercent} IS NULL OR ${t.actualPercent} BETWEEN 0 AND 100`,
     ),
+    check("daily_report_allocations_location_check", sql`(${t.buildingId} IS NULL) <> (${t.sectionId} IS NULL)`),
     index("daily_report_allocations_report_idx").on(t.reportId),
     index("daily_report_allocations_building_idx").on(t.buildingId),
+    index("daily_report_allocations_section_idx").on(t.sectionId),
   ],
 );
 
@@ -332,16 +336,18 @@ export const dailyReportForecasts = pgTable(
       .notNull()
       .references(() => dailyReports.id, { onDelete: "cascade" }),
     targetDate: date("target_date").notNull(),
-    buildingId: uuid("building_id")
-      .notNull()
-      .references(() => buildings.id, { onDelete: "restrict" }),
+    // Area: a building or a route section (exactly one), as on the Today Activity rows.
+    buildingId: uuid("building_id").references(() => buildings.id, { onDelete: "restrict" }),
+    sectionId: uuid("section_id").references(() => coordinationSections.id, { onDelete: "restrict" }),
     description: text("description").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    check("daily_report_forecasts_location_check", sql`(${t.buildingId} IS NULL) <> (${t.sectionId} IS NULL)`),
     index("daily_report_forecasts_report_idx").on(t.reportId),
     index("daily_report_forecasts_target_idx").on(t.targetDate),
+    index("daily_report_forecasts_section_idx").on(t.sectionId),
   ],
 );
 

@@ -58,7 +58,7 @@ export function CoordinationWorkspace(props: Parameters<typeof useCoordinationWo
     </>}
     <Popover open={Boolean(addAnchor)} anchorEl={addAnchor} onClose={() => setAddAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "left" }} transformOrigin={{ vertical: "top", horizontal: "left" }} slotProps={{ paper: { sx: { p: 1, mt: 0.5 } } }}>
       <Box sx={{ p: 1, maxHeight: "70vh", overflowY: "auto" }}>
-        <TypePicker types={data?.itemTypes ?? []} onPick={(icon) => { setAddAnchor(null); startCreate(icon); }} />
+        <TypePicker types={data?.itemTypes ?? []} exclude={ed.isMainMap ? [] : ["road"]} onPick={(icon) => { setAddAnchor(null); startCreate(icon); }} />
         {canManageItemTypes ? (
           <Button
             component={RouterLink}
