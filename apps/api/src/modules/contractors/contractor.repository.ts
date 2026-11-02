@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
 import { contractorAliases, contractors, coordinationColors, projectContractors } from "@/db/schema/index.js";
 import type { QueryDb as Db } from "@/db/client.js";
 import type { CreateContractorInput, ListContractorsQuery, UpdateContractorInput } from "./contractor.type.js";
@@ -87,6 +87,21 @@ export async function addContractorToProject(db: Db, projectId: string, contract
 export async function listProjectColors(db: Db, projectId: string) {
   const rows = await db.select({ color: coordinationColors.color }).from(coordinationColors).where(eq(coordinationColors.projectId, projectId));
   return rows.map((r) => r.color);
+}
+
+// The company already using this map colour in the project (ignoring `exceptContractorId`), if any.
+export async function colorOwnerInProject(db: Db, projectId: string, color: string, exceptContractorId?: string) {
+  const [row] = await db
+    .select({ code: contractors.code, name: contractors.name })
+    .from(coordinationColors)
+    .innerJoin(contractors, eq(contractors.id, coordinationColors.contractorId))
+    .where(and(
+      eq(coordinationColors.projectId, projectId),
+      sql`upper(${coordinationColors.color}) = ${color.toUpperCase()}`,
+      exceptContractorId ? ne(coordinationColors.contractorId, exceptContractorId) : undefined,
+    ))
+    .limit(1);
+  return row ?? null;
 }
 
 // Set (or first assign) a company's map colour; the revision bump makes open map tabs reload it.

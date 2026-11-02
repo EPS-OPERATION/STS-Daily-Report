@@ -18,7 +18,10 @@ export function ContractorsPage() {
   // undefined = closed, null = adding, a row = editing
   const [editing, setEditing] = useState<Contractor | null | undefined>(undefined);
   const [viewing, setViewing] = useState<Contractor | null>(null);
-  const usedColors = (query.data?.data ?? []).flatMap((c) => (c.color ? [c.color] : []));
+  // Colours already used in this project, from every company on one page (the API caps a page at 100), not only
+  // the rows on screen: a used colour stays locked whichever page its company is on.
+  const allCompanies = useContractors({ page: 1, pageSize: 100, projectId: projectId ?? undefined });
+  const usedColors = (allCompanies.data?.data ?? []).flatMap((c) => (c.color ? [c.color] : []));
 
   return (
     <Stack spacing={2.5}>

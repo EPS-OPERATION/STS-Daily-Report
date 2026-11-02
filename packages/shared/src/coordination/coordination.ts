@@ -151,7 +151,7 @@ export interface CoordinationReport {
   dayNote: CoordinationDayNote | null;
 }
 // Separate from chart colours: every contractor remains individually identifiable.
-export const COORDINATION_COLORS = [
+const COORDINATION_COLORS_BASE = [
   "#2563EB", "#C2410C", "#15803D", "#7E22CE", "#BE123C", "#0E7490",
   "#A16207", "#4338CA", "#0F766E", "#9D174D", "#4D7C0F", "#92400E",
   "#0369A1", "#B91C1C", "#6D28D9", "#047857", "#A21CAF", "#334155",
@@ -160,7 +160,23 @@ export const COORDINATION_COLORS = [
   // brown, gray). Appended so colours already saved on contractors do not change.
   "#EAB308", "#84CC16", "#06B6D4", "#D946EF", "#34D399", "#FB7185",
   "#A78BFA", "#14B8A6", "#7F1D1D", "#1E3A8A", "#78350F", "#64748B",
-] as const;
+];
+
+// Wider picker (like the Windows colour grid): 12 hues 30° apart, each at three depths. Generated after the list
+// above, so colours already saved on contractors do not change.
+function hslHex(hue: number, sat: number, light: number): string {
+  const a = sat * Math.min(light, 1 - light);
+  const channel = (n: number) => {
+    const k = (n + hue / 30) % 12;
+    const c = light - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(c * 255).toString(16).padStart(2, "0");
+  };
+  return `#${channel(0)}${channel(8)}${channel(4)}`.toUpperCase();
+}
+const WIDE_COLORS = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].flatMap((hue) =>
+  [0.3, 0.45, 0.6].map((light) => hslHex(hue, 0.7, light)),
+);
+export const COORDINATION_COLORS: readonly string[] = [...new Set([...COORDINATION_COLORS_BASE, ...WIDE_COLORS])];
 
 // Coordinates are normalised to the map image (0..1). Items may be parked a
 // little outside the drawing so labels fit in the white margin; anything past

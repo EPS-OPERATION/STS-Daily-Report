@@ -5,6 +5,7 @@ import { assertEpsAdmin } from "@/middleware/require-eps.js";
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import {
   addContractorToProject,
+  colorOwnerInProject,
   createContractor,
   getContractorByCode,
   getContractorById,
@@ -32,11 +33,18 @@ async function assertCodeFree(code: string, selfId?: string) {
   if (clash && clash.id !== selfId) throw new ConflictError(`Code ${code} is already used by ${clash.code} · ${clash.name}`, { code });
 }
 
+// One map colour per company in a project: a colour already used by another company is refused.
+async function assertColorFree(projectId: string, color: string, selfId?: string) {
+  const owner = await colorOwnerInProject(getDb(), projectId, color, selfId);
+  if (owner) throw new ConflictError(`Colour ${color.toUpperCase()} is already used by ${owner.code} · ${owner.name}`, { color });
+}
+
 // A new company joins the project straight away (sign-up, filters, map) with a free map colour.
 export async function createContractorService(auth: AuthContext, input: CreateContractorInput) {
   assertEpsAdmin(auth);
   if (!input.code.trim() || !input.name.trim()) throw new ValidationError("code and name are required");
   await assertCodeFree(input.code.trim());
+  if (input.color) await assertColorFree(input.projectId, input.color);
   return getDb().transaction(async (tx) => {
     const created = await createContractor(tx, input);
     await addContractorToProject(tx, input.projectId, created.id);
@@ -55,6 +63,7 @@ export async function updateContractorService(auth: AuthContext, id: string, inp
   if (input.code !== undefined && input.code.trim() !== current.code) await assertCodeFree(input.code.trim(), id);
   if (input.active === false && !current.isContractor) throw new ValidationError("The owner company (EPS) cannot be deactivated");
   if (input.color !== undefined && !input.projectId) throw new ValidationError("projectId is required to change the map colour");
+  if (input.color !== undefined && input.projectId) await assertColorFree(input.projectId, input.color, id);
   return db.transaction(async (tx) => {
     const updated = await updateContractor(tx, id, input);
     if (!updated) throw new NotFoundError("Contractor not found", { id });
