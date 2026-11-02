@@ -256,7 +256,7 @@ export function ContractorHomePage() {
             <Typography variant="h5">Today feed</Typography>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
-            งานเสี่ยงสูง (High-risk) ของวันนี้ทุกบริษัท — งานที่แนบรูปตำแหน่ง (ช่องเปิด/รื้อราวกันตก) ขึ้นก่อน โปรดระวังเป็นพิเศษ
+            งานเสี่ยงสูง (High-risk) ของวันนี้ทุกบริษัท
           </Typography>
           {notices.isLoading ? (
             <Skeleton variant="rounded" height={96} />
