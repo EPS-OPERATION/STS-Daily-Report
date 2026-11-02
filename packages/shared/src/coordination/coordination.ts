@@ -156,6 +156,10 @@ export const COORDINATION_COLORS = [
   "#A16207", "#4338CA", "#0F766E", "#9D174D", "#4D7C0F", "#92400E",
   "#0369A1", "#B91C1C", "#6D28D9", "#047857", "#A21CAF", "#334155",
   "#1D4ED8", "#9A3412", "#166534", "#581C87", "#9F1239", "#155E75",
+  // Added hues the list above lacks (yellow, lime, cyan, fuchsia, mint, coral, lavender, turquoise, maroon, navy,
+  // brown, gray). Appended so colours already saved on contractors do not change.
+  "#EAB308", "#84CC16", "#06B6D4", "#D946EF", "#34D399", "#FB7185",
+  "#A78BFA", "#14B8A6", "#7F1D1D", "#1E3A8A", "#78350F", "#64748B",
 ] as const;
 
 // Coordinates are normalised to the map image (0..1). Items may be parked a
