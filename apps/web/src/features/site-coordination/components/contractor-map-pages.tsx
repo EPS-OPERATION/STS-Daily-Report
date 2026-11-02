@@ -6,8 +6,9 @@ import { CoordinationCanvas } from "./coordination-canvas.js";
 
 // Printed width of the A4 portrait report sheet (190 mm at 96 dpi): the map snapshot keeps this size on paper.
 const SHEET_PX = 718;
-// Two maps fit one page: each drawing is at most ~120 mm tall.
-const MAX_MAP_PX = 450;
+// The drawing uses the full sheet width (the biggest it can be on paper). Labels are hidden by the canvas when the
+// drawing is narrower than 700 px on screen, so a short, wide-enough map keeps them; only a very tall map is capped.
+const MAX_MAP_PX = 1000;
 const noop = () => undefined;
 
 type Outcome = { shown: boolean };
