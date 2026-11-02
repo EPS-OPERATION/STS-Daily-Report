@@ -122,8 +122,8 @@ export function MachineVisualizationDashboard({
     <Stack spacing={2.5}>
       {/* Machines on site by type */}
       <Grid container spacing={2.5}>
-        {/* Right: Machines by Equipment Type */}
-        <Grid size={{ xs: 12, lg: 6 }}>
+        {/* Machines by Equipment Type (full width) */}
+        <Grid size={{ xs: 12 }}>
           <ChartPanel
             title="ชนิดเครื่องจักร แยกตามผู้รับเหมา"
             note="จำนวนเครื่องรวมตามชนิดเครื่องจักร ในช่วงที่เลือก"
