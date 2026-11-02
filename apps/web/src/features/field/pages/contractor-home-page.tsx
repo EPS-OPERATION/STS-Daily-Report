@@ -65,9 +65,10 @@ export function ContractorHomePage() {
   const current = useCurrentReport(projectId, today, contractorId, Boolean(contractorId));
   const rfi = useInspectionRequests(projectId, { from: tomorrow, to: tomorrow, by: "inspection" });
   const history = useReviewQueue(projectId, { from: addDaysIso(today, -(HISTORY_DAYS - 1)), to: today });
-  // Today feed: every company's work permits of today; the ones with location photos (floor cut open, guardrail
-  // removed...) come first.
+  // Today feed: the HIGH-RISK work permits of today from every company; the ones with location photos (floor cut
+  // open, guardrail removed...) come first.
   const notices = usePermitNotices(projectId, today, today, Boolean(contractorId));
+  const feed = useMemo(() => (notices.data?.data ?? []).filter((n) => n.highRisk), [notices.data]);
 
   const report = current.data?.data.report ?? null;
   const contractor = current.data?.data.contractor;
@@ -152,13 +153,12 @@ export function ContractorHomePage() {
         </Alert>
       ) : null}
 
-      {/* Reporting leads (tasks + send); safety notices and the map support it; history is reference. On wide screens
-          History fills the space under the tasks (the right column is taller); on a phone it comes last. */}
+      {/* Reporting leads (tasks + send); the high-risk feed sits beside it at the SAME height (it scrolls inside);
+          history and the map share the row below. On a phone: tasks, feed, map, history. */}
       <Box sx={{
         display: "grid", gap: 2, alignItems: "start",
         gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "repeat(2, minmax(0, 1fr))" },
-        gridTemplateRows: { md: "auto 1fr" },
-        gridTemplateAreas: { xs: '"tasks" "side" "history"', md: '"tasks side" "history side"' },
+        gridTemplateAreas: { xs: '"tasks" "feed" "map" "history"', md: '"tasks feed" "history map"' },
       }}>
       <Box sx={{ gridArea: "tasks" }}>
       <Card sx={{ mb: 2 }}>
@@ -247,28 +247,29 @@ export function ContractorHomePage() {
       ) : null}
       </Box>
 
-      <Stack spacing={2} sx={{ gridArea: "side" }}>
-        <Card>
-          <CardContent sx={{ p: 2.5 }}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <CampaignOutlinedIcon sx={{ color: "warning.dark" }} aria-hidden="true" />
-              <Typography variant="h5">Today feed</Typography>
+      {/* Wide screens: the card takes the height of the Today's Tasks area and its contents are laid out absolutely, so a
+          long list scrolls inside instead of stretching the row. A phone shows the list at its own height (max 420px). */}
+      <Card sx={{ gridArea: "feed", position: "relative", alignSelf: { md: "stretch" }, minHeight: { md: 0 } }}>
+        <CardContent sx={{ p: 2.5, display: "flex", flexDirection: "column", position: { md: "absolute" }, inset: { md: 0 }, "&:last-child": { pb: 2.5 } }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <CampaignOutlinedIcon sx={{ color: "warning.dark" }} aria-hidden="true" />
+            <Typography variant="h5">Today feed</Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
+            งานเสี่ยงสูง (High-risk) ของวันนี้ทุกบริษัท — งานที่แนบรูปตำแหน่ง (ช่องเปิด/รื้อราวกันตก) ขึ้นก่อน โปรดระวังเป็นพิเศษ
+          </Typography>
+          {notices.isLoading ? (
+            <Skeleton variant="rounded" height={96} />
+          ) : feed.length === 0 ? (
+            <EmptySection dense icon={<CampaignOutlinedIcon />} title="วันนี้ยังไม่มีงานเสี่ยงสูง" />
+          ) : (
+            <Stack spacing={1.25} sx={{ flex: { md: 1 }, minHeight: 0, maxHeight: { xs: 420, md: "none" }, overflowY: "auto", pr: 0.5 }}>
+              {feed.map((n) => <PermitNoticeCard key={n.id} notice={n} />)}
             </Stack>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
-              ใบอนุญาตทำงานของวันนี้ทุกบริษัท — งานที่แนบรูปตำแหน่ง (ช่องเปิด/รื้อราวกันตก) ขึ้นก่อน โปรดระวังเป็นพิเศษ
-            </Typography>
-            {notices.isLoading ? (
-              <Skeleton variant="rounded" height={96} />
-            ) : (notices.data?.data ?? []).length === 0 ? (
-              <EmptySection dense icon={<CampaignOutlinedIcon />} title="วันนี้ยังไม่มีใบอนุญาตทำงาน" />
-            ) : (
-              <Stack spacing={1.25} sx={{ maxHeight: 520, overflowY: "auto" }}>
-                {(notices.data?.data ?? []).map((n) => <PermitNoticeCard key={n.id} notice={n} />)}
-              </Stack>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
+          )}
+        </CardContent>
+      </Card>
+      <Card sx={{ gridArea: "map" }}>
           <CardContent sx={{ p: 2.5 }}>
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
               <Typography variant="h5">Map</Typography>
@@ -277,7 +278,6 @@ export function ContractorHomePage() {
             <CoordinationWorkspace readOnly compact />
           </CardContent>
         </Card>
-      </Stack>
 
       <Card sx={{ gridArea: "history" }}>
         <CardContent sx={{ p: 2.5, pb: 1 }}>
