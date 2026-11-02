@@ -72,33 +72,6 @@ export function MachineVisualizationDashboard({
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [onSite, bookings]);
 
-  // 1. Chart Data: Machine Bookings by Machine Type (Horizontal stacked by contractor)
-  const bookingTypeBars = useMemo(() => {
-    const byType = new Map<string, { type: string; byContractor: Record<string, number>; total: number }>();
-    for (const b of bookings) {
-      const key = b.machineType || "ไม่ระบุ";
-      const item = byType.get(key) ?? { type: key, byContractor: {}, total: 0 };
-      item.byContractor[b.contractorCode] = (item.byContractor[b.contractorCode] ?? 0) + 1;
-      item.total += 1;
-      byType.set(key, item);
-    }
-    const list = [...byType.values()].sort((a, b) => b.total - a.total);
-    if (list.length <= 8) return list;
-    const top = list.slice(0, 7);
-    const rest = list.slice(7);
-    const other: (typeof list)[number] = {
-      type: `อื่นๆ (${rest.length} ชนิด)`,
-      byContractor: {},
-      total: rest.reduce((sum, r) => sum + r.total, 0),
-    };
-    for (const r of rest) {
-      for (const [c, n] of Object.entries(r.byContractor)) {
-        other.byContractor[c] = (other.byContractor[c] ?? 0) + n;
-      }
-    }
-    return [...top, other];
-  }, [bookings]);
-
   // 2. Chart Data: Machines by Equipment Type (Horizontal stacked by contractor)
   const typeBars = useMemo(() => {
     const byType = new Map<string, { type: string; byContractor: Record<string, number>; total: number }>();
@@ -147,45 +120,8 @@ export function MachineVisualizationDashboard({
 
   return (
     <Stack spacing={2.5}>
-      {/* 2 Visualization Charts Grid: By Building & By Type */}
+      {/* Machines on site by type */}
       <Grid container spacing={2.5}>
-        {/* Left: Machine Bookings by Machine Type */}
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <ChartPanel
-            title="การใช้เครื่องจักร แยกตามชนิดเครื่องจักร"
-            note="รายการขอใช้เครื่องจักร รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา"
-          >
-            {bookingTypeBars.length > 0 ? (
-              <BarChart
-                height={360}
-                layout="horizontal"
-                borderRadius={3}
-                yAxis={[
-                  {
-                    scaleType: "band",
-                    data: bookingTypeBars.map((t) => `${t.type}  ${t.total}`),
-                    width: 170,
-                    tickLabelStyle: { fontSize: 12 },
-                  },
-                ]}
-                xAxis={[{ label: "รายการ", min: 0 }]}
-                series={activeContractorCodes.map((code) => ({
-                  id: code,
-                  label: code,
-                  stack: "total",
-                  color: colors.get(code) ?? CHART_OTHER,
-                  data: bookingTypeBars.map((t) => t.byContractor[code] ?? 0),
-                  valueFormatter: (v: number | null) => (v ? `${formatNumber(v)} รายการ` : null),
-                }))}
-                slotProps={legendBottom}
-                grid={{ vertical: true }}
-              />
-            ) : (
-              <EmptySection title="ยังไม่มีรายการขอใช้เครื่องจักรในช่วงนี้" height={320} />
-            )}
-          </ChartPanel>
-        </Grid>
-
         {/* Right: Machines by Equipment Type */}
         <Grid size={{ xs: 12, lg: 6 }}>
           <ChartPanel
