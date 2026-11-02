@@ -50,6 +50,9 @@ interface Props {
 // Motion: feedback only (place, select, hover), never looping. Reduced motion = instant states.
 /** The company tag stops growing with the map zoom at this many times its normal on-screen size. */
 const CHIP_MAX_ZOOM = 1.5;
+// Company-tag pill size (drawing px at scale 1) and how it is fitted to a drawn area: leave this fraction of the
+// area free around it, and never shrink below this fraction of its normal size (so the code stays readable).
+const CHIP_W = 68, CHIP_H = 22, CHIP_AREA_PAD = 0.85, CHIP_FIT_FLOOR = 0.4;
 export const REDUCED_MOTION = typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 // Markers float above the drawing: a soft offset "lift" drawn as a plain shape (canvas blur shadows
 // would redraw on every pan frame on phones). Map artwork, so a literal colour is allowed here.
@@ -147,6 +150,17 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
   // The company tag grows with the map when zoomed in, but only up to CHIP_MAX_ZOOM times its normal size, so a
   // deep zoom does not turn it into a banner; it also follows this job's own icon size (the − % + control).
   const chipScale = markScale * size * Math.min(1, CHIP_MAX_ZOOM / Math.max(zoom, 0.01));
+  // A bounded shape (rectangle/polygon) shrinks its company tag to fit inside the area, down to a readable floor, so
+  // a small area shows a small tag instead of a pill wider than the area. Route lines and text markers are unbounded.
+  const chipFit = (() => {
+    if (route || item.icon === "text") return 1;
+    const xs = drawnArea.map((p) => p.x * mapWidth), ys = drawnArea.map((p) => p.y * mapHeight);
+    const areaW = Math.max(...xs) - Math.min(...xs), areaH = Math.max(...ys) - Math.min(...ys);
+    if (!(areaW > 0) || !(areaH > 0) || chipScale <= 0) return 1;
+    const fit = Math.min((areaW * CHIP_AREA_PAD) / (CHIP_W * chipScale), (areaH * CHIP_AREA_PAD) / (CHIP_H * chipScale));
+    return Math.max(CHIP_FIT_FLOOR, Math.min(1, fit));
+  })();
+  const chipDraw = chipScale * chipFit;
   const markerScale = route ? chipScale : markScale * size;
   const rectStart = useRef<{ x: number; y: number } | null>(null);
   // Stable per (touch, ink) so the Transformer is not re-styled on every render.
@@ -178,7 +192,7 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
     const node = e.currentTarget;
     // Not on the job being edited: a lift tween started mid-resize would land on the old size.
     if (editing) return;
-    const base = node === markerRef.current ? markerScale : chipScale;
+    const base = node === markerRef.current ? markerScale : chipDraw;
     node.to({ scaleX: base * (on ? 1.08 : 1), scaleY: base * (on ? 1.08 : 1), duration: on ? 0.15 : 0.12, easing: Konva.Easings.EaseOut });
     const box = node.getStage()?.container();
     if (box && tool === "move") box.style.cursor = on ? "pointer" : "";
@@ -239,7 +253,7 @@ export const CanvasItem = memo(function CanvasItem({ item, id, editing, selected
         draggable onDragMove={(e) => actions.change({ geometry: { type: item.geometry.type, points: area.map((v, i) => i === index ? { x: clamp(e.target.x() / mapWidth), y: clamp(e.target.y() / mapHeight) } : v) } })}
         onClick={tap} onTap={tap} />;
     })}
-    {(display.chips || selected) && <Group ref={route ? markerRef : undefined} x={center.x + (dragOffset?.x ?? 0)} y={center.y + (dragOffset?.y ?? 0)} scaleX={chipScale} scaleY={chipScale} draggable={editable}
+    {(display.chips || selected) && <Group ref={route ? markerRef : undefined} x={center.x + (dragOffset?.x ?? 0)} y={center.y + (dragOffset?.y ?? 0)} scaleX={chipDraw} scaleY={chipDraw} draggable={editable}
       onClick={select} onTap={select} onMouseEnter={hover?.(true)} onMouseLeave={hover?.(false)}
       onDragStart={startAreaDrag}
       onDragMove={(e) => {
