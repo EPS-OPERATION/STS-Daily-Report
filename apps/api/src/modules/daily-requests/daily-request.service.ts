@@ -165,9 +165,9 @@ export async function createPermitService(
   return created;
 }
 
-// "Today feed": every work permit of the day, the ones with location photos (floor cut open, guardrail removed...)
-// first, so people working nearby take extra care. EPS sees any range; a contractor sees today's permits of the whole
-// project (every company, never headcount) as long as they belong to the project.
+// "Today feed": the work permits of the day, the ones with location photos (floor cut open, guardrail removed...)
+// first, so people working nearby take extra care. EPS sees every permit in any range; a contractor sees only the
+// HIGH-RISK permits of today across the whole project (every company, never headcount) as long as they belong to it.
 export async function permitNoticesService(auth: AuthContext, projectId: string, from: string, to: string) {
   const db = getDb();
   await assertProject(projectId);
@@ -177,7 +177,8 @@ export async function permitNoticesService(auth: AuthContext, projectId: string,
     if (!mine.length) throw new ForbiddenError("You are not a member of this project");
     from = to = coordinationToday();
   }
-  const rows = await listPermitPhotosInRange(db, projectId, from, to);
+  const eps = isEpsStaff(auth.user.role);
+  const rows = (await listPermitPhotosInRange(db, projectId, from, to)).filter((r) => eps || r.highRisk);
   const storage = getStorage();
   const byPermit = new Map<string, {
     id: string; targetDate: string; permitType: string; otherLabel: string | null; highRisk: boolean; taskName: string | null;
