@@ -1,5 +1,6 @@
 import { COORDINATION_COLORS } from "@sts/shared";
 import CheckOutlined from "@mui/icons-material/CheckOutlined";
+import LockOutlined from "@mui/icons-material/LockOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -12,6 +13,8 @@ import type { UseCoordinationWorkspaceState } from "../hooks/use-coordination-wo
 
 export function ContractorColorDialog({ ed }: { ed: UseCoordinationWorkspaceState }) {
   const { colorTarget, setColorTarget, chosenColor, setChosenColor, colorRevision, changeColor, data } = ed;
+  // A colour another company already uses cannot be picked (the server refuses it too).
+  const takenByOthers = new Set((data?.contractors ?? []).filter((c) => c.id !== colorTarget && c.color).map((c) => c.color!.toUpperCase()));
   return (
     <FormDialog
       maxWidth="xs"
@@ -45,9 +48,11 @@ export function ContractorColorDialog({ ed }: { ed: UseCoordinationWorkspaceStat
         <Box sx={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 1.25 }}>
           {COORDINATION_COLORS.map((color) => {
             const active = color.toUpperCase() === (chosenColor || "").toUpperCase();
-            return <Box key={color} component="button" type="button" aria-label={`Pick color ${color}`} onClick={() => setChosenColor(color)}
-              sx={{ aspectRatio: "1", p: 0, borderRadius: "50%", bgcolor: color, border: "2px solid", borderColor: active ? "text.primary" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 120ms ease", "&:hover": { transform: "scale(1.1)" } }}>
+            const taken = takenByOthers.has(color.toUpperCase());
+            return <Box key={color} component="button" type="button" disabled={taken} title={taken ? "Used by another company" : undefined} aria-label={`Pick color ${color}`} onClick={() => setChosenColor(color)}
+              sx={{ aspectRatio: "1", p: 0, borderRadius: "50%", bgcolor: color, border: "2px solid", borderColor: active ? "text.primary" : "transparent", cursor: taken ? "not-allowed" : "pointer", opacity: taken ? 0.4 : 1, display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 120ms ease", "&:hover": { transform: "scale(1.1)" } }}>
               {active && <CheckOutlined sx={{ fontSize: 15, color: "common.white" }} />}
+              {taken && <LockOutlined sx={{ fontSize: 14, color: "text.primary" }} />}
             </Box>;
           })}
         </Box>

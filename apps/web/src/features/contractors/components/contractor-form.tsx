@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import CheckOutlined from "@mui/icons-material/CheckOutlined";
+import LockOutlined from "@mui/icons-material/LockOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -61,6 +62,9 @@ export function ContractorDialog({
     // Reset only when the dialog opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, contractor]);
+
+  // Map colours already used by another company cannot be picked (the server refuses them too).
+  const takenByOthers = new Set(usedColors.filter((c) => c.toUpperCase() !== contractor?.color?.toUpperCase()).map((c) => c.toUpperCase()));
 
   const onSubmit = handleSubmit(async (values) => {
     if (!projectId) return;
@@ -140,11 +144,14 @@ export function ContractorDialog({
               <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(28px, 1fr))", gap: 1 }}>
                 {COORDINATION_COLORS.map((color) => {
                   const selected = color.toUpperCase() === (field.value ?? "").toUpperCase();
+                  const taken = takenByOthers.has(color.toUpperCase());
                   return (
                     <Box
                       key={color}
                       component="button"
                       type="button"
+                      disabled={taken}
+                      title={taken ? "Used by another company" : undefined}
                       aria-label={`Pick color ${color}`}
                       aria-pressed={selected}
                       onClick={() => field.onChange(color)}
@@ -155,13 +162,15 @@ export function ContractorDialog({
                         bgcolor: color,
                         border: "2px solid",
                         borderColor: selected ? "text.primary" : "transparent",
-                        cursor: "pointer",
+                        cursor: taken ? "not-allowed" : "pointer",
+                        opacity: taken ? 0.4 : 1,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
                       {selected && <CheckOutlined sx={{ fontSize: 14, color: "common.white" }} />}
+                      {taken && <LockOutlined sx={{ fontSize: 14, color: "text.primary" }} />}
                     </Box>
                   );
                 })}
