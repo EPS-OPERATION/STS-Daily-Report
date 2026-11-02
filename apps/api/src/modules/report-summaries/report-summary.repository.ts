@@ -1,7 +1,7 @@
 import { and, asc, between, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import { reportSent } from "@/db/report-filters.js";
-import { contractors, dailyReportAllocations, dailyReportMaterials, dailyReportPositions, dailyReports, inspectionRequests } from "@/db/schema/index.js";
+import { contractors, dailyReportAllocations, dailyReportEquipment, dailyReportMaterials, dailyReportPositions, dailyReports, inspectionRequests } from "@/db/schema/index.js";
 
 export interface MaterialsLogFilter {
   from?: string;
@@ -212,4 +212,21 @@ export async function listAllocationDetailsInRange(db: Db, projectId: string, fr
       ),
     )
     .orderBy(asc(dailyReports.reportDate), asc(contractors.code));
+}
+
+// Machines the contractors reported on site (morning report), one row per day × contractor × machine type.
+export async function listOnSiteEquipmentInRange(db: Db, projectId: string, from: string, to: string) {
+  return db
+    .select({
+      reportDate: dailyReports.reportDate,
+      contractorCode: contractors.code,
+      contractorName: contractors.name,
+      equipmentType: dailyReportEquipment.equipmentType,
+      qty: dailyReportEquipment.qty,
+    })
+    .from(dailyReportEquipment)
+    .innerJoin(dailyReports, eq(dailyReportEquipment.reportId, dailyReports.id))
+    .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
+    .where(and(eq(dailyReports.projectId, projectId), eq(dailyReports.morningStatus, "submitted"), between(dailyReports.reportDate, from, to)))
+    .orderBy(asc(dailyReports.reportDate), asc(contractors.code), asc(dailyReportEquipment.equipmentType));
 }

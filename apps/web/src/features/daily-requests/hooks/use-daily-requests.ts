@@ -21,3 +21,12 @@ export function usePermitNotices(projectId: string | null, from: string, to: str
     staleTime: 5 * 60_000,
   });
 }
+
+export function useMachineSummary(projectId: string | null, from: string, to: string) {
+  return useQuery({
+    queryKey: dailyRequestKeys.machineSummary(projectId ?? "", from, to),
+    queryFn: () => dailyRequestApi.machineSummary(projectId!, from, to).then((r) => r.data),
+    enabled: Boolean(projectId),
+    placeholderData: keepPreviousData,
+  });
+}

@@ -12,7 +12,7 @@ import Typography from "@mui/material/Typography";
 
 export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export type View = "requests" | "plan";
+export type View = "requests" | "machines" | "plan";
 
 export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (

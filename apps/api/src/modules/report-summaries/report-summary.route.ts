@@ -4,6 +4,7 @@ import { ValidationError } from "@/shared/errors/app-error.js";
 import { dateRangeQuery, projectIdParams } from "@/shared/http/params.js";
 import {
   manpowerSummaryService,
+  machineSummaryService,
   manpowerTrendService,
   materialsService,
   positionMixService,
@@ -40,6 +41,12 @@ export const reportSummaryRoutes = new Elysia()
       return ok(await siteDayService(params.projectId, from <= to ? from : to, from <= to ? to : from));
     },
     { params: projectIdParams, query: siteDayQuery },
+  )
+  // Machines on site (morning) and machine bookings (afternoon) for the Daily Reports "Machines" tab.
+  .get(
+    "/projects/:projectId/machine-summary",
+    async ({ params, query }) => ok(await machineSummaryService(params.projectId, query.from <= query.to ? query.from : query.to, query.from <= query.to ? query.to : query.from)),
+    { params: projectIdParams, query: dateRangeQuery },
   )
   .get(
     "/projects/:projectId/manpower-summary",

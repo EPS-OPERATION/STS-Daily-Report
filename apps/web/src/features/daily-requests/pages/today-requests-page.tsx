@@ -5,6 +5,7 @@ import { StatusChip } from "@/components/ui/status-chip.js";
 import { BlockSkeleton } from "@/components/ui/skeletons.js";
 import { ContractorFilterPopover } from "@/features/contractors/index.js";
 import { ForecastHistory } from "../components/forecast-history.js";
+import { MachineVisualizationDashboard } from "../components/machine-visualization-dashboard.js";
 import { formatThaiDate } from "@/lib/dates.js";
 import { ExportButtons } from "../components/export-buttons.js";
 import { downloadCsv, printSections } from "../utils/report-export.js";
@@ -12,6 +13,7 @@ import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import ChevronLeftOutlinedIcon from "@mui/icons-material/ChevronLeftOutlined";
 import ChevronRightOutlinedIcon from "@mui/icons-material/ChevronRightOutlined";
 import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
+import PrecisionManufacturingOutlinedIcon from "@mui/icons-material/PrecisionManufacturingOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -33,7 +35,7 @@ import { QaqcSection } from "../components/qaqc-section.js";
 // same date range. Road bookings that clash between contractors are flagged red (warn only).
 export function TodayRequestsPage() {
   const ed = useTodayRequests();
-  const { view, from, to, isRange, week, rfi, data, allCodes, selectedCodes, machines, equipment, hasMachines, hasEquipment, roads, inspections, loadError, forecasts, requestSections, shownDays, selectedDay, dayIndex, setDay, filterItems, setContractors, clashingRoads, rangeLabel, setView, setRange } = ed;
+  const { view, from, to, isRange, week, rfi, data, allCodes, selectedCodes, machines, equipment, hasMachines, hasEquipment, roads, inspections, loadError, forecasts, requestSections, shownDays, selectedDay, dayIndex, setDay, filterItems, setContractors, clashingRoads, rangeLabel, projectId, setView, setRange } = ed;
 
   return (
     <Box>
@@ -42,6 +44,8 @@ export function TodayRequestsPage() {
         subtitle={
           view === "plan"
             ? "ประวัติแผนงานล่วงหน้าที่ผู้รับเหมาแจ้งไว้ (Tomorrow Forecast Activities) — เลือกช่วงวันที่ได้"
+            : view === "machines"
+            ? "การวิเคราะห์และสรุปการใช้เครื่องจักรของผู้รับเหมา — ทั้งเครื่องจักรในไซต์และคำขอใช้"
             : "คำขอประจำวันจากผู้รับเหมา (ส่งในรายงานบ่ายของวันก่อน) — เครื่องจักร อุปกรณ์ ถนน และ QAQC"
         }
         actions={
@@ -72,6 +76,10 @@ export function TodayRequestsPage() {
           <EventNoteOutlinedIcon fontSize="small" />
           Tomorrow Forecast Activities{data ? ` (${forecasts.length})` : ""}
         </ToggleButton>
+        <ToggleButton value="machines" sx={{ textTransform: "none", fontWeight: 600, px: 2, gap: 1 }}>
+          <PrecisionManufacturingOutlinedIcon fontSize="small" />
+          เครื่องจักร (Machines)
+        </ToggleButton>
       </ToggleButtonGroup>
       {view === "requests" ? (
         <ExportButtons
@@ -94,6 +102,15 @@ export function TodayRequestsPage() {
           <ForecastHistory rows={forecasts} rangeLabel={rangeLabel} fileTag={isRange ? `${from}_${to}` : from} />
         )
       ) : null}
+
+      {view === "machines" && (
+        <MachineVisualizationDashboard
+          projectId={projectId}
+          from={from}
+          to={to}
+          selectedCodes={selectedCodes}
+        />
+      )}
 
       {view === "requests" && loadError ? (
         <QueryError error={loadError} onRetry={() => { void week.refetch(); void rfi.refetch(); }} />

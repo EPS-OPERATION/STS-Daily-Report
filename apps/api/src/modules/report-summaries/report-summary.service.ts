@@ -6,7 +6,7 @@ import { listBookingsInRange, listEquipmentRequestsInRange, listPermitsInRange, 
 import { listRequests } from "@/modules/inspection-requests/inspection-request.repository.js";
 import { assertProject } from "@/modules/projects/project.guard.js";
 import { assertRange } from "@/shared/date-range.js";
-import { countMaterialsLog, countRequestsByStatusInRange, listAllocationDetailsInRange, listAllocationsInRange, listMaterialsLog, listPositionsInRange, listReportHoursInRange, summarizeMaterials } from "./report-summary.repository.js";
+import { countMaterialsLog, countRequestsByStatusInRange, listAllocationDetailsInRange, listAllocationsInRange, listMaterialsLog, listOnSiteEquipmentInRange, listPositionsInRange, listReportHoursInRange, summarizeMaterials } from "./report-summary.repository.js";
 
 // EPS view of what contractors reported on site (open read, like weekly summary).
 export async function materialsService(
@@ -325,5 +325,25 @@ export async function siteDayService(projectId: string, from: string, to: string
         inspections: inspections.filter((r) => r.buildingId === b.id && r.status !== "draft"),
       };
     }),
+  };
+}
+
+// Machines for the EPS Daily Reports "Machines" tab: what contractors said is on site each day (morning report, no
+// area) and what they booked for a day (afternoon Daily Request, with building, time and purpose).
+export async function machineSummaryService(projectId: string, from: string, to: string) {
+  const db = getDb();
+  await assertProject(projectId);
+  assertRange(from, to);
+  const [onSite, bookings, buildingList] = await Promise.all([
+    listOnSiteEquipmentInRange(db, projectId, from, to),
+    listBookingsInRange(db, projectId, from, to),
+    listBuildings(db, projectId, { includeInactive: true }),
+  ]);
+  const nameTh = new Map(buildingList.map((b) => [b.id, b.nameTh]));
+  return {
+    from,
+    to,
+    onSite,
+    bookings: bookings.map(({ buildingId, ...b }) => ({ ...b, buildingNameTh: nameTh.get(buildingId) ?? null })),
   };
 }
