@@ -1,3 +1,4 @@
+import SummarizeOutlinedIcon from "@mui/icons-material/SummarizeOutlined";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import Alert from "@mui/material/Alert";
@@ -273,6 +274,24 @@ export function DailyReportsPage() {
               </Card>
             </Box>
           )}
+
+          {/* Whole-site report for one day: every contractor together (manpower, work, requests, map) as one PDF. */}
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: "divider", flexWrap: "wrap", rowGap: 1 }}>
+            <Button
+              variant="contained"
+              startIcon={<SummarizeOutlinedIcon />}
+              onClick={() => {
+                const p = new URLSearchParams({ date: from });
+                if (projectId) p.set("projectId", projectId);
+                window.open(`/daily-reports/site/print?${p.toString()}`, "_blank", "noopener");
+              }}
+            >
+              Site Daily Report (PDF)
+            </Button>
+            <Typography variant="body2" color="text.secondary">
+              สรุปทั้งไซต์ของวัน {dateRangeLabel} — รวมทุกผู้รับเหมา (กำลังคน · เนื้องาน · คำขอ · แผนผัง)
+            </Typography>
+          </Stack>
         </Box>
       )}
 
