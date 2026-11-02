@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+*.local
+.env
+.env.*.local
+bun.lockb
+drizzle/
+*.tsbuildinfo
+.DS_Store
+.vite/
+coverage/
+.vercel
+
+.vercel
+.env*
+!.env.example
+!.env.prod.example
+!.env.backup.example
+supabase/.temp
+.vscode/
+backups/
+.claude-tmp/
+
+# Local MCP client config (per developer, may point at private projects)
+.mcp.json

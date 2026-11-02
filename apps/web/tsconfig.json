@@ -1,0 +1,12 @@
+{
+  "extends": "../../packages/typescript-config/web.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts"],
+  // bun:test files run with `bun test`; keep them out of the browser typecheck/build.
+  "exclude": ["src/**/*.test.ts"]
+}

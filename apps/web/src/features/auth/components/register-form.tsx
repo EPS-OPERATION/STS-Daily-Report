@@ -1,0 +1,95 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import Step from "@mui/material/Step";
+import StepLabel from "@mui/material/StepLabel";
+import Stepper from "@mui/material/Stepper";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Typography from "@mui/material/Typography";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { authApi } from "../api/auth.api.js";
+import { authKeys } from "../api/auth.keys.js";
+import { Controller, useForm } from "react-hook-form";
+import { useCurrentProject } from "@/features/projects/index.js";
+import { useRegister } from "../hooks/use-register.js";
+import { registerFormSchema, type RegisterFormValues } from "../schemas/register.schema.js";
+import { ContractorPicker } from "./contractor-picker.js";
+import { PasswordField } from "./password-field.js";
+
+export function RegisterForm({ onBack }: { onBack: () => void }) {
+  const mutation = useRegister();
+  const current = useCurrentProject();
+  // Logged-out visitors cannot read /projects, so the form asks the public sign-up list.
+  const publicProjects = useQuery({ queryKey: authKeys.projects(), queryFn: () => authApi.projects(), staleTime: 300_000 });
+  const projects = publicProjects.data?.data ?? current.projects;
+  const [pickedProject, setPickedProject] = useState<string | null>(null);
+  const projectId = pickedProject ?? (projects.some((p) => p.id === current.projectId) ? current.projectId : projects[0]?.id ?? null);
+  // Step 1: user details. Step 2: project & company. Each step is short enough
+  // to fit a laptop viewport without scrolling.
+  const [step, setStep] = useState(0);
+  const { register, handleSubmit, control, watch, trigger, formState: { errors } } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerFormSchema), defaultValues: { email: "", username: "", password: "", confirmPassword: "", accountType: "contractor", contractorChoice: "", companyName: "" },
+  });
+  if (mutation.isSuccess) return <Stack spacing={2}><Alert severity="success">ส่งคำขอสมัครแล้ว รอผู้ดูแลระบบอนุมัติ</Alert><Typography color="text.secondary">Your account will be available after EPS reviews your request.</Typography><Button onClick={onBack}>Back to sign in</Button></Stack>;
+  const next = async () => {
+    if (await trigger(["email", "username", "password", "confirmPassword"])) setStep(1);
+  };
+  return (
+    <Stack spacing={2} component="form" noValidate onSubmit={handleSubmit((v) => mutation.mutate({
+      email: v.email, username: v.username, password: v.password, accountType: v.accountType,
+      ...(v.accountType === "eps" ? {} : v.contractorChoice === "other" ? { companyName: v.companyName } : { contractorId: v.contractorChoice }),
+    }))}>
+      <Stepper activeStep={step} sx={{ mb: 0.5 }}>
+        <Step><StepLabel>User details</StepLabel></Step>
+        <Step><StepLabel>Project &amp; company</StepLabel></Step>
+      </Stepper>
+      {mutation.isError && <Alert severity="error">{mutation.error.message}</Alert>}
+      {step === 0 ? (
+        <Stack spacing={2}>
+          <TextField label="Work email" type="email" autoComplete="email" {...register("email")} error={Boolean(errors.email)} helperText={errors.email?.message} />
+          <TextField label="Username" autoComplete="username" {...register("username")} error={Boolean(errors.username)} helperText={errors.username?.message ?? "3–20 characters: a–z, 0–9, . _ -"} />
+          <PasswordField label="Password" autoComplete="new-password" {...register("password")} error={Boolean(errors.password)} helperText={errors.password?.message ?? "At least 8 characters"} />
+          <PasswordField label="Confirm password" autoComplete="new-password" {...register("confirmPassword")} error={Boolean(errors.confirmPassword)} helperText={errors.confirmPassword?.message} />
+          <Button type="button" variant="contained" fullWidth onClick={() => void next()}>Next</Button>
+        </Stack>
+      ) : (
+        <Stack spacing={2}>
+          {/* EPS staff are not a contractor company: their request goes to the admin as an EPS account. */}
+          <Controller control={control} name="accountType" render={({ field }) => (
+            <ToggleButtonGroup exclusive fullWidth color="primary" value={field.value} onChange={(_, v) => v && field.onChange(v)} disabled={mutation.isPending} aria-label="Account type">
+              <ToggleButton value="contractor" sx={{ fontWeight: 700 }}>ผู้รับเหมา (Contractor)</ToggleButton>
+              <ToggleButton value="eps" sx={{ fontWeight: 700 }}>EPS</ToggleButton>
+            </ToggleButtonGroup>
+          )} />
+          <Typography variant="body2" color="text.secondary">
+            {watch("accountType") === "eps"
+              ? "สำหรับทีม EPS — ผู้ดูแลระบบจะอนุมัติและกำหนดสิทธิ์ให้"
+              : "Select your company for this project — or choose \"Other\" if it is not listed yet."}
+          </Typography>
+          {projects.length > 1 ? (
+            <TextField select label="Project" value={projectId ?? ""} onChange={(e) => setPickedProject(e.target.value)}>
+              {projects.map((p) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : (
+            <TextField label="Project" value={projects[0]?.name ?? (publicProjects.isLoading ? "กำลังโหลด…" : "—")} disabled />
+          )}
+          {watch("accountType") === "contractor" && <Controller control={control} name="contractorChoice" render={({ field }) => <ContractorPicker value={field.value} onChange={field.onChange} projectId={projectId ?? undefined} label="Company" error={errors.contractorChoice?.message} disabled={mutation.isPending} />} />}
+          {watch("accountType") === "contractor" && watch("contractorChoice") === "other" && <TextField label="Company name" autoComplete="organization" {...register("companyName")} error={Boolean(errors.companyName)} helperText={errors.companyName?.message} />}
+          <Stack direction="row" spacing={1.5}>
+            <Button type="button" color="inherit" disabled={mutation.isPending} onClick={() => setStep(0)}>Back</Button>
+            <Button type="submit" variant="contained" fullWidth disabled={mutation.isPending}>{mutation.isPending ? "Submitting…" : "Request account"}</Button>
+          </Stack>
+        </Stack>
+      )}
+    </Stack>
+  );
+}

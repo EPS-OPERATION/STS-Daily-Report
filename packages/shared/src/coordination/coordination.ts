@@ -1,0 +1,293 @@
+/** Built-in item codes. Projects can add more in `coordination_item_types`; stored items use the code. */
+export const COORDINATION_ICONS = ["crane", "machinery", "truck", "weld", "pipe", "box", "pin", "road", "text"] as const;
+export type BuiltInCoordinationIcon = (typeof COORDINATION_ICONS)[number];
+export type CoordinationIcon = string;
+
+/** Icons the admin can pick (Phosphor fill set, vendored in the web app). */
+export const COORDINATION_ICON_KEYS = [
+  "crane", "crane-tower", "bulldozer", "tractor", "truck", "truck-trailer",
+  "traffic-cone", "traffic-sign", "hard-hat", "fire", "fire-extinguisher",
+  "pipe", "pipe-wrench", "wrench", "hammer", "toolbox", "package", "warehouse",
+  "factory", "wall", "stairs", "ruler", "paint-roller", "engine", "gear",
+  "drop", "lightning", "warning", "map-pin", "road-horizon", "text-t",
+] as const;
+export type CoordinationIconKey = (typeof COORDINATION_ICON_KEYS)[number];
+
+/** One entry in a project's "Add item" menu. `code` is stored on the job and never changes. */
+export interface CoordinationItemType {
+  id: string;
+  code: string;
+  label: string;
+  labelTh: string;
+  iconKey: string;
+  sortOrder: number;
+  isActive: boolean;
+  /** Built-in types (road/text included) cannot be deleted. */
+  isSystem: boolean;
+}
+
+/** Seeded for every project by the migration and `bun db:seed`. */
+export const COORDINATION_ITEM_TYPE_DEFAULTS = [
+  { code: "crane", label: "Crane", labelTh: "รถเครน", iconKey: "crane", sortOrder: 10 },
+  { code: "machinery", label: "Machinery", labelTh: "เครื่องจักร", iconKey: "bulldozer", sortOrder: 20 },
+  { code: "truck", label: "Truck", labelTh: "รถขนส่ง", iconKey: "truck", sortOrder: 30 },
+  { code: "weld", label: "Welding", labelTh: "งานเชื่อม", iconKey: "fire", sortOrder: 40 },
+  { code: "pipe", label: "Piping", labelTh: "งานท่อ", iconKey: "pipe", sortOrder: 50 },
+  { code: "box", label: "Material laydown", labelTh: "จุดวางของ", iconKey: "package", sortOrder: 60 },
+  { code: "pin", label: "Work point", labelTh: "จุดงาน", iconKey: "map-pin", sortOrder: 70 },
+  { code: "road", label: "Road use", labelTh: "ใช้ถนน", iconKey: "road-horizon", sortOrder: 80 },
+  { code: "text", label: "Text", labelTh: "ข้อความ", iconKey: "text-t", sortOrder: 90 },
+] as const;
+
+/** Codes that change behaviour, not just the glyph: a route, or the free-text marker. */
+export const COORDINATION_RESERVED_ICONS = ["road", "text"] as const;
+export interface CoordinationPoint { x: number; y: number }
+// polygon = a work area (rectangle or free shape); polyline = a road route (open line, "route" items).
+export interface CoordinationGeometry { type: "polygon" | "polyline"; points: CoordinationPoint[] }
+export type CoordinationAreaKind = "rectangle" | "polygon" | "route";
+export interface CoordinationInput {
+  contractorId: string; workDate: string; title: string; icon: CoordinationIcon;
+  /** Which working-area map the job is on (new jobs only; defaults to the project's main map). */
+  mapId?: string;
+  /** Stretch of the map's route this job belongs to (a coordination section of the same map), if any. */
+  sectionId?: string | null;
+  x: number; y: number; rotation: number; areaKind: CoordinationAreaKind; geometry: CoordinationGeometry;
+  /** false = the marker stands alone; no connector line to its area (defaults to true). */
+  linkArea?: boolean;
+  /** Road routes only: traffic both ways (arrows at both ends). */
+  twoWay?: boolean;
+  /** Size of this job's icon marker relative to the default (1); COORDINATION_ICON_SCALE_MIN..MAX. */
+  iconScale?: number;
+  /** Optional detail behind the short title (hidden on the map until the job is clicked). */
+  note?: string | null;
+}
+export interface CoordinationItem extends CoordinationInput {
+  id: string; mapId: string; projectId: string; revision: number; createdAt: string; updatedAt: string;
+}
+export interface CoordinationContractor {
+  id: string; code: string; name: string; color: string; revision: number;
+  /** false for the owner company (EPS): its old items still show, but it cannot be picked. */
+  isContractor: boolean;
+}
+/** One shared note for the whole map on a work date (EPS writes, everyone reads). */
+export interface CoordinationDayNote {
+  note: string; updatedAt: string; updatedByName: string | null;
+}
+/** EPS stamp: the day's map is final — nobody can change jobs or the day note until EPS unlocks it. */
+export interface CoordinationDayLock {
+  lockedAt: string; lockedByName: string | null;
+}
+/** One working-area drawing of the project (the plant layout, a 33 kV line corridor, …). */
+export interface CoordinationMap {
+  id: string; projectId: string; imagePath: string; width: number; height: number;
+  name: string; nameTh: string;
+}
+/** A named stretch EPS drew on a map (e.g. "A-B" of the 33 kV line): colour, the work it covers and its line. */
+export interface CoordinationSection {
+  id: string; mapId: string; code: string; work: string; color: string; points: CoordinationPoint[]; sortOrder: number;
+}
+/** One contractor report row placed on a route section (from the daily report form, read-only on the Map). */
+export interface CoordinationSectionActivity {
+  id: string; sectionId: string; contractorId: string; contractorCode: string; contractorName: string;
+  discipline: string; work: string;
+  /** null = hidden from this viewer (only EPS and the contractor's own company see headcount). */
+  headcount: number | null;
+  startTime: string | null; endTime: string | null;
+  planPercent: number | null; actualPercent: number | null;
+  /** Added in the afternoon (not in the morning plan). */
+  isAdditional: boolean;
+}
+/** A Tomorrow Forecast row (sent the evening before) that plans work on a route section for this date. */
+export interface CoordinationSectionPlan {
+  id: string; sectionId: string; contractorId: string; contractorCode: string; contractorName: string; work: string;
+}
+/** Route sections offered as places in the daily report form: the areas that have sections (picture for the
+ *  mini map) and their sections in order. */
+export interface CoordinationSectionCatalog {
+  maps: CoordinationMap[];
+  sections: CoordinationSection[];
+}
+/** What contractors reported on one map's route sections for a date. */
+export interface CoordinationSectionWork {
+  date: string; mapId: string;
+  activities: CoordinationSectionActivity[];
+  planned: CoordinationSectionPlan[];
+}
+/** A map as the EPS Maps page lists it. */
+export interface CoordinationMapAdmin extends CoordinationMap {
+  /** The first map: default area, and where the road register is drawn. Cannot be deleted or moved. */
+  isMain: boolean;
+  /** Uploaded to storage (can be replaced); false = a file shipped with the app. */
+  uploaded: boolean;
+  /** Jobs on it, all dates (a map with jobs cannot be deleted). */
+  jobCount: number;
+  sectionCount: number;
+}
+/** Largest side (px) of an uploaded map: bigger drawings decode to too much memory on phones. */
+export const COORDINATION_MAP_MAX_SIDE = 4096;
+export interface CoordinationData {
+  /** The project's main map (first by order): the default area, and the one the road register is drawn on. */
+  map: CoordinationMap;
+  /** Every working-area map in order; jobs say which one they are on with `mapId`. */
+  maps: CoordinationMap[];
+  /** Route sections of every map (small); a section's `mapId` says which map it is drawn on. */
+  sections: CoordinationSection[];
+  contractors: CoordinationContractor[]; items: CoordinationItem[];
+  /** The project's Add-item catalog; inactive entries stay for old jobs but are hidden from the picker. */
+  itemTypes: CoordinationItemType[];
+  editableContractorIds: string[]; canManageColors: boolean;
+  dayNote: CoordinationDayNote | null; canEditDayNote: boolean;
+  lock: CoordinationDayLock | null; canLock: boolean;
+  /** Fingerprint of everything above: the open map polls `/coordination/version` and refetches when it differs. */
+  version: string;
+}
+/** Printable day report (EPS only): the drawing with every job of the day and the day note. */
+export interface CoordinationReport {
+  projectName: string; date: string; generatedAt: string; generatedByName: string | null;
+  map: CoordinationData["map"]; contractors: CoordinationContractor[]; items: CoordinationItem[];
+  /** Route sections of this map. */
+  sections: CoordinationSection[];
+  itemTypes: CoordinationItemType[];
+  dayNote: CoordinationDayNote | null;
+}
+// Separate from chart colours: every contractor remains individually identifiable.
+export const COORDINATION_COLORS = [
+  "#2563EB", "#C2410C", "#15803D", "#7E22CE", "#BE123C", "#0E7490",
+  "#A16207", "#4338CA", "#0F766E", "#9D174D", "#4D7C0F", "#92400E",
+  "#0369A1", "#B91C1C", "#6D28D9", "#047857", "#A21CAF", "#334155",
+  "#1D4ED8", "#9A3412", "#166534", "#581C87", "#9F1239", "#155E75",
+] as const;
+
+// Coordinates are normalised to the map image (0..1). Items may be parked a
+// little outside the drawing so labels fit in the white margin; anything past
+// the margin is out of bounds (rendered grey and rejected by validation).
+export const COORDINATION_MARGIN = 0.15;
+export const COORDINATION_MIN = -COORDINATION_MARGIN;
+export const COORDINATION_MAX = 1 + COORDINATION_MARGIN;
+/** Per-job icon size range (1 = default marker size). */
+export const COORDINATION_ICON_SCALE_MIN = 0.5;
+export const COORDINATION_ICON_SCALE_MAX = 2.5;
+
+const cross = (a: CoordinationPoint, b: CoordinationPoint, c: CoordinationPoint) =>
+  (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+const onSegment = (a: CoordinationPoint, b: CoordinationPoint, p: CoordinationPoint) =>
+  Math.abs(cross(a, b, p)) < 1e-10 && p.x >= Math.min(a.x, b.x) - 1e-10 && p.x <= Math.max(a.x, b.x) + 1e-10 && p.y >= Math.min(a.y, b.y) - 1e-10 && p.y <= Math.max(a.y, b.y) + 1e-10;
+
+export function coordinationGeometryError(geometry: CoordinationGeometry): string | null {
+  const p = geometry.points;
+  if (geometry.type === "polyline") return routeGeometryError(p);
+  if (geometry.type !== "polygon" || p.length < 3 || p.length > 500) return "พื้นที่ต้องมีจุดมุม 3–500 จุด";
+  if (p.some((v) => !Number.isFinite(v.x) || !Number.isFinite(v.y) || v.x < COORDINATION_MIN || v.x > COORDINATION_MAX || v.y < COORDINATION_MIN || v.y > COORDINATION_MAX)) return "พื้นที่ต้องอยู่ภายในผัง";
+  let area = 0;
+  for (let i = 0; i < p.length; i++) {
+    const a = p[i]!, b = p[(i + 1) % p.length]!;
+    if (Math.hypot(a.x - b.x, a.y - b.y) < 1e-8) return "จุดมุมต้องไม่ซ้ำกัน";
+    area += a.x * b.y - b.x * a.y;
+    for (let j = i + 1; j < p.length; j++) {
+      if (j === i + 1 || (i === 0 && j === p.length - 1)) continue;
+      const c = p[j]!, d = p[(j + 1) % p.length]!;
+      if ((cross(a, b, c) * cross(a, b, d) < 0 && cross(c, d, a) * cross(c, d, b) < 0) || onSegment(a, b, c) || onSegment(a, b, d) || onSegment(c, d, a) || onSegment(c, d, b)) return "เส้นขอบพื้นที่ต้องไม่ตัดกัน";
+    }
+  }
+  return Math.abs(area) < 1e-8 ? "พื้นที่ต้องมีขนาดมากกว่าศูนย์" : null;
+}
+
+export function coordinationDateValid(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+export function coordinationToday(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  return ["year", "month", "day"].map((part) => parts.find((v) => v.type === part)!.value).join("-");
+}
+
+export function coordinationRectangleValid(points: CoordinationPoint[], width: number, height: number): boolean {
+  if (points.length !== 4) return false;
+  const p = points.map((v) => ({ x: v.x * width, y: v.y * height }));
+  const a = p[0]!, b = p[1]!, c = p[2]!, d = p[3]!;
+  const ux = b.x - a.x, uy = b.y - a.y, vx = d.x - a.x, vy = d.y - a.y;
+  return Math.abs(ux * vx + uy * vy) <= 1e-6 * Math.hypot(ux, uy) * Math.hypot(vx, vy)
+    && Math.hypot(a.x + c.x - b.x - d.x, a.y + c.y - b.y - d.y) < 1e-4;
+}
+
+const inBounds = (v: CoordinationPoint) =>
+  Number.isFinite(v.x) && Number.isFinite(v.y) && v.x >= COORDINATION_MIN && v.x <= COORDINATION_MAX && v.y >= COORDINATION_MIN && v.y <= COORDINATION_MAX;
+
+// A road route: 2–500 points along the road, inside the drawing, no zero-length step.
+export function routeGeometryError(p: CoordinationPoint[]): string | null {
+  if (p.length < 2 || p.length > 500) return "เส้นทางต้องมี 2–500 จุด";
+  if (!p.every(inBounds)) return "เส้นทางต้องอยู่ภายในผัง";
+  for (let i = 1; i < p.length; i++) {
+    if (Math.hypot(p[i]!.x - p[i - 1]!.x, p[i]!.y - p[i - 1]!.y) < 1e-8) return "จุดที่ต่อกันต้องไม่ซ้ำกัน";
+  }
+  return null;
+}
+
+// Two routes closer than this (drawing pixels) are on the same stretch of road.
+export const ROUTE_CLASH_DISTANCE_PX = 40;
+
+type Px = { x: number; y: number };
+function pointSegment(p: Px, a: Px, b: Px): number {
+  const abx = b.x - a.x, aby = b.y - a.y;
+  const len = abx * abx + aby * aby;
+  const t = len === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / len));
+  return Math.hypot(p.x - (a.x + t * abx), p.y - (a.y + t * aby));
+}
+function segmentsCross(a: Px, b: Px, c: Px, d: Px): boolean {
+  const k = (p: Px, q: Px, r: Px) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  return k(a, b, c) * k(a, b, d) < 0 && k(c, d, a) * k(c, d, b) < 0;
+}
+// Smallest distance between two open polylines, in drawing pixels (0 when they cross).
+export function routeDistance(r1: CoordinationPoint[], r2: CoordinationPoint[], width: number, height: number): number {
+  const s = (p: CoordinationPoint) => ({ x: p.x * width, y: p.y * height });
+  let best = Infinity;
+  for (let i = 1; i < r1.length; i++) {
+    const a = s(r1[i - 1]!), b = s(r1[i]!);
+    for (let j = 1; j < r2.length; j++) {
+      const c = s(r2[j - 1]!), d = s(r2[j]!);
+      if (segmentsCross(a, b, c, d)) return 0;
+      best = Math.min(best, pointSegment(a, c, d), pointSegment(b, c, d), pointSegment(c, a, b), pointSegment(d, a, b));
+    }
+  }
+  return best;
+}
+
+// Routes of different contractors on the same day that cross or run together:
+// route id → the other contractors it collides with. Warning only, nothing is blocked.
+export function coordinationRouteClashes(
+  items: Pick<CoordinationItem, "id" | "contractorId" | "workDate" | "areaKind" | "geometry">[],
+  width: number,
+  height: number,
+): Map<string, string[]> {
+  const routes = items.filter((i) => i.areaKind === "route" && i.geometry.points.length >= 2);
+  const clashes = new Map<string, string[]>();
+  const add = (id: string, other: string) => {
+    const list = clashes.get(id) ?? [];
+    if (!list.includes(other)) list.push(other);
+    clashes.set(id, list);
+  };
+  for (let i = 0; i < routes.length; i++) {
+    for (let j = i + 1; j < routes.length; j++) {
+      const a = routes[i]!, b = routes[j]!;
+      if (a.contractorId === b.contractorId || a.workDate !== b.workDate) continue;
+      if (routeDistance(a.geometry.points, b.geometry.points, width, height) <= ROUTE_CLASH_DISTANCE_PX) {
+        add(a.id, b.contractorId);
+        add(b.id, a.contractorId);
+      }
+    }
+  }
+  return clashes;
+}
+
+// Site road register (EPS): a road is split at junctions into segments; requests pick segments.
+export interface RoadSegment {
+  id: string;
+  /** Road code shared by its segments, e.g. "R2". */
+  road: string;
+  /** Segment name shown to contractors, e.g. "R2 Boiler–ACC". */
+  name: string;
+  points: CoordinationPoint[];
+  closed: boolean;
+}

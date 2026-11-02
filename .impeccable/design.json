@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-14T00:00:00.000Z",
+  "title": "Design System: EPS Daily Report",
+  "extensions": {
+    "colorMeta": {
+      "moss-olive": {
+        "role": "primary",
+        "displayName": "Moss Olive",
+        "canonical": "oklch(0.48 0.15 132)",
+        "tonalRamp": [
+          "oklch(0.15 0.15 132)",
+          "oklch(0.26 0.15 132)",
+          "oklch(0.38 0.15 132)",
+          "oklch(0.49 0.15 132)",
+          "oklch(0.61 0.15 132)",
+          "oklch(0.72 0.15 132)",
+          "oklch(0.84 0.15 132)",
+          "oklch(0.95 0.15 132)"
+        ]
+      },
+      "baked-ember": {
+        "role": "secondary",
+        "displayName": "Baked Ember",
+        "canonical": "oklch(0.6 0.145 48)",
+        "tonalRamp": [
+          "oklch(0.15 0.145 48)",
+          "oklch(0.26 0.145 48)",
+          "oklch(0.38 0.145 48)",
+          "oklch(0.49 0.145 48)",
+          "oklch(0.61 0.145 48)",
+          "oklch(0.72 0.145 48)",
+          "oklch(0.84 0.145 48)",
+          "oklch(0.95 0.145 48)"
+        ]
+      },
+      "alert-red": {
+        "role": "danger",
+        "displayName": "Alert Red",
+        "canonical": "oklch(0.55 0.19 25)",
+        "tonalRamp": [
+          "oklch(0.15 0.19 25)",
+          "oklch(0.26 0.19 25)",
+          "oklch(0.38 0.19 25)",
+          "oklch(0.49 0.19 25)",
+          "oklch(0.61 0.19 25)",
+          "oklch(0.72 0.19 25)",
+          "oklch(0.84 0.19 25)",
+          "oklch(0.95 0.19 25)"
+        ]
+      },
+      "field-green": {
+        "role": "success",
+        "displayName": "Field Green",
+        "canonical": "oklch(0.5 0.15 145)",
+        "tonalRamp": [
+          "oklch(0.15 0.15 145)",
+          "oklch(0.26 0.15 145)",
+          "oklch(0.38 0.15 145)",
+          "oklch(0.49 0.15 145)",
+          "oklch(0.61 0.15 145)",
+          "oklch(0.72 0.15 145)",
+          "oklch(0.84 0.15 145)",
+          "oklch(0.95 0.15 145)"
+        ]
+      },
+      "caution-amber-ink": {
+        "role": "warning",
+        "displayName": "Caution Amber",
+        "canonical": "oklch(0.4 0.08 75)",
+        "tonalRamp": [
+          "oklch(0.15 0.08 75)",
+          "oklch(0.26 0.08 75)",
+          "oklch(0.38 0.08 75)",
+          "oklch(0.49 0.08 75)",
+          "oklch(0.61 0.08 75)",
+          "oklch(0.72 0.08 75)",
+          "oklch(0.84 0.08 75)",
+          "oklch(0.95 0.08 75)"
+        ]
+      },
+      "charcoal-ink": {
+        "role": "neutral",
+        "displayName": "Charcoal Ink",
+        "canonical": "oklch(0.25 0.032 130)",
+        "tonalRamp": [
+          "oklch(0.15 0.02 130)",
+          "oklch(0.26 0.02 130)",
+          "oklch(0.38 0.02 130)",
+          "oklch(0.49 0.02 130)",
+          "oklch(0.61 0.02 130)",
+          "oklch(0.72 0.02 130)",
+          "oklch(0.84 0.02 130)",
+          "oklch(0.95 0.02 130)"
+        ]
+      },
+      "warm-ivory": {
+        "role": "neutral",
+        "displayName": "Warm Ivory",
+        "canonical": "oklch(0.965 0.01 130)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 130)",
+          "oklch(0.26 0.01 130)",
+          "oklch(0.38 0.01 130)",
+          "oklch(0.49 0.01 130)",
+          "oklch(0.61 0.01 130)",
+          "oklch(0.72 0.01 130)",
+          "oklch(0.84 0.01 130)",
+          "oklch(0.95 0.01 130)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Title", "purpose": "Page headers (PageHeader's h1) only." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings within a page." },
+      "body": { "displayName": "Body", "purpose": "Running text and form values, capped at 70ch." },
+      "label": { "displayName": "Label", "purpose": "Form field labels and sidebar nav item text." }
+    },
+    "shadows": [
+      { "name": "lifted-card", "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)", "purpose": "Dashboard summary/stat cards only — the sole exception to the flat-by-default rule." }
+    ],
+    "motion": [
+      { "name": "state-transition", "value": "200ms ease (color/background-color/border-color)", "purpose": "Default transition for hover/active/focus state changes on buttons, inputs, and nav items." },
+      { "name": "skeleton-pulse", "value": "1.6s ease-out infinite", "purpose": "Loading-state opacity pulse on SkeletonBlock." }
+    ],
+    "breakpoints": [
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The default action button — solid Moss Olive, white text, 44px min height.",
+      "html": "<button class=\"ds-btn-primary\">บันทึกรายงาน</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border-radius: 12px; border: none; background: oklch(0.48 0.15 132); color: oklch(1 0 0); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; transition: background-color 0.2s; cursor: pointer; } .ds-btn-primary:hover { background: oklch(0.415 0.148 132); } .ds-btn-primary:focus-visible { outline: 2px solid oklch(0.48 0.15 132); outline-offset: 2px; } .ds-btn-primary:disabled { background: oklch(0.935 0.014 130); color: oklch(0.5 0.022 130); cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Lower-emphasis action paired with a primary button (e.g. Cancel next to Save).",
+      "html": "<button class=\"ds-btn-secondary\">ยกเลิก</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border-radius: 12px; border: 1px solid oklch(0.875 0.012 130); background: oklch(0.965 0.01 130); color: oklch(0.25 0.032 130); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; transition: background-color 0.2s; cursor: pointer; } .ds-btn-secondary:hover { background: oklch(0.935 0.014 130); } .ds-btn-secondary:focus-visible { outline: 2px solid oklch(0.48 0.15 132); outline-offset: 2px; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive actions only.",
+      "html": "<button class=\"ds-btn-danger\">ลบรายงาน</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border-radius: 12px; border: none; background: oklch(0.55 0.19 25); color: oklch(1 0 0); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; transition: opacity 0.2s; cursor: pointer; } .ds-btn-danger:hover { opacity: 0.9; } .ds-btn-danger:focus-visible { outline: 2px solid oklch(0.55 0.19 25); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Low-emphasis inline action (sign out, switch role).",
+      "html": "<button class=\"ds-btn-ghost\">ออกจากระบบ</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border-radius: 12px; border: none; background: transparent; color: oklch(0.25 0.032 130); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; transition: background-color 0.2s; cursor: pointer; } .ds-btn-ghost:hover { background: oklch(0.965 0.01 130); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Shared visual base for text input, textarea, and select.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"กรอกข้อมูล\" />",
+      "css": ".ds-input { width: 100%; min-height: 44px; border-radius: 12px; border: 1px solid oklch(0.875 0.012 130); background: oklch(1 0 0); padding: 8px 12px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 1rem; color: oklch(0.25 0.032 130); transition: border-color 0.2s; } .ds-input::placeholder { color: oklch(0.5 0.022 130); } .ds-input:hover { border-color: oklch(0.5 0.022 130); } .ds-input:focus-visible { outline: 2px solid oklch(0.48 0.15 132); outline-offset: 2px; border-color: oklch(0.48 0.15 132); } .ds-input:disabled { background: oklch(0.965 0.01 130); color: oklch(0.5 0.022 130); cursor: not-allowed; }"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "pill-status",
+      "description": "Solid-fill semantic pill — meaning comes from color alone, never a stripe or icon.",
+      "html": "<span class=\"ds-pill-critical\">CRITICAL</span>",
+      "css": ".ds-pill-critical { display: inline-flex; align-items: center; border-radius: 9999px; padding: 4px 10px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; background: oklch(0.55 0.19 25); color: oklch(1 0 0); }"
+    },
+    {
+      "name": "Neutral Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Neutral pill for non-semantic tags and counts.",
+      "html": "<span class=\"ds-badge\">Badge</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; border-radius: 9999px; padding: 4px 10px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 600; background: oklch(0.935 0.014 130); color: oklch(0.25 0.032 130); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Standard content card — flat, hairline border, warm-ivory surface, 20px padding.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">หัวข้อ</h3><p class=\"ds-card-body\">ข้อความสนับสนุน</p></div>",
+      "css": ".ds-card { border-radius: 12px; border: 1px solid oklch(0.875 0.012 130); background: oklch(0.965 0.01 130); padding: 20px; } .ds-card-title { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 1rem; font-weight: 700; color: oklch(0.25 0.032 130); margin: 0 0 8px; } .ds-card-body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 1rem; font-weight: 400; line-height: 1.55; color: oklch(0.25 0.032 130); margin: 0; }"
+    },
+    {
+      "name": "Nav Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Sidebar/mobile nav link — active state is a solid Moss Olive pill, not a color-only change.",
+      "html": "<a class=\"ds-nav-item ds-nav-item--active\" href=\"#\">รายงานประจำวัน</a>",
+      "css": ".ds-nav-item { display: flex; align-items: center; gap: 10px; border-radius: 12px; padding: 10px 12px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; color: oklch(0.25 0.032 130); text-decoration: none; transition: background-color 0.2s; } .ds-nav-item:hover { background: oklch(0.965 0.01 130); } .ds-nav-item--active { background: oklch(0.48 0.15 132); color: oklch(1 0 0); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Site Foreman's Clipboard",
+    "overview": "This is a tool for someone standing in direct midday sun with dusty gloves, filling in numbers before the next task starts. Every decision follows from that scene: high-contrast solid fills over subtlety, 44px minimum tap targets, one accent color spent sparingly so it still means something when it appears. The palette reads as construction-site material — sun-bleached ivory ground, moss-olive as the working brand color, baked-ember held in reserve for the moments that need to be noticed (priority, warnings, the rare accent action). Nothing here is decorative; every color, weight, and radius exists to make a number or a status legible fast, not to look impressive.\n\nThe system is restrained on purpose. A pure-white background carries almost the whole UI; moss-olive is the only color allowed to represent \"brand\" or a primary action; baked-ember is reserved for HIGH-priority and secondary-accent moments so it stays rare enough to still function as a flag. Nothing in the interface is imported from a generic SaaS-dashboard vocabulary — no gradients, no glassmorphism, no soft drop shadows layered on every card.",
+    "keyCharacteristics": [
+      "Flat by default — borders and tonal surface steps carry structure, not shadows",
+      "One accent color (baked-ember), spent deliberately and rarely",
+      "Solid-fill semantic pills (priority/status) — meaning from color, never from stripes or gradients",
+      "44px minimum touch targets throughout, including secondary/ghost actions",
+      "Radius caps at 12px (rounded-md); full-round is reserved for pills only"
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Baked Ember is the only saturated color besides the semantic status set. It marks HIGH priority and nothing else is allowed to borrow it for emphasis.", "section": "colors" },
+      { "name": "The One Voice Rule", "body": "There is exactly one typeface. Weight and size carry the entire hierarchy — never reach for a second font family to create emphasis.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Shadows are not a general card treatment. shadow-sm is reserved for the small set of dashboard summary cards that need to read as \"lifted\" above the page; every other container stays flat with a hairline border.", "section": "elevation" },
+      { "name": "The 12px Ceiling Rule", "body": "rounded-md (12px) is the standard radius for every substantial container: buttons, inputs, cards, panels, the EmptyState box. rounded-full is reserved exclusively for pills and badges.", "section": "colors" }
+    ],
+    "dos": [
+      "Do use rounded-md (12px) for every new container, button, or input — it's the system's one ceiling.",
+      "Do keep tap targets at min-h-[44px] for anything a user taps or clicks as a primary action; sm (36px) is the only sanctioned exception, for secondary/inline controls.",
+      "Do spend Baked Ember rarely — it should never cover more area on a screen than a pill or a small icon badge.",
+      "Do use the warm-ivory / warm-ivory-deep two-step surface system for layering, not a gray scale or new tint.",
+      "Do respect prefers-reduced-motion — the global stylesheet already collapses all animation/transition durations to near-zero; new motion must not bypass it."
+    ],
+    "donts": [
+      "Don't introduce a shadow on an ordinary card, panel, or form. shadow-sm is reserved for the dashboard's summary-card set only.",
+      "Don't reach for a second typeface or a \"display\" font — this system carries its entire hierarchy in Inter's weight and size steps.",
+      "Don't use raw Tailwind palette classes (bg-amber-500/10, text-blue-700, border-purple-500/20, text-amber-900, etc.) for color. Known drift to clean up: the role badges in app-shell.tsx (getRoleBadge) and several panels in admin/page.tsx currently do this and should migrate to token-based equivalents rather than be treated as precedent.",
+      "Don't use rounded-lg (16px) for standard panels. admin/page.tsx's panel containers currently do this — inconsistent with the 12px ceiling used everywhere else — and should migrate to rounded-md rather than be copied forward."
+    ]
+  }
+}

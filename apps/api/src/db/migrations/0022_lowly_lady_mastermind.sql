@@ -1,0 +1,2 @@
+ALTER TABLE "coordination_items" DROP CONSTRAINT "coordination_items_xy_check";--> statement-breakpoint
+ALTER TABLE "coordination_items" ADD CONSTRAINT "coordination_items_xy_check" CHECK ("coordination_items"."x" BETWEEN -0.15 AND 1.15 AND "coordination_items"."y" BETWEEN -0.15 AND 1.15);

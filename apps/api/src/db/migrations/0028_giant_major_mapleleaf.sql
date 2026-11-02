@@ -1,0 +1,1 @@
+ALTER TABLE "daily_report_road_usage" ALTER COLUMN "building_id" DROP NOT NULL;

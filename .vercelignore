@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+apps/web/dist
+apps/api/dist
+.env
+.env.*
+supabase/.temp
+*.log
+check-conn.ts
+apps/api/check-conn.ts
+apps/api/test-regions.ts

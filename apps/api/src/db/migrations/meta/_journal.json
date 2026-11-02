@@ -1,0 +1,356 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790609134504,
+      "tag": "0000_futuristic_warbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790673044239,
+      "tag": "0001_crazy_reavers",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790673073239,
+      "tag": "0002_whole_doctor_spectrum",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790695707769,
+      "tag": "0003_fuzzy_chronomancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790699033619,
+      "tag": "0004_wakeful_ares",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790749377158,
+      "tag": "0005_clammy_thunderbolts",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790751558280,
+      "tag": "0006_flaky_revanche",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790753098666,
+      "tag": "0007_brief_wolf_cub",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790755496967,
+      "tag": "0008_mute_sebastian_shaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790841917065,
+      "tag": "0009_legal_madrox",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790843653778,
+      "tag": "0010_blue_ozymandias",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790846593911,
+      "tag": "0011_equal_jimmy_woo",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790921078008,
+      "tag": "0012_boring_human_robot",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790926866802,
+      "tag": "0013_graceful_magik",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791359126975,
+      "tag": "0014_peaceful_red_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791532801304,
+      "tag": "0015_majestic_norrin_radd",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791731456410,
+      "tag": "0016_elite_turbo",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791734307686,
+      "tag": "0017_harsh_dark_phoenix",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791735417743,
+      "tag": "0018_massive_bloodscream",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791775397604,
+      "tag": "0019_bored_psynapse",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791777525143,
+      "tag": "0020_smart_piledriver",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791780394859,
+      "tag": "0021_groovy_monster_badoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791787517763,
+      "tag": "0022_lowly_lady_mastermind",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791890419424,
+      "tag": "0023_uneven_shocker",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791897182771,
+      "tag": "0024_messy_argent",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791897903925,
+      "tag": "0025_light_exodus",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791903182251,
+      "tag": "0026_unknown_wiccan",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791989752025,
+      "tag": "0027_shiny_toxin",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791989753025,
+      "tag": "0028_giant_major_mapleleaf",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791989754025,
+      "tag": "0029_first_abomination",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791989755025,
+      "tag": "0030_handy_madame_web",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791989756025,
+      "tag": "0031_thin_colossus",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792028176047,
+      "tag": "0032_quick_rafael_vega",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792115887601,
+      "tag": "0033_curly_deadpool",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792226665098,
+      "tag": "0034_thin_blue_marvel",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792229665506,
+      "tag": "0035_white_anita_blake",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792327455328,
+      "tag": "0036_left_marauders",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792328456499,
+      "tag": "0037_slim_ravenous",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792339224920,
+      "tag": "0038_pretty_kylun",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792387697803,
+      "tag": "0039_cooing_albert_cleary",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792387698889,
+      "tag": "0040_merge_companies",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792415629858,
+      "tag": "0041_contractor_contact_active",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792417646885,
+      "tag": "0042_allocation_is_additional",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792424001067,
+      "tag": "0043_coordination_icon_scale",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792502638208,
+      "tag": "0044_mute_nova",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792511661044,
+      "tag": "0045_bizarre_winter_soldier",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793175993159,
+      "tag": "0046_user_activity_days",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793235857218,
+      "tag": "0047_safety_week_no",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793241689825,
+      "tag": "0048_safety_statistics",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793406510180,
+      "tag": "0049_coordination_maps_sections",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+ALTER TABLE "coordination_items" ADD COLUMN "icon_scale" numeric(4, 2) DEFAULT 1 NOT NULL;
