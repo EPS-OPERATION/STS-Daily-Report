@@ -585,7 +585,7 @@
         ],
         "crews": [
           {
-            "shift": "evening",
+            "shift": "morning",
             "discipline": "CE",
             "positions": [
               {
@@ -603,7 +603,7 @@
             "foreignFemale": 0
           },
           {
-            "shift": "morning",
+            "shift": "evening",
             "discipline": "CE",
             "positions": [
               {
@@ -845,7 +845,7 @@
           ],
           "crews": [
             {
-              "shift": "evening",
+              "shift": "morning",
               "discipline": "CE",
               "positions": [
                 {
@@ -863,7 +863,7 @@
               "foreignFemale": 0
             },
             {
-              "shift": "morning",
+              "shift": "evening",
               "discipline": "CE",
               "positions": [
                 {
@@ -1123,7 +1123,7 @@
           ],
           "crews": [
             {
-              "shift": "evening",
+              "shift": "morning",
               "discipline": "CE",
               "positions": [
                 {
@@ -1141,7 +1141,7 @@
               "foreignFemale": 0
             },
             {
-              "shift": "morning",
+              "shift": "evening",
               "discipline": "CE",
               "positions": [
                 {
@@ -1461,7 +1461,7 @@
         ],
         "crews": [
           {
-            "shift": "evening",
+            "shift": "morning",
             "discipline": "CE",
             "positions": [
               {
@@ -1479,7 +1479,7 @@
             "foreignFemale": 0
           },
           {
-            "shift": "morning",
+            "shift": "evening",
             "discipline": "CE",
             "positions": [
               {
@@ -1734,7 +1734,7 @@
         ],
         "crews": [
           {
-            "shift": "evening",
+            "shift": "morning",
             "discipline": "CE",
             "positions": [
               {
@@ -1752,7 +1752,7 @@
             "foreignFemale": 0
           },
           {
-            "shift": "morning",
+            "shift": "evening",
             "discipline": "CE",
             "positions": [
               {
@@ -2051,7 +2051,7 @@
         ],
         "crews": [
           {
-            "shift": "evening",
+            "shift": "morning",
             "discipline": "CE",
             "positions": [
               {
@@ -2069,7 +2069,7 @@
             "foreignFemale": 0
           },
           {
-            "shift": "morning",
+            "shift": "evening",
             "discipline": "CE",
             "positions": [
               {
