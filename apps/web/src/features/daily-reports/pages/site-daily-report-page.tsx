@@ -232,7 +232,7 @@ export function SiteDailyReportPage() {
       </Box>
 
       {/* The coordination map for the whole site (every contractor), drawn as a snapshot. */}
-      <ContractorMapPages projectId={projectId} date={date} onReady={() => setMapsReady(true)} subtitle="รวมทุกผู้รับเหมา" />
+      <ContractorMapPages projectId={projectId} date={date} onReady={() => setMapsReady(true)} landscape subtitle="รวมทุกผู้รับเหมา" />
     </Box>
   );
 }

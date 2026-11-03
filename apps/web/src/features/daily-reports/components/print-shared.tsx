@@ -21,7 +21,7 @@ export function PrintStyles() {
   return (
     <style>{`
         @page { size: A4 portrait; margin: 8mm; }
-        @media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        @media print { .no-print, [data-sonner-toaster], section[aria-label^="Notifications"] { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         .sheet { break-after: page; font-size: 12px; line-height: 1.3; }
         .sheet:last-child { break-after: auto; }
         .f { width: 100%; border-collapse: collapse; table-layout: fixed; }

@@ -4,11 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useCoordination, useSectionWork } from "../hooks/use-coordination.js";
 import { CoordinationCanvas } from "./coordination-canvas.js";
 
-// Printed width of the A4 portrait report sheet (190 mm at 96 dpi): the map snapshot keeps this size on paper.
-const SHEET_PX = 718;
+// Printed widths of the A4 report sheet at 96 dpi (the map snapshot keeps this size on paper).
+const SHEET_PX = 718; // portrait: 190 mm content width
+const SHEET_LANDSCAPE_PX = 1060; // landscape: 281 mm content width (8 mm page margins)
 // The drawing uses the full sheet width (the biggest it can be on paper). Labels are hidden by the canvas when the
 // drawing is narrower than 700 px on screen, so a short, wide-enough map keeps them; only a very tall map is capped.
 const MAX_MAP_PX = 1000;
+// Landscape map pages leave room above for the heading (~18 mm); the drawing fills the rest of the sheet height.
+const MAX_MAP_LANDSCAPE_PX = 650;
 const noop = () => undefined;
 
 type Outcome = { shown: boolean };
@@ -34,11 +37,13 @@ function pictureOf(stage: Konva.Stage, capture: MapSnapshot): string {
 
 // One working-area map, cut down to one contractor: their jobs drawn that day and the route sections they reported
 // on (with the people card). A map where the contractor has nothing is left out.
-function ContractorMap({ data, map, contractorId, projectId, date, onDone, active, capture }: {
+function ContractorMap({ data, map, contractorId, projectId, date, onDone, active, capture, sheetWidth, maxHeight }: {
   data: CoordinationData; map: CoordinationMap; contractorId: string | null; projectId: string; date: string; onDone: (mapId: string, o: Outcome) => void;
   /** Draw the canvas now (a combined print draws one report's maps at a time). */
   active: boolean;
   capture: MapSnapshot;
+  /** Printable size of the map page; the drawing is scaled to fit it, keeping the map's real aspect ratio. */
+  sheetWidth: number; maxHeight: number;
 }) {
   const sections = useMemo(() => data.sections.filter((s) => s.mapId === map.id), [data.sections, map.id]);
   // No contractor (site report): every job and every section's work; otherwise only that contractor's.
@@ -58,13 +63,20 @@ function ContractorMap({ data, map, contractorId, projectId, date, onDone, activ
   if (!settled || !shown) return null;
   if (!active && snapshot === null) return null;
 
-  const height = Math.min(MAX_MAP_PX, Math.round((SHEET_PX * map.height) / map.width));
+  // Fit the drawing inside the printable map page without distorting it: the width is the sheet width
+  // unless that would make the map taller than the page, then the height is the limit.
+  let width = sheetWidth;
+  let height = Math.round((sheetWidth * map.height) / map.width);
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = Math.round((maxHeight * map.width) / map.height);
+  }
   const used = new Set(mine?.activities.map((a) => a.sectionId) ?? []);
   const codes = sections.filter((s) => used.has(s.id)).map((s) => s.code);
   return (
     <div className="cmap">
       <div className="cmap-title">{map.nameTh || map.name}{codes.length ? ` · ช่วง ${codes.join(", ")}` : ""}{items.length ? ` · ${items.length} งานบนผัง` : ""}</div>
-      <div className="cmap-frame" style={{ height }}>
+      <div className="cmap-frame" style={{ width, height }}>
         {snapshot === null ? (
           <CoordinationCanvas map={map} contractors={data.contractors} items={items} itemTypes={data.itemTypes ?? []} sections={sections} sectionWork={mine}
             selectedId={null} draft={null} tool="move" readOnly fixedHeight={height} onSelect={noop} onChange={noop} onFinish={noop} onDeselect={noop}
@@ -81,7 +93,7 @@ function ContractorMap({ data, map, contractorId, projectId, date, onDone, activ
 
 /** The contractor's own part of the Map for a day (every working area), for the printed daily report.
  *  `onReady` fires once every map is drawn (or left out), so the page can open the print dialog. */
-export function ContractorMapPages({ projectId, contractorId = null, date, onReady, active = true, capture = SINGLE_REPORT, compactEmpty = false, subtitle = "เฉพาะงานของผู้รับเหมารายนี้" }: {
+export function ContractorMapPages({ projectId, contractorId = null, date, onReady, active = true, capture = SINGLE_REPORT, compactEmpty = false, landscape = false, subtitle = "เฉพาะงานของผู้รับเหมารายนี้" }: {
   projectId: string;
   /** null/omitted = every contractor's jobs (the Site Daily Report); otherwise only this contractor. */
   contractorId?: string | null;
@@ -91,6 +103,8 @@ export function ContractorMapPages({ projectId, contractorId = null, date, onRea
   capture?: MapSnapshot;
   /** No map usage: a one-line note under the report instead of a page of its own (combined print). */
   compactEmpty?: boolean;
+  /** Print the map pages on their own A4 landscape sheets, so the drawing is bigger and its labels readable. */
+  landscape?: boolean;
   /** Line shown next to the "Site Utilization Map" heading. */
   subtitle?: string;
 }) {
@@ -100,6 +114,8 @@ export function ContractorMapPages({ projectId, contractorId = null, date, onRea
   const maps = data?.maps ?? [];
   const finished = query.isError || (Boolean(data) && maps.every((m) => done[m.id]));
   const anyShown = Object.values(done).some((o) => o.shown);
+  const sheetWidth = landscape ? SHEET_LANDSCAPE_PX : SHEET_PX;
+  const maxHeight = landscape ? MAX_MAP_LANDSCAPE_PX : MAX_MAP_PX;
 
   useEffect(() => { if (finished) onReady(); }, [finished]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -110,12 +126,14 @@ export function ContractorMapPages({ projectId, contractorId = null, date, onRea
   return (
     <section className="cmap-sheet">
       <style>{`
-        .cmap-sheet { break-before: page; font-size: 12px; padding-top: 3mm; }
+        ${landscape ? "@page cmap { size: A4 landscape; margin: 8mm; } .cmap-sheet { page: cmap; }" : ""}
+        .cmap-sheet { break-before: page; break-after: auto; font-size: 12px; padding-top: 3mm; }
         .cmap-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.5px solid #0B4D8B; color: #0B4D8B; margin-bottom: 8px; }
         .cmap-head h2 { font-size: 15px; margin: 0; }
         .cmap { break-inside: avoid; margin-bottom: 10px; }
+        .cmap:last-child { margin-bottom: 0; }
         .cmap-title { font-weight: 700; margin-bottom: 4px; }
-        .cmap-frame { width: ${SHEET_PX}px; max-width: 100%; overflow: hidden; }
+        .cmap-frame { max-width: 100%; margin: 0 auto; overflow: hidden; }
         .cmap-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
         .cmap-note { color: #555; margin: 8px; }
       `}</style>
@@ -126,6 +144,7 @@ export function ContractorMapPages({ projectId, contractorId = null, date, onRea
       {query.isError ? <p className="cmap-note">โหลดแผนผังไม่สำเร็จ</p> : null}
       {data ? maps.map((map) => (
         <ContractorMap key={map.id} data={data} map={map} contractorId={contractorId} projectId={projectId} date={date} active={active} capture={capture}
+          sheetWidth={sheetWidth} maxHeight={maxHeight}
           onDone={(id, o) => setDone((prev) => (prev[id] ? prev : { ...prev, [id]: o }))} />
       )) : null}
       {finished && !anyShown && !query.isError ? <p className="cmap-note">ไม่มีพื้นที่ใช้งานบนแผนผังในวันนี้</p> : null}
