@@ -51,6 +51,10 @@ interface Props {
   display?: Pick<MapDisplay, "areas" | "labels" | "notes" | "links" | "chips" | "markSize" | "sections">;
   /** Printed report: no grey margin, hints, zoom buttons or dragging; the view frames every job. */
   readOnly?: boolean;
+  /** Report framing: the whole drawing content, or just the reported jobs (clearer labels on a busy site plan). */
+  reportFocus?: "content" | "items";
+  /** Report: label the jobs 1, 2, 3… instead of their long names (a legend below the map spells them out). */
+  numberLabels?: boolean;
   /** Stage height in px (the report sheet); default follows compact/width. */
   fixedHeight?: number;
   /** Phones: the stage takes the height of its (flex) parent instead of a fixed px height. */
@@ -134,7 +138,7 @@ function writeLabels(mapId: string, labels: Record<string, CoordinationPoint>) {
   try { localStorage.setItem(LABELS_KEY + mapId, JSON.stringify(labels)); } catch { /* storage full or blocked: the move still works until reload */ }
 }
 
-export function CoordinationCanvas({ map, contractors, items, itemTypes = [], selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roadNames = [], sections = NO_SECTIONS, highlightSectionId = null, onHighlightSection, labelsEditable = false, sectionWork }: Props) {
+export function CoordinationCanvas({ map, contractors, items, itemTypes = [], selectedId, draft, draftId, tool, compact, onSelect, onChange, onFinish, onDeselect, textEditing, onEditText, display = SHOW_ALL, readOnly = false, reportFocus = "content", numberLabels = false, fixedHeight, fill = false, placing = false, onPlace, onCancelPlace, onReady, clashes = NO_CLASHES, roadNames = [], sections = NO_SECTIONS, highlightSectionId = null, onHighlightSection, labelsEditable = false, sectionWork }: Props) {
   const theme = useTheme();
   // Point-by-point drawing: a free-shape area (closed) or a road route (open line).
   const drawingTool = tool === "polygon" || tool === "route";
@@ -203,7 +207,7 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
     const h = fixedHeight ?? (fill ? stageBox.current?.clientHeight ?? 0 : compact ? 390 : w < 600 ? 430 : 620);
     if (!h) return; // fill mode before the box is measured; framed once it is (below)
     const fitNow = Math.min(w / map.width, h / map.height);
-    const bounds = readOnly ? reportBounds(contentBounds.current, items, map) : contentBounds.current;
+    const bounds = readOnly ? reportBounds(contentBounds.current, items, map, reportFocus) : contentBounds.current;
     if (!bounds) { setZoom(1); setPan({ x: 0, y: 0 }); return; }
     const padding = 0.04;
     const desired = Math.min(w / (bounds.w * (1 + padding * 2)), h / (bounds.h * (1 + padding * 2)));
@@ -463,9 +467,9 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
   const iconKeyByCode = useMemo(() => new Map(itemTypes.map((t) => [t.code, t.iconKey])), [itemTypes]);
   // Crowded map (phones, many jobs): zoomed out shows icons only, zooming in brings names then notes, and a
   // label that would cover another job's icon or label waits until there is room (utils/declutter). Recomputed
-  // when the zoom settles, not per frame. Read-only views (report, dashboard card) keep every label.
+  // when the zoom settles, not per frame. Reports use the same rule so a busy site plan stays readable.
+  const labels = useMemo(() => new Map(items.map((item, i) => [item.id, numberLabels ? String(i + 1) : item.title])), [items, numberLabels]);
   const detail = useMemo(() => {
-    if (readOnly) return null;
     const m = display.markSize * markZoom; // on-screen size of one marker unit
     const ordered = [...items].sort((a, b) => Number(b.id === selectedId) - Number(a.id === selectedId) || (b.iconScale ?? 1) - (a.iconScale ?? 1));
     const entries: DeclutterEntry[] = [];
@@ -476,8 +480,9 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
       const cx = item.x * map.width * scale, cy = item.y * map.height * scale;
       const s = m * Math.sqrt(size); // captions grow with √size
       const pinned = item.id === selectedId || item.id === draftId;
+      const title = labels.get(item.id) ?? item.title;
       if (item.icon === "text") {
-        const t = layoutTextTitle(item.title);
+        const t = layoutTextTitle(title);
         const hw = (t.width / 2) * m * size, hh = (t.height / 2) * m * size;
         const note = item.note?.trim() ? layoutTextTitle(item.note.replace(/\s+/g, " ").trim(), { font: NOTE_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: NOTE_LINE_HEIGHT, maxLines: 2, minWidth: 64 }) : null;
         entries.push({ id: item.id, pinned, mark: [cx - hw, cy - hh, cx + hw, cy + hh], caption: null,
@@ -485,8 +490,8 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
         continue;
       }
       const ring = 24 * m * size;
-      const cap = item.title.trim() ? layoutTextTitle(item.title, { font: CAPTION_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: CAPTION_LINE_HEIGHT, maxLines: CAPTION_MAX_LINES, minWidth: 64 }) : null;
-      const note = item.note?.trim() ? layoutTextTitle(item.note.replace(/\s+/g, " ").trim(), { font: NOTE_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: NOTE_LINE_HEIGHT, maxLines: 2, minWidth: 64 }) : null;
+      const cap = title.trim() ? layoutTextTitle(title, { font: CAPTION_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: CAPTION_LINE_HEIGHT, maxLines: CAPTION_MAX_LINES, minWidth: 64 }) : null;
+      const note = numberLabels ? null : item.note?.trim() ? layoutTextTitle(item.note.replace(/\s+/g, " ").trim(), { font: NOTE_FONT, maxWidth: CAPTION_MAX_WIDTH, lineHeight: NOTE_LINE_HEIGHT, maxLines: 2, minWidth: 64 }) : null;
       const top = cy + 28 * m * size, capH = cap ? cap.height * s : 0, w = Math.max(cap?.width ?? 0, note?.width ?? 0) / 2 * s;
       entries.push({ id: item.id, pinned, mark: [cx - ring, cy - ring, cx + ring, cy + ring],
         caption: cap ? [cx - (cap.width / 2) * s, top, cx + (cap.width / 2) * s, top + capH] : null,
@@ -497,13 +502,17 @@ export function CoordinationCanvas({ map, contractors, items, itemTypes = [], se
     const zoomedOut = map.width * scale < 700;
     for (const id of routes) result.set(id, zoomedOut && id !== selectedId ? "icon" : "full");
     return result;
-  }, [readOnly, items, selectedId, draftId, display.markSize, scale, unit, map.width, map.height]);
+  }, [labels, numberLabels, readOnly, items, selectedId, draftId, display.markSize, scale, unit, map.width, map.height]);
   const detailDisplay = useMemo(() => ({
     full: display,
     caption: { ...display, notes: false },
     icon: { ...display, labels: false, notes: false, chips: false },
   }) satisfies Record<Detail, typeof display>, [display]);
-  const displayed = items.filter((item) => item.id !== draftId).map((item) => ({ item, id: item.id, editing: false }));
+  const displayed = items.filter((item) => item.id !== draftId).map((item) => ({
+    item: numberLabels && item.icon !== "text" ? { ...item, title: labels.get(item.id) ?? item.title, note: null } : item,
+    id: item.id,
+    editing: false,
+  }));
   if (draft) displayed.push({ item: { ...draft, id: draftId ?? "draft", mapId: map.id, projectId: map.projectId, revision: 0, createdAt: "", updatedAt: "" }, id: draftId ?? "draft", editing: true });
   displayed.sort((a, b) => Number(a.id === selectedId || a.editing) - Number(b.id === selectedId || b.editing));
   // Floating actions / on-map editors for the working item (hidden while dragging).
