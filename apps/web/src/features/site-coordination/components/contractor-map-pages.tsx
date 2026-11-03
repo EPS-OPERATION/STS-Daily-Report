@@ -128,6 +128,7 @@ export function ContractorMapPages({ projectId, contractorId = null, date, onRea
       <style>{`
         ${landscape ? "@page cmap { size: A4 landscape; margin: 8mm; } .cmap-sheet { page: cmap; }" : ""}
         .cmap-sheet { break-before: page; break-after: auto; font-size: 12px; padding-top: 3mm; }
+        ${landscape ? "@media screen { .cmap-sheet { width: 1123px; max-width: 100%; margin: 24px auto; padding: 24px; background: #fff; box-shadow: 0 2px 16px rgba(0,0,0,.18); box-sizing: border-box; } .cmap-frame { width: 100% !important; height: auto !important; } .cmap-frame img { width: 100% !important; height: auto !important; } }" : ""}
         .cmap-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.5px solid #0B4D8B; color: #0B4D8B; margin-bottom: 8px; }
         .cmap-head h2 { font-size: 15px; margin: 0; }
         .cmap { break-inside: avoid; margin-bottom: 10px; }
