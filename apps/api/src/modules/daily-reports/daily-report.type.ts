@@ -69,8 +69,8 @@ export interface MorningInput {
   endTime: string;
   workHours: number;
   weather: WeatherCondition;
-  temperatureC?: number;
-  humidityPct?: number;
+  temperatureC?: number | null;
+  humidityPct?: number | null;
   equipment: { equipmentType: string; qty: number }[];
   // One crew per discipline that worked today (CE / ME / EE); the report is their sum.
   crews: MorningCrewInput[];
