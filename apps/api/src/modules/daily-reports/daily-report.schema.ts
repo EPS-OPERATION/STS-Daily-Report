@@ -1,6 +1,9 @@
-import { ACCIDENT_CATEGORY_CODES, DISCIPLINE_CODES, MACHINE_TYPES, PERMIT_TYPE_CODES, PHOTO_CATEGORIES, POSITION_CODES, WEATHER_CODES } from "@sts/shared";
+import { ACCIDENT_CATEGORY_CODES, DISCIPLINE_CODES, MACHINE_TYPES, PHOTO_CATEGORIES, POSITION_CODES, WEATHER_CODES } from "@sts/shared";
 import { t } from "elysia";
 import { hhmm, isoDate } from "@/shared/http/params.js";
+
+// Built-in codes plus the permit types EPS adds per project (permit_types.code, normalised to <= 50 chars).
+const permitTypeCode = t.String({ minLength: 1, maxLength: 50 });
 
 // Where a row's work is: a building, or a route section of a Map area (the service checks exactly one is given).
 const location = {
@@ -91,7 +94,7 @@ export const morningBody = t.Object({
     t.Array(
       t.Object({
         buildingId: t.String({ format: "uuid" }),
-        permitType: t.Union(PERMIT_TYPE_CODES.map((p) => t.Literal(p))),
+        permitType: permitTypeCode,
         otherLabel: t.Optional(t.String({ maxLength: 120 })),
         workers: t.Integer({ minimum: 1, maximum: 5000 }),
         highRisk: t.Optional(t.Boolean()),
@@ -180,7 +183,7 @@ export const eveningBody = t.Object({
     t.Array(
       t.Object({
         buildingId: t.String({ format: "uuid" }),
-        permitType: t.Union(PERMIT_TYPE_CODES.map((p) => t.Literal(p))),
+        permitType: permitTypeCode,
         otherLabel: t.Optional(t.String({ maxLength: 120 })),
         workers: t.Integer({ minimum: 1, maximum: 5000 }),
         highRisk: t.Optional(t.Boolean()),

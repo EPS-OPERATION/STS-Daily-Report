@@ -1,4 +1,4 @@
-import { standardItemKey, type PermitType, type StandardItemKind } from "@sts/shared";
+import { standardItemKey, type StandardItemKind } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import type { AuthContext } from "@/auth/auth.types.js";
@@ -35,7 +35,7 @@ function toRow(item: StandardItemInput, buildingIds: Set<string>) {
     buildingId = item.buildingId;
   }
   const isPermit = kind === "permit";
-  const permitType: PermitType | null = isPermit ? (item.permitType ?? null) : null;
+  const permitType: string | null = isPermit ? (item.permitType ?? null) : null;
   return {
     kind,
     label,

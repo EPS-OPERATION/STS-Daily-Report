@@ -1,6 +1,6 @@
 import { boolean, check, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import type { PermitType, StandardItemKind } from "@sts/shared";
+import type { StandardItemKind } from "@sts/shared";
 import { buildings } from "./building.schema.js";
 import { contractors } from "./contractor.schema.js";
 import { projects } from "./project.schema.js";
@@ -23,7 +23,8 @@ export const reportStandardItems = pgTable(
     buildingId: uuid("building_id").references(() => buildings.id, { onDelete: "set null" }),
     // Headcount for activity / permit, quantity for equipment.
     defaultCount: integer("default_count").notNull().default(1),
-    permitType: text("permit_type").$type<PermitType>(),
+    // Built-in code or a project-defined permit type code.
+    permitType: text("permit_type"),
     highRisk: boolean("high_risk").notNull().default(false),
     taskName: text("task_name").notNull().default(""),
     supervisorName: text("supervisor_name").notNull().default(""),

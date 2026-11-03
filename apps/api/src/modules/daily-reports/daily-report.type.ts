@@ -1,4 +1,4 @@
-import type { AccidentCategory, CoordinationPoint, Discipline, MachineType, PermitType, PhotoCategory, PositionCode, WeatherCondition } from "@sts/shared";
+import type { AccidentCategory, CoordinationPoint, Discipline, MachineType, PhotoCategory, PositionCode, WeatherCondition } from "@sts/shared";
 
 /** Where a row's work is: a building, or a route section of a Map area (exactly one of the two). */
 export interface ReportLocation {
@@ -36,7 +36,8 @@ export interface EquipmentRequestInput {
 
 export interface PermitInput {
   buildingId: string;
-  permitType: PermitType;
+  /** Built-in code or a project-defined permit type code. */
+  permitType: string;
   otherLabel?: string;
   workers: number;
   /** Contractor's own assessment; when true taskName + supervisorName (EPS) are required. */
