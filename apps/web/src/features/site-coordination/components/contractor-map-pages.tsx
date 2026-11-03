@@ -73,21 +73,42 @@ function ContractorMap({ data, map, contractorId, projectId, date, onDone, activ
   }
   const used = new Set(mine?.activities.map((a) => a.sectionId) ?? []);
   const codes = sections.filter((s) => used.has(s.id)).map((s) => s.code);
+  // Many jobs on one drawing: number them and print the names in a table below; long titles would pile up.
+  const numbered = items.length > 8;
   return (
-    <div className="cmap">
-      <div className="cmap-title">{map.nameTh || map.name}{codes.length ? ` · ช่วง ${codes.join(", ")}` : ""}{items.length ? ` · ${items.length} งานบนผัง` : ""}</div>
-      <div className="cmap-frame" style={{ width, height }}>
-        {snapshot === null ? (
-          <CoordinationCanvas map={map} contractors={data.contractors} items={items} itemTypes={data.itemTypes ?? []} sections={sections} sectionWork={mine}
-            selectedId={null} draft={null} tool="move" readOnly fixedHeight={height} onSelect={noop} onChange={noop} onFinish={noop} onDeselect={noop}
-            textEditing={false} onEditText={noop}
-            onReady={(stage) => {
-              // A storage picture served without CORS cannot be exported: say so instead of a blank frame.
-              try { setSnapshot(stage ? pictureOf(stage, capture) : ""); } catch { setSnapshot(""); }
-            }} />
-        ) : snapshot ? <img src={snapshot} alt={map.nameTh || map.name} /> : <p className="cmap-note">โหลดภาพผังไม่สำเร็จ</p>}
+    <>
+      <div className="cmap">
+        <div className="cmap-title">{map.nameTh || map.name}{codes.length ? ` · ช่วง ${codes.join(", ")}` : ""}{items.length ? ` · ${items.length} งานบนผัง` : ""}</div>
+        <div className="cmap-frame" style={{ width, height }}>
+          {snapshot === null ? (
+            <CoordinationCanvas map={map} contractors={data.contractors} items={items} itemTypes={data.itemTypes ?? []} sections={sections} sectionWork={mine}
+              selectedId={null} draft={null} tool="move" readOnly reportFocus="items" numberLabels={numbered} fixedHeight={height} onSelect={noop} onChange={noop} onFinish={noop} onDeselect={noop}
+              textEditing={false} onEditText={noop}
+              onReady={(stage) => {
+                // A storage picture served without CORS cannot be exported: say so instead of a blank frame.
+                try { setSnapshot(stage ? pictureOf(stage, capture) : ""); } catch { setSnapshot(""); }
+              }} />
+          ) : snapshot ? <img src={snapshot} alt={map.nameTh || map.name} /> : <p className="cmap-note">โหลดภาพผังไม่สำเร็จ</p>}
+        </div>
       </div>
-    </div>
+      {numbered ? (
+        <table className="cmap-legend">
+          <thead>
+            <tr><th colSpan={3} className="cmap-legend-title">{map.nameTh || map.name} · รายการงานบนแผนผัง</th></tr>
+            <tr><th className="c" style={{ width: 34 }}>#</th><th style={{ width: 90 }}>ผู้รับเหมา</th><th>งาน</th></tr>
+          </thead>
+          <tbody>
+            {items.map((item, i) => (
+              <tr key={item.id}>
+                <td className="c">{i + 1}</td>
+                <td>{data.contractors.find((c) => c.id === item.contractorId)?.code ?? "-"}</td>
+                <td>{item.title}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+    </>
   );
 }
 
@@ -136,6 +157,11 @@ export function ContractorMapPages({ projectId, contractorId = null, date, onRea
         .cmap-title { font-weight: 700; margin-bottom: 4px; }
         .cmap-frame { max-width: 100%; margin: 0 auto; overflow: hidden; }
         .cmap-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .cmap-legend { width: 100%; border-collapse: collapse; font-size: 10px; margin: 2px 0 16px; }
+        .cmap-legend th, .cmap-legend td { border: 1px solid #888; padding: 2px 4px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+        .cmap-legend thead { display: table-header-group; }
+        .cmap-legend .c { text-align: center; }
+        .cmap-legend-title { background: #0B4D8B; color: #fff; text-align: center !important; }
         .cmap-note { color: #555; margin: 8px; }
       `}</style>
       <div className="cmap-head">
