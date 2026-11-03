@@ -59,8 +59,9 @@ export const morningBody = t.Object({
   endTime: hhmm,
   workHours: t.Number({ minimum: 0, maximum: 24, multipleOf: 0.5 }),
   weather: t.Union(WEATHER_CODES.map((w) => t.Literal(w))),
-  temperatureC: t.Optional(t.Number({ minimum: -10, maximum: 60 })),
-  humidityPct: t.Optional(t.Integer({ minimum: 0, maximum: 100 })),
+  // null = not measured (the web form sends null for an empty field); the repository stores it as NULL.
+  temperatureC: t.Optional(t.Nullable(t.Number({ minimum: -10, maximum: 60 }))),
+  humidityPct: t.Optional(t.Nullable(t.Integer({ minimum: 0, maximum: 100 }))),
   equipment: t.Array(
     t.Object({
       // Free text: SITE_EQUIPMENT_TYPES is the suggestion list, contractors may add custom names.

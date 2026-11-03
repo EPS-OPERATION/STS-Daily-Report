@@ -8,7 +8,7 @@ import { coordinationVersion } from "./coordination.repository.js";
 import { deleteRoadSegment, findRoadSegmentByName, getRoadSegment, insertRoadSegment, listRoadSegments, updateRoadSegment, type RoadSegmentInput } from "./coordination.repository.js";
 import { findItemTypeByCode, listItemTypesWithDefaults } from "./coordination-item-type.repository.js";
 import { deleteDayLock, deleteDayNote, deleteItem, getDayLock, getDayNote, getItem, getMap, getMapById, insertDayLock, insertColor, insertItem, listCoordinationContractors, listCoordinationContractorsByIds, listItems, listMaps, updateColor, updateItem, upsertDayNote } from "./coordination.repository.js";
-import { getContractorById } from "@/modules/contractors/contractor.repository.js";
+import { colorOwnerInProject, getContractorById } from "@/modules/contractors/contractor.repository.js";
 import { toMapDto } from "./coordination-map.service.js";
 import { getSection, listSections } from "./coordination-section.repository.js";
 
@@ -147,6 +147,8 @@ export async function deleteCoordinationService(auth: AuthContext, projectId: st
 export async function coordinationColorService(auth: AuthContext, projectId: string, contractorId: string, color: string, revision: number) {
   if (!isEpsStaff(auth.user.role)) throw new ForbiddenError("Only EPS staff can change contractor colours");
   await access(auth, projectId);
+  const owner = await colorOwnerInProject(getDb(), projectId, color, contractorId);
+  if (owner) throw new ConflictError(`Colour ${color.toUpperCase()} is already used by ${owner.code} · ${owner.name}`, { color });
   const result = await updateColor(getDb(), projectId, contractorId, color.toUpperCase(), revision);
   if (!result) throw new ConflictError("The contractor colour changed. Reload and try again.");
   return { contractorId, color: result.color, revision: result.revision };

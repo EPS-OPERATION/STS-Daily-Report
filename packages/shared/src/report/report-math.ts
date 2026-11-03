@@ -35,6 +35,18 @@ export function isoWeekLabel(isoDate: string): string {
   return `${year}-W${String(week).padStart(2, "0")}`;
 }
 
+// Normal hours per person behind one report's man-days (excl. OT): the reported hours, or the
+// standard site day when only the afternoon report was sent (it does not ask for hours).
+export function normalHoursOf(r: {
+  morningStatus: string;
+  eveningStatus: string;
+  eveningThaiMale: number | null;
+  workHours: number | null;
+}): number | null {
+  const eveningReported = r.eveningStatus === "submitted" && r.eveningThaiMale !== null;
+  return r.workHours ?? (r.morningStatus !== "submitted" && eveningReported ? STANDARD_WORK_HOURS : null);
+}
+
 // Man-day / NMH of one contractor-day from whichever halves were sent (rule in dayManpower).
 export function attendanceOf(r: {
   morningStatus: string;
@@ -56,6 +68,5 @@ export function attendanceOf(r: {
     r.eveningStatus === "submitted" && r.eveningThaiMale !== null
       ? r.eveningThaiMale + (r.eveningThaiFemale ?? 0) + (r.eveningForeignMale ?? 0) + (r.eveningForeignFemale ?? 0)
       : null;
-  const workHours = r.workHours ?? (morning === null && evening !== null ? STANDARD_WORK_HOURS : null);
-  return dayManpower({ morning, evening, workHours, otHours: r.otHours, otManHours: r.otManHours });
+  return dayManpower({ morning, evening, workHours: normalHoursOf(r), otHours: r.otHours, otManHours: r.otManHours });
 }

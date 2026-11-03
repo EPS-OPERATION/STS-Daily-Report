@@ -2881,6 +2881,8 @@
         "totals": {
           "manDays": 8,
           "manHours": 70,
+          "normalManHours": 64,
+          "otManHours": 6,
           "reportedDays": 1,
           "avgDaily": 8
         }

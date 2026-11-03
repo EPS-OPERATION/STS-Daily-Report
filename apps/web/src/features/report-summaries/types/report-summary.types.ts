@@ -78,7 +78,7 @@ export interface ManpowerSummary {
   contractors: ManpowerContractorTotals[];
   daily: { date: string; contractorCode: string; headcount: number }[];
   byBuilding: { buildingId: string; code: string; name: string; contractors: Record<string, number> }[];
-  totals: { manDays: number; manHours: number; reportedDays: number; avgDaily: number };
+  totals: { manDays: number; manHours: number; normalManHours: number; otManHours: number; reportedDays: number; avgDaily: number };
 }
 
 export interface MaterialLogRow {
