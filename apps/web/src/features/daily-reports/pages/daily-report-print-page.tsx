@@ -56,7 +56,7 @@ export function DailyReportPrintPage() {
 
   return (
     <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
-      <PrintStyles />
+      <PrintStyles page="A4 landscape" />
 
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
         <Button onClick={() => window.print()}>Print / Save as PDF</Button>
@@ -150,7 +150,7 @@ export function DailyReportsBatchPrintPage() {
 
   return (
     <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
-      <PrintStyles />
+      <PrintStyles page="A4 landscape" />
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
         <Button onClick={() => window.print()}>Print / Save as PDF</Button>
         <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
