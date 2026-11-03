@@ -45,7 +45,7 @@
 
 - ไฟล์ kebab-case, component PascalCase, fn camelCase, DB snake_case, env UPPER_SNAKE, URL kebab
 - API: `/api/v1/<resources>` + `GET /health`; list `page/pageSize/sort/order/search` → `{data, meta}`
-- Error envelope `{error:{code,message,details}}` (400/404/409/500); web ใช้ `contractorKeys.*`, RHF+zod, MUI feedback
+- Error envelope `{error:{code,message,details}}` (400/404/409/500); web ใช้ `contractorKeys.*`, RHF+zod, MUI feedback — 4xx schema validation ไม่ส่งข้อความ validator ดิบ/บอดี้กลับ: ตอบข้อความเป็นมิตร (ให้รีเฟรช) + `console.warn('[validation] METHOD path :: <field>')` ฝั่ง server (เห็นใน Vercel logs); client (`services/http/client.ts`) log error จริง (console.error + `reportError` Sentry เมื่อ 5xx/UNKNOWN) และกันข้อความที่ขึ้นต้นด้วย `{`/`[` ไม่ให้โชว์ user
 - TS strict, ห้าม `any`/ts-ignore โดยไม่มีเหตุผล; `.env` local-only ไม่ commit secret
 
 ## Pitfalls (เจอจริง)

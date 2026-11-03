@@ -16,12 +16,17 @@ export function errorPlugin(app: Elysia<any, any, any, any, any, any>) {
       // Elysia validation errors can embed the submitted body, including credentials.
       const sensitive = path.startsWith("/api/v1/auth/") || path.startsWith("/api/v1/users");
       if (typeof maybe?.status === "number" && maybe.status >= 400 && maybe.status < 500) {
+        // A schema/validation failure is almost always a client/version mismatch, not something the user can fix by
+        // reading it. Log the real reason (which field) so EPS/devs can see it in the platform logs, but never send
+        // the raw validator output or the submitted body back — the user gets a plain, actionable message.
+        console.warn(`[validation] ${request.method} ${path} :: ${String(maybe.message ?? "").replace(/\s+/g, " ").slice(0, 300)}`);
         set.status = 400;
         return {
           error: {
             code: "VALIDATION_ERROR",
-            message: sensitive ? "Invalid request. Check the required fields and password length." : maybe.message ?? "Invalid request",
-            ...(!sensitive && maybe.value !== undefined ? { details: maybe.value } : {}),
+            message: sensitive
+              ? "Invalid request. Check the required fields and password length."
+              : "ส่งข้อมูลไม่สำเร็จ กรุณารีเฟรชหน้า (Ctrl+Shift+R) แล้วลองใหม่อีกครั้ง หากยังไม่สำเร็จโปรดแจ้ง EPS",
           },
         };
       }

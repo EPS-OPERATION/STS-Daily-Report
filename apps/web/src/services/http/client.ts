@@ -1,4 +1,5 @@
 import { config } from "@/config.js";
+import { reportError } from "@/lib/error-reporting.js";
 
 export interface ApiErrorShape {
   error: { code: string; message: string; details?: unknown };
@@ -50,12 +51,16 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   const body = await parseBody(res);
   if (!res.ok) {
     const shape = body as Partial<ApiErrorShape>;
-    throw new HttpError(
-      res.status,
-      shape?.error?.code ?? "UNKNOWN_ERROR",
-      shape?.error?.message ?? FALLBACK_MESSAGE[res.status] ?? `Request failed (${res.status})`,
-      shape?.error?.details,
-    );
+    const raw = shape?.error?.message;
+    // A raw validator/JSON blob (e.g. an old tab hitting a newer API) must never reach the user: fall back to a
+    // plain message. Clean app messages pass through unchanged.
+    const safe = raw && !raw.trim().startsWith("{") && !raw.trim().startsWith("[") ? raw : (FALLBACK_MESSAGE[res.status] ?? `Request failed (${res.status})`);
+    const err = new HttpError(res.status, shape?.error?.code ?? "UNKNOWN_ERROR", safe, shape?.error?.details);
+    // Log the real failure for diagnosis (browser console, and the error reporter when configured); what the UI
+    // shows the user stays friendly.
+    console.error(`[api] ${init.method ?? "GET"} ${path} → ${res.status} ${err.code}`, raw ?? "", shape?.error?.details ?? "");
+    if (res.status >= 500 || err.code === "UNKNOWN_ERROR") reportError(err);
+    throw err;
   }
   return body as T;
 }
