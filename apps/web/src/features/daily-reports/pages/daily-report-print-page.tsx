@@ -56,7 +56,7 @@ export function DailyReportPrintPage() {
 
   return (
     <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
-      <PrintStyles />
+      <PrintStyles page="A4 landscape" />
 
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
         <Button onClick={() => window.print()}>Print / Save as PDF</Button>
@@ -66,7 +66,7 @@ export function DailyReportPrintPage() {
       </Stack>
 
       <ReportSheet r={r} />
-      <ContractorMapPages projectId={r.projectId} contractorId={r.contractorId} date={r.reportDate} onReady={() => setMapsReady(true)} />
+      <ContractorMapPages projectId={r.projectId} contractorId={r.contractorId} date={r.reportDate} onReady={() => setMapsReady(true)} landscape />
     </Box>
   );
 }
@@ -150,7 +150,7 @@ export function DailyReportsBatchPrintPage() {
 
   return (
     <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
-      <PrintStyles />
+      <PrintStyles page="A4 landscape" />
       <Stack direction="row" spacing={1} className="no-print" sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
         <Button onClick={() => window.print()}>Print / Save as PDF</Button>
         <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
@@ -163,7 +163,7 @@ export function DailyReportsBatchPrintPage() {
           <Fragment key={q.data.data.id}>
             <ReportSheet r={q.data.data}>
               <ContractorMapPages projectId={q.data.data.projectId} contractorId={q.data.data.contractorId} date={q.data.data.reportDate}
-                active={drawingId === q.data.data.id} capture={BATCH_CAPTURE} compactEmpty
+                active={drawingId === q.data.data.id} capture={BATCH_CAPTURE} compactEmpty landscape
                 onReady={() => { const id = q.data!.data.id; setMapsDone((prev) => (prev.has(id) ? prev : new Set(prev).add(id))); }} />
             </ReportSheet>
           </Fragment>

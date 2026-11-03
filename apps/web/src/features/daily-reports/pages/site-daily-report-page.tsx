@@ -93,7 +93,7 @@ export function SiteDailyReportPage() {
   const t = man!.totals;
   return (
     <Box sx={{ bgcolor: "#fff", color: "#000", fontFamily: "'Inter', 'Sarabun', sans-serif" }}>
-      <PrintStyles />
+      <PrintStyles page="A4 landscape" />
       <style>{`
         .sdr-head { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #0B4D8B; padding-bottom: 6px; margin-bottom: 10px; }
         .sdr-logo { width: 150px; height: 34px; overflow: hidden; position: relative; flex-shrink: 0; }
@@ -232,7 +232,7 @@ export function SiteDailyReportPage() {
       </Box>
 
       {/* The coordination map for the whole site (every contractor), drawn as a snapshot. */}
-      <ContractorMapPages projectId={projectId} date={date} onReady={() => setMapsReady(true)} subtitle="รวมทุกผู้รับเหมา" />
+      <ContractorMapPages projectId={projectId} date={date} onReady={() => setMapsReady(true)} landscape subtitle="รวมทุกผู้รับเหมา" />
     </Box>
   );
 }
