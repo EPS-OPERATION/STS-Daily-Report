@@ -8,6 +8,7 @@ import Typography from "@mui/material/Typography";
 import { PERMIT_TYPES, POSITIONS } from "@sts/shared";
 import { ISO_DATE, PrintStyles } from "../components/print-shared.js";
 import { useManpowerSummary, usePositionMix } from "@/features/report-summaries/index.js";
+import { useMachineSummary } from "@/features/daily-requests/index.js";
 import { useSiteDay } from "@/features/site-plan/index.js";
 import { ContractorMapPages } from "@/features/site-coordination/index.js";
 import { useCurrentProject } from "@/features/projects/index.js";
@@ -17,9 +18,10 @@ const positionLabel = (code: string) => POSITIONS.find((p) => p.code === code)?.
 const permitLabel = (code: string) => PERMIT_TYPES.find((p) => p.code === code)?.label ?? code;
 const nf = (n: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(n);
 
-// Whole-site daily report (A4 portrait): one day, every contractor together — manpower, work by building,
-// tomorrow's requests + safety, and the coordination map. Opens the print dialog once everything (incl. the map
-// snapshot) is ready; choose "Save as PDF". Built from the same aggregated endpoints the EPS dashboards use.
+// Whole-site daily report (A4 portrait): one day, every contractor together — manpower, machines, work by
+// building, tomorrow's requests + safety, and the coordination map. Opens the print dialog once everything
+// (incl. the map snapshot) is ready; choose "Save as PDF". Built from the same aggregated endpoints the EPS
+// dashboards use.
 export function SiteDailyReportPage() {
   const [params] = useSearchParams();
   const current = useCurrentProject();
@@ -29,6 +31,7 @@ export function SiteDailyReportPage() {
 
   const manpower = useManpowerSummary(projectId, date, date);
   const positions = usePositionMix(projectId, date, date);
+  const machines = useMachineSummary(projectId, date, date);
   const siteDay = useSiteDay(projectId, date, date);
   const [mapsReady, setMapsReady] = useState(false);
   const printed = useRef(false);
@@ -51,7 +54,23 @@ export function SiteDailyReportPage() {
     };
   }, [siteDay.data]);
 
-  const dataReady = Boolean(man && siteDay.data && positions.data);
+  // Machines reported on site (morning) grouped by contractor, plus the day's machine bookings.
+  const machineRows = useMemo(() => {
+    const byContractor = new Map<string, { code: string; items: Map<string, number>; total: number }>();
+    for (const m of machines.data?.onSite ?? []) {
+      const c = byContractor.get(m.contractorCode) ?? { code: m.contractorCode, items: new Map(), total: 0 };
+      c.items.set(m.equipmentType, (c.items.get(m.equipmentType) ?? 0) + m.qty);
+      c.total += m.qty;
+      byContractor.set(m.contractorCode, c);
+    }
+    const rows = [...byContractor.values()].sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
+    const bookings = [...(machines.data?.bookings ?? [])].sort(
+      (a, b) => a.buildingCode.localeCompare(b.buildingCode) || (a.startTime ?? "").localeCompare(b.startTime ?? ""),
+    );
+    return { rows, total: rows.reduce((s, c) => s + c.total, 0), bookings };
+  }, [machines.data]);
+
+  const dataReady = Boolean(man && siteDay.data && positions.data && machines.data);
   const ready = dataReady && mapsReady;
 
   useEffect(() => { document.title = `Site daily report ${date}`; }, [date]);
@@ -64,7 +83,7 @@ export function SiteDailyReportPage() {
   }, [ready]);
 
   if (!projectId) return <Stack alignItems="center" sx={{ py: 10 }}><Typography>ยังไม่มีโครงการ</Typography></Stack>;
-  if (manpower.isError || siteDay.isError || positions.isError) {
+  if (manpower.isError || siteDay.isError || positions.isError || machines.isError) {
     return <Stack alignItems="center" sx={{ py: 10 }}><Typography color="error">โหลดข้อมูลไม่สำเร็จ — ตรวจการเชื่อมต่อแล้วลองใหม่</Typography></Stack>;
   }
   if (!dataReady) {
@@ -105,7 +124,7 @@ export function SiteDailyReportPage() {
 
         <div className="sdr-kpis">
           <div className="sdr-kpi"><b>{nf(t.manDays)}</b><span>Man-day รวม</span></div>
-          <div className="sdr-kpi"><b>{nf(t.manHours)}</b><span>NMH (ชม.)</span></div>
+          <div className="sdr-kpi"><b>{nf(t.manHours)}</b><span>NMH (ชม.) · ปกติ {nf(t.normalManHours)} + OT {nf(t.otManHours)}</span></div>
           <div className="sdr-kpi"><b>{nf(t.avgDaily)}</b><span>เฉลี่ยคน/วัน</span></div>
           <div className="sdr-kpi"><b>{buildings.length}</b><span>อาคารที่มีงาน</span></div>
         </div>
@@ -136,6 +155,39 @@ export function SiteDailyReportPage() {
             </tbody>
           </table>
         </>) : null}
+
+        {/* Machines on site (morning report), then the day's machine bookings */}
+        <h3 className="sdr">เครื่องจักรในไซต์ (Machines on site)</h3>
+        {machineRows.rows.length > 0 ? (
+          <table className="f">
+            <thead><tr><th>ผู้รับเหมา</th><th>เครื่องจักร / เครื่องมือ</th><th className="r">รวม (เครื่อง)</th></tr></thead>
+            <tbody>
+              {machineRows.rows.map((c) => (
+                <tr key={c.code}><td className="b">{c.code}</td><td>{[...c.items].map(([type, qty]) => `${type} ×${qty}`).join(" · ")}</td><td className="r">{c.total}</td></tr>
+              ))}
+              <tr className="blue b"><td>รวม</td><td /><td className="r">{machineRows.total}</td></tr>
+            </tbody>
+          </table>
+        ) : <p style={{ fontSize: 12, color: "#555" }}>วันนี้ไม่มีรายงานเครื่องจักรในไซต์</p>}
+        {machineRows.bookings.length > 0 ? (
+          <>
+            <h3 className="sdr">เครื่องจักรที่ขอใช้ (Machine bookings)</h3>
+            <table className="f">
+              <thead><tr><th>อาคาร</th><th>ผู้รับเหมา</th><th>เครื่องจักร</th><th className="r">เวลา</th><th>งาน</th></tr></thead>
+              <tbody>
+                {machineRows.bookings.map((b) => (
+                  <tr key={b.id}>
+                    <td>{b.buildingCode} {b.buildingNameTh ?? b.buildingName}</td>
+                    <td>{b.contractorCode}</td>
+                    <td>{b.machineType}{b.unitTag ? ` (${b.unitTag})` : ""}</td>
+                    <td className="r">{timeWindowLabel(b.startTime, b.endTime)}</td>
+                    <td>{b.purpose ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : null}
 
         {/* Work by building */}
         <h3 className="sdr">เนื้องานรายอาคาร (Work by building)</h3>
