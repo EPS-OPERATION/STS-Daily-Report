@@ -1,4 +1,4 @@
-import { type PermitType, REQUEST_STATUSES, type RequestStatus, addDays, attendanceOf, mondayOf, normalizePagination, round1, workloadLevel } from "@sts/shared";
+import { type PermitType, REQUEST_STATUSES, type RequestStatus, addDays, attendanceOf, mondayOf, normalizePagination, normalHoursOf, round1, workloadLevel } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { listBuildings } from "@/modules/buildings/building.repository.js";
 import { findMachineryConflicts, findRoadConflicts } from "@/modules/daily-requests/daily-request.conflicts.js";
@@ -221,8 +221,15 @@ export async function manpowerSummaryService(projectId: string, from: string, to
     { contractorId: string; contractorCode: string; manDays: number; manHours: number; reportedDays: number; estimatedDays: number; thaiMale: number; thaiFemale: number; foreignMale: number; foreignFemale: number }
   >();
   const daily: { date: string; contractorCode: string; headcount: number }[] = [];
+  // NMH = normal man-hours + OT man-hours; the normal part uses the hours each report actually
+  // states (8 h only for afternoon-only reports), so utilization compares against real time.
+  let normalManHours = 0;
+  let otManHours = 0;
   for (const r of rows) {
     const { manDays: headcount, manHours: hours } = attendanceOf(r);
+    const normal = round1(headcount * (normalHoursOf(r) ?? 0));
+    normalManHours += normal;
+    otManHours += hours - normal;
     const c = byContractor.get(r.contractorId) ?? {
       contractorId: r.contractorId,
       contractorCode: r.contractorCode,
@@ -273,6 +280,8 @@ export async function manpowerSummaryService(projectId: string, from: string, to
     totals: {
       manDays: contractors.reduce((s, c) => s + c.manDays, 0),
       manHours: contractors.reduce((s, c) => s + c.manHours, 0),
+      normalManHours: round1(normalManHours),
+      otManHours: round1(otManHours),
       reportedDays: days,
       avgDaily: days ? Math.round(contractors.reduce((s, c) => s + c.manDays, 0) / days) : 0,
     },

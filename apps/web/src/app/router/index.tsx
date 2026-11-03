@@ -38,6 +38,7 @@ export const router = createBrowserRouter([
           { path: "safety/report", lazy: page(() => import("@/features/safety/pages/safety-report-page.js"), "SafetyReportPrintPage") },
           { path: "daily-reports/work-done/print", lazy: page(() => import("@/features/daily-reports/pages/work-done-print-page.js"), "WorkDonePrintPage") },
           { path: "daily-reports/print", lazy: page(() => import("@/features/daily-reports/pages/daily-report-print-page.js"), "DailyReportsBatchPrintPage") },
+          { path: "daily-reports/site/print", lazy: page(() => import("@/features/daily-reports/pages/site-daily-report-page.js"), "SiteDailyReportPage") },
           { path: "site-coordination/report", lazy: page(() => import("@/features/site-coordination/pages/site-coordination-report-page.js"), "SiteCoordinationReportPage") },
         ],
       },

@@ -27,7 +27,6 @@ import { EmptyState } from "@/components/ui/empty-state.js";
 import { PageHeader } from "@/components/ui/page-header.js";
 import { QueryError } from "@/components/ui/query-error.js";
 import { BlockSkeleton } from "@/components/ui/skeletons.js";
-import { ALL_BUILDINGS } from "../utils/work-done.js";
 import { ALL_CONTRACTORS, type SubmissionFilter } from "../utils/submission.js";
 import { ContractorBadge } from "@/features/contractors/index.js";
 import { ContractorFilterPopover } from "@/features/contractors/index.js";
@@ -106,12 +105,11 @@ export function DailyReportsPage() {
               onSelectContractor={setContractor}
               dateLabel={dateRangeLabel}
               isRange={isRange}
-              onPrint={({ building, search: q }) => {
-                const p = new URLSearchParams({ from, to, contractor });
+              onPrint={() => {
+                // The whole-site report is for one day: a range prints its first day.
+                const p = new URLSearchParams({ date: from });
                 if (projectId) p.set("projectId", projectId);
-                if (building !== ALL_BUILDINGS) p.set("building", building);
-                if (q.trim()) p.set("q", q.trim());
-                window.open(`/daily-reports/work-done/print?${p.toString()}`, "_blank", "noopener");
+                window.open(`/daily-reports/site/print?${p.toString()}`, "_blank", "noopener");
               }}
             />
           ) : (

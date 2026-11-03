@@ -35,19 +35,20 @@ function pictureOf(stage: Konva.Stage, capture: MapSnapshot): string {
 // One working-area map, cut down to one contractor: their jobs drawn that day and the route sections they reported
 // on (with the people card). A map where the contractor has nothing is left out.
 function ContractorMap({ data, map, contractorId, projectId, date, onDone, active, capture }: {
-  data: CoordinationData; map: CoordinationMap; contractorId: string; projectId: string; date: string; onDone: (mapId: string, o: Outcome) => void;
+  data: CoordinationData; map: CoordinationMap; contractorId: string | null; projectId: string; date: string; onDone: (mapId: string, o: Outcome) => void;
   /** Draw the canvas now (a combined print draws one report's maps at a time). */
   active: boolean;
   capture: MapSnapshot;
 }) {
   const sections = useMemo(() => data.sections.filter((s) => s.mapId === map.id), [data.sections, map.id]);
-  const items = useMemo(() => data.items.filter((i) => i.mapId === map.id && i.contractorId === contractorId), [data.items, map.id, contractorId]);
+  // No contractor (site report): every job and every section's work; otherwise only that contractor's.
+  const items = useMemo(() => data.items.filter((i) => i.mapId === map.id && (!contractorId || i.contractorId === contractorId)), [data.items, map.id, contractorId]);
   const work = useSectionWork(projectId, date, map.id, sections.length > 0);
-  const mine: CoordinationSectionWork | undefined = useMemo(() => work.data && {
+  const mine: CoordinationSectionWork | undefined = useMemo(() => work.data && (contractorId ? {
     ...work.data,
     activities: work.data.activities.filter((a) => a.contractorId === contractorId),
     planned: work.data.planned.filter((p) => p.contractorId === contractorId),
-  }, [work.data, contractorId]);
+  } : work.data), [work.data, contractorId]);
   const settled = sections.length === 0 || work.isSuccess || work.isError;
   const shown = items.length > 0 || Boolean(mine && (mine.activities.length || mine.planned.length));
   const [snapshot, setSnapshot] = useState<string | null>(null);
@@ -80,13 +81,18 @@ function ContractorMap({ data, map, contractorId, projectId, date, onDone, activ
 
 /** The contractor's own part of the Map for a day (every working area), for the printed daily report.
  *  `onReady` fires once every map is drawn (or left out), so the page can open the print dialog. */
-export function ContractorMapPages({ projectId, contractorId, date, onReady, active = true, capture = SINGLE_REPORT, compactEmpty = false }: {
-  projectId: string; contractorId: string; date: string; onReady: () => void;
+export function ContractorMapPages({ projectId, contractorId = null, date, onReady, active = true, capture = SINGLE_REPORT, compactEmpty = false, subtitle = "เฉพาะงานของผู้รับเหมารายนี้" }: {
+  projectId: string;
+  /** null/omitted = every contractor's jobs (the Site Daily Report); otherwise only this contractor. */
+  contractorId?: string | null;
+  date: string; onReady: () => void;
   /** false = load the data but wait before drawing (a combined print draws one report's maps at a time). */
   active?: boolean;
   capture?: MapSnapshot;
   /** No map usage: a one-line note under the report instead of a page of its own (combined print). */
   compactEmpty?: boolean;
+  /** Line shown next to the "Site Utilization Map" heading. */
+  subtitle?: string;
 }) {
   const query = useCoordination(projectId, date);
   const data = query.data?.data;
@@ -115,7 +121,7 @@ export function ContractorMapPages({ projectId, contractorId, date, onReady, act
       `}</style>
       <div className="cmap-head">
         <h2>แผนผังพื้นที่ใช้งาน (Site Utilization Map)</h2>
-        <span>เฉพาะงานของผู้รับเหมารายนี้</span>
+        <span>{subtitle}</span>
       </div>
       {query.isError ? <p className="cmap-note">โหลดแผนผังไม่สำเร็จ</p> : null}
       {data ? maps.map((map) => (
