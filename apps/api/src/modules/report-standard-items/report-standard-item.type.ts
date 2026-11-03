@@ -1,11 +1,12 @@
-import type { PermitType, StandardItemKind } from "@sts/shared";
+import type { StandardItemKind } from "@sts/shared";
 
 export interface StandardItemInput {
   kind: StandardItemKind;
   label: string;
   buildingId?: string;
   defaultCount: number;
-  permitType?: PermitType;
+  /** Built-in code or a project-defined permit type code. */
+  permitType?: string;
   highRisk?: boolean;
   taskName?: string;
   supervisorName?: string;

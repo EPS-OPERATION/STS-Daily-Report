@@ -1,5 +1,5 @@
 import { t } from "elysia";
-import { PERMIT_TYPE_CODES, STANDARD_ITEM_KINDS } from "@sts/shared";
+import { STANDARD_ITEM_KINDS } from "@sts/shared";
 
 const uuid = t.String({ format: "uuid" });
 
@@ -12,7 +12,7 @@ const standardItemInput = t.Object({
   label: t.String({ maxLength: 200 }),
   buildingId: t.Optional(uuid),
   defaultCount: t.Integer({ minimum: 1, maximum: 500 }),
-  permitType: t.Optional(t.Union(PERMIT_TYPE_CODES.map((c) => t.Literal(c)))),
+  permitType: t.Optional(t.String({ minLength: 1, maxLength: 50 })),
   highRisk: t.Optional(t.Boolean()),
   taskName: t.Optional(t.String({ maxLength: 120 })),
   supervisorName: t.Optional(t.String({ maxLength: 120 })),

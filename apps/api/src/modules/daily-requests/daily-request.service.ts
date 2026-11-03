@@ -1,4 +1,4 @@
-import { coordinationToday, isEpsStaff, type PermitType } from "@sts/shared";
+import { coordinationToday, isEpsStaff } from "@sts/shared";
 import { listActiveContractorsForUser } from "@/auth/auth.repository.js";
 import { getStorage } from "@/shared/storage/index.js";
 import type { AuthContext } from "@/auth/auth.types.js";
@@ -69,7 +69,7 @@ export async function updatePermitService(
   input: {
     targetDate?: string;
     buildingId?: string;
-    permitType?: PermitType;
+    permitType?: string;
     otherLabel?: string | null;
     workers?: number;
     highRisk?: boolean;
@@ -83,7 +83,7 @@ export async function updatePermitService(
   const existing = await getPermitForProject(db, projectId, id);
   if (!existing) throw new NotFoundError("Work permit not found", { id });
 
-  const nextPermitType = (input.permitType ?? existing.permitType) as PermitType;
+  const nextPermitType = input.permitType ?? existing.permitType;
   const nextOtherLabel = input.otherLabel !== undefined ? input.otherLabel : existing.otherLabel;
   const nextWorkers = input.workers ?? existing.workers;
   const nextHighRisk = input.highRisk ?? existing.highRisk;
@@ -124,7 +124,7 @@ export async function createPermitService(
     contractorId: string;
     targetDate: string;
     buildingId: string;
-    permitType: PermitType;
+    permitType: string;
     otherLabel?: string | null;
     workers: number;
     highRisk: boolean;
