@@ -79,12 +79,13 @@ export interface DayAttendance {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-// Man-day = average attendance of the two halves of the day: someone who leaves at lunch or
-// arrives after it counts ½. With only one half reported, that half stands for the day.
+// Man-day = the day's headcount: the larger of the morning and afternoon counts (more people in the
+// afternoon = people who arrived after the morning report; fewer = nobody is added back). Never an
+// average. With only one half reported, that half stands for the day.
 // NMH = man-days × normal hours + OT man-hours: Σ(people × hours) of the OT rows, or on reports
 // sent before OT was itemised, afternoon crew × OT hours.
 export function dayManpower(a: DayAttendance): { manDays: number; manHours: number } {
-  const manDays = a.morning !== null && a.evening !== null ? (a.morning + a.evening) / 2 : (a.morning ?? a.evening ?? 0);
+  const manDays = Math.max(a.morning ?? 0, a.evening ?? 0);
   const otCrew = a.evening ?? a.morning ?? 0;
   return {
     manDays: round1(manDays),
