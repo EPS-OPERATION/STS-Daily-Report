@@ -17,5 +17,5 @@ export async function resetPassword(token: string, password: string) {
     await replacePassword(tx, user.id, hash);
     await invalidateResetTokens(tx, user.id);
   });
-  return { ok: true };
+  return { ok: true, userId: found.userId };
 }

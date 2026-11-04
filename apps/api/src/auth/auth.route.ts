@@ -1,7 +1,11 @@
 import { Elysia } from "elysia";
 import { normalizePagination } from "@sts/shared";
 import { getEnv } from "@/config/env.js";
+import { getDb } from "@/db/client.js";
+import { InvalidLoginError } from "@/shared/errors/app-error.js";
 import { clientIp } from "./client-ip.js";
+import { findUserByIdentifier } from "./auth.repository.js";
+import { recordSecurityEvent } from "./security-event.js";
 import { requireAuth } from "@/middleware/require-auth.js";
 import { ok, paginated } from "@/shared/http/response.js";
 import { limitAuthAttempts, loadMe, loginWithPassword, logoutSession, registerUser, registrationOptions, registrationProjects } from "./auth.service.js";
@@ -39,12 +43,30 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
   }, { body: registerBody })
   .post("/reset-password", async ({ body, server, request }) => {
     await limitAuthAttempts("reset", clientIp(request.headers, server?.requestIP(request)?.address, getEnv().TRUST_PROXY), 60);
-    return ok(await resetPassword(body.token, body.password));
+    const { userId } = await resetPassword(body.token, body.password);
+    await recordSecurityEvent({ event: "password_reset_done", userId, request, server });
+    return ok({ ok: true });
   }, { body: resetPasswordBody })
-  .post("/login", async ({ body, cookie, set }) => {
+  .post("/login", async ({ body, cookie, set, server, request }) => {
     const identifier = "identifier" in body ? body.identifier : body.email;
     await limitAuthAttempts("login", identifier.trim().toLowerCase(), 30);
-    const { context, token, expiresAt } = await loginWithPassword(identifier, body.password);
+    let login: Awaited<ReturnType<typeof loginWithPassword>>;
+    try {
+      login = await loginWithPassword(identifier, body.password);
+    } catch (err) {
+      // Which account was targeted, if any. What was typed in the box is never stored (it may be a password).
+      const known = await findUserByIdentifier(getDb(), identifier).catch(() => null);
+      await recordSecurityEvent({
+        event: "login_failed",
+        userId: known?.id,
+        detail: { reason: err instanceof InvalidLoginError ? "invalid_credentials" : "account_state" },
+        request,
+        server,
+      });
+      throw err;
+    }
+    const { context, token, expiresAt } = login;
+    await recordSecurityEvent({ event: "login_success", userId: context.user.id, request, server });
     const env = getEnv();
     const jar = cookieJar(cookie as Record<string, { value?: unknown } | undefined>);
     jar?.set({
