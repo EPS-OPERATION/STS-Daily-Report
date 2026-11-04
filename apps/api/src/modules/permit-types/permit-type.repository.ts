@@ -41,7 +41,3 @@ export async function updatePermitType(db: Db, id: string, values: Partial<NewPe
     .returning();
   return rows[0]!;
 }
-
-export async function deletePermitType(db: Db, id: string): Promise<void> {
-  await db.delete(permitTypes).where(eq(permitTypes.id, id));
-}

@@ -9,7 +9,6 @@ import {
 } from "./permit-type.schema.js";
 import {
   createPermitTypeService,
-  deletePermitTypeService,
   listPermitTypesService,
   updatePermitTypeService,
 } from "./permit-type.service.js";
@@ -40,13 +39,4 @@ export const permitTypeRoutes = new Elysia()
     "/projects/:projectId/permit-types/:id",
     async ({ params, body, auth }) => ok(await updatePermitTypeService(auth, params.projectId, params.id, body)),
     { params: permitTypeParams, body: updatePermitTypeBody },
-  )
-  .delete(
-    "/projects/:projectId/permit-types/:id",
-    async ({ params, auth, set }) => {
-      await deletePermitTypeService(auth, params.projectId, params.id);
-      set.status = 204;
-      return null;
-    },
-    { params: permitTypeParams },
   );

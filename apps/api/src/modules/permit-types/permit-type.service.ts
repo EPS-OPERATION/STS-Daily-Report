@@ -3,7 +3,6 @@ import type { AuthContext } from "@/auth/auth.types.js";
 import { getDb } from "@/db/client.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/app-error.js";
 import {
-  deletePermitType,
   findPermitTypeByCode,
   findPermitTypeById,
   insertPermitType,
@@ -78,13 +77,4 @@ export async function updatePermitTypeService(
   if (input.isActive !== undefined) patch.isActive = input.isActive;
 
   return updatePermitType(getDb(), id, patch);
-}
-
-export async function deletePermitTypeService(auth: AuthContext, projectId: string, id: string) {
-  assertEps(auth);
-  const row = await findPermitTypeById(getDb(), id);
-  if (!row || row.projectId !== projectId) {
-    throw new NotFoundError("Permit type not found", { id });
-  }
-  await deletePermitType(getDb(), id);
 }
