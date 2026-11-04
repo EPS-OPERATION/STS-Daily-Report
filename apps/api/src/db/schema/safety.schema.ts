@@ -89,7 +89,7 @@ export const safetyStatEntries = pgTable(
 
 // Append-only edit history of EPS safety statistics (same rule as daily_report_versions): every
 // confirmed save appends a row and a trigger rejects UPDATE. `confirmed_name` is typed by the person
-// doing the save (accounts may be shared); user_id + ip + user_agent are the technical evidence.
+// doing the save (accounts may be shared); user_id + user_agent are the technical evidence (no IP: kept only in security_events; ip column holds old rows).
 //   action = create (first save of that date) | edit (any later save)
 export const safetyStatVersions = pgTable(
   "safety_stat_versions",
@@ -157,7 +157,7 @@ export const safetyBaselines = pgTable("safety_baselines", {
 }, (t) => [check("safety_baselines_man_hours_check", sql`${t.manHoursBefore} >= 0`)]);
 
 // Append-only edit history of the baseline above (same rule as safety_stat_versions): every save keeps the whole
-// record, the typed name of the person who confirmed it, the account, IP and browser.
+// record, the typed name of the person who confirmed it, the account and browser (no IP).
 export const safetyBaselineVersions = pgTable(
   "safety_baseline_versions",
   {

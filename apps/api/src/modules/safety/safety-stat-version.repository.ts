@@ -9,7 +9,6 @@ export interface NewSafetyStatVersion {
   contentHash: string;
   confirmedName: string | null;
   userId: string;
-  ip: string | null;
   userAgent: string | null;
 }
 
@@ -35,7 +34,6 @@ export async function listSafetyStatVersions(db: Db, entryId: string) {
       confirmedName: safetyStatVersions.confirmedName,
       account: sql<string | null>`coalesce(${users.username}, ${users.email})`,
       accountName: users.displayName,
-      ip: safetyStatVersions.ip,
       userAgent: safetyStatVersions.userAgent,
       createdAt: safetyStatVersions.createdAt,
     })
@@ -52,7 +50,6 @@ export interface NewBaselineVersion {
   contentHash: string;
   confirmedName: string | null;
   userId: string;
-  ip: string | null;
   userAgent: string | null;
 }
 
@@ -76,7 +73,6 @@ export async function listSafetyBaselineVersions(db: Db, projectId: string) {
       confirmedName: safetyBaselineVersions.confirmedName,
       account: sql<string | null>`coalesce(${users.username}, ${users.email})`,
       accountName: users.displayName,
-      ip: safetyBaselineVersions.ip,
       userAgent: safetyBaselineVersions.userAgent,
       createdAt: safetyBaselineVersions.createdAt,
     })

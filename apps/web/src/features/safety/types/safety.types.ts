@@ -141,7 +141,6 @@ export interface SafetyStatVersion {
   confirmedName: string | null;
   account: string | null;
   accountName: string | null;
-  ip: string | null;
   userAgent: string | null;
   createdAt: string;
 }

@@ -119,7 +119,6 @@ export async function saveSafetyStatEntryService(
     contentHash: contentHash(snapshot),
     confirmedName,
     userId: auth.user.id,
-    ip: meta?.ip ?? null,
     userAgent: meta?.userAgent?.slice(0, 300) ?? null,
   });
   return { id, entry: saved, version };
@@ -218,7 +217,6 @@ export async function saveSafetyBaselineService(
     contentHash: contentHash(snapshot),
     confirmedName,
     userId: auth.user.id,
-    ip: meta?.ip ?? null,
     userAgent: meta?.userAgent?.slice(0, 300) ?? null,
   });
   return { ...baselineDto(row), version: version.version };
