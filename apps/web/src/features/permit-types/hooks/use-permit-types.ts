@@ -32,13 +32,3 @@ export function useUpdatePermitType(projectId: string) {
     },
   });
 }
-
-export function useDeletePermitType(projectId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => permitTypeApi.delete(projectId, id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: permitTypeKeys.all });
-    },
-  });
-}

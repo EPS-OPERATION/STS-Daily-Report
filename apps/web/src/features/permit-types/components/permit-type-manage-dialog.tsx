@@ -1,7 +1,6 @@
 import { useState } from "react";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import CloseIcon from "@mui/icons-material/Close";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -24,7 +23,6 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import {
   useCreatePermitType,
-  useDeletePermitType,
   usePermitTypes,
   useUpdatePermitType,
 } from "../hooks/use-permit-types.js";
@@ -40,7 +38,6 @@ export function PermitTypeManageDialog({ open, onClose, projectId }: PermitTypeM
   const { data: types, isLoading, error } = usePermitTypes(projectId, true);
   const createMutation = useCreatePermitType(projectId);
   const updateMutation = useUpdatePermitType(projectId);
-  const deleteMutation = useDeletePermitType(projectId);
 
   const [isAdding, setIsAdding] = useState(false);
   const [code, setCode] = useState("");
@@ -96,15 +93,6 @@ export function PermitTypeManageDialog({ open, onClose, projectId }: PermitTypeM
       await updateMutation.mutateAsync({ id, input: { isActive: !currentStatus } });
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : "ไม่สามารถเปลี่ยนสถานะได้");
-    }
-  };
-
-  const handleDelete = async (id: string, labelText: string) => {
-    if (!window.confirm(`ต้องการลบประเภทใบอนุญาต "${labelText}" ใช่หรือไม่?`)) return;
-    try {
-      await deleteMutation.mutateAsync(id);
-    } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "ไม่สามารถลบประเภทใบอนุญาตได้");
     }
   };
 
@@ -318,15 +306,6 @@ export function PermitTypeManageDialog({ open, onClose, projectId }: PermitTypeM
                         disabled={updateMutation.isPending}
                       />
                     </Stack>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDelete(item.id, item.label)}
-                      title="ลบประเภทใบอนุญาต"
-                      disabled={deleteMutation.isPending}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
                   </Stack>
                 </Box>
               );
