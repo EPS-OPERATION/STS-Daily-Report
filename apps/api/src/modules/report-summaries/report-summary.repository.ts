@@ -134,11 +134,14 @@ export async function listReportHoursInRange(db: Db, projectId: string, from: st
     .where(and(eq(dailyReports.projectId, projectId), reportSent, between(dailyReports.reportDate, from, to)));
 }
 
-// NMH of every sent report in the range, summed by the database (same rule as manHours() in @sts/shared:
-// headcount × (normal hours + OT); itemised OT counts only the people who stayed, in man-hours). Use this
+// NMH of every sent report in the range, summed by the database (same rule as dayManpower() in @sts/shared:
+// headcount × (normal hours + OT), headcount = the larger of the morning and afternoon counts; itemised OT
+// counts only the people who stayed, in man-hours). Use this
 // instead of loading rows when only the total is needed — the all-time total grows with the project.
 export async function sumReportManHours(db: Db, projectId: string, from: string, to: string): Promise<number> {
-  const headcount = sql`(${dailyReports.thaiMale} + ${dailyReports.thaiFemale} + ${dailyReports.foreignMale} + ${dailyReports.foreignFemale})`;
+  const morning = sql`(${dailyReports.thaiMale} + ${dailyReports.thaiFemale} + ${dailyReports.foreignMale} + ${dailyReports.foreignFemale})`;
+  const afternoon = sql`(coalesce(${dailyReports.eveningThaiMale}, 0) + coalesce(${dailyReports.eveningThaiFemale}, 0) + coalesce(${dailyReports.eveningForeignMale}, 0) + coalesce(${dailyReports.eveningForeignFemale}, 0))`;
+  const headcount = sql`greatest(${morning}, ${afternoon})`;
   const normal = sql`coalesce(${dailyReports.workHours}, 0)`;
   const [row] = await db
     .select({

@@ -15,7 +15,7 @@ export function ManpowerCharts({ ed }: { ed: UseManpowerPageState }) {
           note={
             isFiltered
               ? `Man-days ต่อวัน (กรองเฉพาะ ${selectedCodes.size} บริษัทที่เลือก)`
-              : "Man-days ต่อวัน (เฉลี่ยเช้า/บ่าย; EPS หนึ่งรายการต่อวัน)"
+              : "Man-days ต่อวัน (ใช้เลขที่มากกว่าระหว่างเช้ากับบ่าย; EPS หนึ่งรายการต่อวัน)"
           }
         >
           <ManDayByContractorChart days={days} daily={filteredDaily} colors={colors} height={chartHeight} legend={chartHeight === undefined} />
