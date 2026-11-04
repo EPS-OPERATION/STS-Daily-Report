@@ -397,8 +397,10 @@ export function NationalityByContractorChart({ contractors, height = 300 }: { co
   );
 }
 
-// Man-days per building (site order), stacked by contractor (user request, Oct 2026).
-// Horizontal so the 15 facility names stay readable.
+// Man-days per building, stacked by contractor (user request, Oct 2026).
+// Horizontal so the 15 facility names stay readable. With a fixed height (the /manpower grid) every building
+// gets its own bar, busiest first, each total in its label; when they do not fit the bars scroll and the
+// legend stays put — same behaviour as the position chart. Without a height it grows with the building count.
 export function ManpowerByBuildingChart({
   rows,
   colors,
@@ -406,44 +408,77 @@ export function ManpowerByBuildingChart({
 }: {
   rows: ManpowerSummary["byBuilding"];
   colors: Map<string, string>;
-  /** Fixed height (bars shrink to fit); default grows with the building count. */
+  /** Fixed height (bars scroll when they do not fit); default grows with the building count. */
   height?: number;
 }) {
   const codes = [...new Set(rows.flatMap((b) => Object.keys(b.contractors)))].sort((a, b) => a.localeCompare(b));
   if (codes.length === 0) return <EmptySection title="ยังไม่มีการจัดสรรคนลงอาคารในช่วงนี้" height={height} />;
-  const shown = height === undefined ? rows : fitBuildings(rows, Math.max(3, Math.floor((height - 40) / BUILDING_ROW)));
+  if (height === undefined) {
+    return (
+      <BarChart
+        height={rows.length * 30 + 90}
+        layout="horizontal"
+        borderRadius={3}
+        yAxis={[{ scaleType: "band", data: rows.map((b) => b.name), width: 190, tickLabelStyle: { fontSize: 13 } }]}
+        xAxis={[{ label: "คน-วัน" }]}
+        series={codes.map((code) => ({
+          id: code,
+          label: code,
+          stack: "total",
+          color: colors.get(code) ?? CHART_OTHER,
+          data: rows.map((b) => b.contractors[code] ?? 0),
+          valueFormatter: (v: number | null) => (v ? `${formatNumber(v)} คน-วัน` : null),
+        }))}
+        slotProps={legendBottom}
+        grid={{ vertical: true }}
+      />
+    );
+  }
+  const total = (b: ManpowerSummary["byBuilding"][number]) => Object.values(b.contractors).reduce((a, n) => a + n, 0);
+  const bars = rows.filter((b) => total(b) > 0).sort((a, b) => total(b) - total(a));
+  const chartHeight = bars.length * BUILDING_ROW + 12; // no x axis: each total is in its label
+  // Fixed panel: the legend (28) stays; the bars area scrolls when the rows do not fit (a hint row takes 22).
+  const room = Math.max(120, height - 28);
+  const scrolls = chartHeight > room;
+  const viewport = scrolls ? Math.max(120, room - 22) : room;
   return (
-    <BarChart
-      height={height ?? rows.length * 30 + 90}
-      layout="horizontal"
-      borderRadius={3}
-      yAxis={[{ scaleType: "band", data: shown.map((b) => b.name), width: height === undefined ? 190 : 160, tickLabelStyle: { fontSize: height === undefined ? 13 : 12 } }]}
-      xAxis={[{ label: height === undefined ? "คน-วัน" : undefined }]}
-      series={codes.map((code) => ({
-        id: code,
-        label: code,
-        stack: "total",
-        color: colors.get(code) ?? CHART_OTHER,
-        data: shown.map((b) => b.contractors[code] ?? 0),
-        valueFormatter: (v: number | null) => (v ? `${formatNumber(v)} คน-วัน` : null),
-      }))}
-      slotProps={legendBottom}
-      grid={{ vertical: true }}
-    />
+    <Box>
+      {scrolls ? (
+        <Typography variant="caption" color="text.secondary" component="div" sx={{ height: 22, textAlign: "right" }}>
+          {bars.length} อาคาร · เลื่อนดู ↓
+        </Typography>
+      ) : null}
+      <Box sx={{ height: viewport, overflowY: "auto", scrollbarWidth: "thin" }}>
+        <BarChart
+          height={Math.max(viewport - 2, chartHeight)}
+          hideLegend
+          margin={{ top: 6, bottom: 6, right: 12 }}
+          layout="horizontal"
+          borderRadius={3}
+          yAxis={[{ scaleType: "band", data: bars.map((b) => `${b.name}  ${formatNumber(total(b))}`), width: 200, tickLabelStyle: { fontSize: 12 } }]}
+          xAxis={[{ min: 0, position: "none" }]}
+          series={codes.map((code) => ({
+            id: code,
+            label: code,
+            stack: "total",
+            color: colors.get(code) ?? CHART_OTHER,
+            data: bars.map((b) => b.contractors[code] ?? 0),
+            valueFormatter: (v: number | null) => (v ? `${formatNumber(v)} คน-วัน` : null),
+          }))}
+          grid={{ vertical: true }}
+        />
+      </Box>
+      <Stack direction="row" spacing={1.5} justifyContent="safe center" sx={{ height: 28, alignItems: "center", overflowX: "auto", scrollbarWidth: "thin", "& > *": { flexShrink: 0 } }}>
+        {codes.map((code) => (
+          <Stack key={code} direction="row" spacing={0.75} alignItems="center">
+            <Box sx={{ width: 13, height: 13, borderRadius: "2px", bgcolor: colors.get(code) ?? CHART_OTHER }} />
+            <Typography variant="body2">{code}</Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
   );
 }
 
-
 /** Screen px per building bar when the chart has a fixed height (labels must not overlap). */
 const BUILDING_ROW = 22;
-
-// Buildings that had people, busiest first; past `max` rows the rest are summed into one "อื่นๆ" bar.
-function fitBuildings(rows: ManpowerSummary["byBuilding"], max: number): ManpowerSummary["byBuilding"] {
-  const total = (b: ManpowerSummary["byBuilding"][number]) => Object.values(b.contractors).reduce((a, n) => a + n, 0);
-  const used = rows.filter((b) => total(b) > 0).sort((a, b) => total(b) - total(a));
-  if (used.length <= max) return used;
-  const rest = used.slice(max - 1);
-  const other = { ...rest[0]!, name: `อื่นๆ (${rest.length} อาคาร)`, contractors: {} as Record<string, number> };
-  for (const b of rest) for (const [code, n] of Object.entries(b.contractors)) other.contractors[code] = (other.contractors[code] ?? 0) + n;
-  return [...used.slice(0, max - 1), other];
-}
