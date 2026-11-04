@@ -1,4 +1,4 @@
-import { type PermitType, REQUEST_STATUSES, type RequestStatus, addDays, attendanceOf, mondayOf, normalizePagination, normalHoursOf, round1, workloadLevel } from "@sts/shared";
+import { type PermitType, REQUEST_STATUSES, type RequestStatus, addDays, attendanceOf, largerCrewShift, mondayOf, normalizePagination, normalHoursOf, round1, workloadLevel } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { listBuildings } from "@/modules/buildings/building.repository.js";
 import { findMachineryConflicts, findRoadConflicts } from "@/modules/daily-requests/daily-request.conflicts.js";
@@ -159,7 +159,18 @@ export async function positionMixService(projectId: string, from: string, to: st
   const db = getDb();
   await assertProject(projectId);
   assertRange(from, to);
-  const rows = await listPositionsInRange(db, projectId, from, to);
+  const allRows = await listPositionsInRange(db, projectId, from, to);
+  // One crew per report: the larger of the morning and afternoon crews (same rule as the day's man-day).
+  const perReport = new Map<string, { morning: number | null; evening: number | null }>();
+  for (const r of allRows) {
+    const t = perReport.get(r.reportId) ?? { morning: null, evening: null };
+    t[r.shift === "evening" ? "evening" : "morning"] = (t[r.shift === "evening" ? "evening" : "morning"] ?? 0) + r.headcount;
+    perReport.set(r.reportId, t);
+  }
+  const rows = allRows.filter((r) => {
+    const t = perReport.get(r.reportId)!;
+    return largerCrewShift(t.morning, t.evening) === (r.shift === "evening" ? "evening" : "morning");
+  });
   const days = new Map<string, Set<string>>();
   const sums = new Map<string, { contractorId: string; contractorCode: string; position: string; total: number }>();
   for (const r of rows) {
@@ -245,13 +256,17 @@ export async function manpowerSummaryService(projectId: string, from: string, to
     c.manDays = round1(c.manDays + headcount);
     c.manHours = round1(c.manHours + hours);
     c.reportedDays += 1;
-    // Nationality/sex of the crew that was reported: the morning one, else the afternoon one.
+    // Nationality/sex of the larger crew of the day (morning on a tie), so the chart adds up to Man-days.
     const morningSent = r.morningStatus === "submitted";
     if (!morningSent && r.workHours === null) c.estimatedDays += 1; // NMH used STANDARD_WORK_HOURS
-    c.thaiMale += morningSent ? r.thaiMale : (r.eveningThaiMale ?? 0);
-    c.thaiFemale += morningSent ? r.thaiFemale : (r.eveningThaiFemale ?? 0);
-    c.foreignMale += morningSent ? r.foreignMale : (r.eveningForeignMale ?? 0);
-    c.foreignFemale += morningSent ? r.foreignFemale : (r.eveningForeignFemale ?? 0);
+    const eveningSent = r.eveningStatus === "submitted" && r.eveningThaiMale !== null;
+    const morningTotal = morningSent ? r.thaiMale + r.thaiFemale + r.foreignMale + r.foreignFemale : null;
+    const eveningTotal = eveningSent ? (r.eveningThaiMale ?? 0) + (r.eveningThaiFemale ?? 0) + (r.eveningForeignMale ?? 0) + (r.eveningForeignFemale ?? 0) : null;
+    const useEvening = largerCrewShift(morningTotal, eveningTotal) === "evening";
+    c.thaiMale += useEvening ? (r.eveningThaiMale ?? 0) : r.thaiMale;
+    c.thaiFemale += useEvening ? (r.eveningThaiFemale ?? 0) : r.thaiFemale;
+    c.foreignMale += useEvening ? (r.eveningForeignMale ?? 0) : r.foreignMale;
+    c.foreignFemale += useEvening ? (r.eveningForeignFemale ?? 0) : r.foreignFemale;
     byContractor.set(r.contractorId, c);
     daily.push({ date: r.reportDate, contractorCode: r.contractorCode, headcount });
   }
