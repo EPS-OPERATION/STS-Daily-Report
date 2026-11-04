@@ -351,6 +351,13 @@
       "when": 1793406510180,
       "tag": "0049_coordination_maps_sections",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793774784640,
+      "tag": "0050_security_events",
+      "breakpoints": true
     }
   ]
 }

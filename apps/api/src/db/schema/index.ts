@@ -17,3 +17,4 @@ export * from "./drone.schema.js";
 export * from "./weather.schema.js";
 export * from "./permit-type.schema.js";
 export * from "./user-activity.schema.js";
+export * from "./security-event.schema.js";
