@@ -69,7 +69,7 @@ export const safetyRoutes = new Elysia()
   )
   .put(
     "/projects/:projectId/safety/baseline",
-    async ({ params, body, auth, request, server }) => ok(await saveSafetyBaselineService(auth, params.projectId, body, requestMeta(request, server))),
+    async ({ params, body, auth, request }) => ok(await saveSafetyBaselineService(auth, params.projectId, body, requestMeta(request))),
     { params: projectIdParams, body: safetyBaselineBody },
   )
   .get(
@@ -85,8 +85,8 @@ export const safetyRoutes = new Elysia()
   )
   .put(
     "/projects/:projectId/safety/stat-entries",
-    async ({ params, body, auth, request, server }) =>
-      ok(await saveSafetyStatEntryService(auth, params.projectId, body, requestMeta(request, server))),
+    async ({ params, body, auth, request }) =>
+      ok(await saveSafetyStatEntryService(auth, params.projectId, body, requestMeta(request))),
     { params: projectIdParams, body: safetyStatBody },
   )
   // Append-only edit history of one stat entry (newest last; the UI shows newest first).
