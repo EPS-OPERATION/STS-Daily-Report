@@ -125,7 +125,7 @@ export interface DailyReport {
   foreignMale: number;
   foreignFemale: number;
   totalHeadcount: number;
-  /** (morning + afternoon) / 2, or the one half sent — see dayManpower in @sts/shared. */
+  /** The larger of the morning and afternoon counts (not an average) — see dayManpower in @sts/shared. */
   manDays: number;
   manHours: number;
   accidentOccurred: boolean | null;

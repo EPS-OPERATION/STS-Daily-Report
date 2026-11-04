@@ -54,13 +54,21 @@ describe("man-day and man-hour (NMH)", () => {
     expect(dayManpower({ morning: 20, evening: null, workHours: 8, otHours: 0 })).toEqual({ manDays: 20, manHours: 160 });
   });
 
-  it("averages morning and afternoon: two people who left at lunch count as one man-day", () => {
-    expect(dayManpower({ morning: 20, evening: 18, workHours: 8, otHours: 0 })).toEqual({ manDays: 19, manHours: 152 });
+  it("takes the afternoon count when it is larger (people arrived after the morning report)", () => {
+    expect(dayManpower({ morning: 20, evening: 23, workHours: 8, otHours: 0 })).toEqual({ manDays: 23, manHours: 184 });
+  });
+
+  it("keeps the morning count when it is larger, never an average", () => {
+    expect(dayManpower({ morning: 20, evening: 16, workHours: 8, otHours: 0 })).toEqual({ manDays: 20, manHours: 160 });
+  });
+
+  it("is the same number when both counts are equal (no .5 from averaging)", () => {
+    expect(dayManpower({ morning: 21, evening: 21, workHours: 8, otHours: 0 })).toEqual({ manDays: 21, manHours: 168 });
   });
 
   it("charges OT to the afternoon crew only", () => {
-    // 19 man-days × 8 h + 18 people × 2 h OT
-    expect(dayManpower({ morning: 20, evening: 18, workHours: 8, otHours: 2 })).toEqual({ manDays: 19, manHours: 188 });
+    // 20 man-days × 8 h + 18 people × 2 h OT
+    expect(dayManpower({ morning: 20, evening: 18, workHours: 8, otHours: 2 })).toEqual({ manDays: 20, manHours: 196 });
   });
 
   it("uses the afternoon crew when only the afternoon report was sent", () => {
@@ -81,6 +89,6 @@ describe("itemised OT (NMH counts only the people who did OT)", () => {
   });
 
   it("keeps the old rule for reports sent before OT was itemised", () => {
-    expect(dayManpower({ morning: 20, evening: 18, workHours: 8, otHours: 2, otManHours: null })).toEqual({ manDays: 19, manHours: 188 });
+    expect(dayManpower({ morning: 20, evening: 18, workHours: 8, otHours: 2, otManHours: null })).toEqual({ manDays: 20, manHours: 196 });
   });
 });
