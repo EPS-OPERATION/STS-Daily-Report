@@ -30,6 +30,9 @@ export function PrintStyles({ page = "A4 portrait" }: { page?: string } = {}) {
         .c { text-align: center; } .b { font-weight: 700; } .blue { background: ${BLUE}; }
         .photo { height: 96px; object-fit: cover; width: 100%; display: block; }
         .gap { height: 6px; }
+        .pg2 { break-before: page; }
+        .f.req thead { display: table-header-group; }
+        .f.req tr { break-inside: avoid; }
       `}</style>
   );
 }

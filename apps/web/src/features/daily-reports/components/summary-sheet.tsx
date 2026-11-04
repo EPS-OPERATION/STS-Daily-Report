@@ -11,6 +11,7 @@ import { Heading, sumOf, thaiShortDate } from "./print-shared.js";
 // Under the form: what the paper form has no room for (crews per discipline, OT detail, tomorrow's requests, photos).
 // Nationality/sex and NMH sit in the form's manpower half.
 // Only parts with data are printed; the activity table above already holds plan vs actual.
+// Tomorrow's requests come first and always start on page 2 (`.pg2`), so they are never split from the form.
 export function SummarySheet({ r }: { r: PrintReport }) {
   const extraPhotos = r.photos;
   const inspections = r.inspections;
@@ -26,51 +27,10 @@ export function SummarySheet({ r }: { r: PrintReport }) {
 
   return (
     <Box>
-      {hasManpower ? (
-        <>
-          <Heading>{++n}. กำลังคนแยกประเภทงาน และ OT</Heading>
-          {multiCrew ? (
-            <table className="f" style={{ marginTop: 4 }}>
-              <thead>
-                <tr>
-                  <th style={{ width: "16%" }}>ประเภทงาน</th>
-                  <th style={{ width: 60 }}>เช้า</th>
-                  <th style={{ width: 60 }}>บ่าย</th>
-                  <th>ตำแหน่ง (เช้า)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {DISCIPLINES.filter((d) => r.crews.some((c) => c.discipline === d.code)).map((d) => {
-                  const morning = r.crews.find((c) => c.shift === "morning" && c.discipline === d.code);
-                  const evening = r.crews.find((c) => c.shift === "evening" && c.discipline === d.code);
-                  return (
-                    <tr key={d.code}>
-                      <td className="b">{d.label}</td>
-                      <td className="c">{morning ? sumOf(morning.positions) : "-"}</td>
-                      <td className="c">{evening ? sumOf(evening.positions) : "-"}</td>
-                      <td>{morning?.positions.map((p) => `${POSITIONS.find((x) => x.code === p.position)?.labelTh ?? p.position} ${p.headcount}`).join(" · ") ?? "-"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : null}
-          <div style={{ marginTop: 3 }}>
-            {[
-              r.overtime?.length || r.otHours ? overtimeSummary(r) : "",
-              shiftGap ? `กำลังคนเช้าและบ่ายต่างกัน ${Math.abs(eveningTotal - morningTotal)} คน` : "",
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-            {r.overtime?.length ? <div>OT: {overtimeLines(r.overtime).join(" · ")}</div> : null}
-          </div>
-        </>
-      ) : null}
-
       {hasRequests ? (
-        <>
+        <div className="pg2">
           <Heading>{++n}. คำขอสำหรับ {thaiShortDate(dayjs(r.requestsForDate).format("YYYY-MM-DD"))} (ส่งในรายงานบ่าย)</Heading>
-        <table className="f">
+        <table className="f req">
           <thead>
             <tr>
               <th style={{ width: 70 }}>ประเภท</th>
@@ -114,6 +74,48 @@ export function SummarySheet({ r }: { r: PrintReport }) {
             ))}
           </tbody>
         </table>
+        </div>
+      ) : null}
+
+
+      {hasManpower ? (
+        <>
+          <Heading>{++n}. กำลังคนแยกประเภทงาน และ OT</Heading>
+          {multiCrew ? (
+            <table className="f" style={{ marginTop: 4 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: "16%" }}>ประเภทงาน</th>
+                  <th style={{ width: 60 }}>เช้า</th>
+                  <th style={{ width: 60 }}>บ่าย</th>
+                  <th>ตำแหน่ง (เช้า)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {DISCIPLINES.filter((d) => r.crews.some((c) => c.discipline === d.code)).map((d) => {
+                  const morning = r.crews.find((c) => c.shift === "morning" && c.discipline === d.code);
+                  const evening = r.crews.find((c) => c.shift === "evening" && c.discipline === d.code);
+                  return (
+                    <tr key={d.code}>
+                      <td className="b">{d.label}</td>
+                      <td className="c">{morning ? sumOf(morning.positions) : "-"}</td>
+                      <td className="c">{evening ? sumOf(evening.positions) : "-"}</td>
+                      <td>{morning?.positions.map((p) => `${POSITIONS.find((x) => x.code === p.position)?.labelTh ?? p.position} ${p.headcount}`).join(" · ") ?? "-"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : null}
+          <div style={{ marginTop: 3 }}>
+            {[
+              r.overtime?.length || r.otHours ? overtimeSummary(r) : "",
+              shiftGap ? `กำลังคนเช้าและบ่ายต่างกัน ${Math.abs(eveningTotal - morningTotal)} คน` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            {r.overtime?.length ? <div>OT: {overtimeLines(r.overtime).join(" · ")}</div> : null}
+          </div>
         </>
       ) : null}
 
