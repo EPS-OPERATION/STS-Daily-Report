@@ -86,20 +86,25 @@ export const activityWindow = (a: Pick<ActivityValues, "headcount" | "timed" | "
   endTime: a.timed ? a.endTime : null,
 });
 
-// Most people placed at once vs the crew. Only "more than came" blocks sending; fewer is
-// shown as information (not everyone has to be assigned).
+// Most people placed at once vs the crew. Both ways block sending: more than came (`over`) or
+// someone who came is in no activity (`short`). Time windows only matter for the peak: people
+// doing two jobs at different times count once.
 export function placementStatus(
   all: Pick<ActivityValues, "buildingId" | "workDescription" | "headcount" | "timed" | "startTime" | "endTime">[],
   dayStart: string,
   dayEnd: string,
   total: number,
-): { placed: number; over: string | null } {
+): { placed: number; over: string | null; short: string | null } {
   const rows = all.filter((r) => !isBlankActivity(r));
   const peak = allocationPeak(rows.map(activityWindow), dayStart, dayEnd);
   const when = rows.some((r) => r.timed) ? `ช่วง ${peak.from}–${peak.to} ` : "";
   return {
     placed: peak.placed,
     over: peak.placed > total ? `${when}ลงงานพร้อมกัน ${peak.placed} คน เกินจำนวนคนที่มา ${total} คน` : null,
+    short:
+      total > 0 && peak.placed < total
+        ? `ลงงานแล้ว ${peak.placed}/${total} คน — ลงงานให้ครบทุกคนอีก ${total - peak.placed} คน`
+        : null,
   };
 }
 
@@ -188,8 +193,9 @@ export const morningSchema = z
       if (crew.allocations.every(isBlankActivity)) {
         ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: "ลงงานอย่างน้อย 1 แถว (อาคาร + งาน + คน)" });
       }
-      const { over } = placementStatus(crew.allocations, v.startTime, v.endTime, sumCounts(crew.positions));
-      if (over) ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: over });
+      const { over, short } = placementStatus(crew.allocations, v.startTime, v.endTime, sumCounts(crew.positions));
+      const placement = over ?? short;
+      if (placement) ctx.addIssue({ code: "custom", path: ["crews", d, "allocations"], message: placement });
       // The same building may repeat only for windows that do not overlap.
       crew.allocations.forEach((a, i) => {
         crew.allocations.slice(0, i).forEach((b) => {

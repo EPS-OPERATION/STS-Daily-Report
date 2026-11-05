@@ -126,8 +126,8 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
         }
       }
     });
-    // Only impossible data is refused: more people working at the same moment than came today.
-    // Leaving people unassigned or not covering the whole day is allowed.
+    // Everyone who came is placed in an activity, never more at the same moment than came.
+    // Time windows only matter for the peak: people doing two jobs at different times count once.
     const peak = allocationPeak(crew.allocations, input.startTime, input.endTime);
     if (peak.placed > total) {
       throw new ValidationError("More people are placed at the same time than came to work", {
@@ -136,6 +136,13 @@ export async function submitMorningService(auth: AuthContext, projectId: string,
         placed: peak.placed,
         from: peak.from,
         to: peak.to,
+      });
+    }
+    if (peak.placed < total) {
+      throw new ValidationError("Place every person who came in an activity", {
+        discipline: crew.discipline,
+        total,
+        placed: peak.placed,
       });
     }
   }
