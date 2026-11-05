@@ -83,7 +83,8 @@ export function attendanceOf(r: {
 
 // People who came after the morning report must be placed in the afternoon's extra-work rows, so the
 // by-building chart adds up to the day's man-day. Per discipline: extra = afternoon - morning (only when
-// more), placed = people on that discipline's extra-work rows. Nothing to check without a morning report.
+// more), placed = people on that discipline's extra-work rows. Without a morning report every afternoon person
+// is extra (morning = 0), so an afternoon-only day still adds up by building.
 export interface ExtraPeople {
   discipline: string;
   morning: number;
@@ -91,6 +92,7 @@ export interface ExtraPeople {
   extra: number;
   placed: number;
   missing: number;
+  noMorning: boolean;
 }
 
 export function extraPeopleToPlace(
@@ -98,11 +100,10 @@ export function extraPeopleToPlace(
   afternoon: Record<string, number>,
   placed: Record<string, number>,
 ): ExtraPeople[] {
-  if (!morning) return [];
   return Object.entries(afternoon).flatMap(([discipline, a]) => {
-    const m = morning[discipline] ?? 0;
+    const m = morning?.[discipline] ?? 0;
     if (a <= m) return [];
     const p = placed[discipline] ?? 0;
-    return [{ discipline, morning: m, afternoon: a, extra: a - m, placed: p, missing: Math.max(0, a - m - p) }];
+    return [{ discipline, morning: m, afternoon: a, extra: a - m, placed: p, missing: Math.max(0, a - m - p), noMorning: morning === null }];
   });
 }

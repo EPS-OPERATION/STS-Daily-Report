@@ -53,13 +53,19 @@ export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
         {extraPeople.length > 0 ? (
           <Alert severity={extraPeople.some((e) => e.missing > 0) ? "warning" : "success"} sx={{ "& .MuiAlert-message": { width: "100%" } }}>
             <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
-              ช่วงบ่ายมีคนเพิ่มจากตอนเช้า — ระบุว่าคนที่เพิ่มไปทำงานอะไร
+              {extraPeople.every((e) => e.noMorning)
+                ? "ไม่มีรายงานเช้า — ระบุว่าคนช่วงบ่ายทำงานอะไร (งานเพิ่มเติม)"
+                : "ช่วงบ่ายมีคนเพิ่มจากตอนเช้า — ระบุว่าคนที่เพิ่มไปทำงานอะไร"}
             </Typography>
             <Stack spacing={0.75}>
               {extraPeople.map((e) => (
                 <Stack key={e.discipline} direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }} justifyContent="space-between">
                   <Typography variant="body2">
-                    {e.discipline}: เช้า {e.morning} → บ่าย {e.afternoon} คน = <b>เพิ่ม {e.extra} คน</b> · ระบุงานแล้ว {Math.min(e.placed, e.extra)}/{e.extra}
+                    {e.noMorning ? (
+                      <>{e.discipline}: บ่าย <b>{e.afternoon} คน</b> · ระบุงานแล้ว {Math.min(e.placed, e.extra)}/{e.extra}</>
+                    ) : (
+                      <>{e.discipline}: เช้า {e.morning} → บ่าย {e.afternoon} คน = <b>เพิ่ม {e.extra} คน</b> · ระบุงานแล้ว {Math.min(e.placed, e.extra)}/{e.extra}</>
+                    )}
                   </Typography>
                   {e.missing > 0 ? (
                     <Button size="small" variant="contained" color="warning" startIcon={<AddOutlinedIcon />} onClick={() => onAddExtraPeople(e.discipline as Discipline, e.missing)} sx={{ flexShrink: 0 }}>
@@ -82,7 +88,7 @@ export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
           >
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                ไม่มีงานจากรายงานเช้า — ข้ามหัวข้อนี้ได้ หรือบันทึกงานเพิ่มเติม
+                ไม่มีงานจากรายงานเช้า — บันทึกงานของคนช่วงบ่ายในงานเพิ่มเติม
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 หากมีงานนอกแผน หรือทำงานได้เร็วกว่าแผน สามารถกดเพิ่มงานเพิ่มเติมได้ทันที

@@ -234,18 +234,24 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
     seenCrews.add(crew.discipline);
     validateCrew(crew);
   }
-  // More people in the afternoon than in the morning: the extra people must be placed in extra-work rows.
-  if (report?.morningStatus === "submitted") {
+  // More people in the afternoon than in the morning (or no morning report): those people must be placed
+  // in extra-work rows, so the by-building chart adds up to the day's man-day.
+  {
     const total = (c: { thaiMale: number; thaiFemale: number; foreignMale: number; foreignFemale: number }) =>
       c.thaiMale + c.thaiFemale + c.foreignMale + c.foreignFemale;
-    const morning = Object.fromEntries((await listCrews(db, report.id)).filter((c) => c.shift === "morning").map((c) => [c.discipline, total(c)]));
+    const morning =
+      report?.morningStatus === "submitted"
+        ? Object.fromEntries((await listCrews(db, report.id)).filter((c) => c.shift === "morning").map((c) => [c.discipline, total(c)]))
+        : null;
     const afternoon = Object.fromEntries(input.crews.map((c) => [c.discipline, total(c)]));
     const placed: Record<string, number> = {};
     for (const a of input.additionalAllocations ?? []) placed[a.discipline] = (placed[a.discipline] ?? 0) + a.headcount;
     const short = extraPeopleToPlace(morning, afternoon, placed).find((e) => e.missing > 0);
     if (short) {
       throw new ValidationError(
-        `${short.discipline}: ช่วงบ่ายมีคนเพิ่มจากเช้า ${short.extra} คน — ระบุงานของคนที่เพิ่มในงานเพิ่มเติมอีก ${short.missing} คน`,
+        short.noMorning
+          ? `${short.discipline}: ไม่มีรายงานเช้า — ระบุงานของคนช่วงบ่ายในงานเพิ่มเติมอีก ${short.missing} คน`
+          : `${short.discipline}: ช่วงบ่ายมีคนเพิ่มจากเช้า ${short.extra} คน — ระบุงานของคนที่เพิ่มในงานเพิ่มเติมอีก ${short.missing} คน`,
         { ...short },
       );
     }
