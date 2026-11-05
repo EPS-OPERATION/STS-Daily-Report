@@ -13,3 +13,23 @@ export function overtimeSummary(r: { otHours: number | null; overtime?: ReportOv
 /** "Boiler · เทคอนกรีต 6 คน × 2 ชม." per OT row. */
 export const overtimeLines = (rows: ReportOvertime[] = []) =>
   rows.map((o) => `${o.buildingCode} · ${o.task} ${o.workers} คน × ${o.hours} ชม.`);
+
+// Submission History OT column: itemised OT gives people + hours per person + total man-hours;
+// older reports only have hours per person (no people count).
+export function overtimeQueueCell(r: {
+  otHours?: number | null;
+  otWorkers?: number | null;
+  otManHours?: number | null;
+}): { main: string; sub: string | null } | null {
+  const hours = r.otHours ?? 0;
+  const workers = r.otWorkers ?? 0;
+  const manHours = r.otManHours ?? null;
+  if (hours <= 0 && workers <= 0 && !(manHours !== null && manHours > 0)) return null;
+  if (manHours !== null && manHours > 0) {
+    return {
+      main: `${manHours} คน-ชม.`,
+      sub: workers > 0 ? `${workers} คน${hours > 0 ? ` · สูงสุด ${hours} ชม./คน` : ""}` : "ไม่ระบุจำนวนคน",
+    };
+  }
+  return { main: `${hours} ชม./คน`, sub: workers > 0 ? `${workers} คน` : "ไม่ระบุจำนวนคน" };
+}

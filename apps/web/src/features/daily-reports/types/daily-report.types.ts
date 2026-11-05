@@ -38,6 +38,10 @@ export interface ReviewQueueRow {
   endTime?: string | null;
   workHours?: number | null;
   otHours?: number | null;
+  /** Σ people × hours across the itemised evening OT rows. */
+  otManHours?: number | null;
+  /** Σ people across the itemised evening OT rows (null on reports sent before OT was itemised). */
+  otWorkers?: number | null;
 }
 
 export interface ReviewPayload {

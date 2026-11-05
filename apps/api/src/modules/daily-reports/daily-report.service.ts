@@ -143,6 +143,8 @@ export async function listReviewQueueService(
               endTime: null,
               workHours: null,
               otHours: null,
+              otManHours: null,
+              otWorkers: null,
             };
       }),
   );
@@ -173,6 +175,8 @@ function toReviewRow(r: {
   endTime?: string | null;
   workHours?: number | null;
   otHours?: number | null;
+  otManHours?: number | null;
+  otWorkers?: number | null;
 }) {
   return {
     id: r.id as string | null,
@@ -195,6 +199,8 @@ function toReviewRow(r: {
     endTime: r.endTime ?? null,
     workHours: r.workHours ?? null,
     otHours: r.otHours ?? null,
+    otManHours: r.otManHours ?? null,
+    otWorkers: r.otWorkers ?? null,
   };
 }
 
