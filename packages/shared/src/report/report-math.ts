@@ -47,6 +47,16 @@ export function normalHoursOf(r: {
   return r.workHours ?? (r.morningStatus !== "submitted" && eveningReported ? STANDARD_WORK_HOURS : null);
 }
 
+// Which crew describes the day for the nationality / position charts: the larger of the two counts, the
+// morning one on a tie (same rule as the day's man-day in dayManpower, so the charts add up to Man-days).
+// A null total = that half was not sent.
+export function largerCrewShift(morningTotal: number | null, eveningTotal: number | null): "morning" | "evening" | null {
+  if (morningTotal === null && eveningTotal === null) return null;
+  if (morningTotal === null) return "evening";
+  if (eveningTotal === null) return "morning";
+  return eveningTotal > morningTotal ? "evening" : "morning";
+}
+
 // Man-day / NMH of one contractor-day from whichever halves were sent (rule in dayManpower).
 export function attendanceOf(r: {
   morningStatus: string;
