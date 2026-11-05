@@ -50,7 +50,7 @@ export function AdditionalWorkRow({
   const availableDisciplines = activeDisciplines.length > 0 ? activeDisciplines : DISCIPLINE_CODES;
 
   return (
-    <Card variant="outlined" sx={{ borderColor: "info.main", bgcolor: "background.paper" }}>
+    <Card variant="outlined" sx={{ borderColor: "primary.main", bgcolor: "background.paper" }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Stack spacing={1.5}>
           {/* Header row: Discipline + Building + Tag + Delete */}
@@ -59,9 +59,9 @@ export function AdditionalWorkRow({
               <Chip
                 label="งานเพิ่มเติม / นอกแผน"
                 size="small"
-                color="info"
+                color="primary"
                 variant="filled"
-                sx={{ fontWeight: 600, fontSize: "0.75rem" }}
+                sx={{ fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.01em" }}
               />
               <Controller
                 name={`${path}.discipline`}
@@ -237,7 +237,7 @@ export function AdditionalWorkRow({
               <LinearProgress
                 variant="determinate"
                 value={typeof actual === "number" ? actual : 0}
-                color="info"
+                color="primary"
                 sx={{ height: 10, borderRadius: 5 }}
               />
             </Box>

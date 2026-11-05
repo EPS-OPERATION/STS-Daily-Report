@@ -124,7 +124,7 @@ export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
         {/* Additional work items */}
         {hasAdditional ? (
           <Stack spacing={1.5}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: "info.main", textTransform: "uppercase" }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: "primary.main", textTransform: "uppercase", letterSpacing: "0.04em" }}>
               งานเพิ่มเติม / นอกแผน ({additional.fields.length} รายการ)
             </Typography>
             {additional.fields.map((row, i) => (
