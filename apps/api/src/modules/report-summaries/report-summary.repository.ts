@@ -1,4 +1,4 @@
-import { and, asc, between, count, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
+import { and, asc, between, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import { reportSent } from "@/db/report-filters.js";
 import { contractors, dailyReportAllocations, dailyReportEquipment, dailyReportMaterials, dailyReportPositions, dailyReports, inspectionRequests } from "@/db/schema/index.js";
@@ -162,13 +162,15 @@ export async function countRequestsByStatusInRange(db: Db, projectId: string, fr
     .groupBy(inspectionRequests.status);
 }
 
-// Headcount by position per contractor per day (morning shift = who came to work).
+// Headcount by position per contractor per day, for both sent halves; the service keeps the larger crew of the day.
 export async function listPositionsInRange(db: Db, projectId: string, from: string, to: string) {
   return db
     .select({
+      reportId: dailyReports.id,
       reportDate: dailyReports.reportDate,
       contractorId: dailyReports.contractorId,
       contractorCode: contractors.code,
+      shift: dailyReportPositions.shift,
       position: dailyReportPositions.position,
       headcount: dailyReportPositions.headcount,
     })
@@ -178,10 +180,10 @@ export async function listPositionsInRange(db: Db, projectId: string, from: stri
     .where(
       and(
         eq(dailyReports.projectId, projectId),
-        // The morning crew; the afternoon crew only when no morning report was sent.
+        // Each half counts when it was sent.
         or(
           and(eq(dailyReports.morningStatus, "submitted"), eq(dailyReportPositions.shift, "morning")),
-          and(ne(dailyReports.morningStatus, "submitted"), eq(dailyReports.eveningStatus, "submitted"), eq(dailyReportPositions.shift, "evening")),
+          and(eq(dailyReports.eveningStatus, "submitted"), eq(dailyReportPositions.shift, "evening")),
         ),
         between(dailyReports.reportDate, from, to),
       ),

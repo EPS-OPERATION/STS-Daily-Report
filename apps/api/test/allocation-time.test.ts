@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { allocationDayShares, allocationPeak } from "@sts/shared";
+import { allocationDayShares, allocationPeak, largerCrewShift } from "@sts/shared";
 
 const day = ["08:00", "17:00"] as const;
 
@@ -90,5 +90,22 @@ describe("itemised OT (NMH counts only the people who did OT)", () => {
 
   it("keeps the old rule for reports sent before OT was itemised", () => {
     expect(dayManpower({ morning: 20, evening: 18, workHours: 8, otHours: 2, otManHours: null })).toEqual({ manDays: 20, manHours: 196 });
+  });
+});
+
+describe("which crew describes the day (nationality / position charts)", () => {
+  it("takes the afternoon crew when it is larger, the morning crew otherwise", () => {
+    expect(largerCrewShift(20, 23)).toBe("evening");
+    expect(largerCrewShift(20, 16)).toBe("morning");
+  });
+
+  it("keeps the morning crew on a tie, like the day's man-day", () => {
+    expect(largerCrewShift(21, 21)).toBe("morning");
+  });
+
+  it("uses the half that was sent when only one was", () => {
+    expect(largerCrewShift(20, null)).toBe("morning");
+    expect(largerCrewShift(null, 12)).toBe("evening");
+    expect(largerCrewShift(null, null)).toBeNull();
   });
 });
