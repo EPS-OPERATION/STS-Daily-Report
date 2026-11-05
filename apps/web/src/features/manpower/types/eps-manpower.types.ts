@@ -21,6 +21,7 @@ export interface EpsManpowerEntry {
   endTime: string | null;
   workHours: number | null;
   otHours: number | null;
+  otWorkers: number | null;
   positions: EpsManpowerPosition[];
   thaiMale: number;
   thaiFemale: number;
@@ -35,6 +36,7 @@ export interface EpsManpowerPayload {
   endTime: string;
   workHours: number;
   otHours?: number;
+  otWorkers?: number;
   positions: EpsManpowerPosition[];
   thaiMale: number;
   thaiFemale: number;

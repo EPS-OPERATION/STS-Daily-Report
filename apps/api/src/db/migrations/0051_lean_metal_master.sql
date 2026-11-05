@@ -1,0 +1,2 @@
+ALTER TABLE "daily_reports" ADD COLUMN "ot_workers" integer;--> statement-breakpoint
+ALTER TABLE "daily_reports" ADD CONSTRAINT "daily_reports_ot_workers_check" CHECK ("daily_reports"."ot_workers" IS NULL OR ("daily_reports"."ot_workers" >= 0 AND "daily_reports"."ot_workers" <= 5000));

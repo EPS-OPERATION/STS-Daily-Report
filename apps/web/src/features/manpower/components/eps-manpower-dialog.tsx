@@ -51,6 +51,7 @@ function blankValues(): EpsManpowerFormValues {
     endTime: DEFAULT_END,
     workHours: hoursBetween(DEFAULT_START, DEFAULT_END),
     otHours: 0,
+    otWorkers: 0,
     positions: emptyEpsPositions(),
     thaiMale: 0,
     thaiFemale: 0,
@@ -91,6 +92,7 @@ export function EpsManpowerDialog({
   const endTime = useWatch({ control, name: "endTime" });
   const workHours = useWatch({ control, name: "workHours" });
   const otHours = useWatch({ control, name: "otHours" });
+  const otWorkers = useWatch({ control, name: "otWorkers" });
   const allocationRows = useWatch({ control, name: "allocations" }) ?? [];
 
   // Start a fresh entry whenever the dialog opens. Loading an existing day is handled below.
@@ -115,6 +117,7 @@ export function EpsManpowerDialog({
       endTime: entry.endTime ?? DEFAULT_END,
       workHours: entry.workHours ?? hoursBetween(entry.startTime ?? DEFAULT_START, entry.endTime ?? DEFAULT_END),
       otHours: entry.otHours ?? 0,
+      otWorkers: entry.otWorkers ?? 0,
       positions: { ...emptyEpsPositions(), ...Object.fromEntries(entry.positions.map((p) => [p.position, p.headcount])) },
       thaiMale: entry.thaiMale,
       thaiFemale: entry.thaiFemale,
@@ -136,7 +139,9 @@ export function EpsManpowerDialog({
     [positions],
   );
   const manDays = totalPositions;
-  const nmh = Math.round(manDays * ((workHours ?? 0) + (otHours ?? 0)) * 10) / 10;
+  const otManHours = Math.round((otWorkers ?? 0) * (otHours ?? 0) * 10) / 10;
+  // Normal hours apply to everyone; OT only to the people who stayed.
+  const nmh = Math.round((manDays * (workHours ?? 0) + otManHours) * 10) / 10;
   const loadError = entryQuery.error instanceof HttpError ? entryQuery.error : null;
   const saveError = save.error instanceof HttpError ? save.error : null;
 
@@ -167,6 +172,7 @@ export function EpsManpowerDialog({
           endTime: v.endTime,
           workHours: v.workHours,
           otHours: v.otHours,
+          otWorkers: v.otWorkers,
           positions: Object.entries(v.positions)
             .filter(([, n]) => n > 0)
             .map(([position, headcount]) => ({ position: position as PositionCode, headcount })),
@@ -244,6 +250,7 @@ export function EpsManpowerDialog({
           <Stack direction="row" spacing={4} flexWrap="wrap" useFlexGap>
             <Figure label="Man-days" value={manDays} />
             <Figure label="NMH" value={nmh} />
+            <Figure label="OT (คน-ชม.)" value={otManHours} />
             <Figure label="คน" value={totalPositions} />
           </Stack>
         </Stack>
@@ -279,7 +286,27 @@ export function EpsManpowerDialog({
                 value={otHours}
                 onChange={(e) => setValue("otHours", Math.min(24, Math.max(0, Number(e.target.value))), { shouldDirty: true, shouldValidate: true })}
                 slotProps={{ htmlInput: { min: 0, max: 24, step: 0.5 } }}
+                error={Boolean(formState.errors.otHours)}
+                helperText={formState.errors.otHours?.message}
               />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <TextField
+                label="จำนวนคนที่ทำ OT"
+                type="number"
+                size="small"
+                fullWidth
+                value={otWorkers}
+                onChange={(e) => setValue("otWorkers", Math.min(5000, Math.max(0, Number(e.target.value))), { shouldDirty: true, shouldValidate: true })}
+                slotProps={{ htmlInput: { min: 0, max: 5000, step: 1 } }}
+                error={Boolean(formState.errors.otWorkers)}
+                helperText={formState.errors.otWorkers?.message}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 9 }}>
+              <Typography variant="caption" color="text.secondary">
+                ไม่ต้องครบทุกคน — ใส่เฉพาะจำนวนคนที่ทำ OT คู่กับชั่วโมง OT ต่อคน
+              </Typography>
             </Grid>
           </Grid>
           {formState.errors.endTime ? (

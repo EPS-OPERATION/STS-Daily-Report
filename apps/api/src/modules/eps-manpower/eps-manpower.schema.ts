@@ -12,6 +12,8 @@ export const epsManpowerBody = t.Object({
   endTime: hhmm,
   workHours: t.Number({ minimum: 0, maximum: 24, multipleOf: 0.5 }),
   otHours: t.Optional(t.Number({ minimum: 0, maximum: 24, multipleOf: 0.5 })),
+  // Not everyone works OT; the service requires this when otHours > 0.
+  otWorkers: t.Optional(t.Integer({ minimum: 0, maximum: 5000 })),
   positions: t.Array(
     t.Object({
       position: t.Union(POSITION_CODES.map((p) => t.Literal(p))),

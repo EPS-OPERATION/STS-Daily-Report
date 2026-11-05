@@ -78,6 +78,7 @@ export interface MorningInput {
   permits?: PermitInput[];
   // Owner (EPS) manpower only. Regular contractor reports keep OT on the evening Daily Request.
   otHours?: number | null;
+  otWorkers?: number | null;
 }
 
 export interface RoadUsageInput {
