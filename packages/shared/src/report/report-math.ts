@@ -70,3 +70,29 @@ export function attendanceOf(r: {
       : null;
   return dayManpower({ morning, evening, workHours: normalHoursOf(r), otHours: r.otHours, otManHours: r.otManHours });
 }
+
+// People who came after the morning report must be placed in the afternoon's extra-work rows, so the
+// by-building chart adds up to the day's man-day. Per discipline: extra = afternoon - morning (only when
+// more), placed = people on that discipline's extra-work rows. Nothing to check without a morning report.
+export interface ExtraPeople {
+  discipline: string;
+  morning: number;
+  afternoon: number;
+  extra: number;
+  placed: number;
+  missing: number;
+}
+
+export function extraPeopleToPlace(
+  morning: Record<string, number> | null,
+  afternoon: Record<string, number>,
+  placed: Record<string, number>,
+): ExtraPeople[] {
+  if (!morning) return [];
+  return Object.entries(afternoon).flatMap(([discipline, a]) => {
+    const m = morning[discipline] ?? 0;
+    if (a <= m) return [];
+    const p = placed[discipline] ?? 0;
+    return [{ discipline, morning: m, afternoon: a, extra: a - m, placed: p, missing: Math.max(0, a - m - p) }];
+  });
+}

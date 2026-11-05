@@ -1,4 +1,4 @@
-import { allocationPeak, canEditReport, editDeadline, routeGeometryError, timeWindowsOverlap } from "@sts/shared";
+import { allocationPeak, canEditReport, editDeadline, extraPeopleToPlace, routeGeometryError, timeWindowsOverlap } from "@sts/shared";
 import type { AuthContext } from "@/auth/auth.types.js";
 import { getEnv } from "@/config/env.js";
 import { getDb } from "@/db/client.js";
@@ -10,7 +10,7 @@ import { listRoadSegments } from "@/modules/site-coordination/coordination.repos
 import { ConflictError, ValidationError } from "@/shared/errors/app-error.js";
 import { saveEvening, saveMorning } from "./daily-report-save.repository.js";
 import { assertContractorAccess, reportDetail } from "./daily-report.detail.js";
-import { getReportByKey, listAllocations } from "./daily-report.repository.js";
+import { getReportByKey, listAllocations, listCrews } from "./daily-report.repository.js";
 import type { CrewInput, EquipmentRequestInput, EveningInput, MachineryInput, MorningInput, PermitInput, RoadUsageInput } from "./daily-report.type.js";
 import type { ReportLocation } from "./daily-report.type.js";
 
@@ -226,6 +226,22 @@ export async function submitEveningService(auth: AuthContext, projectId: string,
     if (seenCrews.has(crew.discipline)) throw new ValidationError("Each discipline may appear only once", { discipline: crew.discipline });
     seenCrews.add(crew.discipline);
     validateCrew(crew);
+  }
+  // More people in the afternoon than in the morning: the extra people must be placed in extra-work rows.
+  if (report?.morningStatus === "submitted") {
+    const total = (c: { thaiMale: number; thaiFemale: number; foreignMale: number; foreignFemale: number }) =>
+      c.thaiMale + c.thaiFemale + c.foreignMale + c.foreignFemale;
+    const morning = Object.fromEntries((await listCrews(db, report.id)).filter((c) => c.shift === "morning").map((c) => [c.discipline, total(c)]));
+    const afternoon = Object.fromEntries(input.crews.map((c) => [c.discipline, total(c)]));
+    const placed: Record<string, number> = {};
+    for (const a of input.additionalAllocations ?? []) placed[a.discipline] = (placed[a.discipline] ?? 0) + a.headcount;
+    const short = extraPeopleToPlace(morning, afternoon, placed).find((e) => e.missing > 0);
+    if (short) {
+      throw new ValidationError(
+        `${short.discipline}: ช่วงบ่ายมีคนเพิ่มจากเช้า ${short.extra} คน — ระบุงานของคนที่เพิ่มในงานเพิ่มเติมอีก ${short.missing} คน`,
+        { ...short },
+      );
+    }
   }
   const buildingIds = new Set((await listBuildings(db, projectId)).map((b) => b.id));
   const checkLocation = await locationChecker(db, projectId, buildingIds);
