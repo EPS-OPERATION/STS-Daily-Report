@@ -83,15 +83,15 @@ export function MorningCrewSection({
           aria-live="polite"
           sx={{
             fontWeight: 600,
-            color: problem ? "error.main" : placement.placed === t.total && t.total > 0 ? "success.dark" : "text.secondary",
+            color: problem ? "error.main" : placement.short ? "warning.dark" : t.total > 0 ? "success.dark" : "text.secondary",
           }}
         >
           {t.total === 0
             ? "กรอกจำนวนคนด้านบนก่อน"
-            : (problem ?? (placement.placed === t.total ? `ลงงานครบ ${t.total} คนแล้ว` : `ลงงาน ${placement.placed}/${t.total} คน`))}
+            : (problem ?? placement.short ?? `ลงงานครบ ${t.total} คนแล้ว`)}
         </Typography>
       </Stack>
-      {listError && listError !== problem ? (
+      {listError && listError !== problem && listError !== placement.short ? (
         <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.5 }}>
           {listError}
         </Typography>

@@ -182,10 +182,12 @@ export function useMorningForm({ projectId, date, contractor, buildings, report,
   // Forms follow the chip order CE → ME → EE, not the order they were clicked.
   const picked = DISCIPLINE_CODES.filter((d) => disciplineValues.includes(d));
 
-  // A crew is ready when people are counted, the nationality split matches and, at every time of
-  // the day, everyone is placed in an activity (or nobody, e.g. lunch).
-  const placementProblem = (d: Discipline) =>
-    placementStatus(crewValues[d].allocations ?? [], dayStart, dayEnd, crewTotals(crewValues[d]).total).over;
+  // A crew is ready when people are counted, the nationality split matches and everyone who came
+  // is placed in an activity, without more at once than came.
+  const placementProblem = (d: Discipline) => {
+    const p = placementStatus(crewValues[d].allocations ?? [], dayStart, dayEnd, crewTotals(crewValues[d]).total);
+    return p.over ?? p.short;
+  };
   const crewReady = (d: Discipline) => crewTotals(crewValues[d]).ok && placementProblem(d) === null;
 
   const onSubmit = handleSubmit(
