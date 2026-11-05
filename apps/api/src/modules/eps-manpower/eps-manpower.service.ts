@@ -29,6 +29,7 @@ async function loadEntry(projectId: string, contractorId: string, date: string):
     endTime: report.endTime,
     workHours: report.workHours,
     otHours: report.otHours,
+    otWorkers: report.otWorkers,
     positions: positions.map((p) => ({ position: p.position as PositionCode, headcount: p.headcount })),
     thaiMale: report.thaiMale,
     thaiFemale: report.thaiFemale,
@@ -76,6 +77,19 @@ function validateInput(input: EpsManpowerInput, buildingIds: Set<string>) {
   const byNationality = input.thaiMale + input.thaiFemale + input.foreignMale + input.foreignFemale;
   if (byNationality !== total) {
     throw new ValidationError("Nationality/sex split must equal the headcount by position", { byPosition: total, byNationality });
+  }
+
+  // OT is not necessarily the whole crew: when hours are entered, say how many people did it.
+  const otHours = input.otHours ?? 0;
+  const otWorkers = input.otWorkers ?? 0;
+  if (otWorkers > total) {
+    throw new ValidationError("OT people cannot exceed total EPS headcount", { otWorkers, total });
+  }
+  if (otHours > 0 && otWorkers < 1) {
+    throw new ValidationError("Specify how many people did OT", { otHours });
+  }
+  if (otWorkers > 0 && otHours <= 0) {
+    throw new ValidationError("Specify OT hours per person", { otWorkers });
   }
 
   const allocations = input.allocations ?? [];
@@ -141,6 +155,7 @@ export async function saveEpsManpowerService(auth: AuthContext, projectId: strin
       crews: [crew],
       permits: [],
       otHours: input.otHours ?? 0,
+      otWorkers: input.otWorkers ?? 0,
     },
     auth.user.id,
   );

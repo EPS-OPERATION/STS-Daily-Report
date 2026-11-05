@@ -44,7 +44,11 @@ export const dailyReports = pgTable(
     eveningForeignMale: integer("evening_foreign_male"),
     eveningForeignFemale: integer("evening_foreign_female"),
     otHours: numeric("ot_hours", { precision: 4, scale: 1, mode: "number" }),
-    // Σ people × hours of the itemised OT rows (daily_report_overtime); null on reports sent before OT was itemised.
+    // People who did OT this day. EPS manpower sets it from the form; contractors derive it from the
+    // itemised evening OT rows (see daily_report_overtime).
+    otWorkers: integer("ot_workers"),
+    // Σ people × hours of the OT rows (daily_report_overtime or EPS ot_workers × ot_hours);
+    // null on reports sent before OT was itemised.
     otManHours: numeric("ot_man_hours", { precision: 8, scale: 1, mode: "number" }),
     accidentOccurred: boolean("accident_occurred"),
     accidentNote: text("accident_note"),
@@ -78,6 +82,7 @@ export const dailyReports = pgTable(
       sql`(${t.eveningThaiMale} IS NULL OR ${t.eveningThaiMale} >= 0) AND (${t.eveningThaiFemale} IS NULL OR ${t.eveningThaiFemale} >= 0) AND (${t.eveningForeignMale} IS NULL OR ${t.eveningForeignMale} >= 0) AND (${t.eveningForeignFemale} IS NULL OR ${t.eveningForeignFemale} >= 0)`,
     ),
     check("daily_reports_ot_check", sql`${t.otHours} IS NULL OR (${t.otHours} >= 0 AND ${t.otHours} <= 24)`),
+    check("daily_reports_ot_workers_check", sql`${t.otWorkers} IS NULL OR (${t.otWorkers} >= 0 AND ${t.otWorkers} <= 5000)`),
     check("daily_reports_work_hours_check", sql`${t.workHours} IS NULL OR (${t.workHours} >= 0 AND ${t.workHours} <= 24)`),
     check("daily_reports_humidity_check", sql`${t.humidityPct} IS NULL OR (${t.humidityPct} BETWEEN 0 AND 100)`),
     check(

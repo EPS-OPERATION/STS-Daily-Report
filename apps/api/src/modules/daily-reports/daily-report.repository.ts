@@ -111,6 +111,12 @@ export async function listReportsForReview(
       workHours: dailyReports.workHours,
       otHours: dailyReports.otHours,
       otManHours: dailyReports.otManHours,
+      // Contractor evening OT comes from the itemised rows; EPS manpower stores the count on the report.
+      otWorkers: sql<number>`coalesce((
+        select sum(${dailyReportOvertime.workers})
+        from ${dailyReportOvertime}
+        where ${dailyReportOvertime.reportId} = ${dailyReports.id}
+      ), ${dailyReports.otWorkers}, 0)`.mapWith(Number),
     })
     .from(dailyReports)
     .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))

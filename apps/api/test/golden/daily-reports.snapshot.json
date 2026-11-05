@@ -36,6 +36,7 @@
         "eveningForeignMale": null,
         "eveningForeignFemale": null,
         "otHours": null,
+        "otWorkers": null,
         "otManHours": null,
         "accidentOccurred": null,
         "accidentNote": null,
@@ -115,6 +116,7 @@
         "eveningForeignMale": null,
         "eveningForeignFemale": null,
         "otHours": null,
+        "otWorkers": null,
         "otManHours": null,
         "accidentOccurred": null,
         "accidentNote": null,
@@ -274,6 +276,7 @@
           "eveningForeignMale": null,
           "eveningForeignFemale": null,
           "otHours": null,
+          "otWorkers": null,
           "otManHours": null,
           "accidentOccurred": null,
           "accidentNote": null,
@@ -452,6 +455,7 @@
         "eveningForeignMale": 1,
         "eveningForeignFemale": 0,
         "otHours": 2,
+        "otWorkers": null,
         "otManHours": 6,
         "accidentOccurred": false,
         "accidentNote": null,
@@ -712,6 +716,7 @@
           "eveningForeignMale": 1,
           "eveningForeignFemale": 0,
           "otHours": 2,
+          "otWorkers": null,
           "otManHours": 6,
           "accidentOccurred": false,
           "accidentNote": null,
@@ -990,6 +995,7 @@
           "eveningForeignMale": 1,
           "eveningForeignFemale": 0,
           "otHours": 2,
+          "otWorkers": null,
           "otManHours": 6,
           "accidentOccurred": false,
           "accidentNote": null,
@@ -1265,7 +1271,9 @@
           "startTime": "08:00",
           "endTime": "17:00",
           "workHours": 8,
-          "otHours": 2
+          "otHours": 2,
+          "otManHours": 6,
+          "otWorkers": 3
         }
       ]
     }
@@ -1293,7 +1301,9 @@
           "startTime": "08:00",
           "endTime": "17:00",
           "workHours": 8,
-          "otHours": 2
+          "otHours": 2,
+          "otManHours": 6,
+          "otWorkers": 3
         }
       ]
     }
@@ -1328,6 +1338,7 @@
         "eveningForeignMale": 1,
         "eveningForeignFemale": 0,
         "otHours": 2,
+        "otWorkers": null,
         "otManHours": 6,
         "accidentOccurred": false,
         "accidentNote": null,
@@ -1601,6 +1612,7 @@
         "eveningForeignMale": 1,
         "eveningForeignFemale": 0,
         "otHours": 2,
+        "otWorkers": null,
         "otManHours": 6,
         "accidentOccurred": false,
         "accidentNote": null,
@@ -1918,6 +1930,7 @@
         "eveningForeignMale": 1,
         "eveningForeignFemale": 0,
         "otHours": 2,
+        "otWorkers": null,
         "otManHours": 6,
         "accidentOccurred": false,
         "accidentNote": null,

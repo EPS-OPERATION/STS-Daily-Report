@@ -35,6 +35,7 @@ import { WorkDoneSummaryTable } from "../components/work-done-summary-table.js";
 import { useDailyReportsPage } from "../hooks/use-daily-reports-page.js";
 import { SubmissionSummary } from "../components/submission-summary.js";
 import { SubmissionHistory } from "../components/submission-history.js";
+import { overtimeQueueCell } from "../utils/overtime.js";
 
 // Daily report summary for EPS: work done, and a submission history of who sent what. The history lists
 // rows where something was sent; the «ยังไม่ส่ง» chip shows who sent nothing. No approval step (history only).
@@ -202,6 +203,13 @@ export function DailyReportsPage() {
                             <TableCell>Daily Report</TableCell>
                             <TableCell>Daily Request</TableCell>
                             <TableCell align="right">คน</TableCell>
+                            <TableCell
+                              align="right"
+                              sx={{ whiteSpace: "nowrap" }}
+                              title="รวมชั่วโมง OT (คน × ชม.) และจำนวนคนที่ทำ OT จากรายงานบ่าย"
+                            >
+                              OT
+                            </TableCell>
                             <TableCell align="right">RFI</TableCell>
                             <TableCell align="right">PDF</TableCell>
                           </TableRow>
@@ -209,6 +217,7 @@ export function DailyReportsPage() {
                         <TableBody>
                           {shownRows.map((r) => {
                             const people = r.totalHeadcount || r.eveningHeadcount;
+                            const ot = overtimeQueueCell(r);
                             const openable = Boolean(r.id);
                             return (
                               <TableRow
@@ -232,6 +241,24 @@ export function DailyReportsPage() {
                                 <TableCell>{shiftChip(r.eveningStatus)}</TableCell>
                                 <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
                                   {people > 0 ? `${people} คน` : "—"}
+                                </TableCell>
+                                <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                                  {ot ? (
+                                    <Stack alignItems="flex-end" spacing={0}>
+                                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                        {ot.main}
+                                      </Typography>
+                                      {ot.sub ? (
+                                        <Typography variant="caption" color="text.secondary">
+                                          {ot.sub}
+                                        </Typography>
+                                      ) : null}
+                                    </Stack>
+                                  ) : (
+                                    <Typography variant="body2" color="text.disabled">
+                                      —
+                                    </Typography>
+                                  )}
                                 </TableCell>
                                 <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
                                   {rfiByDay.get(`${r.contractorId}|${r.reportDate}`) ?? 0}

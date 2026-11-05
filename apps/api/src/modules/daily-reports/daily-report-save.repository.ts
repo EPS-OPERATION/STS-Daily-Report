@@ -49,6 +49,9 @@ export async function saveMorning(db: Db, projectId: string, input: MorningInput
       // Only the owner (EPS) manpower entry sends this; a contractor morning re-send must not clear
       // the evening Daily Request's OT.
       ...(input.otHours !== undefined ? { otHours: input.otHours } : {}),
+      ...(input.otWorkers !== undefined
+        ? { otWorkers: input.otWorkers, otManHours: Math.round((input.otWorkers ?? 0) * (input.otHours ?? 0) * 10) / 10 }
+        : {}),
       ...split,
       morningStatus: "submitted",
       morningSubmittedAt: isEdit ? (existing.morningSubmittedAt ?? now) : now,

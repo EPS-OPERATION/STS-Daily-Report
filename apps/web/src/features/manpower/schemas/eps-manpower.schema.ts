@@ -33,6 +33,7 @@ export const epsManpowerSchema = z
     endTime: hhmm,
     workHours: z.number().min(0).max(24),
     otHours: z.number().min(0).max(24),
+    otWorkers: z.number().int().min(0).max(5000),
     positions: epsPositionCounts,
     thaiMale: count,
     thaiFemale: count,
@@ -55,6 +56,16 @@ export const epsManpowerSchema = z
         path: ["thaiMale"],
         message: `สัญชาติ/เพศรวม ${byNationality} คน ต้องเท่ากับจำนวนตามตำแหน่ง ${total} คน`,
       });
+    }
+    // OT is not necessarily the whole crew: when hours are entered, say how many people did it.
+    if (v.otWorkers > total) {
+      ctx.addIssue({ code: "custom", path: ["otWorkers"], message: `จำนวนคนทำ OT เกินจำนวน EPS ${total} คน` });
+    }
+    if (v.otHours > 0 && v.otWorkers < 1) {
+      ctx.addIssue({ code: "custom", path: ["otWorkers"], message: "ระบุจำนวนคนที่ทำ OT" });
+    }
+    if (v.otWorkers > 0 && v.otHours <= 0) {
+      ctx.addIssue({ code: "custom", path: ["otHours"], message: "ระบุชั่วโมง OT / คน" });
     }
     const placed = v.allocations
       .filter((a) => !isBlankEpsAllocation(a))
