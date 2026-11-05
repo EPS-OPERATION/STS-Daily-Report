@@ -27,23 +27,30 @@ export function AdditionalWorkRow({
   buildings,
   onRemove,
   activeDisciplines,
+  morningWork = [],
+  onPickMorning,
 }: {
   index: number;
   control: Control<EveningFormValues>;
   buildings: Building[];
   onRemove: () => void;
   activeDisciplines: Discipline[];
+  /** This morning's work ("อาคาร · งาน"); picking one fills the place and the work of this row. */
+  morningWork?: { discipline: string; value: string; work: string; label: string }[];
+  onPickMorning?: (value: string, work: string) => void;
 }) {
   const path = `additionalAllocations.${index}` as const;
-  const [actual, timed, activityStart] = useWatch({
+  const [actual, timed, activityStart, discipline, place, work] = useWatch({
     control,
-    name: [`${path}.actualPercent`, `${path}.timed`, `${path}.startTime`],
+    name: [`${path}.actualPercent`, `${path}.timed`, `${path}.startTime`, `${path}.discipline`, `${path}.buildingId`, `${path}.workDescription`],
   });
+  const choices = morningWork.filter((m) => m.discipline === discipline);
+  const picked = choices.find((m) => m.value === place && m.work === work);
 
   const availableDisciplines = activeDisciplines.length > 0 ? activeDisciplines : DISCIPLINE_CODES;
 
   return (
-    <Card variant="outlined" sx={{ borderColor: "info.main", bgcolor: "background.paper" }}>
+    <Card variant="outlined" sx={{ borderColor: "primary.main", bgcolor: "background.paper" }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Stack spacing={1.5}>
           {/* Header row: Discipline + Building + Tag + Delete */}
@@ -52,9 +59,9 @@ export function AdditionalWorkRow({
               <Chip
                 label="งานเพิ่มเติม / นอกแผน"
                 size="small"
-                color="info"
+                color="primary"
                 variant="filled"
-                sx={{ fontWeight: 600, fontSize: "0.75rem" }}
+                sx={{ fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.01em" }}
               />
               <Controller
                 name={`${path}.discipline`}
@@ -79,6 +86,28 @@ export function AdditionalWorkRow({
               <DeleteOutlineOutlinedIcon fontSize="small" />
             </IconButton>
           </Stack>
+
+          {/* Pick from this morning's work: fills the place and the work below */}
+          {onPickMorning && choices.length > 0 ? (
+            <TextField
+              select
+              size="small"
+              fullWidth
+              label="เลือกจากงานตอนเช้า"
+              value={picked ? `${picked.value}|${picked.work}` : ""}
+              onChange={(e) => {
+                const m = choices.find((c) => `${c.value}|${c.work}` === e.target.value);
+                if (m) onPickMorning(m.value, m.work);
+              }}
+              helperText="หรือเลือกอาคารและพิมพ์งานใหม่เองด้านล่าง"
+            >
+              {choices.map((m) => (
+                <MenuItem key={`${m.value}|${m.work}`} value={`${m.value}|${m.work}`}>
+                  {m.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : null}
 
           {/* Building select */}
           <Controller
@@ -208,7 +237,7 @@ export function AdditionalWorkRow({
               <LinearProgress
                 variant="determinate"
                 value={typeof actual === "number" ? actual : 0}
-                color="info"
+                color="primary"
                 sx={{ height: 10, borderRadius: 5 }}
               />
             </Box>

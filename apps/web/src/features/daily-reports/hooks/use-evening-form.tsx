@@ -1,7 +1,7 @@
 import { fromLocationValue, toLocationValue } from "../utils/location.js";
 import { useRouteSectionPlaces } from "./use-daily-report-queries.js";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { DISCIPLINE_CODES, overtimeTotals, type MachineType, type PositionCode } from "@sts/shared";
+import { DISCIPLINE_CODES, extraPeopleToPlace, overtimeTotals, type MachineType, type PositionCode } from "@sts/shared";
 import { type ProgressItem } from "../components/form-aids.js";
 import { draftKey, useFormDraft } from "./use-form-draft.js";
 import { useState, type FormEvent, useMemo } from "react";
@@ -140,6 +140,36 @@ export function useEveningForm({
   const crewValues = useWatch({ control, name: "crews" });
   const picked = DISCIPLINE_CODES.filter((d) => disciplineValues.includes(d));
   const crewsOk = picked.length > 0 && picked.every((d) => crewTotals(crewValues[d]).ok);
+  // More people this afternoon than this morning: say how many and make the extra people's work be named
+  // (extra-work rows, picked from this morning's work). Same rule as the API (extraPeopleToPlace).
+  const additionalValues = useWatch({ control, name: "additionalAllocations" }) ?? [];
+  const extraPeople = useMemo(() => {
+    const total = (c: { thaiMale: number; thaiFemale: number; foreignMale: number; foreignFemale: number }) =>
+      c.thaiMale + c.thaiFemale + c.foreignMale + c.foreignFemale;
+    const morning =
+      report?.morningStatus === "submitted"
+        ? Object.fromEntries(report.crews.filter((c) => c.shift === "morning").map((c) => [c.discipline, total(c)]))
+        : null;
+    const afternoon = Object.fromEntries(picked.map((d) => [d, crewTotals(crewValues[d]).total]));
+    const placed: Record<string, number> = {};
+    for (const a of additionalValues) if (a) placed[a.discipline] = (placed[a.discipline] ?? 0) + (a.headcount || 0);
+    return extraPeopleToPlace(morning, afternoon, placed);
+  }, [report, picked, crewValues, additionalValues]);
+  const extraOk = extraPeople.every((e) => e.missing === 0);
+
+  // One extra-work row for the people still without work, ready for "เลือกจากงานตอนเช้า".
+  const onAddExtraPeople = (discipline: (typeof DISCIPLINE_CODES)[number], people: number) => {
+    additional.append({
+      buildingId: "",
+      discipline,
+      workDescription: "",
+      headcount: Math.max(1, people),
+      actualPercent: 100,
+      timed: false,
+      startTime: "",
+      endTime: "",
+    });
+  };
 
   const onAddAdditional = () => {
     additional.append({
@@ -241,15 +271,16 @@ export function useEveningForm({
     scrollToSection(id);
   };
 
-  // The afternoon crew check is outside the schema, so it runs before validation.
+  // The afternoon crew and extra-people checks are outside the schema, so they run before validation.
   const submitOrShowMissing = (e: FormEvent<HTMLFormElement>) => {
-    if (crewsOk) {
+    if (crewsOk && extraOk) {
       void onSubmit(e);
       return;
     }
     // Validate the rest too, then go to whichever problem is highest on the screen.
     e.preventDefault();
-    void form.trigger().then(() => goTo(firstSection([...Object.keys(form.formState.errors), "crews"], SECTIONS)));
+    const own = [...(crewsOk ? [] : ["crews"]), ...(extraOk ? [] : ["additionalAllocations"])];
+    void form.trigger().then(() => goTo(firstSection([...Object.keys(form.formState.errors), ...own], SECTIONS)));
   };
 
   const serverError = submit.error instanceof HttpError ? submit.error : null;
@@ -278,14 +309,15 @@ export function useEveningForm({
       label: "ผลงานจริง",
       state: state(
         "sec-progress",
-        progressRows.every((p) => typeof p.actualPercent === "number") &&
+        extraOk &&
+          progressRows.every((p) => typeof p.actualPercent === "number") &&
           additionalRows.every(
             (a) =>
               Boolean(a?.buildingId) &&
               Boolean(a?.workDescription?.trim()) &&
               typeof a?.actualPercent === "number",
           ),
-        progressRows.length === 0 && additionalRows.length === 0,
+        progressRows.length === 0 && additionalRows.length === 0 && extraPeople.length === 0,
       ),
     },
     { id: "sec-tomorrow", label: "คำขอวันพรุ่งนี้", state: state("sec-tomorrow", forecastsOk, false) },
@@ -301,6 +333,9 @@ export function useEveningForm({
     additional,
     additionalRows,
     onAddAdditional,
+    extraPeople,
+    extraOk,
+    onAddExtraPeople,
     form,
     validationError,
     setValidationError,

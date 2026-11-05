@@ -1,13 +1,16 @@
 import { Link as RouterLink } from "react-router-dom";
 import { SectionCard } from "./section-card.js";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { ProgressTable } from "./progress-table.js";
 import { AdditionalWorkRow } from "./evening-additional-work-row.js";
+import type { Discipline } from "@sts/shared";
 import type { UseEveningFormState } from "../hooks/use-evening-form.js";
+import { toLocationValue } from "../utils/location.js";
 
 export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
   const {
@@ -20,7 +23,20 @@ export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
     contractor,
     places,
     picked,
+    extraPeople,
+    onAddExtraPeople,
+    setValue,
   } = ed;
+
+  // This morning's work as "อาคาร · งาน" choices for the extra-work rows (one per place + work).
+  const morningWork = [
+    ...new Map(
+      morningAllocations.map((a) => {
+        const value = toLocationValue(a);
+        return [`${a.discipline}|${value}|${a.workDescription}`, { discipline: a.discipline, value, work: a.workDescription, label: `${a.buildingName || a.buildingCode} · ${a.workDescription}` }];
+      }),
+    ).values(),
+  ];
 
   const hasMorning = morningAllocations.length > 0;
   const hasAdditional = additional.fields.length > 0;
@@ -34,6 +50,28 @@ export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
       subtitle="ดึงแผนจากรายงานเช้า และบันทึกงานเพิ่มเติม"
     >
       <Stack spacing={2}>
+        {extraPeople.length > 0 ? (
+          <Alert severity={extraPeople.some((e) => e.missing > 0) ? "warning" : "success"} sx={{ "& .MuiAlert-message": { width: "100%" } }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              ช่วงบ่ายมีคนเพิ่มจากตอนเช้า — ระบุว่าคนที่เพิ่มไปทำงานอะไร
+            </Typography>
+            <Stack spacing={0.75}>
+              {extraPeople.map((e) => (
+                <Stack key={e.discipline} direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }} justifyContent="space-between">
+                  <Typography variant="body2">
+                    {e.discipline}: เช้า {e.morning} → บ่าย {e.afternoon} คน = <b>เพิ่ม {e.extra} คน</b> · ระบุงานแล้ว {Math.min(e.placed, e.extra)}/{e.extra}
+                  </Typography>
+                  {e.missing > 0 ? (
+                    <Button size="small" variant="contained" color="warning" startIcon={<AddOutlinedIcon />} onClick={() => onAddExtraPeople(e.discipline as Discipline, e.missing)} sx={{ flexShrink: 0 }}>
+                      ระบุงาน {e.missing} คน
+                    </Button>
+                  ) : null}
+                </Stack>
+              ))}
+            </Stack>
+          </Alert>
+        ) : null}
+
         {!hasMorning && !hasAdditional ? (
           <Stack
             direction={{ xs: "column", sm: "row" }}
@@ -86,7 +124,7 @@ export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
         {/* Additional work items */}
         {hasAdditional ? (
           <Stack spacing={1.5}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: "info.main", textTransform: "uppercase" }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: "primary.main", textTransform: "uppercase", letterSpacing: "0.04em" }}>
               งานเพิ่มเติม / นอกแผน ({additional.fields.length} รายการ)
             </Typography>
             {additional.fields.map((row, i) => (
@@ -97,6 +135,11 @@ export function EveningProgressSection({ ed }: { ed: UseEveningFormState }) {
                 buildings={places}
                 onRemove={() => additional.remove(i)}
                 activeDisciplines={picked}
+                morningWork={morningWork}
+                onPickMorning={(value, work) => {
+                  setValue(`additionalAllocations.${i}.buildingId`, value, { shouldDirty: true, shouldValidate: true });
+                  setValue(`additionalAllocations.${i}.workDescription`, work, { shouldDirty: true, shouldValidate: true });
+                }}
               />
             ))}
           </Stack>
