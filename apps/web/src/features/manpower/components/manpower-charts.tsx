@@ -41,8 +41,8 @@ export function ManpowerCharts({ ed }: { ed: UseManpowerPageState }) {
           title="กำลังคนแยกตามอาคาร"
           note={
             isFiltered
-              ? `คน-วัน รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา (${selectedCodes.size} เจ้า)`
-              : "คน-วัน รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา"
+              ? `คน-วัน รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา (${selectedCodes.size} เจ้า; รวม 33 kV)`
+              : "คน-วัน รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา (รวม 33 kV)"
           }
         >
           <ManpowerByBuildingChart rows={filteredByBuilding} colors={colors} height={legendChartHeight} />
