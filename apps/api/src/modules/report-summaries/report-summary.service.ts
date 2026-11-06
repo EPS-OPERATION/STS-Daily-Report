@@ -273,19 +273,28 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   const contractors = [...byContractor.values()].sort((a, b) => b.manDays - a.manDays);
   const days = new Set(rows.map((r) => r.reportDate)).size;
   // Man-days per building (site order), split by contractor — from the morning allocation.
+  // Route sections (the 33 kV line) have no building: they are summed into one row after the buildings.
   const perBuilding = new Map<string, Map<string, number>>();
+  const route = new Map<string, number>();
   for (const a of allocations) {
-    if (!a.buildingId) continue; // route-section rows have no building
-    const m = perBuilding.get(a.buildingId) ?? new Map<string, number>();
-    m.set(a.contractorCode, round1((m.get(a.contractorCode) ?? 0) + a.headcount * a.dayShare));
-    perBuilding.set(a.buildingId, m);
+    const manDays = a.headcount * a.dayShare;
+    if (a.buildingId) {
+      const m = perBuilding.get(a.buildingId) ?? new Map<string, number>();
+      m.set(a.contractorCode, round1((m.get(a.contractorCode) ?? 0) + manDays));
+      perBuilding.set(a.buildingId, m);
+    } else {
+      route.set(a.contractorCode, round1((route.get(a.contractorCode) ?? 0) + manDays));
+    }
   }
-  const byBuilding = buildingList.map((b) => ({
-    buildingId: b.id,
-    code: b.code,
-    name: b.name,
-    contractors: Object.fromEntries(perBuilding.get(b.id) ?? []),
-  }));
+  const byBuilding = [
+    ...buildingList.map((b) => ({
+      buildingId: b.id,
+      code: b.code,
+      name: b.name,
+      contractors: Object.fromEntries(perBuilding.get(b.id) ?? []),
+    })),
+    ...(route.size ? [{ buildingId: "route-33kv", code: "33 kV", name: "33 kV", contractors: Object.fromEntries(route) }] : []),
+  ];
   return {
     from,
     to,
