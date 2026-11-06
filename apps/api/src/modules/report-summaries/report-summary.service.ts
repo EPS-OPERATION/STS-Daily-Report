@@ -272,28 +272,56 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   }
   const contractors = [...byContractor.values()].sort((a, b) => b.manDays - a.manDays);
   const days = new Set(rows.map((r) => r.reportDate)).size;
-  // Man-days per building (site order), split by contractor — from the morning allocation.
-  // Route sections (the 33 kV line) have no building: they are summed into one row after the buildings.
-  const perBuilding = new Map<string, Map<string, number>>();
-  const route = new Map<string, number>();
+  // People per building (site order), split by contractor: headcount × share of the day spent there, summed over
+  // the range and rounded to whole people (a crew that splits its day adds a fraction to each building).
+  // Route sections (the 33 kV line, A-B, B-C, …) have no building: each section is its own row after the buildings.
+  const sectionRows = new Map<string, { code: string; name: string; order: number }>();
+  const perPlace = new Map<string, Map<string, number>>();
   for (const a of allocations) {
-    const manDays = a.headcount * a.dayShare;
-    if (a.buildingId) {
-      const m = perBuilding.get(a.buildingId) ?? new Map<string, number>();
-      m.set(a.contractorCode, round1((m.get(a.contractorCode) ?? 0) + manDays));
-      perBuilding.set(a.buildingId, m);
-    } else {
-      route.set(a.contractorCode, round1((route.get(a.contractorCode) ?? 0) + manDays));
+    const place = a.buildingId ?? `section-${a.sectionId}`;
+    if (!a.buildingId && a.sectionId && !sectionRows.has(place)) {
+      const map = a.sectionMap ?? "Route";
+      const prefix = /^\d+\s*kv/i.exec(map)?.[0] ?? map; // "33 kV line route" → "33 kV"
+      const label = `${prefix} ${a.sectionCode ?? ""}`.trim();
+      sectionRows.set(place, { code: label, name: label, order: a.sectionOrder ?? 0 });
     }
+    const m = perPlace.get(place) ?? new Map<string, number>();
+    m.set(a.contractorCode, (m.get(a.contractorCode) ?? 0) + a.headcount * a.dayShare);
+    perPlace.set(place, m);
+  }
+  // Contractor-days with a headcount but no building rows (e.g. sent before every afternoon person had to be placed)
+  // go to the "Other" building so the chart still adds up; the site has none = a synthetic "Other" row at the end.
+  const placedDays = new Set(allocations.map((a) => `${a.contractorId}|${a.reportDate}`));
+  const isOther = (s: string) => /^(other|others|อื่นๆ)$/i.test(s.trim());
+  const otherId = buildingList.find((b) => isOther(b.code) || isOther(b.name))?.id ?? "other-unplaced";
+  for (const r of rows) {
+    const people = attendanceOf(r).manDays;
+    if (people <= 0 || placedDays.has(`${r.contractorId}|${r.reportDate}`)) continue;
+    const m = perPlace.get(otherId) ?? new Map<string, number>();
+    m.set(r.contractorCode, (m.get(r.contractorCode) ?? 0) + people);
+    perPlace.set(otherId, m);
+  }
+  for (const [place, m] of perPlace) {
+    for (const [code, n] of m) {
+      if (Math.round(n) === 0) m.delete(code);
+      else m.set(code, Math.round(n));
+    }
+    if (m.size === 0) perPlace.delete(place);
   }
   const byBuilding = [
     ...buildingList.map((b) => ({
       buildingId: b.id,
       code: b.code,
       name: b.name,
-      contractors: Object.fromEntries(perBuilding.get(b.id) ?? []),
+      contractors: Object.fromEntries(perPlace.get(b.id) ?? []),
     })),
-    ...(route.size ? [{ buildingId: "route-33kv", code: "33 kV", name: "33 kV", contractors: Object.fromEntries(route) }] : []),
+    ...[...sectionRows]
+      .filter(([place]) => perPlace.has(place))
+      .sort(([, a], [, b]) => a.order - b.order || a.code.localeCompare(b.code, undefined, { numeric: true }))
+      .map(([place, s]) => ({ buildingId: place, code: s.code, name: s.name, contractors: Object.fromEntries(perPlace.get(place) ?? []) })),
+    ...(otherId === "other-unplaced" && perPlace.has(otherId)
+      ? [{ buildingId: otherId, code: "Other", name: "Other", contractors: Object.fromEntries(perPlace.get(otherId) ?? []) }]
+      : []),
   ];
   return {
     from,

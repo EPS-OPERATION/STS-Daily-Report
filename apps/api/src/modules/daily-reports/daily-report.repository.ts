@@ -161,7 +161,10 @@ export async function listCrews(db: Db, reportId: string) {
       .where(eq(dailyReportPositions.reportId, reportId)),
     db.select().from(dailyReportCrews).where(eq(dailyReportCrews.reportId, reportId)),
   ]);
-  return splits.map((c) => ({
+  // No ORDER BY above, so give the crews a fixed order (morning first, then discipline) for stable responses.
+  const rank = (shift: string) => (shift === "morning" ? 0 : 1);
+  const ordered = [...splits].sort((a, b) => rank(a.shift) - rank(b.shift) || a.discipline.localeCompare(b.discipline));
+  return ordered.map((c) => ({
     shift: c.shift as "morning" | "evening",
     discipline: c.discipline,
     positions: positions
