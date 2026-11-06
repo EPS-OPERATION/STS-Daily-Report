@@ -1,7 +1,7 @@
 import { and, asc, between, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import { reportSent } from "@/db/report-filters.js";
-import { contractors, dailyReportAllocations, dailyReportEquipment, dailyReportMaterials, dailyReportPositions, dailyReports, inspectionRequests } from "@/db/schema/index.js";
+import { contractors, coordinationMaps, coordinationSections, dailyReportAllocations, dailyReportEquipment, dailyReportMaterials, dailyReportPositions, dailyReports, inspectionRequests } from "@/db/schema/index.js";
 
 export interface MaterialsLogFilter {
   from?: string;
@@ -85,6 +85,11 @@ export async function listAllocationsInRange(db: Db, projectId: string, from: st
     .select({
       reportDate: dailyReports.reportDate,
       buildingId: dailyReportAllocations.buildingId,
+      // Route-section rows (no building): which section, for the by-building chart's per-section rows.
+      sectionId: dailyReportAllocations.sectionId,
+      sectionCode: coordinationSections.code,
+      sectionOrder: coordinationSections.sortOrder,
+      sectionMap: coordinationMaps.name,
       contractorId: contractors.id,
       contractorCode: contractors.code,
       contractorName: contractors.name,
@@ -94,6 +99,8 @@ export async function listAllocationsInRange(db: Db, projectId: string, from: st
     .from(dailyReportAllocations)
     .innerJoin(dailyReports, eq(dailyReportAllocations.reportId, dailyReports.id))
     .innerJoin(contractors, eq(dailyReports.contractorId, contractors.id))
+    .leftJoin(coordinationSections, eq(dailyReportAllocations.sectionId, coordinationSections.id))
+    .leftJoin(coordinationMaps, eq(coordinationSections.mapId, coordinationMaps.id))
     .where(
       and(
         eq(dailyReports.projectId, projectId),

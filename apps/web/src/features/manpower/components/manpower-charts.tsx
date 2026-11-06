@@ -38,11 +38,11 @@ export function ManpowerCharts({ ed }: { ed: UseManpowerPageState }) {
       <Grid size={{ xs: 12, lg: 6 }}>
         <ChartPanel
           height={panelHeight}
-          title="กำลังคนแยกตามอาคาร"
+          title="จำนวนคนแยกตามอาคาร"
           note={
             isFiltered
-              ? `คน-วัน รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา (${selectedCodes.size} เจ้า; รวม 33 kV)`
-              : "คน-วัน รวมในช่วงที่เลือก แยกสีตามผู้รับเหมา (รวม 33 kV)"
+              ? `คน-วัน รวมในช่วงที่เลือก (วันเดียว = จำนวนคน) ทีมที่ย้ายอาคารนับที่อาคารที่อยู่นานสุด แยกสีตามผู้รับเหมา (${selectedCodes.size} เจ้า; 33 kV แยกรายช่วง)`
+              : "คน-วัน รวมในช่วงที่เลือก (วันเดียว = จำนวนคน) ทีมที่ย้ายอาคารนับที่อาคารที่อยู่นานสุด แยกสีตามผู้รับเหมา (33 kV แยกรายช่วง)"
           }
         >
           <ManpowerByBuildingChart rows={filteredByBuilding} colors={colors} height={legendChartHeight} />
