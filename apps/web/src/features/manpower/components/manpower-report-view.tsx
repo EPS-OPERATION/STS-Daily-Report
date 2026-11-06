@@ -139,7 +139,7 @@ export function ManpowerReportView({ ed }: { ed: UseManpowerPageState }) {
         />
       </ReportCard>
 
-      <ReportCard title="จำนวนคนแยกตามอาคาร" caption={`${caption} · ปัดเป็นจำนวนเต็มตามเวลาที่อยู่ในอาคาร (วันที่ไม่ได้ลงอาคารรวมใน Other)`} {...header}>
+      <ReportCard title="จำนวนคนแยกตามอาคาร" caption={`${caption} · ตามรายงานประจำวัน`} {...header}>
         <ManpowerByBuildingChart rows={filteredByBuilding} colors={colors} height={buildingBars * BAR_ROW + 12 + 28 + 4} />
         <CompanyTable
           rows={codes.map((code) => ({ code, values: [buildingTotals.get(code) ?? 0, ...tail(code)] }))}

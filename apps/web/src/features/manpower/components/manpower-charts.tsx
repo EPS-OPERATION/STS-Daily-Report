@@ -15,7 +15,7 @@ export function ManpowerCharts({ ed }: { ed: UseManpowerPageState }) {
           note={
             isFiltered
               ? `Man-days ต่อวัน (กรองเฉพาะ ${selectedCodes.size} บริษัทที่เลือก)`
-              : "Man-days ต่อวัน (ใช้เลขที่มากกว่าระหว่างเช้ากับบ่าย; EPS หนึ่งรายการต่อวัน)"
+              : "Man-days ต่อวัน"
           }
         >
           <ManDayByContractorChart days={days} daily={filteredDaily} colors={colors} height={chartHeight} legend={chartHeight === undefined} />
@@ -27,8 +27,8 @@ export function ManpowerCharts({ ed }: { ed: UseManpowerPageState }) {
           title="สัญชาติ / เพศ แยกตามผู้รับเหมา"
           note={
             isFiltered
-              ? `คน-วัน รวมในช่วงที่เลือก (${selectedCodes.size} เจ้า)`
-              : "คน-วัน รวมในช่วงที่เลือก"
+              ? `${selectedCodes.size} เจ้าที่เลือก`
+              : ""
           }
         >
           <NationalityByContractorChart contractors={filteredContractors} height={legendChartHeight === undefined ? undefined : legendChartHeight - 22} />
@@ -41,8 +41,8 @@ export function ManpowerCharts({ ed }: { ed: UseManpowerPageState }) {
           title="จำนวนคนแยกตามอาคาร"
           note={
             isFiltered
-              ? `ปัดเป็นจำนวนเต็มตามเวลาที่อยู่ในอาคาร รวมในช่วงที่เลือก (วันเดียว = จำนวนคน) แยกสีตามผู้รับเหมา (${selectedCodes.size} เจ้า; 33 kV แยกรายช่วง; วันที่ไม่ได้ลงอาคารรวมใน Other)`
-              : "ปัดเป็นจำนวนเต็มตามเวลาที่อยู่ในอาคาร รวมในช่วงที่เลือก (วันเดียว = จำนวนคน) แยกสีตามผู้รับเหมา (33 kV แยกรายช่วง; วันที่ไม่ได้ลงอาคารรวมใน Other)"
+              ? `ตามรายงานประจำวัน (${selectedCodes.size} เจ้า)`
+              : "ตามรายงานประจำวัน"
           }
         >
           <ManpowerByBuildingChart rows={filteredByBuilding} colors={colors} height={legendChartHeight} />

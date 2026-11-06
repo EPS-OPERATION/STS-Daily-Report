@@ -7,7 +7,6 @@ import LinearProgress from "@mui/material/LinearProgress";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { useState } from "react";
@@ -38,8 +37,6 @@ export function ManpowerPage() {
     else p.set("view", "report");
     ed.setParams(p, { replace: true });
   };
-  // Shown companies whose NMH includes afternoon-only days (standard 8 h per person).
-  const estimated = (data?.contractors ?? []).filter((c) => c.estimatedDays > 0 && selectedCodes.has(c.contractorCode));
 
   return (
     <Box>
@@ -150,12 +147,6 @@ export function ManpowerPage() {
               value={isFiltered ? `${totals.count}/${allCodes.length}` : totals.count}
             />
           </Stack>
-          {estimated.length > 0 ? (
-            <Typography variant="caption" color="text.secondary">
-              * NMH บางวันเป็นค่าประมาณ — ส่งแต่รายงานบ่าย จึงคิดชั่วโมงปกติ 8 ชม./คน:{" "}
-              {estimated.map((c) => `${c.contractorCode} ${c.estimatedDays} วัน`).join(", ")}
-            </Typography>
-          ) : null}
 
           {report ? <ManpowerReportView ed={ed} /> : <ManpowerCharts ed={ed} />}
         </Stack>
