@@ -23,7 +23,7 @@ import { BlockSkeleton } from "@/components/ui/skeletons.js";
 import { formatNumber } from "@/lib/format.js";
 import { formatThaiDate } from "@/lib/dates.js";
 import { useReviewDialog, type ReviewPart } from "../hooks/use-review-dialog.js";
-import { overtimeSummary } from "../utils/overtime.js";
+import { overtimeCardText } from "../utils/overtime.js";
 import { ReviewMorning } from "./review-morning.js";
 import { ReviewEvening } from "./review-evening.js";
 
@@ -53,7 +53,7 @@ export function ReviewDialog(props: Parameters<typeof useReviewDialog>[0]) {
   const hoursKnown = data?.workHours != null;
   const summary = data ? [
     { label: "กำลังคน", value: `${headcount} คน`, sub: [morningSent ? `เช้า ${morningTotal}` : "ยังไม่ส่งเช้า", eveningSent ? `บ่าย ${data.eveningHeadcount}` : "ยังไม่ส่งบ่าย"].join(" · ") },
-    { label: "เวลาทำงาน / OT", value: hoursKnown ? `${data.workHours} ชม.` : "—", sub: eveningSent ? overtimeSummary(data) : "ยังไม่ส่งบ่าย" },
+    { label: "เวลาทำงาน / OT", value: hoursKnown ? `ปกติ ${data.workHours} ชม.` : "—", sub: eveningSent ? overtimeCardText(data) : "ยังไม่ส่งบ่าย" },
     { label: "Man-day · NMH", value: hoursKnown ? `${formatNumber(data.manDays)} · ${formatNumber(data.manHours)} ชม.` : "—", sub: hoursKnown ? "คน-วัน · ชั่วโมงคนรวม" : "รอเวลาทำงานจากรายงานเช้า" },
   ] : [];
 
