@@ -202,11 +202,11 @@ export function DailyReportsPage() {
                             <TableCell>ผู้รับเหมา</TableCell>
                             <TableCell>Daily Report</TableCell>
                             <TableCell>Daily Request</TableCell>
-                            <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>คน</TableCell>
+                            <TableCell align="right" sx={{ whiteSpace: "nowrap", minWidth: 64 }}>คน</TableCell>
                             <TableCell
                               align="right"
-                              sx={{ whiteSpace: "nowrap" }}
-                              title="รวมชั่วโมง OT (คน × ชม.) และจำนวนคนที่ทำ OT จากรายงานบ่าย"
+                              sx={{ whiteSpace: "nowrap", minWidth: 150 }}
+                              title="จำนวนคนที่ทำ OT, เวลาเลิกงาน และชั่วโมงการทำงานรวม"
                             >
                               OT
                             </TableCell>
