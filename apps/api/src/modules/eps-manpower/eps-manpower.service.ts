@@ -1,6 +1,8 @@
 import { allocationPeak, coordinationDateValid, type Discipline, type PositionCode } from "@sts/shared";
 import type { AuthContext } from "@/auth/auth.types.js";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/client.js";
+import { dailyReports } from "@/db/schema/index.js";
 import { listBuildings } from "@/modules/buildings/building.repository.js";
 import { getReportByKey, listAllocations, listPositions } from "@/modules/daily-reports/daily-report.repository.js";
 import { saveMorning } from "@/modules/daily-reports/daily-report-save.repository.js";
@@ -161,4 +163,26 @@ export async function saveEpsManpowerService(auth: AuthContext, projectId: strin
   );
 
   return { contractor: owner, entry: await loadEntry(projectId, owner.id, input.date) };
+}
+
+export async function deleteEpsManpowerService(auth: AuthContext, projectId: string, date: string) {
+  assertEpsStaff(auth);
+  await assertProject(projectId);
+  if (!coordinationDateValid(date)) throw new ValidationError("Invalid date");
+  const db = getDb();
+  const owner = await findOwnerContractor(db, projectId);
+  if (!owner) throw new NotFoundError("This project has no EPS owner company");
+
+  const [existing] = await db
+    .select({ id: dailyReports.id })
+    .from(dailyReports)
+    .where(and(eq(dailyReports.projectId, projectId), eq(dailyReports.contractorId, owner.id), eq(dailyReports.reportDate, date)))
+    .limit(1);
+
+  if (!existing) {
+    throw new NotFoundError("No EPS manpower entry for this date");
+  }
+
+  await db.delete(dailyReports).where(eq(dailyReports.id, existing.id));
+  return { deleted: true, date };
 }

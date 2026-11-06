@@ -22,7 +22,8 @@ import { BuildingSelect, useBuildings } from "@/features/buildings/index.js";
 import { CrewManpower } from "@/features/daily-reports/index.js";
 import { formatThaiDate, todayIso } from "@/lib/dates.js";
 import { HttpError } from "@/services/http/client.js";
-import { useEpsManpowerEntry, useSaveEpsManpower } from "../hooks/use-eps-manpower.js";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog.js";
+import { useDeleteEpsManpower, useEpsManpowerEntry, useSaveEpsManpower } from "../hooks/use-eps-manpower.js";
 import {
   emptyEpsPositions,
   epsManpowerSchema,
@@ -79,6 +80,9 @@ export function EpsManpowerDialog({
   const buildings = useBuildings(projectId);
   const entryQuery = useEpsManpowerEntry(projectId, date, open);
   const save = useSaveEpsManpower(projectId);
+  const del = useDeleteEpsManpower(projectId);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const isEdit = Boolean(entryQuery.data?.data.entry);
   const form = useForm<EpsManpowerFormValues>({
     resolver: zodResolver(epsManpowerSchema),
     defaultValues: blankValues(),
@@ -197,10 +201,23 @@ export function EpsManpowerDialog({
     () => setValidationError("กรุณาตรวจสอบข้อมูลที่ยังไม่ครบหรือไม่ถูกต้อง"),
   );
 
-  const busy = save.isPending || entryQuery.isFetching;
+  const handleDelete = async () => {
+    if (!projectId) return;
+    try {
+      await del.mutateAsync(date);
+      toast.success("ลบข้อมูลกำลังคน EPS เรียบร้อยแล้ว");
+      setConfirmDelete(false);
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof HttpError ? e.message : "ลบข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
+  const busy = save.isPending || del.isPending || entryQuery.isFetching;
   const disabled = busy || Boolean(loadError);
 
   return (
+    <>
     <FormDialog
       open={open}
       onClose={onClose}
@@ -220,14 +237,33 @@ export function EpsManpowerDialog({
       }
       onSubmit={onSubmit}
       actions={
-        <>
-          <Button color="inherit" variant="outlined" onClick={onClose} disabled={save.isPending}>
-            ยกเลิก
-          </Button>
-          <Button type="submit" variant="contained" disabled={disabled}>
-            {save.isPending ? "กำลังบันทึก…" : "บันทึกกำลังคน EPS"}
-          </Button>
-        </>
+        <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+          <Box>
+            {isEdit ? (
+              <Button
+                color="error"
+                variant="outlined"
+                startIcon={<DeleteOutlineOutlinedIcon />}
+                disabled={busy}
+                onClick={() => setConfirmDelete(true)}
+              >
+                ลบข้อมูลวันนี้
+              </Button>
+            ) : null}
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button color="inherit" variant="outlined" onClick={onClose} disabled={busy}>
+              ยกเลิก
+            </Button>
+            <Button type="submit" variant="contained" disabled={disabled}>
+              {save.isPending
+                ? "กำลังบันทึก…"
+                : isEdit
+                  ? "บันทึกการแก้ไข"
+                  : "บันทึกกำลังคน EPS"}
+            </Button>
+          </Stack>
+        </Box>
       }
     >
       <Stack spacing={2.5}>
@@ -238,6 +274,11 @@ export function EpsManpowerDialog({
         ) : null}
         {saveError ? <Alert severity="error">บันทึกไม่สำเร็จ: {saveError.message}</Alert> : null}
         {validationError ? <Alert severity="warning">{validationError}</Alert> : null}
+        {isEdit ? (
+          <Alert severity="info" sx={{ py: 0.5, px: 1.5 }}>
+            พบข้อมูลกำลังคน EPS ประจำวันที่ {formatThaiDate(date)} แล้ว — คุณสามารถแก้ไขข้อมูลและกด "บันทึกการแก้ไข" ได้
+          </Alert>
+        ) : null}
 
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
           <DatePicker
@@ -259,61 +300,73 @@ export function EpsManpowerDialog({
           <Typography variant="h6" sx={{ mb: 1.5 }}>
             1. เวลาทำงาน
           </Typography>
-          <Grid container spacing={1.5} alignItems="flex-start">
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <TimeSelect label="เริ่ม" value={startTime} onChange={(v) => changeTime("startTime", v)} />
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <TimeSelect label="สิ้นสุด" value={endTime} onChange={(v) => changeTime("endTime", v)} after={startTime} />
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <TextField
-                label="ชั่วโมงปกติ / คน"
-                type="number"
-                size="small"
-                fullWidth
-                value={workHours}
-                onChange={(e) => setValue("workHours", Math.min(24, Math.max(0, Number(e.target.value))), { shouldDirty: true, shouldValidate: true })}
-                slotProps={{ htmlInput: { min: 0, max: 24, step: 0.5 } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <TextField
-                label="OT / คน (ชม.)"
-                type="number"
-                size="small"
-                fullWidth
-                value={otHours}
-                onChange={(e) => setValue("otHours", Math.min(24, Math.max(0, Number(e.target.value))), { shouldDirty: true, shouldValidate: true })}
-                slotProps={{ htmlInput: { min: 0, max: 24, step: 0.5 } }}
-                error={Boolean(formState.errors.otHours)}
-                helperText={formState.errors.otHours?.message}
-              />
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <TextField
-                label="จำนวนคนที่ทำ OT"
-                type="number"
-                size="small"
-                fullWidth
-                value={otWorkers}
-                onChange={(e) => setValue("otWorkers", Math.min(5000, Math.max(0, Number(e.target.value))), { shouldDirty: true, shouldValidate: true })}
-                slotProps={{ htmlInput: { min: 0, max: 5000, step: 1 } }}
-                error={Boolean(formState.errors.otWorkers)}
-                helperText={formState.errors.otWorkers?.message}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 9 }}>
-              <Typography variant="caption" color="text.secondary">
-                ไม่ต้องครบทุกคน — ใส่เฉพาะจำนวนคนที่ทำ OT คู่กับชั่วโมง OT ต่อคน
+          <Stack spacing={2}>
+            {/* บรรทัดที่ 1: เวลาทำงานปกติ */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: "text.primary" }}>
+                เวลาทำงานปกติ
               </Typography>
-            </Grid>
-          </Grid>
-          {formState.errors.endTime ? (
-            <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.75 }}>
-              {formState.errors.endTime.message}
-            </Typography>
-          ) : null}
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 6, sm: 4 }}>
+                  <TimeSelect label="เริ่ม" value={startTime} onChange={(v) => changeTime("startTime", v)} />
+                </Grid>
+                <Grid size={{ xs: 6, sm: 4 }}>
+                  <TimeSelect label="สิ้นสุด" value={endTime} onChange={(v) => changeTime("endTime", v)} after={startTime} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField
+                    label="ชั่วโมงปกติ / คน"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    value={workHours}
+                    onChange={(e) => setValue("workHours", Math.min(24, Math.max(0, Number(e.target.value))), { shouldDirty: true, shouldValidate: true })}
+                    slotProps={{ htmlInput: { min: 0, max: 24, step: 0.5 } }}
+                  />
+                </Grid>
+              </Grid>
+              {formState.errors.endTime ? (
+                <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.75 }}>
+                  {formState.errors.endTime.message}
+                </Typography>
+              ) : null}
+            </Box>
+
+            {/* บรรทัดที่ 2: ล่วงเวลา (OT) */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: "text.primary" }}>
+                ล่วงเวลา (OT)
+              </Typography>
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 6, sm: 4 }}>
+                  <TextField
+                    label="OT / คน (ชม.)"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    value={otHours}
+                    onChange={(e) => setValue("otHours", Math.min(24, Math.max(0, Number(e.target.value))), { shouldDirty: true, shouldValidate: true })}
+                    slotProps={{ htmlInput: { min: 0, max: 24, step: 0.5 } }}
+                    error={Boolean(formState.errors.otHours)}
+                    helperText={formState.errors.otHours?.message}
+                  />
+                </Grid>
+                <Grid size={{ xs: 6, sm: 4 }}>
+                  <TextField
+                    label="จำนวนคนที่ทำ OT"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    value={otWorkers}
+                    onChange={(e) => setValue("otWorkers", Math.min(5000, Math.max(0, Number(e.target.value))), { shouldDirty: true, shouldValidate: true })}
+                    slotProps={{ htmlInput: { min: 0, max: 5000, step: 1 } }}
+                    error={Boolean(formState.errors.otWorkers)}
+                    helperText={formState.errors.otWorkers?.message}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          </Stack>
         </Box>
 
         <Divider />
@@ -427,5 +480,17 @@ export function EpsManpowerDialog({
         </Box>
       </Stack>
     </FormDialog>
+    <ConfirmDialog
+      open={confirmDelete}
+      title="ยืนยันการลบข้อมูลกำลังคน EPS"
+      description={`คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลกำลังคน EPS ประจำวันที่ ${formatThaiDate(date)}? เมื่อลบแล้วข้อมูลจะถูกนำออกจากรายงานและกราฟทันที`}
+      confirmLabel="ลบข้อมูล"
+      cancelLabel="ยกเลิก"
+      tone="error"
+      loading={del.isPending}
+      onConfirm={handleDelete}
+      onClose={() => setConfirmDelete(false)}
+    />
+    </>
   );
 }

@@ -8,4 +8,7 @@ export const epsManpowerApi = {
   save(projectId: string, payload: EpsManpowerPayload): Promise<EpsManpowerResponse> {
     return http.put(`/projects/${projectId}/eps-manpower`, payload);
   },
+  delete(projectId: string, date: string): Promise<{ data: { deleted: boolean; date: string } }> {
+    return http.delete(`/projects/${projectId}/eps-manpower?date=${date}`);
+  },
 };
