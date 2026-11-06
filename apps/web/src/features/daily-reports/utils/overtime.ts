@@ -10,12 +10,24 @@ export function overtimeSummary(r: { otHours: number | null; overtime?: ReportOv
   return `OT ${t.workers} คน · ${t.manHours} คน-ชม.`;
 }
 
-// Summary card wording: says what the numbers are (people on OT, and their total man-hours).
-export function overtimeCardText(r: { otHours: number | null; overtime?: ReportOvertime[] }): string {
+/** Summary card text for OT in Review dialog (e.g. "OT: 28 คน · ถึง 23:00 (168 คน-ชม.)") */
+export function overtimeCardText(r: {
+  endTime?: string | null;
+  otHours?: number | null;
+  overtime?: ReportOvertime[];
+}): string {
   const rows = r.overtime ?? [];
-  if (rows.length === 0) return r.otHours ? `OT สูงสุด ${r.otHours} ชม./คน` : "ไม่มี OT";
+  if (rows.length === 0) {
+    if (!r.otHours || r.otHours <= 0) return "OT: ไม่มี OT";
+    const end = formatOtEndTime(r.endTime, r.otHours);
+    const endDesc = end ? `ถึง ${end}` : `${r.otHours} ชม.`;
+    return `OT: ${endDesc}`;
+  }
   const t = overtimeTotals(rows);
-  return `OT ${rows.length} งาน · ${t.workers} คน · ${t.manHours} คน-ชม.`;
+  if (t.workers <= 0 && t.manHours <= 0) return "OT: ไม่มี OT";
+  const end = formatOtEndTime(r.endTime, t.maxHours);
+  const endDesc = end ? `ถึง ${end}` : `${t.maxHours} ชม.`;
+  return `OT: ${t.workers} คน · ${endDesc} (${t.manHours} คน-ชม.)`;
 }
 
 /** "Boiler · เทคอนกรีต 6 คน × 2 ชม." per OT row. */

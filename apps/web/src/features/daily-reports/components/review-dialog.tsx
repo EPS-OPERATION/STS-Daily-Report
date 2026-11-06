@@ -51,9 +51,15 @@ export function ReviewDialog(props: Parameters<typeof useReviewDialog>[0]) {
   const morningTotal = data ? data.thaiMale + data.thaiFemale + data.foreignMale + data.foreignFemale : 0;
   const headcount = morningSent ? morningTotal : eveningSent ? data?.eveningHeadcount ?? 0 : 0;
   const hoursKnown = data?.workHours != null;
+  const normalHoursText = hoursKnown
+    ? data?.startTime && data?.endTime
+      ? `ปกติ: ${data.workHours} ชม. (${data.startTime}–${data.endTime})`
+      : `ปกติ: ${data.workHours} ชม.`
+    : "—";
+  const otCardText = eveningSent && data ? overtimeCardText(data) : "OT: ยังไม่ส่งบ่าย";
   const summary = data ? [
     { label: "กำลังคน", value: `${headcount} คน`, sub: [morningSent ? `เช้า ${morningTotal}` : "ยังไม่ส่งเช้า", eveningSent ? `บ่าย ${data.eveningHeadcount}` : "ยังไม่ส่งบ่าย"].join(" · ") },
-    { label: "เวลาทำงาน / OT", value: hoursKnown ? `ปกติ ${data.workHours} ชม.` : "—", sub: eveningSent ? overtimeCardText(data) : "ยังไม่ส่งบ่าย" },
+    { label: "เวลาทำงาน / OT", value: normalHoursText, sub: otCardText, isWorkTimeCard: true },
     { label: "Man-day · NMH", value: hoursKnown ? `${formatNumber(data.manDays)} · ${formatNumber(data.manHours)} ชม.` : "—", sub: hoursKnown ? "คน-วัน · ชั่วโมงคนรวม" : "รอเวลาทำงานจากรายงานเช้า" },
   ] : [];
 
@@ -102,10 +108,22 @@ export function ReviewDialog(props: Parameters<typeof useReviewDialog>[0]) {
             <Grid container spacing={{ xs: 0.75, sm: 1.5 }}>
               {summary.map((s) => (
                 <Grid key={s.label} size={4}>
-                  <Box sx={{ px: { xs: 1, sm: 2 }, py: { xs: 0.75, sm: 1.25 }, height: "100%", border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "background.paper" }}>
+                  <Box sx={{ px: { xs: 1, sm: 2 }, py: { xs: 0.75, sm: 1.25 }, height: "100%", border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "background.paper", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{s.label}</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.3, fontSize: { xs: "0.95rem", sm: undefined } }}>{s.value}</Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>{s.sub}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.3, fontSize: s.isWorkTimeCard ? { xs: "0.825rem", sm: "0.95rem", md: "1.05rem" } : { xs: "0.95rem", sm: undefined } }}>
+                      {s.value}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: s.isWorkTimeCard ? "block" : { xs: "none", sm: "block" },
+                        color: s.isWorkTimeCard && s.sub.startsWith("OT: ") && !s.sub.includes("ไม่มี OT") && !s.sub.includes("ยังไม่ส่ง") ? "primary.dark" : "text.secondary",
+                        fontWeight: s.isWorkTimeCard ? 600 : undefined,
+                        mt: 0.25,
+                      }}
+                    >
+                      {s.sub}
+                    </Typography>
                   </Box>
                 </Grid>
               ))}
