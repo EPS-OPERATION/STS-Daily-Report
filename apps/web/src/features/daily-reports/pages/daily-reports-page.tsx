@@ -202,7 +202,7 @@ export function DailyReportsPage() {
                             <TableCell>ผู้รับเหมา</TableCell>
                             <TableCell>Daily Report</TableCell>
                             <TableCell>Daily Request</TableCell>
-                            <TableCell align="right">คน</TableCell>
+                            <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>คน</TableCell>
                             <TableCell
                               align="right"
                               sx={{ whiteSpace: "nowrap" }}
@@ -239,7 +239,7 @@ export function DailyReportsPage() {
                                 </TableCell>
                                 <TableCell>{shiftChip(r.morningStatus)}</TableCell>
                                 <TableCell>{shiftChip(r.eveningStatus)}</TableCell>
-                                <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
+                                <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, whiteSpace: "nowrap" }}>
                                   {people > 0 ? `${people} คน` : "—"}
                                 </TableCell>
                                 <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>

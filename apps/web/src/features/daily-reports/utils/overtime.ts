@@ -22,9 +22,22 @@ export function overtimeCardText(r: { otHours: number | null; overtime?: ReportO
 export const overtimeLines = (rows: ReportOvertime[] = []) =>
   rows.map((o) => `${o.buildingCode} · ${o.task} ${o.workers} คน × ${o.hours} ชม.`);
 
+/** Calculates end time formatted as "HH:mm" based on base end time (default "17:00") + OT hours */
+export function formatOtEndTime(endTimeStr: string | null | undefined, otHours: number): string | null {
+  if (otHours <= 0) return null;
+  const base = endTimeStr && /^\d{1,2}:\d{2}$/.test(endTimeStr) ? endTimeStr : "17:00";
+  const [hh, mm] = base.split(":").map(Number);
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+  const totalMinutes = hh * 60 + mm + Math.round(otHours * 60);
+  const endH = Math.floor(totalMinutes / 60) % 24;
+  const endM = totalMinutes % 60;
+  return `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+}
+
 // Submission History OT column: itemised OT gives people + hours per person + total man-hours;
 // older reports only have hours per person (no people count).
 export function overtimeQueueCell(r: {
+  endTime?: string | null;
   otHours?: number | null;
   otWorkers?: number | null;
   otManHours?: number | null;
@@ -33,11 +46,19 @@ export function overtimeQueueCell(r: {
   const workers = r.otWorkers ?? 0;
   const manHours = r.otManHours ?? null;
   if (hours <= 0 && workers <= 0 && !(manHours !== null && manHours > 0)) return null;
-  if (manHours !== null && manHours > 0) {
-    return {
-      main: `${manHours} คน-ชม.`,
-      sub: workers > 0 ? `${workers} คน${hours > 0 ? ` · สูงสุด ${hours} ชม./คน` : ""}` : "ไม่ระบุจำนวนคน",
-    };
+
+  const endTimeStr = formatOtEndTime(r.endTime, hours);
+  const timeDesc = endTimeStr ? `ถึง ${endTimeStr}` : `${hours} ชม.`;
+
+  if (workers > 0) {
+    const main = `${workers} คน · ${timeDesc}`;
+    const hoursLabel =
+      manHours !== null && Math.round(workers * hours * 10) / 10 !== manHours ? `สูงสุด ${hours} ชม.` : `${hours} ชม.`;
+    const sub = manHours !== null && manHours > 0 ? `${hoursLabel} (${manHours} คน-ชม.)` : `${hours} ชม./คน`;
+    return { main, sub };
   }
-  return { main: `${hours} ชม./คน`, sub: workers > 0 ? `${workers} คน` : "ไม่ระบุจำนวนคน" };
+
+  const main = `ถึง ${endTimeStr ?? `${hours} ชม.`}`;
+  const sub = manHours !== null && manHours > 0 ? `${manHours} คน-ชม.` : `${hours} ชม./คน`;
+  return { main, sub };
 }
