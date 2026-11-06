@@ -70,7 +70,7 @@ export function ManpowerPage() {
               disabled={!projectId}
               sx={{ fontWeight: 700, whiteSpace: "nowrap" }}
             >
-              เพิ่มกำลังคน EPS
+              บันทึก / แก้ไขกำลังคน EPS
             </Button>
             {allCodes.length > 0 && (
               <ContractorFilterPopover

@@ -24,3 +24,15 @@ export function useSaveEpsManpower(projectId: string | null) {
     },
   });
 }
+
+export function useDeleteEpsManpower(projectId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (date: string) => epsManpowerApi.delete(projectId!, date),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: epsManpowerKeys.all });
+      void queryClient.invalidateQueries({ queryKey: REPORT_KEYS.all });
+      void queryClient.invalidateQueries({ queryKey: ["site-plan"] });
+    },
+  });
+}
