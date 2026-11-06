@@ -48,13 +48,12 @@ export function overtimeQueueCell(r: {
   if (hours <= 0 && workers <= 0 && !(manHours !== null && manHours > 0)) return null;
 
   const endTimeStr = formatOtEndTime(r.endTime, hours);
-  const timeDesc = endTimeStr ? `ถึง ${endTimeStr}` : `${hours} ชม.`;
 
   if (workers > 0) {
-    const main = `${workers} คน · ${timeDesc}`;
+    const main = endTimeStr ? `${workers} คน (ถึง ${endTimeStr})` : `${workers} คน (${hours} ชม.)`;
     const hoursLabel =
       manHours !== null && Math.round(workers * hours * 10) / 10 !== manHours ? `สูงสุด ${hours} ชม.` : `${hours} ชม.`;
-    const sub = manHours !== null && manHours > 0 ? `${hoursLabel} (${manHours} คน-ชม.)` : `${hours} ชม./คน`;
+    const sub = manHours !== null && manHours > 0 ? `${hoursLabel} · ${manHours} คน-ชม.` : `${hours} ชม./คน`;
     return { main, sub };
   }
 
