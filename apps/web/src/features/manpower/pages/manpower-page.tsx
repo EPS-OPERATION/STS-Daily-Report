@@ -1,9 +1,12 @@
 import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
+import SummarizeOutlinedIcon from "@mui/icons-material/SummarizeOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import LinearProgress from "@mui/material/LinearProgress";
+import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
@@ -18,6 +21,7 @@ import { EpsManpowerDialog } from "../components/eps-manpower-dialog.js";
 import { FilterBanner } from "../components/filter-banner.js";
 import { ManpowerCharts } from "../components/manpower-charts.js";
 import { Figure } from "../components/manpower-parts.js";
+import { ManpowerReportView } from "../components/manpower-report-view.js";
 
 // Manpower analytics from contractor morning reports (deck p.20/24/25 + v2 notes):
 // pick any date range on the calendar; charts by day, building, position, nationality;
@@ -26,6 +30,14 @@ export function ManpowerPage() {
   const ed = useManpowerPage();
   const { from, to, span, tooLong, summary, setRange, showToday, activePreset, thisWeek, thisMonth, data, error, allCodes, selectedCodes, updateContractorSelection, selectAllContractors, filterItems, isFiltered, isNoneSelected, totals, projectId, wide } = ed;
   const [epsOpen, setEpsOpen] = useState(false);
+  // Report view (?view=report): one chart per card with the totals and company names written out, for screenshots.
+  const report = ed.params.get("view") === "report";
+  const toggleReport = () => {
+    const p = new URLSearchParams(ed.params);
+    if (report) p.delete("view");
+    else p.set("view", "report");
+    ed.setParams(p, { replace: true });
+  };
   // Shown companies whose NMH includes afternoon-only days (standard 8 h per person).
   const estimated = (data?.contractors ?? []).filter((c) => c.estimatedDays > 0 && selectedCodes.has(c.contractorCode));
 
@@ -51,14 +63,22 @@ export function ManpowerPage() {
               format="D MMM YYYY"
               slotProps={{ textField: { size: "small", sx: { width: 155 } } }}
             />
-            <Button variant={activePreset === "today" ? "contained" : "outlined"} onClick={showToday}>
-              Today
-            </Button>
-            <Button variant={activePreset === "week" ? "contained" : "outlined"} onClick={thisWeek}>
-              This week
-            </Button>
-            <Button variant={activePreset === "month" ? "contained" : "outlined"} onClick={thisMonth}>
-              This month
+            {/* One dropdown instead of three buttons: it also names the range shown ("Custom" when the dates were picked by hand). */}
+            <TextField
+              select
+              size="small"
+              label="Range"
+              value={activePreset ?? "custom"}
+              onChange={(e) => ({ today: showToday, week: thisWeek, month: thisMonth })[e.target.value as "today" | "week" | "month"]?.()}
+              sx={{ width: 140 }}
+            >
+              <MenuItem value="today">Today</MenuItem>
+              <MenuItem value="week">This week</MenuItem>
+              <MenuItem value="month">This month</MenuItem>
+              {activePreset === null ? <MenuItem value="custom" disabled>Custom</MenuItem> : null}
+            </TextField>
+            <Button variant={report ? "contained" : "outlined"} startIcon={<SummarizeOutlinedIcon />} onClick={toggleReport} aria-pressed={report}>
+              Report view
             </Button>
             {/* An action, not a date filter: solid green so it stands apart from the navy range buttons. */}
             <Button
@@ -137,7 +157,7 @@ export function ManpowerPage() {
             </Typography>
           ) : null}
 
-          <ManpowerCharts ed={ed} />
+          {report ? <ManpowerReportView ed={ed} /> : <ManpowerCharts ed={ed} />}
         </Stack>
       )}
       <EpsManpowerDialog open={epsOpen} projectId={projectId} defaultDate={to} onClose={() => setEpsOpen(false)} />
