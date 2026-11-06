@@ -1,4 +1,4 @@
-import { type PermitType, REQUEST_STATUSES, type RequestStatus, addDays, apportion, attendanceOf, largerCrewShift, mondayOf, normalizePagination, normalHoursOf, round1, workloadLevel } from "@sts/shared";
+import { type PermitType, REQUEST_STATUSES, type RequestStatus, addDays, attendanceOf, largerCrewShift, mondayOf, normalizePagination, normalHoursOf, round1, workloadLevel } from "@sts/shared";
 import { getDb } from "@/db/client.js";
 import { listBuildings } from "@/modules/buildings/building.repository.js";
 import { findMachineryConflicts, findRoadConflicts } from "@/modules/daily-requests/daily-request.conflicts.js";
@@ -272,17 +272,12 @@ export async function manpowerSummaryService(projectId: string, from: string, to
   }
   const contractors = [...byContractor.values()].sort((a, b) => b.manDays - a.manDays);
   const days = new Set(rows.map((r) => r.reportDate)).size;
-  // People per building (site order), split by contractor. Each contractor-day's headcount (the day's man-day)
-  // is shared out over the places it worked in proportion to the time spent there, in whole people, so the
-  // buildings add up to Man-days. A crew that moved is counted where it spent the most time.
+  // Man-days per building (site order), split by contractor — headcount × share of the day spent there
+  // (not a head count: a crew that splits its day over two buildings adds a fraction to each).
   // Route sections (the 33 kV line, A-B, B-C, …) have no building: each section is its own row after the buildings.
-  const dayCrew = new Map<string, number>();
-  for (const r of rows) dayCrew.set(`${r.contractorId}|${r.reportDate}`, attendanceOf(r).manDays);
   const sectionRows = new Map<string, { code: string; name: string; order: number }>();
-  const crewPlaces = new Map<string, { contractorCode: string; place: string; weight: number }[]>();
+  const perPlace = new Map<string, Map<string, number>>();
   for (const a of allocations) {
-    const key = `${a.contractorId}|${a.reportDate}`;
-    const places = crewPlaces.get(key) ?? [];
     const place = a.buildingId ?? `section-${a.sectionId}`;
     if (!a.buildingId && a.sectionId && !sectionRows.has(place)) {
       const map = a.sectionMap ?? "Route";
@@ -290,22 +285,9 @@ export async function manpowerSummaryService(projectId: string, from: string, to
       const label = `${prefix} ${a.sectionCode ?? ""}`.trim();
       sectionRows.set(place, { code: label, name: label, order: a.sectionOrder ?? 0 });
     }
-    const hit = places.find((p) => p.place === place);
-    if (hit) hit.weight += a.headcount * a.dayShare;
-    else places.push({ contractorCode: a.contractorCode, place, weight: a.headcount * a.dayShare });
-    crewPlaces.set(key, places);
-  }
-  const perPlace = new Map<string, Map<string, number>>();
-  for (const [key, places] of crewPlaces) {
-    const total = dayCrew.get(key) ?? places.reduce((s, p) => s + p.weight, 0);
-    const people = apportion(total, places.map((p) => p.weight));
-    places.forEach((p, i) => {
-      const n = people[i] ?? 0;
-      if (n === 0) return;
-      const m = perPlace.get(p.place) ?? new Map<string, number>();
-      m.set(p.contractorCode, (m.get(p.contractorCode) ?? 0) + n);
-      perPlace.set(p.place, m);
-    });
+    const m = perPlace.get(place) ?? new Map<string, number>();
+    m.set(a.contractorCode, round1((m.get(a.contractorCode) ?? 0) + a.headcount * a.dayShare));
+    perPlace.set(place, m);
   }
   const byBuilding = [
     ...buildingList.map((b) => ({

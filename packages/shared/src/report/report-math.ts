@@ -81,22 +81,6 @@ export function attendanceOf(r: {
   return dayManpower({ morning, evening, workHours: normalHoursOf(r), otHours: r.otHours, otManHours: r.otManHours });
 }
 
-// Splits `total` whole people across places in proportion to `weights` (largest remainder), so the parts are
-// whole numbers that add up to `total` exactly. Ties go to the larger weight, then the earlier place.
-export function apportion(total: number, weights: number[]): number[] {
-  const sum = weights.reduce((s, w) => s + w, 0);
-  const whole = Math.round(total);
-  if (whole <= 0 || sum <= 0) return weights.map(() => 0);
-  const quotas = weights.map((w) => (w / sum) * whole);
-  const parts = quotas.map(Math.floor);
-  const left = whole - parts.reduce((s, n) => s + n, 0);
-  const order = quotas
-    .map((q, i) => ({ i, rest: q - (parts[i] ?? 0), weight: weights[i] ?? 0 }))
-    .sort((a, b) => b.rest - a.rest || b.weight - a.weight || a.i - b.i);
-  for (const { i } of order.slice(0, left)) parts[i] = (parts[i] ?? 0) + 1;
-  return parts;
-}
-
 // People who came after the morning report must be placed in the afternoon's extra-work rows, so the
 // by-building chart adds up to the day's man-day. Per discipline: extra = afternoon - morning (only when
 // more), placed = people on that discipline's extra-work rows. Without a morning report every afternoon person
