@@ -97,7 +97,7 @@ export function ReviewEvening({ ed }: { ed: UseReviewDialogState }) {
           <TableContainer>
             <Table size="small" aria-label="Overtime">
               <TableHead>
-                <TableRow><TableCell>อาคาร / พื้นที่</TableCell><TableCell>งาน</TableCell><TableCell align="right">คน</TableCell><TableCell align="right">ชม.</TableCell><TableCell align="right">คน-ชม.</TableCell></TableRow>
+                <TableRow><TableCell>อาคาร / พื้นที่</TableCell><TableCell>งาน</TableCell><TableCell align="right">คน</TableCell><TableCell align="right">ชม./คน</TableCell><TableCell align="right">คน-ชม. (คน × ชม.)</TableCell></TableRow>
               </TableHead>
               <TableBody>
                 {ot.map((o) => (
@@ -109,6 +109,14 @@ export function ReviewEvening({ ed }: { ed: UseReviewDialogState }) {
                     <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>{o.workers * o.hours}</TableCell>
                   </TableRow>
                 ))}
+                {otTotals ? (
+                  <TableRow sx={{ "& td": { fontWeight: 700, borderTop: 1, borderColor: "divider" } }}>
+                    <TableCell colSpan={2}>รวม {ot.length} งาน</TableCell>
+                    <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>{otTotals.workers}</TableCell>
+                    <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>สูงสุด {otTotals.maxHours}</TableCell>
+                    <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>{otTotals.manHours}</TableCell>
+                  </TableRow>
+                ) : null}
               </TableBody>
             </Table>
           </TableContainer>

@@ -10,6 +10,14 @@ export function overtimeSummary(r: { otHours: number | null; overtime?: ReportOv
   return `OT ${t.workers} คน · ${t.manHours} คน-ชม.`;
 }
 
+// Summary card wording: says what the numbers are (people on OT, and their total man-hours).
+export function overtimeCardText(r: { otHours: number | null; overtime?: ReportOvertime[] }): string {
+  const rows = r.overtime ?? [];
+  if (rows.length === 0) return r.otHours ? `OT สูงสุด ${r.otHours} ชม./คน` : "ไม่มี OT";
+  const t = overtimeTotals(rows);
+  return `OT ${rows.length} งาน · ${t.workers} คน · ${t.manHours} คน-ชม.`;
+}
+
 /** "Boiler · เทคอนกรีต 6 คน × 2 ชม." per OT row. */
 export const overtimeLines = (rows: ReportOvertime[] = []) =>
   rows.map((o) => `${o.buildingCode} · ${o.task} ${o.workers} คน × ${o.hours} ชม.`);
