@@ -289,6 +289,18 @@ export async function manpowerSummaryService(projectId: string, from: string, to
     m.set(a.contractorCode, (m.get(a.contractorCode) ?? 0) + a.headcount * a.dayShare);
     perPlace.set(place, m);
   }
+  // Contractor-days with a headcount but no building rows (e.g. sent before every afternoon person had to be placed)
+  // go to the "Other" building so the chart still adds up; the site has none = a synthetic "Other" row at the end.
+  const placedDays = new Set(allocations.map((a) => `${a.contractorId}|${a.reportDate}`));
+  const isOther = (s: string) => /^(other|others|อื่นๆ)$/i.test(s.trim());
+  const otherId = buildingList.find((b) => isOther(b.code) || isOther(b.name))?.id ?? "other-unplaced";
+  for (const r of rows) {
+    const people = attendanceOf(r).manDays;
+    if (people <= 0 || placedDays.has(`${r.contractorId}|${r.reportDate}`)) continue;
+    const m = perPlace.get(otherId) ?? new Map<string, number>();
+    m.set(r.contractorCode, (m.get(r.contractorCode) ?? 0) + people);
+    perPlace.set(otherId, m);
+  }
   for (const [place, m] of perPlace) {
     for (const [code, n] of m) {
       if (Math.round(n) === 0) m.delete(code);
@@ -307,6 +319,9 @@ export async function manpowerSummaryService(projectId: string, from: string, to
       .filter(([place]) => perPlace.has(place))
       .sort(([, a], [, b]) => a.order - b.order || a.code.localeCompare(b.code, undefined, { numeric: true }))
       .map(([place, s]) => ({ buildingId: place, code: s.code, name: s.name, contractors: Object.fromEntries(perPlace.get(place) ?? []) })),
+    ...(otherId === "other-unplaced" && perPlace.has(otherId)
+      ? [{ buildingId: otherId, code: "Other", name: "Other", contractors: Object.fromEntries(perPlace.get(otherId) ?? []) }]
+      : []),
   ];
   return {
     from,
